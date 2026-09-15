@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import { createApp } from "../app.js";
+import { closePool, getPool } from "../db/pool.js";
+import { migrate } from "../db/migrate.js";
+
+test("API ADMIN crea ítems y devuelve especialidades derivadas", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
+  const original=process.env.DATABASE_URL; context.after(async()=>{await closePool(); if(original===undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL=original;}); process.env.DATABASE_URL=process.env.TEST_DATABASE_URL; await migrate();
+  const adminId=randomUUID(), pool=getPool(); await pool.query(`INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,'Rubric admin',$2,true)`,[adminId,`${adminId}@example.test`]); await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN')",[adminId]);
+  const app=createApp({getSession:async({headers})=>headers.get('x-test-session')==='admin'?{user:{id:adminId,twoFactorEnabled:true}}:null}); const server=await new Promise(r=>{const i=app.listen(0,'127.0.0.1',()=>r(i));});
+  try { const base=`http://127.0.0.1:${server.address().port}`, headers={'content-type':'application/json','x-test-session':'admin'};
+    const createEvent=async name=>(await fetch(`${base}/api/v1/events`,{method:'POST',headers,body:JSON.stringify({name})})).json(); const event=await createEvent('Rubros API');
+    const specialty=await (await fetch(`${base}/api/v1/events/${event.id}/specialties`,{method:'POST',headers,body:JSON.stringify({name:'Especialidad',code:'ESP',displayOrder:1})})).json();
+    const rubric=await (await fetch(`${base}/api/v1/events/${event.id}/rubrics`,{method:'POST',headers,body:JSON.stringify({name:'Rubro',code:'RUB',evaluationTarget:'TROUPE'})})).json();
+    const invalidNomination=await fetch(`${base}/api/v1/events/${event.id}/rubrics`,{method:'POST',headers,body:JSON.stringify({name:'Reina inválida',code:'REINA_INVALIDA',evaluationTarget:'NOMINATION'})});assert.equal(invalidNomination.status,400);
+    const nominationResponse=await fetch(`${base}/api/v1/events/${event.id}/rubrics`,{method:'POST',headers,body:JSON.stringify({name:'Reina',code:'REINA',evaluationTarget:'NOMINATION',expectedSubjectType:'PERSON'})});assert.equal(nominationResponse.status,201);const nomination=await nominationResponse.json();assert.equal(nomination.expectedSubjectType,'PERSON');
+    const listed=await fetch(`${base}/api/v1/events/${event.id}/rubrics`,{headers}); assert.equal(listed.status,200); assert.deepEqual((await listed.json()).map(({id,code})=>({id,code})),[{id:nomination.id,code:'REINA'},{id:rubric.id,code:'RUB'}]);
+    const inactiveSpecialty=await (await fetch(`${base}/api/v1/events/${event.id}/specialties`,{method:'POST',headers,body:JSON.stringify({name:'Especialidad inactiva',code:'ESP_OFF',displayOrder:2})})).json();
+    await pool.query("UPDATE event_specialty SET active=false WHERE id=$1",[inactiveSpecialty.id]);
+    const invalidItem=await fetch(`${base}/api/v1/rubrics/${rubric.id}/items`,{method:'POST',headers,body:JSON.stringify({name:'Ítem inválido',code:'ITEM_OFF',specialtyId:inactiveSpecialty.id})}); assert.equal(invalidItem.status,409); assert.deepEqual(await invalidItem.json(),{code:'SPECIALTY_INACTIVE'});
+    const itemResponse=await fetch(`${base}/api/v1/rubrics/${rubric.id}/items`,{method:'POST',headers,body:JSON.stringify({name:'Ítem',code:'ITEM',specialtyId:specialty.id,required:false,allowNotPresented:true})}); assert.equal(itemResponse.status,201); const item=await itemResponse.json(); assert.equal(item.displayOrder,1); assert.equal(item.required,false); assert.equal(item.allowNotPresented,true);
+    const missingItemCriterion=await fetch(`${base}/api/v1/rubrics/${rubric.id}/criteria`,{method:'POST',headers,body:JSON.stringify({description:'Sin ítem',displayOrder:1})}); assert.equal(missingItemCriterion.status,400);
+    const criterionResponse=await fetch(`${base}/api/v1/rubrics/${rubric.id}/criteria`,{method:'POST',headers,body:JSON.stringify({scoringItemId:item.id,description:'Descripción reglamentaria',displayOrder:1})}); assert.equal(criterionResponse.status,201); const criterion=await criterionResponse.json(); assert.equal(criterion.scoringItemId,item.id);
+    const itemCriteria=await fetch(`${base}/api/v1/rubrics/${rubric.id}/items/${item.id}/criteria`,{headers}); assert.equal(itemCriteria.status,200); assert.deepEqual((await itemCriteria.json()).map(({id})=>id),[criterion.id]);
+    const updatedRubric=await fetch(`${base}/api/v1/rubrics/${rubric.id}`,{method:'PATCH',headers,body:JSON.stringify({name:'Rubro editado',code:'RUB_EDIT',evaluationTarget:'TROUPE',active:false})});assert.equal(updatedRubric.status,200);assert.equal((await updatedRubric.json()).active,false);
+    const invalidPatch=await fetch(`${base}/api/v1/rubrics/${rubric.id}`,{method:'PATCH',headers,body:JSON.stringify({name:null})});assert.equal(invalidPatch.status,400);
+    const updatedItem=await fetch(`${base}/api/v1/evaluation-items/${item.id}`,{method:'PATCH',headers,body:JSON.stringify({name:'Ítem editado',code:'ITEM_EDIT',specialtyId:specialty.id,active:false})});assert.equal(updatedItem.status,200);assert.equal((await updatedItem.json()).active,false);
+    const secondItem=await (await fetch(`${base}/api/v1/rubrics/${rubric.id}/items`,{method:'POST',headers,body:JSON.stringify({name:'Segundo ítem',code:'ITEM_2',specialtyId:specialty.id})})).json();
+    assert.equal(secondItem.displayOrder,2);
+    const updatedCriterion=await fetch(`${base}/api/v1/rubric-criteria/${criterion.id}`,{method:'PATCH',headers,body:JSON.stringify({scoringItemId:secondItem.id,description:'Criterio editado',displayOrder:2,active:false})});assert.equal(updatedCriterion.status,200);const updatedCriterionBody=await updatedCriterion.json();assert.equal(updatedCriterionBody.description,'Criterio editado');assert.equal(updatedCriterionBody.scoringItemId,secondItem.id);
+    const otherRubric=await (await fetch(`${base}/api/v1/events/${event.id}/rubrics`,{method:'POST',headers,body:JSON.stringify({name:'Otro rubro',code:'OTHER',evaluationTarget:'TROUPE'})})).json();
+    const otherItem=await (await fetch(`${base}/api/v1/rubrics/${otherRubric.id}/items`,{method:'POST',headers,body:JSON.stringify({name:'Ítem ajeno',code:'OTHER_ITEM',specialtyId:specialty.id})})).json();
+    const invalidReassignment=await fetch(`${base}/api/v1/rubric-criteria/${criterion.id}`,{method:'PATCH',headers,body:JSON.stringify({scoringItemId:otherItem.id})});assert.equal(invalidReassignment.status,404);assert.deepEqual(await invalidReassignment.json(),{code:'EVALUATION_ITEM_NOT_FOUND'});
+    await fetch(`${base}/api/v1/specialties/${specialty.id}`,{method:'PATCH',headers,body:JSON.stringify({active:false})});
+    const deactivateItem=await fetch(`${base}/api/v1/evaluation-items/${secondItem.id}`,{method:'PATCH',headers,body:JSON.stringify({active:false})});assert.equal(deactivateItem.status,200);
+    const reactivateItem=await fetch(`${base}/api/v1/evaluation-items/${secondItem.id}`,{method:'PATCH',headers,body:JSON.stringify({active:true})});assert.equal(reactivateItem.status,409);assert.deepEqual(await reactivateItem.json(),{code:'SPECIALTY_INACTIVE'});
+    const read=await fetch(`${base}/api/v1/rubrics/${rubric.id}`,{headers}); const body=await read.json(); assert.deepEqual(body.specialties,[]); assert.equal(body.items.find(({id})=>id===item.id).name,'Ítem editado'); assert.equal(body.criteria[0].description,'Criterio editado');
+    const direct=await fetch(`${base}/api/v1/rubrics/${rubric.id}/specialties`,{method:'POST',headers,body:'{}'}); assert.equal(direct.status,404);
+  } finally { await new Promise(r=>server.close(r)); }
+});
