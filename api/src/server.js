@@ -1,14 +1,23 @@
+import { validateProductionConfig } from "./config/production.js";
+import { mountWebClient } from "./web-client.js";
+import { fileURLToPath } from "node:url";
 import "dotenv/config";
 import { toNodeHandler } from "better-auth/node";
 import { createApp } from "./app.js";
 import { auth } from "./auth/auth.js";
 import { closePool } from "./db/pool.js";
 
+validateProductionConfig();
+
 const port = Number(process.env.PORT) || 3000;
 const app = createApp({
   authHandler: toNodeHandler(auth),
   getSession: auth.api.getSession,
 });
+
+if (process.env.NODE_ENV === "production") {
+  mountWebClient(app, fileURLToPath(new URL("../../client/dist/", import.meta.url)));
+}
 
 export const server = app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);

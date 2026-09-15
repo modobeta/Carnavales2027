@@ -17,7 +17,7 @@ export function createAuthGeneralRateLimiter(options = {}) {
 export function createAuthRateLimiter(options = {}) {
   return rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    limit: 10,
+    limit: 300,
     standardHeaders: true,
     legacyHeaders: false,
     message: { code: "RATE_LIMIT_EXCEEDED", message: "Demasiados intentos de autenticación. Intente más tarde." },
@@ -32,7 +32,7 @@ export function createAuthRateLimiter(options = {}) {
 export function createInvitationRateLimiter(options = {}) {
   return rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    limit: 10,
+    limit: 300,
     standardHeaders: true,
     legacyHeaders: false,
     message: { code: "RATE_LIMIT_EXCEEDED", message: "Demasiados intentos de invitación. Intente más tarde." },

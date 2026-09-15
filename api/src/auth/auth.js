@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
-import nodemailer from "nodemailer";
+import { createEmailDelivery } from "../email/delivery.js";
+import { createOtpSendLimiter } from "./identity-limiter.js";
 import { getPool } from "../db/pool.js";
 import { createOtpDelivery } from "./two-factor.js";
 
@@ -20,7 +21,14 @@ function getTrustedOrigins() {
 }
 
 export function createAuth({ sendOtp = createOtpDelivery() } = {}) {
+  const limitOtpSend = createOtpSendLimiter();
+  const deliverEmail = createEmailDelivery();
   return betterAuth({
+    rateLimit: { customRules: {
+      "/sign-in/email": { window: 60, max: 100 },
+      "/two-factor/*": { window: 60, max: 100 },
+    } },
+    advanced: { ipAddress: { ipAddressHeaders: ["x-carnaval-client-ip"] } },
     database: getPool(),
     baseURL: requireEnvironment("BETTER_AUTH_URL"),
     secret: requireEnvironment("BETTER_AUTH_SECRET"),
@@ -29,27 +37,9 @@ export function createAuth({ sendOtp = createOtpDelivery() } = {}) {
       enabled: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, token }) => {
-        if (process.env.EMAIL_PROVIDER !== "smtp") {
-          console.info(`Reset de contraseña para ${user.email}: token ${token}`);
-          return;
-        }
-        const transport = nodemailer.createTransport({
-          host: requireEnvironment("SMTP_HOST"),
-          port: Number(process.env.SMTP_PORT ?? 587),
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: requireEnvironment("SMTP_USER"),
-            pass: requireEnvironment("SMTP_PASSWORD"),
-          },
-        });
-        const url = `${process.env.FRONTEND_URL}/#/reset-password?token=${token}`;
-        await transport.sendMail({
-          from: requireEnvironment("EMAIL_FROM"),
-          to: user.email,
-          subject: "Restablecé tu contraseña - Carnavales 2027",
-          text: `Entrá a este enlace para definir una nueva contraseña: ${url}`,
-          html: `<p>Entrá a este enlace para definir una nueva contraseña:</p><p><a href="${url}">Restablecer contraseña</a></p>`,
-        });
+        const url = `${requireEnvironment("FRONTEND_URL")}/#/reset-password?token=${encodeURIComponent(token)}`;
+        await deliverEmail({ to: user.email, subject: "Restablecé tu contraseña - Carnavales 2027",
+          text: `Entrá a este enlace para definir una nueva contraseña: ${url}` });
       },
     },
     databaseHooks: {
@@ -66,7 +56,24 @@ export function createAuth({ sendOtp = createOtpDelivery() } = {}) {
       },
     },
     hooks: {
+      before: createAuthMiddleware(async (context) => {
+        if (context.path !== "/two-factor/send-otp") return;
+        const session = await getSessionFromCtx(context);
+        let user = session?.user;
+        if (!user) {
+          const cookie = context.context.createAuthCookie("two_factor");
+          const token = await context.getSignedCookie(cookie.name, context.context.secret);
+          const verification = token ? await context.context.internalAdapter.findVerificationValue(token) : null;
+          if (verification && new Date(verification.expiresAt).getTime() > Date.now()) {
+            user = await context.context.internalAdapter.findUserById(verification.value);
+          }
+        }
+        if (user) await limitOtpSend(async () => {}, { user });
+      }),
       after: createAuthMiddleware(async (context) => {
+        if (context.path === "/two-factor/send-otp" && context.context.pilotEmailFailed) {
+          throw new APIError("SERVICE_UNAVAILABLE", { code: "EMAIL_DELIVERY_FAILED", message: "No se pudo enviar el código. Reintentá más tarde." });
+        }
         if (context.path !== "/two-factor/verify-otp") return;
 
         const verifiedSession = context.context.newSession;
@@ -91,7 +98,10 @@ export function createAuth({ sendOtp = createOtpDelivery() } = {}) {
           digits: 6,
           period: 5,
           storeOTP: "encrypted",
-          sendOTP: sendOtp,
+          sendOTP: async (payload, context) => {
+            try { await sendOtp(payload); }
+            catch { context.context.pilotEmailFailed = true; }
+          },
         },
       }),
     ],
