@@ -125,22 +125,28 @@ npm test
 
 En API, `npm test` y `npm run db:test` exigen `TEST_DATABASE_URL`. Prepará una base descartable con ambas familias de migraciones según la [guía de pruebas](api/README.md#pruebas). Los tests escriben datos: no deben apuntar a desarrollo operativo ni producción.
 
-No hay scripts de lint ni de typecheck configurados. La copia local conserva un workflow CI, pero `.github/` está excluida de la publicación: este repositorio no incorpora ese workflow ni ejecuta CI automáticamente por él. **La regla de trabajo local es no ejecutar builds después de cambios.** Las validaciones históricas no demuestran que una revisión concreta haya pasado sus pruebas.
+No hay scripts de lint ni de typecheck configurados. El piloto incorpora `.github/workflows/ci.yml` para pruebas API/PostgreSQL 18 y cliente/build en Node 22. El plan del piloto autoriza ejecutar el build. Los resultados de cada revisión se registran en `specs/029-piloto-produccion/validation.md`.
 
 ## Despliegue y límites operativos
 
-- La API no sirve el cliente estático. El hosting debe servir el frontend y enrutar `/api` hacia Node bajo el mismo origen para el funcionamiento actual de HTTP y SSE.
-- Configurá HTTPS, las URL reales, SMTP y los proxies confiables; no copies secretos de desarrollo a producción.
-- El bus SSE vive en memoria de un proceso. No hay distribución de eventos entre réplicas ni configuración de despliegue automatizado en este árbol.
-- Consultá las [advertencias de restauración](api/README.md#backup-y-restauración). El runbook de piloto pertenece a la documentación local no publicada. No ejecutar restauraciones sin autorización y destino verificado.
+- En producción Express sirve `client/dist` y `/api` bajo el mismo origen HTTPS, con CSP diferenciada.
+- Configurá HTTPS, las URL reales, Gmail API y el proxy de Render; conservá privadamente BETTER_AUTH_SECRET al trasladar los datos cifrados.
+- El bus SSE vive en memoria de un proceso. El piloto usa una instancia y `render.yaml` con despliegue manual, sin distribución de eventos entre réplicas.
+- Consultá el procedimiento de respaldo y restauración conservadora en [DEPLOYMENT.md](DEPLOYMENT.md). No ejecutar restauraciones sin autorización y destino verificado.
 
 ## Alcance de publicación
 
 Se conservan código, recursos, migraciones, herramientas operativas, pruebas, manifiestos/lockfiles npm, README y plantillas `.env.example`. Las pruebas y sus configuraciones permiten mantener los comandos del proyecto reproducibles.
 
-Por decisión del propietario, `docs/`, `specs/`, todos los `AGENTS.md` y `.github/` permanecen locales y están excluidos mediante `.gitignore`; no se necesitan para ejecutar la aplicación. Un clon del repositorio no incluirá la trazabilidad interna, las instrucciones de agentes ni el workflow local. También se excluyen secretos, dependencias instaladas, generados y backups de base de datos.
+La documentación histórica `docs/`, `specs/`, los `AGENTS.md` y la automatización local permanecen excluidos mediante `.gitignore`. El plan del piloto autoriza dos excepciones acotadas: `specs/029-piloto-produccion/` y `.github/workflows/ci.yml`. También se excluyen secretos, dependencias instaladas, generados y backups de base de datos.
 
 Revisá siempre el contenido preparado para commit: `.gitignore` no detecta secretos dentro de código ni deja de versionar archivos que ya estuvieran registrados. No uses `git add -f` para eludir estas exclusiones.
 
 No se incluye un archivo de licencia en este árbol; los paquetes npm están marcados como privados.
 
+
+## Piloto gratuito
+
+Configuracion y traslado conservando datos: [DEPLOYMENT.md](DEPLOYMENT.md).
+Contrato aprobado: [Spec 029](specs/029-piloto-produccion/spec.md).
+El workflow del piloto y esta spec son excepciones versionadas a las exclusiones locales.

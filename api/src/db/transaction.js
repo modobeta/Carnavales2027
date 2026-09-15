@@ -23,14 +23,11 @@ export async function withTransaction(operation, {
   while (true) {
     const client = await pool.connect();
     const store = createEventScope();
+    let result;
     try {
       await client.query("BEGIN");
-      const result = await runInEventScope(store, () => operation(client));
+      result = await runInEventScope(store, () => operation(client));
       await client.query("COMMIT");
-      // Notificación post-commit: los clientes solo ven la operación ya
-      // durable y persistida (Spec 022/024 corrección).
-      flushEventScope(store);
-      return result;
     } catch (error) {
       try {
         await client.query("ROLLBACK");
@@ -51,5 +48,7 @@ export async function withTransaction(operation, {
     } finally {
       client.release();
     }
+    flushEventScope(store);
+    return result;
   }
 }

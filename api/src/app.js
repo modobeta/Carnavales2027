@@ -1,3 +1,4 @@
+import { identityMiddleware } from "./auth/identity-limiter.js";
 import express from "express";
 import helmet from "helmet";
 import { readTrustProxy } from "./config/trust-proxy.js";
@@ -67,7 +68,15 @@ export function createApp({
   });
 
   if (authHandler) {
-    app.all("/api/auth/*splat", authGeneralLimiter, (request, response, next) => {
+    const loginLimit = identityMiddleware({ limit: 10, select: (req) =>
+      req.method === "POST" && req.path === "/api/auth/sign-in/email" && typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase() : null });
+    app.use("/api/auth", (req, _res, next) => {
+      // Overwrite untrusted input; Better Auth uses the validated Express IP.
+      req.headers["x-carnaval-client-ip"] = req.ip;
+      next();
+    });
+    app.all("/api/auth/*splat", authGeneralLimiter, loginLimit, (request, response, next) => {
       if (isSessionRead(request)) return next();
       return authLimiter(request, response, next);
     }, authHandler);
@@ -80,8 +89,10 @@ export function createApp({
     next();
   });
 
-  app.use("/api/v1/judge-invitations", invitationLimiter);
-  app.use("/api/v1/operational-invitations", invitationLimiter);
+  const tokenLimit = identityMiddleware({ limit: 10, select: (req) =>
+    typeof req.body?.secret === "string" ? req.body.secret : null });
+  app.use("/api/v1/judge-invitations", invitationLimiter, tokenLimit);
+  app.use("/api/v1/operational-invitations", invitationLimiter, tokenLimit);
 
   app.use("/api/v1", createJudgeInvitationsRouter({ createUser }));
   app.use("/api/v1/public", createPublicRouter());

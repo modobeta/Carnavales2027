@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { createEmailDelivery } from "../../email/delivery.js";
 
 function requireEnvironment(name) {
   const value = process.env[name];
@@ -14,37 +14,11 @@ function invitationUrl(secret, route = "#/invitations/accept") {
   return `${frontendUrl}/${route}?secret=${encodeURIComponent(secret)}`;
 }
 
-export function createInvitationDelivery({
-  createTransport = nodemailer.createTransport,
-  logger = console,
-  route,
-} = {}) {
+export function createInvitationDelivery({ route, ...options } = {}) {
+  const deliver = createEmailDelivery(options);
   return async ({ email, name, secret, expiresAt }) => {
     const url = invitationUrl(secret, route);
-    const provider = process.env.EMAIL_PROVIDER ?? "console";
-
-    if (provider === "console" && process.env.NODE_ENV !== "production") {
-      logger.info(`Invitación de jurado para ${email}: ${url}`);
-      return;
-    }
-    if (provider !== "smtp") {
-      throw new Error("EMAIL_PROVIDER=smtp es obligatorio en producción para entregar invitaciones.");
-    }
-
-    const transport = createTransport({
-      host: requireEnvironment("SMTP_HOST"),
-      port: Number(process.env.SMTP_PORT ?? 587),
-      secure: process.env.SMTP_SECURE === "true",
-      requireTLS: process.env.SMTP_SECURE !== "true",
-      auth: {
-        user: requireEnvironment("SMTP_USER"),
-        pass: requireEnvironment("SMTP_PASSWORD"),
-      },
-    });
-    await transport.sendMail({
-      from: requireEnvironment("EMAIL_FROM"),
-      to: email,
-      subject: "Invitación al padrón de jurados",
+    await deliver({ to: email, subject: "Invitación al padrón de jurados",
       text: `Hola ${name}. Completá tu registro antes de ${expiresAt.toISOString()}: ${url}`,
     });
   };

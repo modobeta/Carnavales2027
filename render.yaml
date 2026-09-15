@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: carnavales2027-piloto
+    runtime: node
+    plan: free
+    region: virginia
+    branch: main
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --prefix api && npm ci --prefix client --include=dev && npm run build --prefix client
+    startCommand: npm start --prefix api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DB_POOL_MAX
+        value: "5"
+      - key: DB_CONNECTION_TIMEOUT_MS
+        value: "10000"
+      - key: EMAIL_PROVIDER
+        value: gmail
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
