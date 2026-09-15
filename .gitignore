@@ -3,16 +3,21 @@ node_modules/
 
 # Local documentation and agent instructions (not published)
 /docs/
-/specs/
+/specs/*
+!/specs/029-piloto-produccion/
 AGENTS.md
 
-# Local automation; publishing this project does not enable GitHub Actions
-/.github/
+# Local automation except the approved pilot CI
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/ci.yml
 
 # Database backups may contain sensitive data
 backups/
 *.dump
 *.dump.sha256
+*.dump.inventory.json
 
 # Environment and secrets
 .env

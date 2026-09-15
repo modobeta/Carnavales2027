@@ -32,14 +32,11 @@ export async function runTransaction(clientOrNull, operation) {
   }
   const client = await getPool().connect();
   const store = createEventScope();
+  let result;
   try {
     await client.query("BEGIN");
-    const result = await runInEventScope(store, () => operation(client));
+    result = await runInEventScope(store, () => operation(client));
     await client.query("COMMIT");
-    // Notificación post-commit: los clientes SSE solo ven la operación ya
-    // durable (Spec 022/024 corrección).
-    flushEventScope(store);
-    return result;
   } catch (error) {
     try { await client.query("ROLLBACK"); } catch { /* Preserve original failure. */ }
     discardEventScope(store);
@@ -47,6 +44,8 @@ export async function runTransaction(clientOrNull, operation) {
   } finally {
     client.release();
   }
+  flushEventScope(store);
+  return result;
 }
 
 /**

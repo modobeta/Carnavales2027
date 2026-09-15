@@ -4,6 +4,16 @@ import { AsyncLocalStorage } from "node:async_hooks";
 const emitter = new EventEmitter();
 emitter.setMaxListeners(100);
 
+function reportSubscriberFailure() {
+  try { console.error("MONITOR_SUBSCRIBER_FAILED"); } catch { /* Logging cannot fail a committed write. */ }
+}
+function dispatch(event) {
+  for (const handler of emitter.listeners("monitor_event")) {
+    try { Promise.resolve(handler(event)).catch(reportSubscriberFailure); }
+    catch { reportSubscriberFailure(); }
+  }
+}
+
 const eventScope = new AsyncLocalStorage();
 
 const FORBIDDEN_FIELDS = new Set([
@@ -66,7 +76,7 @@ export function emitMonitorEvent(type, payload = {}, options = {}) {
   if (store && !options.immediate) {
     store.queue.push(event);
   } else {
-    emitter.emit("monitor_event", event);
+    dispatch(event);
   }
   return event;
 }
@@ -95,10 +105,9 @@ export function runInEventScope(store, operation) {
  * Difunde en orden los eventos encolados tras un COMMIT exitoso.
  */
 export function flushEventScope(store) {
-  for (const event of store.queue) {
-    emitter.emit("monitor_event", event);
-  }
+  const queued = store.queue;
   store.queue = [];
+  for (const event of queued) dispatch(event);
 }
 
 /**

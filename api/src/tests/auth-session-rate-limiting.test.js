@@ -31,7 +31,7 @@ async function startAuthApp(context, options = {}) {
 }
 
 test("GET/HEAD de sesión no consumen el cupo sensible, incluso después de agotarlo", async (context) => {
-  const request = await startAuthApp(context);
+  const request = await startAuthApp(context, { authRateLimiter: createAuthRateLimiter({ limit: 10 }) });
   for (const method of ["GET", "HEAD"]) {
     for (let index = 0; index < 11; index++) {
       const response = await request("/api/auth/get-session?fresh=1", { method });
