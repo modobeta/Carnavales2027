@@ -1,3 +1,4 @@
+import { RegistrationPasswordFields, isRegistrationPasswordValid } from "../components/RegistrationPasswordFields.jsx";
 import { useEffect, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
@@ -45,6 +46,10 @@ export function AcceptJudgeInvitationPage({ secret }) {
   const accept = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    if (!isRegistrationPasswordValid(data.get("password"))) {
+      setMessage("La contrase\u00f1a debe tener entre 8 y 128 caracteres, una may\u00fascula, una min\u00fascula y un n\u00famero.");
+      return;
+    }
     if (data.get("password") !== data.get("passwordConfirmation")) {
       setMessage("Las contraseñas no coinciden.");
       return;
@@ -85,8 +90,7 @@ export function AcceptJudgeInvitationPage({ secret }) {
         {status === "ready" && <>
           <p>Invitación para <strong>{invitation.maskedEmail}</strong>. Vence el {new Date(invitation.expiresAt).toLocaleString()}.</p>
           <form onSubmit={accept}>
-            <label>Nueva contraseña<input name="password" type="password" minLength="8" maxLength="128" autoComplete="new-password" required /></label>
-            <label>Repetir contraseña<input name="passwordConfirmation" type="password" minLength="8" maxLength="128" autoComplete="new-password" required /></label>
+            <RegistrationPasswordFields />
             <button disabled={busy}>Crear cuenta</button>
           </form>
           <p role="status" aria-live="polite">{message}</p>

@@ -1681,3 +1681,21 @@ button.button-link:disabled {
 
 /* Spec 017 (Competencia y Configuración de Reglas)
    ha sido modularizado en styles/competencia.css */
+.registration-password-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.registration-password-field input { flex: 1; min-width: 0; }
+.registration-password-field button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+}
+.password-requirements { display: grid; gap: 0.25rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; }
+.password-requirements span { padding: 0.2rem 0.5rem; border-radius: 0.25rem; }
+.password-requirements .requirement-pending { color: #991b1b; background: #fef2f2; }
+.password-requirements .requirement-met { color: #166534; background: #f0fdf4; }

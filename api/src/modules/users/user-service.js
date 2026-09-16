@@ -1,3 +1,4 @@
+import { requireRegistrationPassword } from "../../auth/registration-password.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { auditEvent } from "../../audit/audit-service.js";
 import { getPool } from "../../db/pool.js";
@@ -102,6 +103,7 @@ export const getInvitationByToken = async (token) => {
 import { createOrVerifyCredentialUser } from "../../auth/account-service.js";
 
 export const acceptRoleInvitation = async ({ token, password, createUser = createOrVerifyCredentialUser }) => {
+  requireRegistrationPassword(password);
   const tokenHash = hashToken(token);
   const claimId = randomUUID();
   let userId = null;

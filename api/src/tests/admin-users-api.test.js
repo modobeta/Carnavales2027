@@ -96,7 +96,7 @@ test("ADMIN emite y un invitado acepta un acceso operativo seguro", {
     const acceptResponse = await fetch(`${base}/api/v1/invitations/role/accept`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: invitation.token, password: "password-de-prueba" }),
+      body: JSON.stringify({ token: invitation.token, password: "Password-de-prueba1" }),
     });
     assert.equal(acceptResponse.status, 201);
     assert.deepEqual(await acceptResponse.json(), { userId: invitedUserId, roleCode: "COMISARIO" });
@@ -115,7 +115,7 @@ test("ADMIN emite y un invitado acepta un acceso operativo seguro", {
     const reusedResponse = await fetch(`${base}/api/v1/invitations/role/accept`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: invitation.token, password: "password-de-prueba" }),
+      body: JSON.stringify({ token: invitation.token, password: "Password-de-prueba1" }),
     });
     assert.equal(reusedResponse.status, 400);
     assert.deepEqual(await reusedResponse.json(), { code: "INVITATION_INVALID" });
@@ -166,13 +166,13 @@ test("ADMIN emite y un invitado acepta un acceso operativo seguro", {
     const firstAcceptance = fetch(`${base}/api/v1/invitations/role/accept`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: concurrentInvitation.token, password: "password-de-prueba" }),
+      body: JSON.stringify({ token: concurrentInvitation.token, password: "Password-de-prueba1" }),
     });
     await concurrentCreateStarted;
     const losingAcceptance = await fetch(`${base}/api/v1/invitations/role/accept`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: concurrentInvitation.token, password: "password-de-prueba" }),
+      body: JSON.stringify({ token: concurrentInvitation.token, password: "Password-de-prueba1" }),
     });
     releaseConcurrentCreate();
     const winningAcceptance = await firstAcceptance;

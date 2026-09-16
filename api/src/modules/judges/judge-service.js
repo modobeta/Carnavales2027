@@ -1,3 +1,4 @@
+import { requireRegistrationPassword } from "../../auth/registration-password.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { auditEvent } from "../../audit/audit-service.js";
 import { createOrVerifyCredentialUser, revokeUserSessions } from "../../auth/account-service.js";
@@ -327,6 +328,7 @@ export async function acceptInvitation({
   password,
   createUser = createOrVerifyCredentialUser,
 }) {
+  requireRegistrationPassword(password);
   const secretHash = hashSecret(secret);
   const claimId = randomUUID();
   let createdUser = null;
