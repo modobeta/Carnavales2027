@@ -5,7 +5,6 @@ node_modules/
 /docs/
 /specs/*
 !/specs/029-piloto-produccion/
-AGENTS.md
 
 # Local automation except the approved pilot CI
 /.github/*
