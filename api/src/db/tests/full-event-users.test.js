@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
 import test from "node:test";
 import { createOrVerifyCredentialUser } from "../../auth/account-service.js";
 import { getSeedPassword, seedFixtureUsers } from "../seeds/full-event.users.js";
@@ -7,7 +6,7 @@ import { FULL_JUDGES, FULL_AUXILIARIES } from "../seeds/full-event.fixture.js";
 import { seedFullCarnivalEvent } from "../seeds/full-event.js";
 import { printFullEventSummary } from "../../scripts/seed-full-event.js";
 import { migrate } from "../migrate.js";
-import { prepareDemoSeedTest } from "./demo-seed-test-environment.js";
+import { prepareDemoSeedTest, randomCompliantPassword } from "./demo-seed-test-environment.js";
 
 const provisionUsers = () => seedFixtureUsers({ judges: FULL_JUDGES, auxiliaries: FULL_AUXILIARIES });
 
@@ -22,7 +21,8 @@ test("seed integral: entorno y contraseña se validan antes de conectar o migrar
     for (const password of [undefined, "", "123", "x".repeat(129)]) {
       assert.throws(() => getSeedPassword({ NODE_ENV: "test", SEED_DEMO_PASSWORD: password }), /PASSWORD_REQUIRED/);
     }
-    const password = randomBytes(10).toString("hex");
+    assert.throws(() => getSeedPassword({ NODE_ENV: "test", SEED_DEMO_PASSWORD: "weakpassword1" }), /PASSWORD_WEAK/);
+    const password = randomCompliantPassword();
     assert.equal(getSeedPassword({ NODE_ENV: "test", SEED_ADMIN_PASSWORD: password }).password, password);
   } finally {
     if (original === undefined) delete process.env.NODE_ENV;
@@ -101,7 +101,7 @@ test("seed completo en BD vacía: cuentas, login OTP e idempotencia", {
     assert.deepEqual(rows, [{ n: 12, secrets: 12 }]);
   });
   await t.test("cambio de contraseña común revoca sesiones y conserva las doce identidades", async () => {
-    const nextPassword = randomBytes(12).toString("hex");
+    const nextPassword = randomCompliantPassword();
     process.env.SEED_DEMO_PASSWORD = nextPassword;
     const result = await provisionUsers();
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM session')).rows[0].n, 0);
