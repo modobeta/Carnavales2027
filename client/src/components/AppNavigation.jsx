@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../api/http.js";
 import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
 export function AppNavigation({ session }) {
   const adminEvent = useAdminEvent();
@@ -173,7 +174,7 @@ export function AppNavigation({ session }) {
             <span className="nav-section-label">Cierre</span>
             <a href="#/admin/results" aria-current={currentRoute === "#/admin/results" ? "page" : undefined}>Escrutinio</a>
             <a href="#/admin/record" aria-current={currentRoute === "#/admin/record" ? "page" : undefined}>Acta Oficial</a>
-            <a href="#/resultados" target="_blank" rel="noopener noreferrer" aria-current={currentRoute === "#/resultados" ? "page" : undefined}>Resultados</a>
+            <PublicResultsLink currentRoute={currentRoute} />
           </>
         )}
         {session.roles?.includes("COMISARIO") && !session.roles?.includes("ADMIN") && (
@@ -187,7 +188,7 @@ export function AppNavigation({ session }) {
             <a href="#/veedor" aria-current={currentRoute === "#/veedor" ? "page" : undefined}>Supervisión</a>
           </>
         )}
-        {!session.roles?.includes("ADMIN") && <a href="#/resultados" target="_blank" rel="noopener noreferrer" aria-current={currentRoute === "#/resultados" ? "page" : undefined}>Resultados</a>}
+        {!session.roles?.includes("ADMIN") && <PublicResultsLink currentRoute={currentRoute} />}
     </nav>
     </>
   );

@@ -113,7 +113,10 @@ export default function App({ session: providedSession }) {
   const renderContent = () => {
     if (route === "#/resultados") {
       const eventId = new URLSearchParams(query).get("eventId") ?? null;
-      return <PublicResultsPage initialEventId={eventId} />;
+      const content = <PublicResultsPage initialEventId={eventId} embedded={session.status === "authenticated"} />;
+      return session.status === "authenticated"
+        ? <ProtectedShell session={session}>{content}</ProtectedShell>
+        : content;
     }
     if (route === "#/invitations/accept") {
       const secret = new URLSearchParams(query).get("secret") ?? "";

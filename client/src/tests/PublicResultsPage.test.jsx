@@ -2,6 +2,25 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicResultsPage } from "../pages/PublicResultsPage.jsx";
 
+it("termina la carga cuando todavía no hay eventos publicados", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ events: [] }) })));
+  render(<PublicResultsPage />);
+  expect(await screen.findByText("Resultados en Proceso de Escrutinio")).toBeInTheDocument();
+  expect(screen.queryByText("Cargando resultados oficiales...")).not.toBeInTheDocument();
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+it("permite reintentar una consulta de disponibilidad fallida", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ ok: true, json: async () => ({ events: [] }) }));
+  render(<PublicResultsPage />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo consultar");
+  fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+  expect(await screen.findByText("Resultados en Proceso de Escrutinio")).toBeInTheDocument();
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
 class MockEventSource {
   constructor(url) {
     this.url = url;

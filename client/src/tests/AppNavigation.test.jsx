@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
 import { AppNavigation } from "../components/AppNavigation.jsx";
@@ -129,7 +129,7 @@ describe("AppNavigation", () => {
   });
 
   it("muestra el selector global del evento para ADMIN", async () => {
-    apiRequest.mockResolvedValueOnce([
+    apiRequest.mockImplementation(async (path) => path === "/api/v1/public/events" ? { events: [] } : [
       { id: "e1", name: "Carnaval 2027", status: "CONFIGURING" },
       { id: "e2", name: "Prueba 2027", status: "OPEN" },
     ]);
@@ -140,7 +140,7 @@ describe("AppNavigation", () => {
     );
 
     const selector = await screen.findByRole("combobox", { name: "Evento activo" });
-    expect(selector).toHaveValue("e1");
+    await waitFor(() => expect(selector).toHaveValue("e1"));
     fireEvent.change(selector, { target: { value: "e2" } });
     expect(selector).toHaveValue("e2");
   });

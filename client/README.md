@@ -104,6 +104,8 @@ No hay ruta vigente `#/home`: el login deriva al inicio propio del rol. Tener ac
 
 ## Recorrido de acceso para usuarios
 
+El menú lateral habilita **Resultados** solo cuando `/api/v1/public/events` informa al menos un evento con resultados publicados. Mientras se consulta, si no hay resultados o si la consulta falla, aparece atenuado y sin destino navegable. Se vuelve a comprobar al cambiar de sección, al regresar a la pestaña y cada 60 segundos mientras está visible. El enlace abre dentro de la aplicación y conserva el menú y la sesión. El acceso público directo sigue disponible y muestra un estado vacío o un error con reintento, no una carga indefinida.
+
 Al completar el registro por invitación, ambos campos de contraseña permiten mostrar/ocultar su contenido de forma independiente. Se requieren entre 8 y 128 caracteres, al menos una mayúscula, una minúscula y un número (0–9). Los tres indicadores pasan de rojo/pendiente a verde/cumplido al escribir y vuelven a pendiente si se elimina el requisito. La confirmación debe coincidir. La API también valida estos requisitos; no se modifican contraseñas existentes.
 
 1. Abrir `/#/login` e ingresar **correo y contraseña**. El campo «Email» se envía como `email`; no utilizar un DNI en lugar del correo.

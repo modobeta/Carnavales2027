@@ -1,8 +1,18 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App.jsx";
 
 describe("App", () => {
+  it("conserva navegación y sesión en resultados sin mandar al login", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ events: [] }) })));
+    window.location.hash = "#/resultados";
+    render(<App session={{ status: "authenticated", roles: ["JUDGE"], user: { name: "Jurado" } }} />);
+    expect(await screen.findByText("Resultados en Proceso de Escrutinio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Acceso Operativo" })).not.toBeInTheDocument();
+    expect(document.querySelector("#app-drawer")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
   afterEach(() => { cleanup(); window.location.hash = ""; });
   it("muestra login como ruta pública inicial", () => {
     render(<App />);

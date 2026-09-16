@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
+import { apiRequest } from "../api/http.js";
 
 function TrophyIcon() {
   return (
@@ -64,7 +65,7 @@ function CopyIcon() {
   );
 }
 
-export function PublicResultsPage({ initialEventId = null }) {
+export function PublicResultsPage({ initialEventId = null, embedded = false }) {
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
   const [results, setResults] = useState(null);
@@ -75,25 +76,33 @@ export function PublicResultsPage({ initialEventId = null }) {
   const [copyFeedback, setCopyFeedback] = useState(null);
   const pollingRef = useRef(null);
   const eventSourceRef = useRef(null);
+  const [listAttempt, setListAttempt] = useState(0);
 
   // 1. Cargar lista de eventos públicos
   useEffect(() => {
-    fetch("/api/v1/public/events")
-      .then((res) => {
-        if (!res.ok) throw new Error("Error al cargar eventos públicos");
-        return res.json();
-      })
+    let active = true;
+    apiRequest("/api/v1/public/events", { signal: AbortSignal.timeout(10000) })
       .then((data) => {
+        if (!active) return;
         const evts = data.events || [];
         setEvents(evts);
         if (!selectedEventId && evts.length > 0) {
+          setLoading(true);
           setSelectedEventId(evts[0].id);
+        } else if (!selectedEventId) {
+          setNotReleased(true);
+          setError(null);
+          setLoading(false);
         }
       })
-      .catch((err) => {
-        console.error("Error al listar eventos:", err);
+      .catch(() => {
+        if (!active || selectedEventId) return;
+        setNotReleased(false);
+        setError("No se pudo consultar la disponibilidad de resultados.");
+        setLoading(false);
       });
-  }, [initialEventId]);
+    return () => { active = false; };
+  }, [initialEventId, listAttempt]);
 
   // 2. Cargar resultados del evento seleccionado
   const fetchResults = (eventId) => {
@@ -147,6 +156,10 @@ export function PublicResultsPage({ initialEventId = null }) {
       });
 
       es.addEventListener("results_updated", (e) => {
+        if (!selectedEventId) {
+          setListAttempt((value) => value + 1);
+          return;
+        }
         try {
           const payload = JSON.parse(e.data);
           if (!selectedEventId || payload.eventId === selectedEventId) {
@@ -172,9 +185,10 @@ export function PublicResultsPage({ initialEventId = null }) {
 
   // Polling de respaldo si SSE está en polling
   useEffect(() => {
-    if (liveStatus === "polling" && selectedEventId) {
+    if (liveStatus === "polling") {
       pollingRef.current = setInterval(() => {
-        fetchResults(selectedEventId);
+        if (selectedEventId) fetchResults(selectedEventId);
+        else setListAttempt((value) => value + 1);
       }, 30000);
     } else {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -217,11 +231,11 @@ export function PublicResultsPage({ initialEventId = null }) {
               <h1 className="public-brand-title">Portal de Resultados</h1>
             </div>
           </div>
-          <div className="public-header-actions">
+          {!embedded && <div className="public-header-actions">
             <a href="#/login" className="public-login-link">
               Acceso Operativo
             </a>
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -273,7 +287,11 @@ export function PublicResultsPage({ initialEventId = null }) {
             <button
               type="button"
               className="secondary"
-              onClick={() => fetchResults(selectedEventId)}
+              onClick={() => {
+                setLoading(true);
+                if (selectedEventId) fetchResults(selectedEventId);
+                else setListAttempt((value) => value + 1);
+              }}
             >
               Reintentar
             </button>

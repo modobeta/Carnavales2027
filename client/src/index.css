@@ -593,6 +593,13 @@ label { color: #cbd5e1; }
   transition: color 0.15s, background 0.15s;
 }
 .app-drawer a:hover { color: #e2e8f0; background: var(--surface-hover-subtle); }
+.app-drawer .nav-link-disabled {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  color: #94a3b8;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .app-drawer a[aria-current="page"] { color: #f8fafc; background: rgba(148, 163, 184, 0.12); }
 .app-drawer .nav-section-label { padding: 0.6rem 0.85rem 0.2rem; }
 @media (min-width: 64rem) {
