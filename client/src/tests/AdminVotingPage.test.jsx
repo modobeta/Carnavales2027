@@ -18,7 +18,7 @@ describe("AdminVotingPage", () => {
     apiRequest.mockImplementation((path, options) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
       if (path === "/api/v1/events/event-1/nights") return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
-      if (path === "/api/v1/events/event-1/nights/night-1/voting/status") return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", counts: { OPEN: 1, SUBMITTED: 1, REOPENED: 0 }, total: 2 });
+      if (path === "/api/v1/events/event-1/nights/night-1/voting/status") return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", counts: { OPEN: 1, SUBMITTED: 1, REOPENED: 0 }, total: 2 });
       if (path === "/api/v1/events/event-1/nights/night-1/voting/ballots") return Promise.resolve([{ id: "ballot-1", judgeName: "Jurado Uno", specialtyName: "Baile", status: "SUBMITTED", reopenCount: 0 }]);
       if (path.endsWith("/voting/open")) return Promise.resolve({ ballotsCreated: 2 });
       if (path.endsWith("/voting/close")) return Promise.resolve({ autoSubmitted: 1 });
@@ -30,13 +30,15 @@ describe("AdminVotingPage", () => {
     expect(screen.getByText("Confirmadas")).toBeInTheDocument();
     expect(screen.queryByText(/puntaje|ranking|total artístico/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Abrir votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Habilitar planillas pendientes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/open",
       { method: "POST" },
     ));
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/close",
       { method: "POST" },
@@ -49,7 +51,7 @@ describe("AdminVotingPage", () => {
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
       if (path === "/api/v1/events/event-1/nights") return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
-      if (path.endsWith("/voting/status")) return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 }, total: 1 });
+      if (path.endsWith("/voting/status")) return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 }, total: 1 });
       if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
       if (path.endsWith("/voting/close")) return Promise.reject({ code: "VOTING_CLOSE_INCOMPLETE_BALLOTS", details: [{ id: "score-1", name: "Presencia", code: "PRESENCIA", rubricName: "Desfile", judgeName: "Jurado Uno", troupeName: "Comparsa Azul" }] });
       return Promise.resolve({});
@@ -58,6 +60,7 @@ describe("AdminVotingPage", () => {
 
     const closeButton = await screen.findByRole("button", { name: "Cerrar votación" });
     fireEvent.click(closeButton);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
     const dialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("Jurado Uno · Comparsa Azul");
@@ -69,6 +72,7 @@ describe("AdminVotingPage", () => {
     await waitFor(() => expect(closeButton).toHaveFocus());
 
     fireEvent.click(closeButton);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
     const reopenedDialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     fireEvent(reopenedDialog, new Event("cancel", { bubbles: true, cancelable: true }));
     await waitFor(() => expect(closeButton).toHaveFocus());
