@@ -171,7 +171,7 @@ La regla de trabajo local es **no ejecutar builds después de cambios**: usar pr
 ### Ingreso y cuenta
 
 1. Abrí `/#/login` en un navegador actualizado, con acceso a internet y al correo de tu cuenta.
-2. Ingresá **correo y contraseña**. Aunque la etiqueta actual diga «USUARIO / DNI», este formulario envía el correo a Better Auth; no existe allí una búsqueda por DNI.
+2. Ingresá **correo y contraseña**. El campo **Email** envía el correo a Better Auth; no existe allí una búsqueda por DNI.
 3. Ingresá el código de seis dígitos enviado a tu correo y pulsá **Verificar código**. No compartas ese código ni tu contraseña.
 4. El sistema abre el área correspondiente a tus roles. Si falta un permiso o perfil, pedí al administrador que revise el acceso; no crees otra cuenta para evitar el control.
 
@@ -215,7 +215,7 @@ La impresión de un acta desde el navegador no agrega por sí misma una firma di
 | --- | --- |
 | La primera carga tarda | El alojamiento gratuito puede estar suspendido por inactividad; esperar sin reenviar votos ni disparar solicitudes en bucle |
 | No llega el OTP | Cuenta correcta, Spam, vencimiento y límite de reenvíos; el operador revisa Gmail OAuth/cuotas y errores de entrega sin registrar códigos |
-| «Correo o contraseña incorrectos» | Usar correo aunque la etiqueta mencione DNI; recuperar contraseña si corresponde. No probar claves repetidamente |
+| «Correo o contraseña incorrectos» | Usar el correo de la cuenta; recuperar contraseña si corresponde. No probar claves repetidamente |
 | Error 429 | Respetar `Retry-After` y esperar; refrescar o cambiar de dispositivo no soluciona un bloqueo por cuenta |
 | No aparecen planillas | Perfil registrado, roles, asignaciones y ventana abierta en esta implementación |
 | No aparecen resultados públicos | Deben estar liberados; no significa necesariamente que se hayan perdido datos |

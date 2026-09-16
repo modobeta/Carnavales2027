@@ -104,7 +104,7 @@ No hay ruta vigente `#/home`: el login deriva al inicio propio del rol. Tener ac
 
 ## Recorrido de acceso para usuarios
 
-1. Abrir `/#/login` e ingresar **correo y contraseña**. La etiqueta «USUARIO / DNI» es una discrepancia visual: el campo se envía como `email`; no utilizar un DNI en lugar del correo.
+1. Abrir `/#/login` e ingresar **correo y contraseña**. El campo «Email» se envía como `email`; no utilizar un DNI en lugar del correo.
 2. Si corresponde, la aplicación habilita el segundo factor y solicita un OTP al backend. El usuario no autoriza Gmail: esa autorización es de la cuenta remitente del servidor.
 3. Ingresar los seis dígitos recibidos y pulsar **Verificar código**. El contador de reenvío es una ayuda visual, no reemplaza el límite por cuenta impuesto por la API.
 4. La interfaz refresca `/api/v1/me` y deriva al área del rol. Haber recibido el correo no significa que la sesión haya quedado completamente autenticada.
