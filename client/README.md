@@ -1,8 +1,12 @@
-# Cliente — Carnavales2027_v2
+# Cliente — Carnavales 2027
 
 Aplicación React para administración, jurados, supervisión, comisariato, escrutinio y consulta pública de resultados.
 
 [Proyecto](../README.md) · [API](../api/README.md)
+
+**Piloto:** https://carnavales2027-piloto.onrender.com/#/login. Usuarios y responsables de operación pueden comenzar por la [guía de uso](../README.md#guía-de-uso); este documento explica además cómo mantener la interfaz.
+
+> El stack que sigue está comprobado en `package.json` y el código. Algunas instrucciones históricas locales describen otra arquitectura y otro flujo de puntuación. Consultar las [diferencias pendientes](../README.md#diferencias-funcionales-pendientes-de-conciliación): no cambiar reglas de negocio para hacerlas coincidir con una captura o un README.
 
 ## Stack
 
@@ -36,7 +40,7 @@ Para navegar por las áreas privadas necesitás una cuenta creada por un flujo a
 | `npm test` | Suite completa con `vitest run` |
 | `npm test -- src/tests/http.test.js` | Ejemplo de prueba puntual |
 | `npm run preview` | Vista previa de un bundle previamente generado; no inicia la API |
-| `npm run build` | Script existente de Vite para generar el bundle |
+| `npm run build` | Genera bundle con Vite y después versiona `sw.js` mediante `scripts/build-service-worker.js` |
 
 **No ejecutar builds después de cambios**, según las reglas del proyecto. La tabla documenta el script existente, no lo incorpora a la validación local. No hay scripts de lint o typecheck.
 
@@ -98,6 +102,17 @@ No hay ruta vigente `#/home`: el login deriva al inicio propio del rol. Tener ac
 
 `SessionProvider` consulta `/api/v1/me` y distingue `loading`, `authenticated`, `anonymous`, `second-factor-required` y `error`. Las guardias de interfaz ofrecen navegación y mensajes; **la seguridad la impone el backend**. La selección de evento en localStorage es una preferencia, no un permiso.
 
+## Recorrido de acceso para usuarios
+
+1. Abrir `/#/login` e ingresar **correo y contraseña**. La etiqueta «USUARIO / DNI» es una discrepancia visual: el campo se envía como `email`; no utilizar un DNI en lugar del correo.
+2. Si corresponde, la aplicación habilita el segundo factor y solicita un OTP al backend. El usuario no autoriza Gmail: esa autorización es de la cuenta remitente del servidor.
+3. Ingresar los seis dígitos recibidos y pulsar **Verificar código**. El contador de reenvío es una ayuda visual, no reemplaza el límite por cuenta impuesto por la API.
+4. La interfaz refresca `/api/v1/me` y deriva al área del rol. Haber recibido el correo no significa que la sesión haya quedado completamente autenticada.
+
+No guardar contraseña, OTP ni cookies de sesión en localStorage. Para recuperar acceso, abrir `/#/forgot-password`; para cambiar contraseña, usar las opciones de `/#/cuenta`. Un enlace de invitación o recuperación es sensible: no incluirlo en logs, capturas ni reportes.
+
+Si la API muestra un error de red al consultar la sesión, no presentarlo como si el usuario careciera de permisos. Mantener estados de carga, error, sesión anónima y segundo factor separados.
+
 ## Votación y persistencia
 
 La interfaz vigente trabaja **online**. `JudgeBallotPage` consulta la planilla, guarda cada decisión mediante `PUT` y envía la planilla mediante `POST`; solo muestra confirmación persistida tras la respuesta del servidor.
@@ -106,6 +121,10 @@ La interfaz vigente trabaja **online**. `JudgeBallotPage` consulta la planilla, 
 - Un error de red no equivale a un voto guardado; se mantiene la posibilidad de reintento visible.
 - No se aceptan nuevas reaperturas ni se usa caché/outbox para votar sin conexión.
 - `ballot-store.js` conserva utilidades históricas y pruebas; `SessionProvider` limpia datos offline del usuario al cambiar/cerrar sesión. Su existencia no habilita el modo offline.
+
+En esta versión, `JudgeHomePage` obtiene planillas y progreso desde `/api/v1/judge/ballots?include=progress`. La API valida `SCORED` 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin nota; las reglas históricas 0–5/sin asignaciones **siguen pendientes de conciliación**. No usar la escala implementada como prueba de aprobación reglamentaria.
+
+Ante un timeout, no habilitar edición de un ítem potencialmente confirmado ni disparar una cola automática. Recuperar estado del servidor y respetar el mecanismo de reintento/idempotencia del flujo. Un error de carga no debe mostrarse como una lista vacía exitosa.
 
 ## Diseño y accesibilidad
 
@@ -118,7 +137,9 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 - `VeedorMonitorPage` escucha `/api/v1/monitor/stream` y el portal público `/api/v1/public/stream`; ambas pantallas tienen fallback por consultas periódicas ante fallas del canal.
 - Las suscripciones y temporizadores deben limpiarse al desmontar. El monitor representa progreso, no puntajes individuales.
 - `register-service-worker.js` no registra el worker en modo desarrollo. Fuera de ese modo registra `/sw.js` al cargar la página.
-- El worker cachea el shell y recursos estáticos del mismo origen; excluye `/api/` y métodos distintos de GET. **No proporciona votación offline.**
+- El worker cachea el shell y recursos estáticos del mismo origen; excluye `/api`, `/api/`, `/health` y métodos distintos de GET. **No proporciona votación offline.**
+- El build genera un identificador derivado del contenido y la lista de precache. El HTML usa red primero con respaldo de caché; los recursos precacheados usan caché. No publicar directamente el template `public/sw.js` con sus marcadores sin reemplazar.
+- Un worker nuevo espera a que se cierren los clientes anteriores; no usa activación forzada para interrumpir planillas. Para actualizar, terminar operaciones, cerrar todas las pestañas/ventanas de la aplicación y volver a abrir online.
 - El manifest usa iconos PNG de 192/512 y SVG. Las rutas de recursos y worker son absolutas desde `/`; un despliegue en subcarpeta requiere adaptar estas referencias.
 - El manifest conserva `start_url="/#/"`, pero `App.jsx` no define `#/` como ruta de inicio. No asumir que el arranque instalado equivale a `#/login`; esta discrepancia requiere una corrección aparte.
 
@@ -128,6 +149,41 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 
 Ejecutá `npm test` o los archivos afectados; registrá lo que efectivamente se ejecutó, sin copiar cifras históricas de `docs/`. No hace falta una base PostgreSQL para las pruebas de cliente que usan mocks.
 
-Para servir el bundle existente, se necesita hosting estático con HTTPS y proxy `/api` a la API. `npm run preview` es una vista previa local, no una configuración de despliegue productivo. No hay configuración de hosting específica en esta carpeta.
+En el piloto, **Express sirve el bundle `client/dist` y `/api` desde un mismo servicio Render HTTPS**; no se despliega una segunda aplicación estática. La configuración vive en [render.yaml](../render.yaml) y la [guía de despliegue](../DEPLOYMENT.md). `npm run preview` es una vista previa local, no el servidor productivo ni un reemplazo del backend.
+
+En producción, no definir `VITE_API_URL` para el despliegue estándar. Mantener sesiones, fetch y SSE en el mismo origen. Las URL absolutas del manifest/worker asumen publicación desde `/`, no desde una subcarpeta.
+
+## Cómo trabajar en una pantalla
+
+1. Identificar la ruta en `App.jsx`, el rol permitido y el contrato backend antes de modificar formularios o estados.
+2. Reutilizar transporte, componentes y tokens existentes; no agregar un router, framework CSS o estado global para un cambio aislado.
+3. Tratar carga, éxito, vacío, error, timeout y permiso insuficiente como estados distintos. Deshabilitar envíos duplicados mientras hay una operación en curso.
+4. Confirmar operaciones sensibles en modal antes de llamar a la API y conservar identificadores de idempotencia cuando el contrato los use.
+5. Limpiar `EventSource`, listeners y timers; evitar respuestas obsoletas cuando cambia el evento o se desmonta el componente.
+6. Añadir pruebas de comportamiento y verificar teclado, foco, tamaño táctil y viewport móvil. No asumir que una hoja CSS tiene efecto sin revisar sus imports.
+7. Ejecutar tests afectados, revisar el diff y actualizar documentación si cambia el flujo. No ejecutar builds locales como comprobación posterior al cambio.
+
+### Comprobación manual del piloto
+
+- Abrir la URL pública y comprobar que recursos y API usan HTTPS sin errores de CSP o contenido mixto.
+- Probar correo/contraseña, entrega OTP, verificación y aterrizaje por rol; revisar errores sin capturar tokens.
+- Comprobar que una cuenta no acceda a acciones fuera de sus permisos, incluso invocando la API directamente en pruebas autorizadas.
+- Ensayar desconexión y recuperación en un escenario de pruebas, sin emitir votos ficticios en un concurso operativo.
+- Verificar actualización de PWA sin perder una acción pendiente; la instalación depende del navegador y no convierte la votación en offline.
+
+Al 16/09/2026 se verificó la carga pública, `/health` y la transición de login a solicitud de OTP. La verificación final del OTP y acceso al panel debe registrarse por separado; no se declara completada con esa evidencia parcial.
+
+## Problemas frecuentes del cliente
+
+| Síntoma | Diagnóstico inicial |
+| --- | --- |
+| HTML visible, pero API falla | Backend disponible, proxy Vite local y origen correcto; `preview` no inicia Express |
+| 403 al guardar | Rol, 2FA, contexto y header `Origin`; no solucionar desactivando autorización |
+| 429 al ingresar o reenviar | Esperar el tiempo del servidor; el contador visual no amplía el presupuesto de la API |
+| Pantalla vieja | Worker anterior activo en otra pestaña; completar acciones y cerrar todas antes de reabrir |
+| PWA abre ruta inexistente | Discrepancia `start_url=/#/`; usar `/#/login` mientras se resuelve |
+| No hay resultados públicos | Verificar liberación y evento seleccionado antes de asumir error de datos |
+
+Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y códigos HTTP/de dominio. No adjuntar contraseñas, OTP, cookies, tokens ni respuestas con datos personales.
 
 La documentación de decisiones/specs y las instrucciones de agentes se conservan localmente, fuera de la publicación. Las validaciones históricas no equivalen a una comprobación actual; no declarar una funcionalidad validada sin evidencia del código y de las pruebas correspondientes.
