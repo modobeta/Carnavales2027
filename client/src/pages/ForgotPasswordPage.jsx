@@ -17,9 +17,9 @@ export function ForgotPasswordPage() {
     setLoading(true);
     setMessage("");
     try {
-      await apiRequest("/api/auth/forget-password", {
+      await apiRequest("/api/auth/request-password-reset", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim(), redirectTo: "/#/reset-password" }),
+        body: JSON.stringify({ email: email.trim() }),
       });
       setSent(true);
     } catch {
