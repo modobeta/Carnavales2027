@@ -2126,3 +2126,58 @@
 .input-order {
   inline-size: 4rem;
 }
+
+/* Modern Radio Cards for Judge Assignment */
+.assignment-type-group {
+  display: flex;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+  border: none;
+  padding: 0;
+}
+
+.assignment-type-card {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--surface-card);
+}
+
+.assignment-type-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-raised);
+}
+
+.assignment-type-card.selected {
+  border-color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.assignment-type-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.assignment-type-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.assignment-type-content strong {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.assignment-type-content small {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+}
