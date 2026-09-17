@@ -22,7 +22,7 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
       if (path === "/api/v1/events") return Promise.resolve([mockEvent]);
       if (path === "/api/v1/events/event-1/nights") return Promise.resolve(mockNights);
       if (path.endsWith("/voting/status")) {
-        return Promise.resolve({ counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0 }, total: 0 });
+        return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "NOT_OPEN", counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0 }, total: 0 });
       }
       if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
       if (path.endsWith("/voting/open") && options?.method === "POST") {
@@ -34,10 +34,11 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     const { getByRole, getByText } = render(<AdminVotingPage />);
 
     await waitFor(() => {
-      expect(getByRole("button", { name: "Abrir votación" })).toBeVisible();
+      expect(getByRole("button", { name: "Abrir votación" })).toBeEnabled();
     });
 
     fireEvent.click(getByRole("button", { name: "Abrir votación" }));
+    fireEvent.click(getByRole("button", { name: "Confirmar" }));
 
     await waitFor(() => {
       expect(getByRole("button", { name: "Confirmar" })).toBeInTheDocument();

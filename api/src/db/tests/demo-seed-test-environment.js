@@ -3,6 +3,14 @@ import pg from "pg";
 import { getMigrations } from "better-auth/db/migration";
 import { closePool, getPool } from "../pool.js";
 
+export function randomCompliantPassword() {
+  const base = randomBytes(16).toString("base64url");
+  return base
+    + (/[A-Z]/.test(base) ? "" : "A")
+    + (/[a-z]/.test(base) ? "" : "a")
+    + (/[0-9]/.test(base) ? "" : "1");
+}
+
 export async function prepareDemoSeedTest(t) {
   const keys = ["DATABASE_URL", "NODE_ENV", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "EMAIL_PROVIDER",
     "DB_POOL_MAX", "SEED_ADMIN_EMAIL", "SEED_ADMIN_NAME", "SEED_ADMIN_PASSWORD", "SEED_DEMO_PASSWORD"];
@@ -33,7 +41,7 @@ export async function prepareDemoSeedTest(t) {
   process.env.EMAIL_PROVIDER = "console";
   process.env.SEED_ADMIN_EMAIL = "demo.admin@example.test";
   process.env.SEED_ADMIN_NAME = "Admin Demo";
-  const password = randomBytes(12).toString("hex");
+  const password = randomCompliantPassword();
   process.env.SEED_DEMO_PASSWORD = password;
   delete process.env.SEED_ADMIN_PASSWORD;
   const { auth, createAuth } = await import("../../auth/auth.js");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import pg from "pg";
-import { prepareDemoSeedTest } from "./demo-seed-test-environment.js";
+import { prepareDemoSeedTest, randomCompliantPassword } from "./demo-seed-test-environment.js";
 import { seedFullCarnivalEvent, validateFullCarnivalEvent } from "../seeds/full-event.js";
 import { FULL_EVENT, FULL_JUDGES, FULL_NIGHTS, FULL_SPECIALTIES, fullScheduleForNight } from "../seeds/full-event.fixture.js";
 import { printFullEventSummary } from "../../scripts/seed-full-event.js";
@@ -160,7 +160,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     try {
       await editor.query("BEGIN");
       await editor.query("SELECT id FROM carnival_event WHERE id=$1 FOR UPDATE", [eventId]);
-      process.env.SEED_DEMO_PASSWORD = randomUUID();
+      process.env.SEED_DEMO_PASSWORD = randomCompliantPassword();
       replay = seedFullCarnivalEvent().catch((error) => error);
       let waiting = false;
       for (let attempt = 0; attempt < 200 && !waiting; attempt++) {

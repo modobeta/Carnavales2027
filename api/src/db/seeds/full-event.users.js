@@ -1,5 +1,6 @@
 import pg from "pg";
 import { createCredentialUser, createOrVerifyCredentialUser, revokeUserSessions, setCredentialPassword } from "../../auth/account-service.js";
+import { requireRegistrationPassword } from "../../auth/registration-password.js";
 import { grantRole } from "../../auth/role-service.js";
 import { getPool } from "../pool.js";
 import { createJudge, reissueInvitation, acceptInvitation } from "../../modules/judges/judge-service.js";
@@ -14,6 +15,11 @@ export function getSeedPassword(environment = process.env) {
   const password = environment.SEED_DEMO_PASSWORD ?? environment.SEED_ADMIN_PASSWORD;
   if (typeof password !== "string" || password.length < 8 || password.length > 128) {
     throw new Error("SEED_DEMO_PASSWORD_REQUIRED: configurar una contraseña de 8 a 128 caracteres.");
+  }
+  try {
+    requireRegistrationPassword(password);
+  } catch {
+    throw new Error("SEED_DEMO_PASSWORD_WEAK: la contraseña debe tener una mayúscula, una minúscula y un número.");
   }
   return { password };
 }
