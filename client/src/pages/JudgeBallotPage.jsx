@@ -349,8 +349,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const pendingScores = ballot.scores.filter((score) => score.evaluationState === "PENDING");
   const effectiveIndex = Math.min(Math.max(0, activeItemIndex), Math.max(0, total - 1));
   const activeScore = ballot.scores[effectiveIndex];
+  const troupeScores = activeScore ? ballot.scores.filter((score) => score.nightScheduleId === activeScore.nightScheduleId) : [];
+  const troupeResolved = troupeScores.filter((score) => score.evaluationState !== "PENDING").length;
+  const troupeProgress = troupeScores.length ? Math.round(troupeResolved / troupeScores.length * 100) : 0;
+  const canConfirmVoting = total > 0 && resolved === total && !isSubmitting
+    && !Object.values(itemStatuses).some((item) => item.status === "saving");
 
   const beginSubmitReview = () => {
+    if (!canConfirmVoting || readonly) return;
     const pendingItems = getPendingItems(ballot.scores);
     if (pendingItems.length > 0) setIncompleteDialog(pendingItems);
     else setSubmitConfirm(true);
@@ -546,7 +552,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             </div>
           </header>
 
-          <section className="ballot-progress" aria-label="Progreso de la planilla">
+          <section className="ballot-progress ballot-progress-stack" aria-label="Progreso de la votación">
+            <ProgressBar
+              value={troupeResolved}
+              max={troupeScores.length}
+              label={`Comparsa: ${activeScore?.troupeName ?? "Sin comparsa"}`}
+              sublabel={`${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
+            />
             <ProgressBar
               value={resolved}
               max={total}
@@ -749,12 +761,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               <button
                 ref={submitButtonRef}
                 type="button"
-                disabled={isSubmitting}
+                disabled={!canConfirmVoting}
+                aria-describedby={!canConfirmVoting ? "voting-confirm-help" : undefined}
                 onClick={beginSubmitReview}
               >
-                {isSubmitting ? "Confirmando…" : "Confirmar planilla"}
+                {isSubmitting ? "Confirmando…" : "Confirmar votación"}
               </button>
             )}
+            {!readonly && !canConfirmVoting && <small id="voting-confirm-help">Completá todas las puntuaciones y esperá su confirmación en el servidor para habilitar el cierre.</small>}
             {readonly && (
               <section className="locked-sheet" aria-label="Planilla confirmada">
                 <span aria-hidden="true">✓</span>
@@ -911,8 +925,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         description="Una vez confirmada, esta planilla no podrá modificarse."
       >
         <div className="submit-dialog-content">
-          <p className="eyebrow">Confirmar planilla</p>
-          <p>Estás por cerrar la evaluación de <strong>{groups[0]?.troupeName ?? ballot.nightName}</strong>.</p>
+          <p className="eyebrow">Confirmar votación</p>
+          <p>Estás por cerrar la votación de <strong>{ballot.nightName}</strong> para tu especialidad, incluidas todas sus comparsas.</p>
           <p className="confirm-score-display">
             Total registrado: <strong>{scoreTotal} puntos</strong>
           </p>

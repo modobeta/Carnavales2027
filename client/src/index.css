@@ -1715,3 +1715,5 @@ button.button-link:disabled {
   .session-actions { flex-wrap: wrap; }
   .session-identity { max-width: 100%; }
 }
+.ballot-progress.ballot-progress-stack { grid-template-columns: minmax(0, 1fr); }
+.ballot-progress-stack > .app-progress-container:first-child { align-items: stretch; gap: var(--space-2); }

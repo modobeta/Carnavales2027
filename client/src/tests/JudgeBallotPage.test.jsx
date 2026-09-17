@@ -36,6 +36,11 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
 
+    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+    expect(screen.getAllByRole("progressbar")).toHaveLength(2);
+    expect(screen.getByRole("progressbar", { name: "Comparsa: Comparsa Uno" })).toHaveAttribute("aria-valuenow", "0");
+    expect(screen.getByRole("progressbar", { name: "0 de 2 puntuaciones completadas" })).toHaveAttribute("aria-valuemax", "2");
+
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
@@ -44,7 +49,11 @@ describe("JudgeBallotPage", () => {
     ));
 
     // Modelo un-ítem-por-vez (Fase 1): avanzar a la tarjeta del segundo ítem
+    await waitFor(() => expect(screen.getByRole("progressbar", { name: "Comparsa: Comparsa Uno" })).toHaveAttribute("aria-valuenow", "1"));
+    expect(screen.getByRole("progressbar", { name: "1 de 2 puntuaciones completadas" })).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
+    expect(screen.getByRole("progressbar", { name: "Comparsa: Comparsa Dos" })).toHaveAttribute("aria-valuenow", "0");
     const secondScore = screen.getByLabelText("Comparsa Dos: Presencia");
     fireEvent.click(within(secondScore).getByRole("button", { name: "Votar 8" }));
     fireEvent.click(within(await screen.findByRole("dialog", { name: "Confirmación de voto" })).getByRole("button", { name: "Confirmar" }));
@@ -53,7 +62,9 @@ describe("JudgeBallotPage", () => {
       expect.objectContaining({ method: "PUT" }),
     ));
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar planilla" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeEnabled());
+    expect(screen.getByRole("progressbar", { name: "2 de 2 puntuaciones completadas" })).toHaveAttribute("aria-valuenow", "2");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/submit",
@@ -74,6 +85,8 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+    expect(screen.getByRole("progressbar", { name: "0 de 2 puntuaciones completadas" })).toHaveAttribute("aria-valuenow", "0");
     expect(screen.getByRole("group", { name: "Comparsa Uno: Presencia" })).toBeInTheDocument();
   });
 
@@ -81,9 +94,9 @@ describe("JudgeBallotPage", () => {
     apiRequest.mockResolvedValue(ballot);
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar planilla" }));
-    const dialog = await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" });
-    expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    expect(screen.getByRole("button", { name: "Confirmar votaci\u00f3n" })).toBeDisabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/judge/ballots/ballot-1/submit", { method: "POST" });
   });
 
@@ -96,7 +109,7 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar planilla" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     expect(await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" })).toBeInTheDocument();
   });
