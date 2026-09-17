@@ -88,13 +88,14 @@ export function AdminVotingPage() {
   }, [eventId, nightId]);
 
   const action = async (key, operation, success) => {
-    if (!eventId || !nightId || busy) return;
+    if (!eventId || !nightId || busy) return false;
     setBusy(key);
     setMessage("");
     try {
       const result = await operation();
       setMessage(success(result));
       await refreshNight();
+      return true;
     } catch (error) {
       if (error.code === "VOTING_CLOSE_INCOMPLETE_BALLOTS") {
         setPendingCloseDialog((error.details ?? []).map((item) => ({
@@ -104,7 +105,7 @@ export function AdminVotingPage() {
           rubricName: item.rubricName ?? "Rubro",
           itemName: item.name ?? item.code ?? "Ítem pendiente",
         })));
-        return;
+        return false;
       }
       const messages = {
         EVENT_NOT_OPEN: "El evento debe estar abierto para habilitar la votación.",
@@ -117,6 +118,7 @@ export function AdminVotingPage() {
         NETWORK_ERROR: "No se recibió confirmación. Actualizá el estado antes de reintentar.",
       };
       setMessage(messages[error.code] ?? "No se pudo completar la operación.");
+      return false;
     } finally {
       setBusy("");
     }
@@ -136,7 +138,7 @@ export function AdminVotingPage() {
     setConfirmation(null);
     if (kind === "open") {
       if (nightStatus === "DRAFT") {
-        await action("night", async () => {
+        const ok = await action("night", async () => {
           const updated = await apiRequest(`/api/v1/nights/${nightId}`, {
             method: "PATCH",
             body: JSON.stringify({ name: selectedNight.name, displayOrder: selectedNight.displayOrder,
@@ -145,6 +147,7 @@ export function AdminVotingPage() {
           setNights((items) => items.map((item) => item.id === nightId ? updated : item));
           return updated;
         }, () => "Jornada abierta. Abriendo votación...");
+        if (!ok) return;
       }
       await action("open", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/open`, { method: "POST" }),
         (result) => `Votación abierta. ${result.ballotsCreated} planilla(s) nueva(s) habilitada(s). Si no hay planillas, revisá las asignaciones de jurados.`);

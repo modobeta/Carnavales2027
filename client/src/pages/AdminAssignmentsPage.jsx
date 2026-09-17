@@ -101,19 +101,18 @@ export function AdminAssignmentsPage() {
   };
 
   const quotaFor = (targetNightId, targetSpecialtyId) =>
-    data.quotas.find((quota) => quota.nightId === targetNightId && quota.specialtyId === targetSpecialtyId);
+    data.quotas?.find((quota) => quota.nightId === targetNightId && quota.specialtyId === targetSpecialtyId);
 
   const sameNight = (assignment, night) =>
     assignment.nightId ? assignment.nightId === night.id : assignment.nightName === night.name;
   const sameSpecialty = (assignment, specialty) =>
     assignment.specialtyId ? assignment.specialtyId === specialty.id : assignment.specialtyName === specialty.name;
 
-  const activeFor = (night, specialty) =>
-    data.assignments.filter(
+  const activeFor = (night, specialty) => (data.assignments ?? []).filter(
       (assignment) => assignment.status === "ACTIVE" && sameNight(assignment, night) && sameSpecialty(assignment, specialty),
     );
 
-  const inactiveForNight = data.assignments.filter(
+  const inactiveForNight = (data.assignments ?? []).filter(
     (assignment) => assignment.status !== "ACTIVE" && (nightId === "" || (selectedNight ? sameNight(assignment, selectedNight) : assignment.nightId === nightId)),
   );
 
@@ -181,7 +180,7 @@ export function AdminAssignmentsPage() {
   const quotaNight = quotaTarget ? nights.find((night) => night.id === quotaTarget.nightId) : null;
   const quotaSpecialty = quotaTarget ? specialties.find((specialty) => specialty.id === quotaTarget.specialtyId) : null;
   const quotaValue = quotaTarget ? quotaFor(quotaTarget.nightId, quotaTarget.specialtyId) : null;
-  const primaryOptions = data.assignments.filter((assignment) => assignment.status === "ACTIVE" && assignment.assignmentType === "PRIMARY");
+  const primaryOptions = (data.assignments ?? []).filter((assignment) => assignment.status === "ACTIVE" && assignment.assignmentType === "PRIMARY");
 
   return (
     <PageShell layer="instrument" className="admin-shell assignment-page">
@@ -230,7 +229,7 @@ export function AdminAssignmentsPage() {
               ) : (
                 <ul className="assignment-slot-list">
                   {slots.map((assignment) => {
-                    const standby = data.assignments.find((candidate) => candidate.status === "ACTIVE" && candidate.standbyForAssignmentId === assignment.id);
+                    const standby = (data.assignments ?? []).find((candidate) => candidate.status === "ACTIVE" && candidate.standbyForAssignmentId === assignment.id);
                     return (
                       <li key={assignment.id} className={`assignment-slot assignment-${assignment.status.toLowerCase()}`}>
                         <div className="judge-card-heading">
