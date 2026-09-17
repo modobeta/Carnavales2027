@@ -30,25 +30,19 @@ function setup({ eventStatus = "OPEN", nightStatus = "DRAFT", votingStatus = "NO
 }
 
 describe("apertura de jornada y votación", () => {
-  it("abre jornada solo tras confirmar y luego habilita votación con otra confirmación", async () => {
+  it("abre jornada y votación tras confirmar", async () => {
     setup();
-    const nightButton = await screen.findByRole("button", { name: "Abrir jornada" });
-    await waitFor(() => expect(nightButton).toBeEnabled());
-    expect(screen.getByRole("button", { name: "Abrir votación" })).toBeDisabled();
-    fireEvent.click(nightButton);
+    const openButton = await screen.findByRole("button", { name: "Abrir votación" });
+    await waitFor(() => expect(openButton).toBeEnabled());
+    fireEvent.click(openButton);
     expect(apiRequest.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(apiRequest.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(false);
-    fireEvent.click(nightButton);
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
-    expect(await screen.findByText("Jornada abierta. Ahora podés abrir la votación.")).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenCalledWith("/api/v1/nights/n1", { method: "PATCH", body: JSON.stringify({ name: "Primera noche", displayOrder: 1, kind: "COMPETITION", eventDate: "2027-02-01", status: "OPEN" }) });
-    const open = screen.getByRole("button", { name: "Abrir votación" });
-    await waitFor(() => expect(open).toBeEnabled());
-    expect(apiRequest.mock.calls.some(([path]) => path.endsWith("/voting/open"))).toBe(false);
-    fireEvent.click(open);
+    fireEvent.click(openButton);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/Votación abierta. 0 planilla/)).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/nights/n1", { method: "PATCH", body: JSON.stringify({ name: "Primera noche", displayOrder: 1, kind: "COMPETITION", eventDate: "2027-02-01", status: "OPEN" }) });
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1/nights/n1/voting/open", { method: "POST" });
     expect(await screen.findByRole("alert")).toHaveTextContent("no hay planillas");
     expect(screen.getByRole("button", { name: "Habilitar planillas pendientes" })).toBeInTheDocument();
   });
@@ -64,12 +58,12 @@ describe("apertura de jornada y votación", () => {
 
   it("no anuncia éxito si la API rechaza abrir jornada", async () => {
     setup({ failure: "EVENT_LOCKED" });
-    const button = await screen.findByRole("button", { name: "Abrir jornada" });
+    const button = await screen.findByRole("button", { name: "Abrir votación" });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/El estado del evento o la jornada cambió/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abrir votación" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Abrir votación" })).toBeEnabled();
   });
 
   it("muestra el bloqueo por cronograma vacío al intentar abrir votación", async () => {

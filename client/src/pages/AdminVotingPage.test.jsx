@@ -40,6 +40,11 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     fireEvent.click(getByRole("button", { name: "Abrir votación" }));
 
     await waitFor(() => {
+      expect(getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+    });
+    fireEvent.click(getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => {
       expect(
         getByText("Programá comparsas en la jornada antes de abrir la votación."),
       ).toBeVisible();
