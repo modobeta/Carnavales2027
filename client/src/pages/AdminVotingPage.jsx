@@ -134,17 +134,18 @@ export function AdminVotingPage() {
   const confirmAction = async () => {
     const kind = confirmation;
     setConfirmation(null);
-    if (kind === "night") {
-      await action("night", async () => {
-        const updated = await apiRequest(`/api/v1/nights/${nightId}`, {
-          method: "PATCH",
-          body: JSON.stringify({ name: selectedNight.name, displayOrder: selectedNight.displayOrder,
-            kind: selectedNight.kind, eventDate: selectedNight.eventDate ?? null, status: "OPEN" }),
-        });
-        setNights((items) => items.map((item) => item.id === nightId ? updated : item));
-        return updated;
-      }, () => "Jornada abierta. Ahora podés abrir la votación.");
-    } else if (kind === "open") {
+    if (kind === "open") {
+      if (nightStatus === "DRAFT") {
+        await action("night", async () => {
+          const updated = await apiRequest(`/api/v1/nights/${nightId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name: selectedNight.name, displayOrder: selectedNight.displayOrder,
+              kind: selectedNight.kind, eventDate: selectedNight.eventDate ?? null, status: "OPEN" }),
+          });
+          setNights((items) => items.map((item) => item.id === nightId ? updated : item));
+          return updated;
+        }, () => "Jornada abierta. Abriendo votación...");
+      }
       await action("open", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/open`, { method: "POST" }),
         (result) => `Votación abierta. ${result.ballotsCreated} planilla(s) nueva(s) habilitada(s). Si no hay planillas, revisá las asignaciones de jurados.`);
     } else if (kind === "close") {
@@ -220,11 +221,9 @@ export function AdminVotingPage() {
         <div className="section-heading"><div><h2>Ventana de votación</h2><p>La apertura crea las planillas pendientes. El cierre exige que todas estén completas y confirma las que sigan en carga.</p></div></div>
         <p>Jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
-        {nightStatus === "DRAFT" && <p>Primero abrí la jornada. Esa acción no habilita votos todavía.</p>}
         {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. Revisá las <a href="#/admin/assignments">asignaciones de jurados</a> y luego habilitá las planillas pendientes.</p>}
         <div className="event-actions">
-          {nightStatus === "DRAFT" && <button type="button" disabled={Boolean(busy) || !isEventOpen || !status} onClick={(event) => requestConfirmation("night", event)}>Abrir jornada</button>}
-          <button type="button" disabled={Boolean(busy) || !status || !isEventOpen || nightStatus !== "OPEN" || votingStatus === "CLOSED"} onClick={(event) => requestConfirmation("open", event)}>{votingStatus === "OPEN" ? "Habilitar planillas pendientes" : "Abrir votación"}</button>
+          <button type="button" disabled={Boolean(busy) || !status || !isEventOpen || nightStatus === "CLOSED" || votingStatus === "CLOSED"} onClick={(event) => requestConfirmation("open", event)}>{votingStatus === "OPEN" ? "Habilitar planillas pendientes" : "Abrir votación"}</button>
           <button ref={closeButtonRef} className="danger-action" type="button" disabled={Boolean(busy) || !isEventOpen || votingStatus !== "OPEN"} onClick={(event) => requestConfirmation("close", event)}>Cerrar votación</button>
           <button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => void refreshNight()}>Actualizar estado</button>
         </div>
@@ -359,8 +358,8 @@ export function AdminVotingPage() {
       </section>
     </>}
     <Dialog isOpen={confirmation !== null} onClose={() => setConfirmation(null)}
-      title={confirmation === "night" ? "Confirmar apertura de jornada" : confirmation === "open" ? "Confirmar apertura de votación" : "Confirmar cierre de votación"}
-      description={`Jornada: ${selectedNight?.name ?? ""}. ${confirmation === "night" ? "La votación se habilita en el paso siguiente." : confirmation === "open" ? "Se habilitarán las planillas de los jurados asignados." : "El cierre es definitivo y requiere planillas completas."}`}
+      title={confirmation === "open" ? "Confirmar apertura de votación" : "Confirmar cierre de votación"}
+      description={`Jornada: ${selectedNight?.name ?? ""}. ${confirmation === "open" ? (nightStatus === "DRAFT" ? "Se abrirá la jornada y se habilitarán las planillas de los jurados asignados." : "Se habilitarán las planillas de los jurados asignados.") : "El cierre es definitivo y requiere planillas completas."}`}
       focusReturnRef={actionButtonRef}>
       <DialogFooter><button type="button" onClick={() => setConfirmation(null)}>Cancelar</button><button type="button" disabled={Boolean(busy)} onClick={() => void confirmAction()}>Confirmar</button></DialogFooter>
     </Dialog>

@@ -39,8 +39,7 @@ describe("AdminEventsPage", () => {
       if (path === "/api/v1/users") return Promise.resolve([]);
       if (path === "/api/v1/judges") return Promise.resolve([]);
       if (path === "/api/v1/events/e1/nights") {
-        nightsCalls += 1;
-        return nightsCalls === 2 ? Promise.reject(new Error("network")) : Promise.resolve([]);
+        return Promise.reject(new Error("network"));
       }
       if (path.endsWith("/troupes") || path.endsWith("/rubrics")) return Promise.resolve([]);
       return Promise.resolve([]);

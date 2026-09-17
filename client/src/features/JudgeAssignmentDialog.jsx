@@ -44,27 +44,39 @@ export function JudgeAssignmentDialog({
         <p>
           Noche: <strong>{nightName}</strong> · Especialidad: <strong>{specialtyName}</strong>
         </p>
-        <fieldset>
-          <legend>Tipo de asignación</legend>
-          <label>
+        <fieldset className="assignment-type-group">
+          <legend className="sr-only">Tipo de asignación</legend>
+          <label className={`assignment-type-card ${assignmentType === "PRIMARY" ? "selected" : ""}`}>
             <input
               type="radio"
               name="assignmentType"
               value="PRIMARY"
+              className="sr-only"
+              aria-label="Titular"
               checked={assignmentType === "PRIMARY"}
               onChange={() => setAssignmentType("PRIMARY")}
-            />{" "}
-            Titular
+            />
+            <span className="assignment-type-icon">👤</span>
+            <span className="assignment-type-content">
+              <strong>Titular</strong>
+              <small>Jurado principal que emite votos</small>
+            </span>
           </label>
-          <label>
+          <label className={`assignment-type-card ${assignmentType === "SUBSTITUTE" ? "selected" : ""}`}>
             <input
               type="radio"
               name="assignmentType"
               value="SUBSTITUTE"
+              className="sr-only"
+              aria-label="Suplente"
               checked={assignmentType === "SUBSTITUTE"}
               onChange={() => setAssignmentType("SUBSTITUTE")}
-            />{" "}
-            Suplente
+            />
+            <span className="assignment-type-icon">🔄</span>
+            <span className="assignment-type-content">
+              <strong>Suplente</strong>
+              <small>Reemplazo en caso de ausencia</small>
+            </span>
           </label>
         </fieldset>
         <label htmlFor="assignment-judge">Jurado</label>
