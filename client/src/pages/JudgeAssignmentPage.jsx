@@ -1,3 +1,4 @@
+import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { useEffect, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
@@ -63,8 +64,9 @@ function LockIcon() {
 }
 
 export function JudgeAssignmentPage({ session, onConfirmed }) {
+  const eventContext = useAdminEvent();
   const profile = session.judgeProfile;
-  const [assignments, setAssignments] = useState([]);
+  const [allAssignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -87,6 +89,7 @@ export function JudgeAssignmentPage({ session, onConfirmed }) {
     return () => { current = false; };
   }, [profile?.registrationStatus, session.user?.id]);
 
+  const assignments = eventContext ? allAssignments.filter((entry) => entry.eventId === eventContext.activeEventId) : allAssignments;
   const firstName = session.user?.name?.split(" ")[0] ?? "Jurado";
   const specialtyName = assignments[0]?.specialtyName ?? "Especialidad";
   const nightName = assignments[0]?.nightName ?? "Noche";

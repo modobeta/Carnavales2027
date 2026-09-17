@@ -171,6 +171,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
     });
     assert.equal(listRes.status, 200);
     const listData = await listRes.json();
+    assert.equal(listData[0].eventId, event.id);
     assert.equal(listData.length, 1);
     assert.equal(listData[0].totalScores, undefined);
 
@@ -180,6 +181,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
     });
     assert.equal(listProgRes.status, 200);
     const listProgData = await listProgRes.json();
+    assert.equal(listProgData[0].eventId, event.id);
     assert.equal(listProgData.length, 1);
     // 2 troupes * 2 items = 4 scores total, initially 0 resolved
     assert.equal(listProgData[0].totalScores, 4);

@@ -33,7 +33,8 @@ import { useEffect, useState } from "react";
 
 function ProtectedShell({ session, children }) {
   const shell = <><AppNavigation session={session} />{children}</>;
-  return session.roles?.includes("ADMIN") ? <AdminEventProvider>{shell}</AdminEventProvider> : shell;
+  const judgeArea = window.location.hash.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{shell}</AdminEventProvider>;
 }
 
 function AdminCompetenciaPageWrapper() {

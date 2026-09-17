@@ -1,3 +1,4 @@
+import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
@@ -21,8 +22,10 @@ function votingStatusLabel(status) {
 }
 
 export function VeedorMonitorPage() {
+  const eventContext = useAdminEvent();
   const [events, setEvents] = useState([]);
-  const [eventId, setEventId] = useState("");
+  const [localEventId, setEventId] = useState("");
+  const eventId = eventContext?.activeEventId ?? localEventId;
   const [nightId, setNightId] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -246,6 +249,7 @@ export function VeedorMonitorPage() {
           </p>
         </section>
       )}
+      {!loading && eventContext?.activeEventId && !selectedEvent && events.length > 0 && <p>El evento seleccionado todavía no tiene actividad de votación.</p>}
 
       {events.length > 0 && (
         <>
@@ -253,7 +257,7 @@ export function VeedorMonitorPage() {
             className="monitor-selectors"
             aria-label="Seleccionar actividad"
           >
-            <label>
+            {!eventContext && <label>
               Evento
               <select
                 value={eventId}
@@ -268,7 +272,7 @@ export function VeedorMonitorPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label>
               Noche competitiva
               <select

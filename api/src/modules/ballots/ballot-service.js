@@ -520,7 +520,7 @@ export async function getVotingStatus({ eventId, nightId }) {
 export async function listJudgeBallots({ userId, includeProgress = false }) {
   if (includeProgress) {
     const { rows } = await getPool().query(
-      `SELECT b.id, b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
+      `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
               b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
               s.name AS "specialtyName",
               COALESCE(SUM(t.total), 0)::INTEGER AS "totalScores",
@@ -568,7 +568,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
   }
 
   const { rows } = await getPool().query(
-    `SELECT b.id, b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
+    `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
             b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
             s.name AS "specialtyName"
        FROM ballot b

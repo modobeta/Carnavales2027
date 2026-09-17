@@ -1706,3 +1706,12 @@ button.button-link:disabled {
 .password-requirements span { padding: 0.2rem 0.5rem; border-radius: 0.25rem; }
 .password-requirements .requirement-pending { color: #991b1b; background: #fef2f2; }
 .password-requirements .requirement-met { color: #166534; background: #f0fdf4; }
+.session-identity { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; max-width: 20rem; }
+.session-identity .session-role { font-size: 0.8rem; color: var(--text-muted); }
+.session-identity .session-event { font-size: 0.8rem; overflow-wrap: anywhere; }
+.session-actions .global-event-picker { min-width: 0; max-width: min(20rem, 100%); }
+.session-actions .global-event-picker select { width: 100%; }
+@media (max-width: 40rem) {
+  .session-actions { flex-wrap: wrap; }
+  .session-identity { max-width: 100%; }
+}

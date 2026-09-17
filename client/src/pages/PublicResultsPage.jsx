@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
+import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
 function TrophyIcon() {
   return (
@@ -66,6 +67,7 @@ function CopyIcon() {
 }
 
 export function PublicResultsPage({ initialEventId = null, embedded = false }) {
+  const eventContext = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
   const [results, setResults] = useState(null);
@@ -77,6 +79,17 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
   const pollingRef = useRef(null);
   const eventSourceRef = useRef(null);
   const [listAttempt, setListAttempt] = useState(0);
+  const selectedEventRef = useRef(selectedEventId);
+  selectedEventRef.current = embedded && eventContext ? eventContext.activeEventId : selectedEventId;
+
+  useEffect(() => {
+    if (!embedded || !eventContext?.activeEventId) return;
+    setResults(null);
+    setError(null);
+    setNotReleased(false);
+    setLoading(true);
+    setSelectedEventId(eventContext.activeEventId);
+  }, [embedded, eventContext?.activeEventId]);
 
   // 1. Cargar lista de eventos públicos
   useEffect(() => {
@@ -86,7 +99,7 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
         if (!active) return;
         const evts = data.events || [];
         setEvents(evts);
-        if (!selectedEventId && evts.length > 0) {
+        if (!selectedEventId && evts.length > 0 && !embedded) {
           setLoading(true);
           setSelectedEventId(evts[0].id);
         } else if (!selectedEventId) {
@@ -112,8 +125,10 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
     }
     fetch(`/api/v1/public/events/${eventId}/results`)
       .then(async (res) => {
+        if (selectedEventRef.current !== eventId) return;
         if (res.status === 404) {
           const body = await res.json().catch(() => ({}));
+          if (selectedEventRef.current !== eventId) return;
           if (body.code === "RESULTS_NOT_RELEASED") {
             setNotReleased(true);
             setResults(null);
@@ -126,12 +141,14 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
           throw new Error(`Error ${res.status}: no se pudieron cargar los resultados`);
         }
         const data = await res.json();
+        if (selectedEventRef.current !== eventId) return;
         setResults(data);
         setNotReleased(false);
         setError(null);
         setLoading(false);
       })
       .catch((err) => {
+        if (selectedEventRef.current !== eventId) return;
         console.error("Error al consultar resultados:", err);
         setError("No se pudieron cargar los resultados oficiales.");
         setLoading(false);
@@ -241,7 +258,7 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
 
       <div className="public-portal-body">
         {/* Selector de Evento */}
-        {events.length > 1 && (
+        {!embedded && events.length > 1 && (
           <div className="public-event-selector-bar">
             <label htmlFor="public-event-select">Seleccionar Evento:</label>
             <select

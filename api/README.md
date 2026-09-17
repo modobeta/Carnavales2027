@@ -257,6 +257,8 @@ El runbook versionado es [DEPLOYMENT.md](../DEPLOYMENT.md). Este README no autor
 
 ## Autenticación, permisos y límites
 
+El selector de evento del cliente utiliza los endpoints existentes según el rol: `/events`, `/penalties/events`, `/results/events`, `/monitor/events` o las asignaciones activas de `/judge/profile`. No introduce permisos nuevos. `GET /api/v1/judge/ballots`, tanto normal como `?include=progress`, incluye `eventId` para separar las planillas por evento sin depender del nombre. La API sigue validando la identidad y pertenencia de cada planilla.
+
 Las tres aceptaciones de invitación (jurado, perfil operativo y rol) validan la contraseña antes de reclamar la invitación o crear la cuenta: entre 8 y 128 caracteres, una mayúscula, una minúscula (incluidas letras Unicode) y un dígito 0–9. La política está en `src/auth/registration-password.js`; el incumplimiento devuelve el error de validación habitual (HTTP 400). Esta regla no altera el login ni las claves existentes.
 
 El flujo de la interfaz es correo/contraseña → desafío 2FA → envío OTP → verificación → `/api/v1/me`. El campo visual «Email» corresponde al contrato de `/api/auth/sign-in/email`, que recibe `email` y `password`. En el primer ingreso puede requerirse habilitar el segundo factor antes de verificarlo.

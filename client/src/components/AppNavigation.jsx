@@ -4,6 +4,8 @@ import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
+const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
+
 export function AppNavigation({ session }) {
   const adminEvent = useAdminEvent();
   const [closing, setClosing] = useState(false);
@@ -112,14 +114,17 @@ export function AppNavigation({ session }) {
       )}
       <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
       <div className="session-actions">
-        {session.roles?.includes("ADMIN") && adminEvent && (
+        {adminEvent && (
           <label className="global-event-picker">
             <span>Evento activo</span>
             <select
               aria-label="Evento activo"
               value={adminEvent.activeEventId}
               disabled={adminEvent.loading || adminEvent.events.length === 0}
-              onChange={(event) => adminEvent.setActiveEventId(event.target.value)}
+              onChange={(event) => {
+                adminEvent.setActiveEventId(event.target.value);
+                if (currentRoute.startsWith("#/judge/")) window.location.hash = "#/judge";
+              }}
             >
               {adminEvent.events.length === 0 ? <option value="">Sin eventos</option> : adminEvent.events.map((event) => (
                 <option key={event.id} value={event.id}>{event.name}</option>
@@ -127,10 +132,15 @@ export function AppNavigation({ session }) {
             </select>
           </label>
         )}
-        <span>{session.user?.name}</span>
+        <div className="session-identity">
+          <strong>{session.user?.name}</strong>
+          <span className="session-role">{(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role).join(" · ") || "Sin rol asignado"}</span>
+          {adminEvent && <span className="session-event">{adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}</span>}
+        </div>
         <button className="secondary" type="button" disabled={closing} onClick={signOut}>Salir</button>
       </div>
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
+      {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}
     </header>
     {open && !isDesktop && (
       <button

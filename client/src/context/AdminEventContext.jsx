@@ -1,47 +1,50 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { apiRequest } from "../api/http.js";
+import { loadAvailableEvents } from "./available-events.js";
 
 const STORAGE_KEY = "carnavales.admin.activeEventId";
 const AdminEventContext = createContext(null);
 
-function readStoredEventId() {
+function readStoredEventId(key) {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? "";
+    return window.localStorage.getItem(key) ?? "";
   } catch {
     return "";
   }
 }
 
-function storeEventId(eventId) {
+function storeEventId(eventId, key) {
   try {
-    if (eventId) window.localStorage.setItem(STORAGE_KEY, eventId);
-    else window.localStorage.removeItem(STORAGE_KEY);
+    if (eventId) window.localStorage.setItem(key, eventId);
+    else window.localStorage.removeItem(key);
   } catch {
     // Storage is an optional convenience, not a requirement for the session.
   }
 }
 
-export function AdminEventProvider({ children }) {
+export function AdminEventProvider({ children, session, judgeArea = false }) {
+  const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${judgeArea ? "judge" : "operational"}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
-  const [activeEventId, setActiveEventIdState] = useState(readStoredEventId);
+  const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const refreshEvents = async () => {
     setLoading(true);
     try {
-      const items = await apiRequest("/api/v1/events");
+      const loaded = await loadAvailableEvents(session?.roles, judgeArea);
+      const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
       setEvents(items ?? []);
       setError("");
       setActiveEventIdState((current) => {
         const storedEvent = (items ?? []).find((event) => event.id === current && event.active !== false);
         const nextId = storedEvent?.id ?? (items ?? []).find((event) => event.active !== false)?.id ?? "";
-        storeEventId(nextId);
+        storeEventId(nextId, storageKey);
         return nextId;
       });
       return items ?? [];
     } catch {
       setEvents([]);
+      setActiveEventIdState("");
       setError("No se pudieron cargar los eventos.");
       return [];
     } finally {
@@ -57,7 +60,7 @@ export function AdminEventProvider({ children }) {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
     setActiveEventIdState(nextId);
-    storeEventId(nextId);
+    storeEventId(nextId, storageKey);
   };
 
   const setActiveEvent = (event) => {
@@ -67,7 +70,7 @@ export function AdminEventProvider({ children }) {
         : [...current, event]);
     }
     setActiveEventIdState(event?.id ?? "");
-    storeEventId(event?.id ?? "");
+    storeEventId(event?.id ?? "", storageKey);
   };
 
   const updateEvent = (event) => {

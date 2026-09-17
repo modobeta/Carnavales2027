@@ -6,6 +6,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { Button } from "../components/Button.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
 function groupScores(scores) {
   return scores.reduce((groups, score) => {
@@ -49,6 +50,8 @@ function getPendingItems(scores, details) {
 }
 
 export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
+  const eventContext = useAdminEvent();
+  const syncedBallotRef = useRef(null);
   const [ballot, setBallot] = useState(null);
   const [selectedTroupeId, setSelectedTroupeId] = useState(initialTroupeId || "");
   const [message, setMessage] = useState("");
@@ -66,6 +69,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const submitButtonRef = useRef(null);
   const mountedRef = useRef(true);
   const lastTroupeRef = useRef(null);
+
+  useEffect(() => {
+    if (!eventContext || !ballot || ballot.id !== ballotId || syncedBallotRef.current === ballot.id) return;
+    if (eventContext.events.some((event) => event.id === ballot.eventId)) {
+      syncedBallotRef.current = ballot.id;
+      eventContext.setActiveEventId(ballot.eventId);
+    }
+  }, [ballot, ballotId, eventContext]);
 
   useEffect(() => {
     mountedRef.current = true;

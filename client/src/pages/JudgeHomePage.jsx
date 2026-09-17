@@ -3,6 +3,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
 function summarizeTroupes(ballot, scores) {
   const groups = scores.reduce((result, score) => {
@@ -55,6 +56,7 @@ function ballotHref(troupe) {
 
 
 export function JudgeHomePage({ session }) {
+  const eventContext = useAdminEvent();
   const profile = session?.judgeProfile;
   const [ballots, setBallots] = useState([]);
   const [loading, setLoading] = useState(() => Boolean(session?.user?.id && profile?.registrationStatus === "REGISTERED"));
@@ -109,7 +111,8 @@ export function JudgeHomePage({ session }) {
     return () => { current = false; };
   }, [profile?.registrationStatus, session?.user?.id]);
 
-  const troupes = ballots.flatMap((ballot) => ballot.troupes || []);
+  const visibleBallots = eventContext ? ballots.filter((ballot) => ballot.eventId === eventContext.activeEventId) : ballots;
+  const troupes = visibleBallots.flatMap((ballot) => ballot.troupes || []);
   const closed = troupes.filter((troupe) => troupe.status === "SUBMITTED").length;
   const resolved = troupes.reduce((sum, troupe) => sum + troupe.resolved, 0);
   const total = troupes.reduce((sum, troupe) => sum + troupe.total, 0);
@@ -172,7 +175,7 @@ export function JudgeHomePage({ session }) {
         {!profile && <p>Tu cuenta tiene rol JUDGE, pero no está vinculada a un perfil del padrón. Contactá a un administrador.</p>}
         {profile?.registrationStatus === "SUSPENDED" && <div className="suspension-notice" role="alert"><h2>Acceso suspendido</h2><p>Tus sesiones operativas fueron revocadas. Contactá a la administración para revisar tu estado.</p></div>}
         {profile?.registrationStatus === "REGISTERED" && loading && <p role="status">Cargando tus planillas…</p>}
-        {profile?.registrationStatus === "REGISTERED" && !loading && ballots.length === 0 && <div className="empty-state"><h2>Registro completo</h2><p>Todavía no tenés planillas habilitadas. Una asignación no abre votación por sí sola.</p></div>}
+        {profile?.registrationStatus === "REGISTERED" && !loading && visibleBallots.length === 0 && <div className="empty-state"><h2>Registro completo</h2><p>Todavía no tenés planillas habilitadas para el evento seleccionado. Una asignación no abre votación por sí sola.</p></div>}
         {profile?.registrationStatus === "REGISTERED" && troupes.length > 0 && (
           <>
             {currentEntry && (
