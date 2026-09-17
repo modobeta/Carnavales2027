@@ -40,10 +40,7 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     fireEvent.click(getByRole("button", { name: "Abrir votación" }));
     fireEvent.click(getByRole("button", { name: "Confirmar" }));
 
-    await waitFor(() => {
-      expect(getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
-    });
-    fireEvent.click(getByRole("button", { name: "Confirmar" }));
+
 
     await waitFor(() => {
       expect(

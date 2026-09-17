@@ -254,6 +254,8 @@ function CompetenciaOverview({ event, onGoStep }) {
   const [message, setMessage] = useState("");
   const locked = event.status === "OPEN";
 
+  const { incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -267,8 +269,6 @@ function CompetenciaOverview({ event, onGoStep }) {
     }).catch(() => { if (active) setMessage("No se pudo cargar el resumen."); });
     return () => { active = false; };
   }, [event.id, dataRevision]);
-
-  const { incRevision, reloadProgress } = useContext(WriteContext);
 
   const reassignCriterion = async (criterionId, scoringItemId) => {
     try {

@@ -37,7 +37,9 @@ describe("AdminVotingPage", () => {
       { method: "POST" },
     ));
 
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar votación" }));
+    const closeButton = screen.getByRole("button", { name: "Cerrar votación" });
+    await waitFor(() => expect(closeButton).toBeEnabled());
+    fireEvent.click(closeButton);
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/close",
@@ -59,6 +61,7 @@ describe("AdminVotingPage", () => {
     render(<AdminVotingPage />);
 
     const closeButton = await screen.findByRole("button", { name: "Cerrar votación" });
+    await waitFor(() => expect(closeButton).toBeEnabled());
     fireEvent.click(closeButton);
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
