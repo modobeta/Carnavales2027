@@ -31,14 +31,14 @@ describe("AdminVotingPage", () => {
     expect(screen.queryByText(/puntaje|ranking|total artístico/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Habilitar planillas pendientes" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/open",
       { method: "POST" },
     ));
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar votación" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/close",
       { method: "POST" },
@@ -60,7 +60,8 @@ describe("AdminVotingPage", () => {
 
     const closeButton = await screen.findByRole("button", { name: "Cerrar votación" });
     fireEvent.click(closeButton);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     const dialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("Jurado Uno · Comparsa Azul");
@@ -72,7 +73,7 @@ describe("AdminVotingPage", () => {
     await waitFor(() => expect(closeButton).toHaveFocus());
 
     fireEvent.click(closeButton);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     const reopenedDialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     fireEvent(reopenedDialog, new Event("cancel", { bubbles: true, cancelable: true }));
     await waitFor(() => expect(closeButton).toHaveFocus());
