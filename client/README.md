@@ -197,6 +197,10 @@ Al 16/09/2026 se verificó la carga pública, `/health` y la transición de logi
 Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y códigos HTTP/de dominio. No adjuntar contraseñas, OTP, cookies, tokens ni respuestas con datos personales.
 
 La documentación de decisiones/specs y las instrucciones de agentes se conservan localmente, fuera de la publicación. Las validaciones históricas no equivalen a una comprobación actual; no declarar una funcionalidad validada sin evidencia del código y de las pruebas correspondientes.
+### Faltantes anteriores en votación
+
+En la planilla del jurado, **Faltantes anteriores** muestra únicamente los ítems anteriores al visible que siguen sin votar, incluidos los de la misma comparsa. Excluye el actual, los siguientes y los ya resueltos (nota o «No se presentó»). El contador usa el mismo filtro y cada entrada permite volver al ítem. No tener faltantes anteriores no significa haber completado toda la votación.
+
 ### Actualización de la configuración
 
 Los tipos de participación, comparsas, rubros e ítems se actualizan después de guardar, sin recargar la página. Los selectores relacionados y el resumen se refrescan con la misma revisión de datos. Las respuestas de consultas anteriores se descartan para no ocultar altas recientes.

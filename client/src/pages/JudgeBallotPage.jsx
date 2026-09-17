@@ -348,6 +348,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const scoreTotal = ballot.scores.reduce((sum, score) => sum + (typeof score.score === "number" ? score.score : 0), 0);
   const pendingScores = ballot.scores.filter((score) => score.evaluationState === "PENDING");
   const effectiveIndex = Math.min(Math.max(0, activeItemIndex), Math.max(0, total - 1));
+  const previousPendingScores = ballot.scores.slice(0, effectiveIndex).filter((score) => score.evaluationState === "PENDING");
   const activeScore = ballot.scores[effectiveIndex];
   const troupeScores = activeScore ? ballot.scores.filter((score) => score.nightScheduleId === activeScore.nightScheduleId) : [];
   const troupeResolved = troupeScores.filter((score) => score.evaluationState !== "PENDING").length;
@@ -725,7 +726,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                           className="faltantes-btn"
                           onClick={() => setPendingDialogOpen(true)}
                         >
-                          Faltantes ({pendingScores.length})
+                          Faltantes anteriores ({previousPendingScores.length})
                         </button>
                       )}
                     </div>
@@ -786,11 +787,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       <Dialog
         isOpen={pendingDialogOpen}
         onClose={() => setPendingDialogOpen(false)}
-        title="Ítems pendientes"
-        description="Seleccioná un ítem para dirigirte a él:"
+        title="Faltantes anteriores"
+        description="Ítems anteriores al actual que todavía no votaste. Seleccioná uno para volver a él."
       >
-        <ul className="pending-dialog-list" aria-label="Ítems pendientes">
-          {pendingScores.map((item) => (
+        <ul className="pending-dialog-list" aria-label="Ítems anteriores sin votar">
+          {previousPendingScores.map((item) => (
             <li key={item.id}>
               <button
                 type="button"
@@ -806,9 +807,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </button>
             </li>
           ))}
-          {pendingScores.length === 0 && (
+          {previousPendingScores.length === 0 && (
             <li>
-              <p>¡No quedan ítems pendientes! Podés confirmar la planilla.</p>
+              <p>No tenés ítems anteriores sin votar.</p>
             </li>
           )}
         </ul>

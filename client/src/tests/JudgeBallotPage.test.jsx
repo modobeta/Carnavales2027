@@ -31,6 +31,45 @@ function onlineApi() {
 describe("JudgeBallotPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+  it("muestra solo faltantes anteriores al ítem actual y permite volver a ellos", async () => {
+    const scores = [
+      ["Omitido", "PENDING"], ["Votado", "SCORED"], ["Ausente", "NOT_PRESENTED"],
+      ["Actual", "PENDING"], ["Futuro", "PENDING"],
+    ].map(([itemName, evaluationState], index) => ({
+      ...ballot.scores[0], id: `score-${index}`, itemName, evaluationState,
+      score: evaluationState === "SCORED" ? 8 : evaluationState === "NOT_PRESENTED" ? 0 : null,
+    }));
+    apiRequest.mockResolvedValue({ ...ballot, scores });
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("button", { name: "Faltantes anteriores (0)" });
+    for (let index = 0; index < 3; index += 1) fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Faltantes anteriores (1)" }));
+    const modal = within(screen.getByRole("dialog", { name: "Faltantes anteriores" }));
+    expect(modal.getByText("Omitido")).toBeInTheDocument();
+    for (const name of ["Votado", "Ausente", "Actual", "Futuro"]) expect(modal.queryByText(name)).not.toBeInTheDocument();
+    fireEvent.click(modal.getByRole("button", { name: /Omitido/ }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Comparsa Uno: Omitido" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Faltantes anteriores (0)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+  });
+
+  it("no incluye el ítem actual ni futuros cuando no hay faltantes anteriores", async () => {
+    apiRequest.mockResolvedValue(ballot);
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Faltantes anteriores (0)" }));
+    const modal = within(screen.getByRole("dialog", { name: "Faltantes anteriores" }));
+    expect(modal.getByText("No tenés ítems anteriores sin votar.")).toBeInTheDocument();
+    expect(modal.queryByText("Presencia")).not.toBeInTheDocument();
+    expect(modal.queryByText(/Podés confirmar/)).not.toBeInTheDocument();
+    fireEvent.click(modal.getByRole("button", { name: "Cerrar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Faltantes anteriores (1)" }));
+    const nextModal = within(screen.getByRole("dialog", { name: "Faltantes anteriores" }));
+    expect(nextModal.getByText("Comparsa Uno")).toBeInTheDocument();
+    expect(nextModal.queryByText("Comparsa Dos")).not.toBeInTheDocument();
+  });
+
   it("confirma decisiones y planilla exclusivamente mediante API online", async () => {
     onlineApi();
     render(<JudgeBallotPage ballotId="ballot-1" />);

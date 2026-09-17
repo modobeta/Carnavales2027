@@ -260,25 +260,27 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     expect(bottomBar).toBeInTheDocument();
     expect(within(bottomBar).getByText("Ítem 1 de 3")).toBeInTheDocument();
 
-    // Click "Faltantes (3)"
-    const faltantesBtn = within(bottomBar).getByRole("button", { name: /Faltantes \(3\)/ });
+    // Avanzar sin votar: solo los dos ítems anteriores quedan en el modal.
+    fireEvent.click(within(bottomBar).getByRole("button", { name: "Ítem siguiente" }));
+    fireEvent.click(within(bottomBar).getByRole("button", { name: "Ítem siguiente" }));
+    const faltantesBtn = within(bottomBar).getByRole("button", { name: "Faltantes anteriores (2)" });
     fireEvent.click(faltantesBtn);
 
     // Dialog opens with pending list
-    const dialog = await screen.findByRole("dialog", { name: "Ítems pendientes" });
+    const dialog = await screen.findByRole("dialog", { name: "Faltantes anteriores" });
     const items = within(dialog).getAllByRole("listitem");
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(2);
 
-    // Click on the 3rd pending item (Comparsa Azul: Ritmo y Cadencia)
-    const thirdItemBtn = within(items[2]).getByRole("button");
-    expect(thirdItemBtn).toHaveTextContent("Comparsa Azul");
-    fireEvent.click(thirdItemBtn);
+    const firstItemBtn = within(items[0]).getByRole("button");
+    expect(firstItemBtn).toHaveTextContent("Comparsa Verde");
+    expect(within(dialog).queryByText("Comparsa Azul")).not.toBeInTheDocument();
+    fireEvent.click(firstItemBtn);
 
     // Dialog closes and bottom counter updates
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Ítems pendientes" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Faltantes anteriores" })).not.toBeInTheDocument();
     });
-    expect(within(bottomBar).getByText("Ítem 3 de 3")).toBeInTheDocument();
+    expect(within(bottomBar).getByText("Ítem 1 de 3")).toBeInTheDocument();
   });
 
   it("soporta atajos de teclado numérico (1-0) que abren el modal Spec 007 en desktop (RF-189)", async () => {
