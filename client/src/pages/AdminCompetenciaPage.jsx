@@ -37,11 +37,12 @@ export function AdminCompetenciaPage({ event, onBack }) {
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [dataRevision, setDataRevision] = useState(0);
   const writing = useRef(false);
 
   // Conteo liviano para el progreso del asistente (solo lectura; el detalle
   // y las mutaciones siguen en cada sección). Guía sin bloquear (T05 intacta).
-  useEffect(() => {
+  const reloadProgress = () => {
     let active = true;
     Promise.all([
       apiRequest(`/api/v1/events/${event.id}/troupes`).catch(() => []),
@@ -53,7 +54,9 @@ export function AdminCompetenciaPage({ event, onBack }) {
       if (active) setProgress({ troupes, categories, specialties, rubrics, orphaned });
     });
     return () => { active = false; };
-  }, [event.id]);
+  };
+
+  useEffect(reloadProgress, [event.id]);
 
   const troupesActive = (progress?.troupes ?? []).filter((t) => t.active !== false);
   const categoriesActive = (progress?.categories ?? []).filter((c) => c.active !== false);
@@ -148,7 +151,7 @@ export function AdminCompetenciaPage({ event, onBack }) {
   };
 
   return (
-    <WriteContext.Provider value={{ writing, setPending }}>
+    <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1) }}>
       <PageShell layer="instrument" className="admin-shell" aria-busy={pending}>
         <fieldset aria-label="Configuracion de competencia" disabled={pending} className="fieldset-reset">
           <header className="event-header competencia-header">
@@ -263,7 +266,9 @@ function CompetenciaOverview({ event, onGoStep }) {
       setData({ troupes, specialties, rubrics, orphaned });
     }).catch(() => { if (active) setMessage("No se pudo cargar el resumen."); });
     return () => { active = false; };
-  }, [event.id]);
+  }, [event.id, dataRevision]);
+
+  const { incRevision, reloadProgress } = useContext(WriteContext);
 
   const reassignCriterion = async (criterionId, scoringItemId) => {
     try {
@@ -279,6 +284,8 @@ function CompetenciaOverview({ event, onGoStep }) {
           : rubric),
       }));
       setMessage("Criterio reasignado.");
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
       return true;
     } catch {
       setMessage("No se pudo reasignar el criterio.");
@@ -353,12 +360,12 @@ function AdminTroupesSection({ event }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
-  const { writing, setPending } = useContext(WriteContext);
+  const { writing, setPending, dataRevision, incRevision, reloadProgress } = useContext(WriteContext);
 
   useEffect(() => {
     apiRequest(`/api/v1/events/${event.id}/troupes`).then(setTroupes).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/categories`).then(setCategories).catch(() => {});
-  }, [event.id]);
+  }, [event.id, dataRevision]);
 
   const locked = event.status === "OPEN";
   const activeCategories = categories.filter((c) => c.active !== false);
@@ -374,6 +381,8 @@ function AdminTroupesSection({ event }) {
       });
       setMessage("Guardado.");
       setDrawerMode(null);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
       return true;
     } catch (e) {
       if (e.code === "CATEGORY_INACTIVE") setMessage("La categoria seleccionada esta inactiva.");
@@ -414,6 +423,8 @@ function AdminTroupesSection({ event }) {
       if (fresh) setTroupes(fresh);
       else setTroupes((prev) => prev.map((t) => t.id === target.id ? { ...t, active: false } : t));
       setMessage(`Comparsa ${target.name} eliminada (desactivada en BD).`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
     } catch {
       setMessage("No se pudo eliminar la comparsa.");
     } finally {
@@ -432,6 +443,8 @@ function AdminTroupesSection({ event }) {
       if (fresh) setTroupes(fresh);
       else setTroupes((prev) => prev.map((t) => t.id === troupe.id ? { ...t, active: true } : t));
       setMessage(`Comparsa ${troupe.name} reactivada.`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
     } catch (e) {
       setMessage(e.code === "CATEGORY_INACTIVE" ? "No se puede reactivar: la categoria esta inactiva." : "No se pudo reactivar la comparsa.");
     } finally {
@@ -458,7 +471,7 @@ function AdminTroupesSection({ event }) {
         <p>Eliminar oculta la comparsa de la vista y la conserva desactivada en BD. Para verlas usa el filtro de estado.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create" }); }}>+ Nueva comparsa</button>}
+      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
       <div className="troupe-filters">
         <label>Buscar<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar comparsa por nombre" placeholder="Buscar por nombre" /></label>
         <label>Tipo<select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filtrar comparsas por tipo">
@@ -529,7 +542,7 @@ function AdminTroupesSection({ event }) {
         focusReturnRef={drawerTriggerRef}
       >
         <TroupeForm
-          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.troupeId}` : "create"}
+          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.troupeId}` : `create-${drawerMode?.ts}`}
           initialValue={editingTroupe ?? {}}
           categories={activeCategories}
           submitting={saving}
@@ -565,7 +578,7 @@ function TroupeScheduleSection({ event }) {
   const [troupeToAdd, setTroupeToAdd] = useState("");
   const [quitTarget, setQuitTarget] = useState(null);
   const [message, setMessage] = useState("");
-  const { writing, setPending } = useContext(WriteContext);
+  const { writing, setPending, dataRevision } = useContext(WriteContext);
   const locked = event.status === "OPEN";
 
   useEffect(() => {
@@ -574,14 +587,14 @@ function TroupeScheduleSection({ event }) {
       setNightId((loaded ?? [])[0]?.id ?? "");
     }).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => setTroupes(loaded ?? [])).catch(() => {});
-  }, [event.id]);
+  }, [event.id, dataRevision]);
 
   useEffect(() => {
     if (!nightId) { setSchedule([]); return; }
     apiRequest(`/api/v1/events/${event.id}/schedule?nightId=${nightId}`)
       .then(setSchedule)
       .catch(() => setMessage("No se pudo cargar el orden de pasada."));
-  }, [event.id, nightId]);
+  }, [event.id, nightId, dataRevision]);
 
   const ordered = [...schedule].sort((a, b) => a.presentationOrder - b.presentationOrder);
   const nightName = nights.find((n) => n.id === nightId)?.name ?? "";
@@ -728,9 +741,9 @@ function AdminCategoriesSection({ event }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const drawerTriggerRef = useRef(null);
-  const { writing, setPending } = useContext(WriteContext);
+  const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
-  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/categories`).then(setCategories).catch(() => {}); }, [event.id]);
+  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/categories`).then(setCategories).catch(() => {}); }, [event.id, dataRevision]);
   const locked = event.status === "OPEN";
 
   const save = async (path, body, method = "POST") => {
@@ -741,6 +754,8 @@ function AdminCategoriesSection({ event }) {
       else setCategories((prev) => method === "POST" ? [...prev, saved] : prev.map((category) => category.id === saved.id ? { ...category, ...saved } : category));
       setMessage("Guardado.");
       setDrawerMode(null);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
       return true;
     } catch (e) {
       setMessage(e.code === "RESOURCE_CONFLICT" ? "Ese nombre u orden ya está en uso." : "No se pudo guardar.");
@@ -774,7 +789,7 @@ function AdminCategoriesSection({ event }) {
     <section className="config-section">
       <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas.</p></div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create" }); }}>+ Nuevo tipo</button>}
+      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       {ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay tipos de participación.</p>
       ) : (
@@ -817,7 +832,7 @@ function AdminCategoriesSection({ event }) {
         focusReturnRef={drawerTriggerRef}
       >
         <CatalogForm
-          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.categoryId}` : "create"}
+          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.categoryId}` : `create-${drawerMode?.ts}`}
           initialValue={editingCategory ?? {}}
           defaultOrder={nextOrder}
           showOrder={drawerMode?.mode === "edit"}
@@ -841,9 +856,9 @@ function AdminSpecialtiesSection({ event }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const drawerTriggerRef = useRef(null);
-  const { writing, setPending } = useContext(WriteContext);
+  const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
-  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {}); }, [event.id]);
+  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {}); }, [event.id, dataRevision]);
   const locked = event.status === "OPEN";
 
   const save = async (path, body, method = "POST") => {
@@ -854,6 +869,8 @@ function AdminSpecialtiesSection({ event }) {
       else setSpecialties((prev) => method === "POST" ? [...prev, saved] : prev.map((s) => s.id === saved.id ? { ...s, ...saved } : s));
       setMessage("Guardado.");
       setDrawerMode(null);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
       return true;
     } catch (e) {
       setMessage(e.code === "RESOURCE_CONFLICT" ? "Ese nombre u orden ya está en uso." : "No se pudo guardar.");
@@ -887,7 +904,7 @@ function AdminSpecialtiesSection({ event }) {
     <section className="config-section">
       <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3.</p></div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create" }); }}>+ Nueva especialidad</button>}
+      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
       {ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay especialidades.</p>
       ) : (
@@ -930,7 +947,7 @@ function AdminSpecialtiesSection({ event }) {
         focusReturnRef={drawerTriggerRef}
       >
         <CatalogForm
-          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.specialtyId}` : "create"}
+          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.specialtyId}` : `create-${drawerMode?.ts}`}
           initialValue={editingSpecialty ?? {}}
           defaultOrder={nextOrder}
           showOrder={drawerMode?.mode === "edit"}
@@ -956,7 +973,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   const [editingItem, setEditingItem] = useState(null);
   const [editingCriterion, setEditingCriterion] = useState(null);
   const [message, setMessage] = useState("");
-  const { writing, setPending } = useContext(WriteContext);
+  const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
 
   const scrollToSelector = (selector) => {
     requestAnimationFrame(() => {
@@ -967,7 +984,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   useEffect(() => {
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then(setRubrics).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {});
-  }, [event.id]);
+  }, [event.id, dataRevision]);
 
   useEffect(() => {
     if (focusRubricId) {
@@ -1009,6 +1026,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
       if (fresh) setRubrics(fresh);
       else setRubrics((prev) => method === "POST" ? [...prev, { ...saved, items: [], criteria: [], specialties: [] }] : prev.map((r) => r.id === saved.id ? { ...r, ...saved } : r));
       setMessage("Rubro guardado.");
+      if (incRevision) incRevision();
+      reloadProgress?.();
       if (method === "POST" && saved?.id) {
         // El rubro recién creado se abre solo para seguir cargando ítems.
         setExpanded(saved.id);
@@ -1025,12 +1044,19 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     try {
       const path = method === "PATCH" ? `/api/v1/evaluation-items/${itemId}` : `/api/v1/rubrics/${rubricId}/items`;
       const saved = await apiRequest(path, { method, body: JSON.stringify(body) });
-      setRubrics((prev) => prev.map((r) => {
-        if (r.id !== rubricId) return r;
-        if (method === "POST") return { ...r, items: [...(r.items ?? []), saved] };
-        return { ...r, items: (r.items ?? []).map((i) => i.id === saved.id ? { ...i, ...saved } : i) };
-      }));
+      const fresh = await apiRequest(`/api/v1/rubrics/${rubricId}`).catch(() => null);
+      if (fresh) {
+        setRubrics((prev) => prev.map((r) => r.id === rubricId ? fresh : r));
+      } else {
+        setRubrics((prev) => prev.map((r) => {
+          if (r.id !== rubricId) return r;
+          if (method === "POST") return { ...r, items: [...(r.items ?? []), saved] };
+          return { ...r, items: (r.items ?? []).map((i) => i.id === saved.id ? { ...i, ...saved } : i) };
+        }));
+      }
       setMessage("Item guardado.");
+      if (incRevision) incRevision();
+      reloadProgress?.();
       setEditingItem(null);
       if (method === "POST" && saved?.id) {
         setHighlightItemId(saved.id);
@@ -1046,12 +1072,19 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     try {
       const path = method === "PATCH" ? `/api/v1/rubric-criteria/${criterionId}` : `/api/v1/rubrics/${rubricId}/criteria`;
       const saved = await apiRequest(path, { method, body: JSON.stringify(body) });
-      setRubrics((prev) => prev.map((r) => {
-        if (r.id !== rubricId) return r;
-        if (method === "POST") return { ...r, criteria: [...(r.criteria ?? []), saved] };
-        return { ...r, criteria: (r.criteria ?? []).map((c) => c.id === saved.id ? { ...c, ...saved } : c) };
-      }));
+      const fresh = await apiRequest(`/api/v1/rubrics/${rubricId}`).catch(() => null);
+      if (fresh) {
+        setRubrics((prev) => prev.map((r) => r.id === rubricId ? fresh : r));
+      } else {
+        setRubrics((prev) => prev.map((r) => {
+          if (r.id !== rubricId) return r;
+          if (method === "POST") return { ...r, criteria: [...(r.criteria ?? []), saved] };
+          return { ...r, criteria: (r.criteria ?? []).map((c) => c.id === saved.id ? { ...c, ...saved } : c) };
+        }));
+      }
       setMessage("Criterio guardado.");
+      if (incRevision) incRevision();
+      reloadProgress?.();
       setEditingCriterion(null);
       return true;
     } catch (e) {
@@ -1252,10 +1285,12 @@ function MatrizPlanillasSection({ event, onResolveRubric }) {
   const [specialties, setSpecialties] = useState([]);
   const [selected, setSelected] = useState(null);
 
+  const { dataRevision } = useContext(WriteContext);
+
   useEffect(() => {
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then(setRubrics).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {});
-  }, [event.id]);
+  }, [event.id, dataRevision]);
 
   const activeSpecialties = specialties.filter((s) => s.active !== false);
   const activeRubrics = rubrics.filter((r) => r.active !== false);
