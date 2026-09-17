@@ -197,3 +197,8 @@ Al 16/09/2026 se verificó la carga pública, `/health` y la transición de logi
 Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y códigos HTTP/de dominio. No adjuntar contraseñas, OTP, cookies, tokens ni respuestas con datos personales.
 
 La documentación de decisiones/specs y las instrucciones de agentes se conservan localmente, fuera de la publicación. Las validaciones históricas no equivalen a una comprobación actual; no declarar una funcionalidad validada sin evidencia del código y de las pruebas correspondientes.
+### Actualización de la configuración
+
+Los tipos de participación, comparsas, rubros e ítems se actualizan después de guardar, sin recargar la página. Los selectores relacionados y el resumen se refrescan con la misma revisión de datos. Las respuestas de consultas anteriores se descartan para no ocultar altas recientes.
+
+El orden de pasada conserva la jornada seleccionada al actualizar catálogos. Agregar, quitar o reordenar una comparsa invalida las lecturas anteriores del cronograma. Las pruebas `AdminCompetenciaRefresh.test.jsx` cubren altas y respuestas demoradas; no cambian reglas de votación ni contratos de API.

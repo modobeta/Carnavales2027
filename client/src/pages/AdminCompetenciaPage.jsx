@@ -39,11 +39,12 @@ export function AdminCompetenciaPage({ event, onBack }) {
   const [progress, setProgress] = useState(null);
   const [dataRevision, setDataRevision] = useState(0);
   const writing = useRef(false);
+  const progressRequest = useRef(0);
 
   // Conteo liviano para el progreso del asistente (solo lectura; el detalle
   // y las mutaciones siguen en cada sección). Guía sin bloquear (T05 intacta).
   const reloadProgress = () => {
-    let active = true;
+    const request = ++progressRequest.current;
     Promise.all([
       apiRequest(`/api/v1/events/${event.id}/troupes`).catch(() => []),
       apiRequest(`/api/v1/events/${event.id}/categories`).catch(() => []),
@@ -51,9 +52,9 @@ export function AdminCompetenciaPage({ event, onBack }) {
       apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => []),
       apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`).catch(() => []),
     ]).then(([troupes, categories, specialties, rubrics, orphaned]) => {
-      if (active) setProgress({ troupes, categories, specialties, rubrics, orphaned });
+      if (request === progressRequest.current) setProgress({ troupes, categories, specialties, rubrics, orphaned });
     });
-    return () => { active = false; };
+    return () => { progressRequest.current += 1; };
   };
 
   useEffect(reloadProgress, [event.id]);
@@ -363,8 +364,10 @@ function AdminTroupesSection({ event }) {
   const { writing, setPending, dataRevision, incRevision, reloadProgress } = useContext(WriteContext);
 
   useEffect(() => {
-    apiRequest(`/api/v1/events/${event.id}/troupes`).then(setTroupes).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/categories`).then(setCategories).catch(() => {});
+    let active = true;
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => {});
+    return () => { active = false; };
   }, [event.id, dataRevision]);
 
   const locked = event.status === "OPEN";
@@ -573,6 +576,7 @@ function AdminTroupesSection({ event }) {
 function TroupeScheduleSection({ event }) {
   const [nights, setNights] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const scheduleRequest = useRef(0);
   const [troupes, setTroupes] = useState([]);
   const [nightId, setNightId] = useState("");
   const [troupeToAdd, setTroupeToAdd] = useState("");
@@ -582,18 +586,25 @@ function TroupeScheduleSection({ event }) {
   const locked = event.status === "OPEN";
 
   useEffect(() => {
+    let active = true;
     apiRequest(`/api/v1/events/${event.id}/nights`).then((loaded) => {
-      setNights(loaded ?? []);
-      setNightId((loaded ?? [])[0]?.id ?? "");
+      if (!active) return;
+      const available = loaded ?? [];
+      setNights(available);
+      setNightId((selected) => available.some((night) => night.id === selected) ? selected : available[0]?.id ?? "");
     }).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => setTroupes(loaded ?? [])).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded ?? []); }).catch(() => {});
+    return () => { active = false; };
   }, [event.id, dataRevision]);
 
   useEffect(() => {
+    const request = ++scheduleRequest.current;
     if (!nightId) { setSchedule([]); return; }
+    setSchedule([]);
     apiRequest(`/api/v1/events/${event.id}/schedule?nightId=${nightId}`)
-      .then(setSchedule)
-      .catch(() => setMessage("No se pudo cargar el orden de pasada."));
+      .then((loaded) => { if (request === scheduleRequest.current) setSchedule(loaded); })
+      .catch(() => { if (request === scheduleRequest.current) setMessage("No se pudo cargar el orden de pasada."); });
+    return () => { scheduleRequest.current += 1; };
   }, [event.id, nightId, dataRevision]);
 
   const ordered = [...schedule].sort((a, b) => a.presentationOrder - b.presentationOrder);
@@ -609,6 +620,7 @@ function TroupeScheduleSection({ event }) {
         method: "POST",
         body: JSON.stringify({ direction, neighborId: neighbor.id, expectedOrder: current.presentationOrder, expectedNeighborOrder: neighbor.presentationOrder }),
       });
+      scheduleRequest.current += 1;
       setSchedule((previous) => previous.map((entry) => ({ ...entry, ...changes.find((change) => change.id === entry.id) })));
       setMessage("Orden de pasada actualizado.");
     } catch (error) {
@@ -656,7 +668,8 @@ function TroupeScheduleSection({ event }) {
                 body: JSON.stringify({ nightId, troupeId: troupeToAdd }),
               });
               const troupe = troupes.find((t) => t.id === troupeToAdd);
-              setSchedule((prev) => [...prev, { ...saved, troupeName: troupe?.name ?? "", troupeBrandColor: troupe?.brandColor ?? null }]);
+              scheduleRequest.current += 1;
+              setSchedule((prev) => [...prev, { ...saved, nightId, troupeId: troupeToAdd, troupeName: troupe?.name ?? "", troupeBrandColor: troupe?.brandColor ?? null }]);
               setTroupeToAdd("");
               setMessage("Comparsa programada en la jornada.");
             } catch (error) {
@@ -716,6 +729,7 @@ function TroupeScheduleSection({ event }) {
                 setPending(true);
                 try {
                   await apiRequest(`/api/v1/schedule/${target.id}`, { method: "DELETE" });
+                  scheduleRequest.current += 1;
                   setSchedule((prev) => prev.filter((s) => s.id !== target.id));
                   setMessage("Comparsa quitada de la jornada.");
                 } catch {
@@ -743,7 +757,11 @@ function AdminCategoriesSection({ event }) {
   const drawerTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
-  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/categories`).then(setCategories).catch(() => {}); }, [event.id, dataRevision]);
+  useEffect(() => {
+    let active = true;
+    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => {});
+    return () => { active = false; };
+  }, [event.id, dataRevision]);
   const locked = event.status === "OPEN";
 
   const save = async (path, body, method = "POST") => {
@@ -858,7 +876,11 @@ function AdminSpecialtiesSection({ event }) {
   const drawerTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
-  useEffect(() => { apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {}); }, [event.id, dataRevision]);
+  useEffect(() => {
+    let active = true;
+    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    return () => { active = false; };
+  }, [event.id, dataRevision]);
   const locked = event.status === "OPEN";
 
   const save = async (path, body, method = "POST") => {
@@ -982,8 +1004,10 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   };
 
   useEffect(() => {
-    apiRequest(`/api/v1/events/${event.id}/rubrics`).then(setRubrics).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {});
+    let active = true;
+    apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    return () => { active = false; };
   }, [event.id, dataRevision]);
 
   useEffect(() => {
@@ -1288,8 +1312,10 @@ function MatrizPlanillasSection({ event, onResolveRubric }) {
   const { dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
-    apiRequest(`/api/v1/events/${event.id}/rubrics`).then(setRubrics).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/specialties`).then(setSpecialties).catch(() => {});
+    let active = true;
+    apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    return () => { active = false; };
   }, [event.id, dataRevision]);
 
   const activeSpecialties = specialties.filter((s) => s.active !== false);
