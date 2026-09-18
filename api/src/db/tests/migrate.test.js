@@ -100,7 +100,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
          || filename === "073_event_delete_policy.sql"
          || filename === "074_schedule_reorder_in_open_event.sql"
           || filename === "075_carnival_event_active.sql"
-          || filename === "076_schedule_timestamps.sql"
+          || filename === "076_schedule_timestamps.sql" || filename === "077_allow_assignment_in_open_event.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -478,6 +478,11 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "076_schedule_timestamps.sql",
       version: "076",
+      applied: true,
+    },
+    {
+      filename: "077_allow_assignment_in_open_event.sql",
+      version: "077",
       applied: true,
     },
   ]);

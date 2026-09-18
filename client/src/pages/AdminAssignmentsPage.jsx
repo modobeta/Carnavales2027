@@ -111,6 +111,7 @@ export function AdminAssignmentsPage() {
   const activeFor = (night, specialty) => (data.assignments ?? []).filter(
       (assignment) => assignment.status === "ACTIVE" && sameNight(assignment, night) && sameSpecialty(assignment, specialty),
     );
+  const selectedNight = nights.find((night) => night.id === nightId);
 
   const inactiveForNight = (data.assignments ?? []).filter(
     (assignment) => assignment.status !== "ACTIVE" && (nightId === "" || (selectedNight ? sameNight(assignment, selectedNight) : assignment.nightId === nightId)),
@@ -130,6 +131,7 @@ export function AdminAssignmentsPage() {
 
   const submitQuota = async (formEvent) => {
     formEvent.preventDefault();
+    if (!quotaTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const target = quotaTarget;
     closeDialogs();
@@ -140,6 +142,7 @@ export function AdminAssignmentsPage() {
   };
 
   const submitAssignment = async ({ judgeProfileId, assignmentType, standbyForAssignmentId }) => {
+    if (!assignTarget) return;
     const target = assignTarget;
     closeDialogs();
     await action("assignment", () => apiRequest(`/api/v1/events/${eventId}/judge-assignments`, {
@@ -154,6 +157,7 @@ export function AdminAssignmentsPage() {
 
   const submitAction = async (formEvent) => {
     formEvent.preventDefault();
+    if (!actionTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const { assignment, action: actionName } = actionTarget;
     const reason = values.get("reason");
@@ -174,7 +178,6 @@ export function AdminAssignmentsPage() {
     }
   };
 
-  const selectedNight = nights.find((night) => night.id === nightId);
   const assignNight = assignTarget ? nights.find((night) => night.id === assignTarget.nightId) : null;
   const assignSpecialty = assignTarget ? specialties.find((specialty) => specialty.id === assignTarget.specialtyId) : null;
   const quotaNight = quotaTarget ? nights.find((night) => night.id === quotaTarget.nightId) : null;
@@ -221,7 +224,7 @@ export function AdminAssignmentsPage() {
                 <div className="event-actions">
                   {!quota && <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Configurar cupo</button>}
                   {quota && <button className="secondary" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
-                  <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
+                  <button type="button" disabled={Boolean(busy) || (selectedEvent?.status !== "CONFIGURING" && selectedEvent?.status !== "OPEN")} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
                 </div>
               </div>
               {slots.length === 0 ? (

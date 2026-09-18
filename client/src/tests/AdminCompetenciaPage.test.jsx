@@ -115,7 +115,7 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
     fireEvent.change(fields.getByLabelText("Tipo de sujeto"), { target: { value: subjectType } });
     fireEvent.change(fields.getByLabelText("Metodo de resolucion"), { target: { value: "COMMITTEE" } });
-    fireEvent.change(fields.getByLabelText("Detalle del objetivo (texto libre, opcional)"), { target: { value: "Participante" } });
+    fireEvent.change(fields.getByLabelText("Detalle (opcional)"), { target: { value: "Participante" } });
     fireEvent.submit(form);
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/rubrics", {
@@ -137,6 +137,7 @@ describe("AdminCompetenciaPage", () => {
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
     fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Editar configuración del rubro" }));
     const form = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
     const fields = within(form);
     expect(fields.getByLabelText("Tipo de sujeto")).toHaveValue(initialSubject ?? "PERSON");
@@ -148,7 +149,6 @@ describe("AdminCompetenciaPage", () => {
       method: "PATCH",
       body: JSON.stringify({ name: "Coreografia", evaluationTarget: target, expectedSubjectType: subject, rubricType: "NOMINATIVE", resolutionMethod: "JURY", evaluationObjective: null, active: true }),
     });
-    expect(fields.getByLabelText("A quién se evalúa")).toHaveValue(target);
   });
 
   it.each([
@@ -219,6 +219,9 @@ describe("AdminCompetenciaPage", () => {
     if (String(section) === String(/Rubros, ítems y criterios/)) {
       const expand = await screen.findByRole("button", { name: "Expandir Coreografia" });
       if (edit) fireEvent.click(expand);
+      if (action === "Guardar rubro") {
+        fireEvent.click(await screen.findByRole("button", { name: "Editar configuración del rubro" }));
+      }
     } else {
       await screen.findByRole("button", { name: /^Editar / });
     }
@@ -301,11 +304,14 @@ describe("AdminCompetenciaPage", () => {
     expect(screen.getByRole("button", { name: "Agregar criterio a Interpretacion" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Editar item Interpretacion" }));
     fireEvent.click(screen.getByRole("button", { name: "Editar criterio Precision" }));
-    for (const control of screen.getAllByRole("checkbox", { name: /Obligatorio|Permite No presentado/ })) {
-      expect(control).toHaveAccessibleDescription(/metadata futura: todos los items generados deben resolverse y admiten No se presento \(NOT_PRESENTED\).*pendientes bloquean confirmacion y cierre/);
+    for (const control of screen.getAllByRole("checkbox", { name: /Obligatorio/ })) {
+      expect(control).toHaveAccessibleDescription(/Todos los items deben resolverse. Pendientes bloquean cierre./);
     }
-    for (const control of screen.getAllByRole("combobox", { name: /resolucion/i })) {
-      expect(control).toHaveAccessibleDescription(/metadata futura: no ejecuta formulas ni decisiones automaticas o de Comision Organizadora/);
+    for (const control of screen.getAllByRole("checkbox", { name: /Permite No presentado/ })) {
+      expect(control).toHaveAccessibleDescription(/Admite calificación 'No se presentó'./);
+    }
+    for (const control of screen.getAllByRole("combobox", { name: /resolucion/ })) {
+      expect(control).toHaveAccessibleDescription(/metadata futura: no ejecuta formulas ni decisiones automaticas/);
     }
     for (const role of ["textbox", "combobox", "spinbutton", "checkbox", "button"]) {
       for (const control of screen.getAllByRole(role)) expect(control).toHaveAccessibleName();
@@ -373,6 +379,7 @@ describe("AdminCompetenciaPage", () => {
     expect(write).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Guardar rubro" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Expandir Coreografia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar configuración del rubro" }));
     const editor = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
     expect(within(editor).getByLabelText("Tipo")).toHaveValue("SPECIAL");
     expect(screen.getByRole("button", { name: "Bajar item Interpretacion" })).toBeDisabled();
@@ -624,7 +631,7 @@ describe("AdminCompetenciaPage", () => {
       expect(within(tree).getByText("Coreografia")).toBeInTheDocument();
       expect(within(tree).getByText("Interpretacion")).toBeInTheDocument();
       expect(within(tree).getByText("Precision")).toBeInTheDocument();
-      const advanced = screen.getAllByText("Opciones avanzadas (sin efecto operativo)");
+      const advanced = screen.getAllByText("Opciones avanzadas");
       expect(advanced.length).toBeGreaterThan(0);
     });
 

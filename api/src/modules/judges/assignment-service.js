@@ -192,7 +192,7 @@ export async function createJudgeAssignment({
   const standbyId = type === "SUBSTITUTE" ? requireText(standbyForAssignmentId, "standbyForAssignmentId") : null;
   return inTransaction(async (client) => {
     const event = await lockEvent(client, eventId);
-    if (event.status !== "CONFIGURING") throw new Error("JUDGE_ASSIGNMENT_OPEN_REQUIRES_REPLACEMENT");
+    if (event.status !== "CONFIGURING" && event.status !== "OPEN") throw new Error("EVENT_LOCKED");
     const context = await lockNightSpecialty(client, { eventId, nightId, specialtyId });
     const quota = await lockQuota(client, context);
     if (standbyId) {
