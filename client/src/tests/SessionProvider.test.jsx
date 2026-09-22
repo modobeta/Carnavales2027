@@ -10,6 +10,11 @@ function SessionState() {
   return <><p>{session.status}:{session.roles.join(",")}:{session.user?.name ?? ""}</p><button onClick={session.clear}>Limpiar</button></>;
 }
 
+function SessionExpiryProbe() {
+  const session = useSession();
+  return <p>{session.status}:{session.sessionExpired ? "expired" : "active"}</p>;
+}
+
 describe("SessionProvider", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -37,6 +42,18 @@ describe("SessionProvider", () => {
     apiRequest.mockRejectedValueOnce({ code: "INTERNAL_ERROR" });
     render(<SessionProvider><SessionState /></SessionProvider>);
     expect(await screen.findByText("error::")).toBeInTheDocument();
+  });
+
+  it("marca la sesión como expirada (anónima) ante SESSION_EXPIRED", async () => {
+    apiRequest.mockRejectedValueOnce({ code: "SESSION_EXPIRED" });
+    render(<SessionProvider><SessionExpiryProbe /></SessionProvider>);
+    expect(await screen.findByText("anonymous:expired")).toBeInTheDocument();
+  });
+
+  it("conserva el estado de error con reintento ante fallos transitorios", async () => {
+    apiRequest.mockRejectedValueOnce({ code: "NETWORK_ERROR" });
+    render(<SessionProvider><SessionExpiryProbe /></SessionProvider>);
+    expect(await screen.findByText("error:active")).toBeInTheDocument();
   });
 
   it("no restaura una lectura pendiente después de limpiar la sesión", async () => {

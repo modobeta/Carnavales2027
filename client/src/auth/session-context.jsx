@@ -7,13 +7,32 @@ const SessionContext = createContext({
   roles: [],
   user: null,
   judgeProfile: null,
+  sessionExpired: false,
+  lastErrorCode: null,
   refresh: async () => ({ status: "anonymous", roles: [] }),
   clear: () => {},
 });
 export const useSession = () => useContext(SessionContext);
 
+// Códigos que significan "la sesión ya no es válida" (no un fallo transitorio).
+export const SESSION_ENDED_CODES = ["UNAUTHENTICATED", "SESSION_EXPIRED"];
+
+export function isSessionEndedError(error) {
+  return Boolean(error && SESSION_ENDED_CODES.includes(error.code));
+}
+
+// Redirige al login con aviso de sesión expirada, preservando el retorno
+// (p. ej. la planilla que el jurado estaba votando) para retomar tras re-login.
+export function redirectToLoginExpired(returnToHash) {
+  const params = new URLSearchParams({ reason: "session-expired" });
+  if (returnToHash && returnToHash.startsWith("#/judge")) {
+    params.set("returnTo", returnToHash);
+  }
+  window.location.hash = `#/login?${params.toString()}`;
+}
+
 export function SessionProvider({ children }) {
-  const [session, setSession] = useState({ status: "loading", roles: [], user: null, judgeProfile: null });
+  const [session, setSession] = useState({ status: "loading", roles: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
   const requestRevision = useRef(0);
   const activeUserId = useRef(null);
   const refresh = async () => {
@@ -28,12 +47,20 @@ export function SessionProvider({ children }) {
       if (revision === requestRevision.current) setSession(next);
       return next;
     } catch (error) {
-      const status = error.code === "UNAUTHENTICATED"
+      const ended = isSessionEndedError(error);
+      const status = ended
         ? "anonymous"
         : error.code === "TWO_FACTOR_REQUIRED"
           ? "second-factor-required"
           : "error";
-      const next = { status, roles: [], user: null, judgeProfile: null };
+      const next = {
+        status,
+        roles: [],
+        user: null,
+        judgeProfile: null,
+        sessionExpired: ended,
+        lastErrorCode: ended ? null : (error?.code ?? null),
+      };
       if (revision === requestRevision.current) setSession(next);
       return next;
     }
@@ -45,11 +72,11 @@ export function SessionProvider({ children }) {
   return <SessionContext.Provider value={{
     ...session,
     refresh,
-      clear: () => {
+      clear: (options) => {
         requestRevision.current += 1;
         if (activeUserId.current) void clearUserOfflineData(activeUserId.current);
         activeUserId.current = null;
-        setSession({ status: "anonymous", roles: [], user: null, judgeProfile: null });
+        setSession({ status: "anonymous", roles: [], user: null, judgeProfile: null, sessionExpired: Boolean(options?.sessionExpired), lastErrorCode: null });
     },
   }}>{children}</SessionContext.Provider>;
 }

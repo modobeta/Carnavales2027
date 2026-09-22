@@ -13,6 +13,16 @@ export function RequireAnyRole({
   }
 
   if (session.status === "anonymous") {
+    if (session.sessionExpired) {
+      return (
+        <div role="status">
+          <p>Tu sesión ha expirado. Por favor, iniciá sesión nuevamente.</p>
+          <p>
+            <a href="#/login?reason=session-expired">Ir al inicio de sesión</a>
+          </p>
+        </div>
+      );
+    }
     return (
       <p>
         Iniciá sesión para continuar. <a href="#/login">Ir al inicio de sesión</a>
@@ -29,7 +39,15 @@ export function RequireAnyRole({
   }
 
   if (session.status === "error") {
-    return <p>No se pudo verificar la sesión. Intentá nuevamente.</p>;
+    return (
+      <div role="status">
+        <p>No se pudo verificar la sesión. Intentá nuevamente.</p>
+        <p>
+          <button type="button" onClick={() => session.refresh?.()}>Reintentar</button>{" "}
+          <a href="#/login">Ir al inicio de sesión</a>
+        </p>
+      </div>
+    );
   }
 
   const hasRole = Array.isArray(allowedRoles) && allowedRoles.some((role) => session.roles?.includes(role));
