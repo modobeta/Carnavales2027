@@ -52,7 +52,7 @@ describe("AdminHomePage (Spec 027/B)", () => {
     render(<AdminHomePage />);
     expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
     expect(screen.getAllByText("En configuración").length).toBeGreaterThan(0);
-    expect(screen.getByRole("progressbar", { name: "Preparación del evento" })).toBeInTheDocument();
+    expect(await screen.findByRole("progressbar", { name: "Preparación del evento" })).toBeInTheDocument();
     expect(await screen.findByText(/Siguiente paso/)).toBeInTheDocument();
     expect(await screen.findAllByRole("link", { name: "Configurar comparsas" })).toHaveLength(2);
     expect((await screen.findAllByText(/Todavía no hay comparsas activas/)).length).toBeGreaterThan(0);
