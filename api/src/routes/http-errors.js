@@ -1,5 +1,5 @@
 export function sendKnownError(response, error) {
-  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED"].includes(error.message)) {
+  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED", "NIGHT_REORDER_STARTED_TROUPES"].includes(error.message)) {
     response.status(409).json({ code: error.message });
     return true;
   }
@@ -121,6 +121,7 @@ export function sendKnownError(response, error) {
     "JUDGE_ASSIGNMENT_OPEN_REQUIRES_REPLACEMENT",
     "JUDGE_ASSIGNMENT_COMPETITION_ONLY",
     "NIGHT_CLOSED",
+    "VOTING_WINDOW_NOT_CLOSED",
     "REVOCATION_REASON_REQUIRED",
     "INVALID_REPLACEMENT",
     "INVALID_STANDBY_PRIMARY",

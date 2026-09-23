@@ -30,6 +30,10 @@ export function createAuth({ sendOtp = createOtpDelivery() } = {}) {
     } },
     advanced: { ipAddress: { ipAddressHeaders: ["x-carnaval-client-ip"] } },
     database: getPool(),
+    // Keep a juror session available throughout the event; active app sessions
+    // are refreshed by the client and are explicitly ended when every assigned
+    // event night has closed.
+    session: { expiresIn: 60 * 60 * 24 * 365, updateAge: 10 * 60 },
     baseURL: requireEnvironment("BETTER_AUTH_URL"),
     secret: requireEnvironment("BETTER_AUTH_SECRET"),
     trustedOrigins: getTrustedOrigins(),

@@ -129,7 +129,23 @@ export async function createNight({ client = getPool(), eventId, name, displayOr
   );
   return rows[0];
 }
-export async function updateNight({ client = getPool(), nightId, name, displayOrder, kind, eventDate = null, status = null }) {
+export async function updateNight({ client = getPool(), actorUserId = null, nightId, name, displayOrder, kind, eventDate = null, status = null }) {
+  if (status === "CLOSED") {
+    const { rows: current } = await client.query(
+      `SELECT n.id, n.kind, e.status AS "eventStatus"
+         FROM night n JOIN carnival_event e ON e.id = n.event_id
+        WHERE n.id = $1`,
+      [requireText(nightId, "nightId")],
+    );
+    if (!current[0]) throw new Error("NIGHT_NOT_FOUND");
+    if (current[0].eventStatus === "OPEN" && current[0].kind === "COMPETITION") {
+      const { rows: windows } = await client.query(
+        "SELECT status FROM voting_window WHERE night_id = $1",
+        [nightId],
+      );
+      if (windows[0]?.status !== "CLOSED") throw new Error("VOTING_WINDOW_NOT_CLOSED");
+    }
+  }
   const { rows } = await client.query(
     `UPDATE night SET name = $2, display_order = $3, kind = $4, event_date = $5,
              status = COALESCE($6, status), updated_at = CURRENT_TIMESTAMP
@@ -138,5 +154,30 @@ export async function updateNight({ client = getPool(), nightId, name, displayOr
     [requireText(nightId, "nightId"), requireText(name, "name"), requirePositiveInteger(displayOrder, "displayOrder"), requireText(kind, "kind"), eventDate, status],
   );
   if (!rows[0]) throw new Error("NIGHT_NOT_FOUND");
+  if (rows[0].status === "CLOSED") {
+    const { rows: eventRows } = await client.query(
+      "SELECT id, name, status FROM carnival_event WHERE id = $1 FOR UPDATE",
+      [rows[0].eventId],
+    );
+    const { rows: completionRows } = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM night WHERE event_id = $1) AS "hasNights",
+              NOT EXISTS (SELECT 1 FROM night WHERE event_id = $1 AND status <> 'CLOSED') AS "allNightsClosed"`,
+      [rows[0].eventId],
+    );
+    if (eventRows[0]?.status === "OPEN" && completionRows[0]?.hasNights && completionRows[0]?.allNightsClosed) {
+      await client.query(
+        "UPDATE carnival_event SET status = 'CLOSED', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+        [eventRows[0].id],
+      );
+      await auditEvent(client, {
+        actorUserId,
+        action: "EVENT_CLOSED",
+        entityType: "carnival_event",
+        entityId: eventRows[0].id,
+        before: { status: "OPEN" },
+        after: { status: "CLOSED", reason: "ALL_NIGHTS_CLOSED" },
+      });
+    }
+  }
   return rows[0];
 }

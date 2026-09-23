@@ -106,7 +106,7 @@ async function saveScoreLocked(client, { ballot, actorUserId, ballotId, scoreId,
   // RF-193: Precedencia estricta por orden de pasada (Spec 025)
   if (scores[0].nightScheduleId) {
     const { rows: currentSched } = await client.query(
-      `SELECT presentation_order AS "presentationOrder" FROM night_troupe_schedule WHERE id = $1`,
+      `SELECT presentation_order AS "presentationOrder" FROM night_troupe_schedule WHERE id = $1 FOR SHARE`,
       [scores[0].nightScheduleId],
     );
     const order = currentSched[0]?.presentationOrder;
@@ -613,6 +613,9 @@ export async function getBallot({ ballotId, userId }) {
     `SELECT bs.id, bs.evaluation_item_id AS "evaluationItemId",
             ei.name AS "itemName", ei.code AS "itemCode",
             r.name AS "rubricName", r.code AS "rubricCode",
+            r.evaluation_target AS "evaluationTarget",
+            r.evaluation_objective AS "evaluationObjective",
+            r.expected_subject_type AS "expectedSubjectType",
              bs.rubric_id AS "rubricId", bs.night_schedule_id AS "nightScheduleId",
              nts.presentation_order AS "presentationOrder",
              et.name AS "troupeName",
@@ -653,6 +656,9 @@ export async function getBallot({ ballotId, userId }) {
       itemCode: s.itemCode,
       rubricName: s.rubricName,
       rubricCode: s.rubricCode,
+      evaluationTarget: s.evaluationTarget,
+      evaluationObjective: s.evaluationObjective,
+      expectedSubjectType: s.expectedSubjectType,
       rubricId: s.rubricId,
        nightScheduleId: s.nightScheduleId,
        presentationOrder: s.presentationOrder,

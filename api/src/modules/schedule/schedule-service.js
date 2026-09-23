@@ -62,9 +62,7 @@ function uuid(value, name) {
   return value.toLowerCase();
 }
 
-// Spec 017 T09c (RF-153..RF-155, RF-157): reorden total de la jornada por lista
-// ordenada. En CONFIGURING mantiene las reglas vigentes (motivo opcional). En
-// OPEN exige motivo obligatorio (422) y cero ballots en la jornada (409).
+// En OPEN exige motivo y conserva fijo el prefijo que ya tiene votos registrados.
 export async function reorderEventSchedule({ client = null, eventId, nightId, orderedIds, reason = null, actorUserId = null }) {
   if (!client) {
     return inTransaction((client) => reorderEventSchedule({ client, eventId, nightId, orderedIds, reason, actorUserId }));
@@ -91,11 +89,6 @@ export async function reorderEventSchedule({ client = null, eventId, nightId, or
       throw error;
     }
     reason = motive;
-    const { rows: [{ n }] } = await client.query(
-      "SELECT COUNT(*)::int AS n FROM ballot WHERE event_id=$1 AND night_id=$2",
-      [eventId, nightId],
-    );
-    if (n > 0) throw new Error("NIGHT_VOTING_STARTED");
   } else if (typeof reason === "string" && reason.trim()) {
     reason = reason.trim();
   } else {
@@ -110,6 +103,30 @@ export async function reorderEventSchedule({ client = null, eventId, nightId, or
   const currentIds = current.map((row) => row.id);
   if (currentIds.length !== ids.length || !currentIds.every((id) => ids.includes(id))) {
     throw new Error("ORDER_CONFLICT");
+  }
+
+  if (status === "OPEN") {
+    const { rows: progress } = await client.query(
+      `SELECT s.id, s.presentation_order AS "presentationOrder",
+              COUNT(bs.id)::INTEGER AS "totalScores",
+              (COUNT(bs.id) FILTER (WHERE bs.evaluation_state <> 'PENDING'))::INTEGER AS "resolvedScores"
+         FROM night_troupe_schedule s
+         LEFT JOIN ballot b ON b.event_id = s.event_id AND b.night_id = s.night_id AND b.status <> 'REPLACED'
+         LEFT JOIN ballot_score bs ON bs.ballot_id = b.id AND bs.night_schedule_id = s.id
+        WHERE s.event_id = $1 AND s.night_id = $2
+        GROUP BY s.id, s.presentation_order
+        ORDER BY s.presentation_order`,
+      [eventId, nightId],
+    );
+    const lastResolved = progress.reduce(
+      (lastStarted, row, index) => Number(row.resolvedScores) > 0 ? index + 1 : lastStarted,
+      0,
+    );
+    const firstInRunway = progress.findIndex((row) => Number(row.totalScores) > Number(row.resolvedScores));
+    const frozenThrough = Math.max(lastResolved, firstInRunway + 1);
+    if (!currentIds.slice(0, frozenThrough).every((id, index) => ids[index] === id)) {
+      throw new Error("NIGHT_REORDER_STARTED_TROUPES");
+    }
   }
 
   const before = currentIds.map((id, index) => ({ id, presentationOrder: index + 1 }));
