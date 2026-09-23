@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, it, expect } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import { RequireAnyRole } from "../auth/RequireAnyRole.jsx";
 import { getDefaultRouteForRoles, ROLE_DEFAULT_ROUTES } from "../auth/role-routes.js";
 
 describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
+  afterEach(() => { cleanup(); });
   it("muestra 'Cargando sesión…' si session.status es loading", () => {
     render(
       <RequireAnyRole session={{ status: "loading" }} allowedRoles={["ADMIN"]}>
@@ -21,6 +22,29 @@ describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
       </RequireAnyRole>
     );
     expect(screen.getByText(/Iniciá sesión para continuar/)).toBeInTheDocument();
+    expect(screen.queryByText("Contenido protegido")).toBeNull();
+  });
+
+  it("muestra aviso de sesión expirada con link a login si anonymous + sessionExpired", () => {
+    render(
+      <RequireAnyRole session={{ status: "anonymous", sessionExpired: true }} allowedRoles={["JUDGE"]}>
+        <p>Contenido protegido</p>
+      </RequireAnyRole>
+    );
+    expect(screen.getByText(/Tu sesión ha expirado/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ir al inicio de sesión/ })).toHaveAttribute("href", "#/login?reason=session-expired");
+    expect(screen.queryByText("Contenido protegido")).toBeNull();
+  });
+
+  it("ofrece reintentar y link a login si no se pudo verificar la sesión", () => {
+    render(
+      <RequireAnyRole session={{ status: "error", refresh: () => {} }} allowedRoles={["JUDGE"]}>
+        <p>Contenido protegido</p>
+      </RequireAnyRole>
+    );
+    expect(screen.getByText(/No se pudo verificar la sesión/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reintentar/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ir al inicio de sesión/ })).toBeInTheDocument();
     expect(screen.queryByText("Contenido protegido")).toBeNull();
   });
 

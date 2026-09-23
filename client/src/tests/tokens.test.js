@@ -238,6 +238,17 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(block).not.toContain("#fde68a");
   });
 
+  it("mantiene los estilos vivos del resumen lateral en index.css (judge.css no se carga)", () => {
+    const index = readFileSync(resolve(__dirname, "../index.css"), "utf8");
+    // El resumen colapsable debe estar estilado donde sí se carga la app.
+    expect(index).toContain(".ballot-summary-toggle {");
+    expect(index).toContain(".ballot-summary-chevron {");
+    expect(index).toContain(".ballot-summary-status.is-scored {");
+    // Filas táctiles holgadas sin romper el piso de 48px.
+    const summaryItem = index.match(/\.ballot-summary-item\s*\{([^{}]*)\}/)?.[1] ?? "";
+    expect(summaryItem).toMatch(/min-block-size:\s*56px;/);
+  });
+
   it("declara compensación de scroll en .judge-ballot-page para la barra inferior flotante", () => {
     const index = readFileSync(resolve(__dirname, "../index.css"), "utf8");
     const pageBlock = index.match(/\.judge-ballot-page\s*\{([^{}]*)\}/)?.[1] ?? "";

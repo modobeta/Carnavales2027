@@ -7,6 +7,7 @@ import { Button } from "../components/Button.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
 
 function groupScores(scores) {
   return scores.reduce((groups, score) => {
@@ -51,7 +52,17 @@ function getPendingItems(scores, details) {
 
 export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const eventContext = useAdminEvent();
+  const session = useSession();
   const syncedBallotRef = useRef(null);
+  // Si la sesión venció a mitad de la votación, volver al login con aviso y
+  // retomar aquí tras re-autenticar (los votos confirmados están en servidor).
+  const redirectOnSessionEnded = (error) => {
+    if (!isSessionEndedError(error)) return false;
+    session.clear?.({ sessionExpired: true });
+    const troupePart = selectedTroupeId ? `&troupeId=${encodeURIComponent(selectedTroupeId)}` : "";
+    redirectToLoginExpired(`#/judge/ballot?ballotId=${ballotId}${troupePart}`);
+    return true;
+  };
   const [ballot, setBallot] = useState(null);
   const [selectedTroupeId, setSelectedTroupeId] = useState(initialTroupeId || "");
   const [message, setMessage] = useState("");
@@ -64,11 +75,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [incompleteDialog, setIncompleteDialog] = useState(null);
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [continuityPrompt, setContinuityPrompt] = useState(null); // { completedTroupeName, nextTroupeName, nextNightScheduleId }
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   const cardSectionRef = useRef(null);
   const submitButtonRef = useRef(null);
   const mountedRef = useRef(true);
   const lastTroupeRef = useRef(null);
+  const readonlyGroupRefs = useRef(new Map());
 
   useEffect(() => {
     if (!eventContext || !ballot || ballot.id !== ballotId || syncedBallotRef.current === ballot.id) return;
@@ -97,6 +110,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       setBallot(loaded);
     } catch (error) {
       if (!mountedRef.current) return;
+      if (redirectOnSessionEnded(error)) return;
       const messages = {
         BALLOT_ACCESS_DENIED: "No tenés acceso a esta planilla.",
         BALLOT_NOT_FOUND: "La planilla no existe.",
@@ -115,14 +129,68 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     // ballot tras confirmar un voto (evita volver a la primera tarjeta en modo card).
     if (lastTroupeRef.current === selectedTroupeId) return;
     lastTroupeRef.current = selectedTroupeId;
-    const firstScoreIdx = ballot.scores.findIndex((s) => s.nightScheduleId === selectedTroupeId);
-    if (firstScoreIdx !== -1) {
-      setActiveItemIndex(firstScoreIdx);
+    // Entrar directo al primer ítem PENDIENTE de la comparsa elegida, no al
+    // primero histórico (evita recorrer notas ya confirmadas/inmutables).
+    const troupeKey = String(selectedTroupeId);
+    const troupeIndices = ballot.scores
+      .map((s, idx) => ({ s, idx }))
+      .filter(({ s }) => String(s.nightScheduleId) === troupeKey)
+      .map(({ idx }) => idx);
+    const firstPendingIdx = troupeIndices.find((idx) => ballot.scores[idx]?.evaluationState === "PENDING");
+    const targetIdx = firstPendingIdx ?? troupeIndices[0];
+    if (targetIdx !== undefined && targetIdx !== -1) {
+      setActiveItemIndex(targetIdx);
     }
     requestAnimationFrame(() => {
       cardSectionRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }, [ballot, selectedTroupeId]);
+
+  // En planilla confirmada: posicionar la vista en la sección de la comparsa
+  // seleccionada con "Ver planilla" (scroll + resaltado, manteniendo todas visibles).
+  useEffect(() => {
+    if (!ballot || ballot.status !== "SUBMITTED" || !selectedTroupeId) return;
+    const key = String(selectedTroupeId);
+    const t = setTimeout(() => {
+      readonlyGroupRefs.current.get(key)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [ballot, selectedTroupeId]);
+
+  // Tarjetas de comparsa desplegables: por defecto solo la seleccionada
+  // (o la primera) abierta para reducir ruido; el resto colapsado.
+  const [expandedGroups, setExpandedGroups] = useState(null);
+  const defaultExpandedGroups = (list, selected) => new Set(
+    list
+      .filter((g, i) => (selected ? String(g.nightScheduleId) === String(selected.nightScheduleId) : i === 0))
+      .map((g) => String(g.nightScheduleId))
+  );
+  const isGroupOpen = (group, isSelected, isFirst) => {
+    if (expandedGroups !== null) return expandedGroups.has(String(group.nightScheduleId));
+    if (targetGroup) return isSelected;
+    return isFirst;
+  };
+  const toggleReadonlyGroup = (group) => {
+    const key = String(group.nightScheduleId);
+    setExpandedGroups((prev) => {
+      const base = prev ?? defaultExpandedGroups(groups, targetGroup);
+      const next = new Set(base);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  const goToReadonlyGroup = (group) => {
+    const key = String(group.nightScheduleId);
+    setExpandedGroups((prev) => {
+      const next = new Set(prev ?? defaultExpandedGroups(groups, targetGroup));
+      next.add(key);
+      return next;
+    });
+    setTimeout(() => {
+      readonlyGroupRefs.current.get(key)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
 
   const readonly = ballot?.status === "SUBMITTED";
   const groups = ballot ? Object.values(groupScores(ballot.scores)).sort((left, right) => left.presentationOrder - right.presentationOrder) : [];
@@ -186,6 +254,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       }
     } catch (error) {
       if (!mountedRef.current) return;
+      if (redirectOnSessionEnded(error)) return;
       const errorMsg = error.code === "NETWORK_ERROR"
         ? "No hay conexión. Volvé a intentarlo para registrar la decisión."
         : "El servidor no pudo registrar la decisión.";
@@ -236,6 +305,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       setMessage("Planilla confirmada en el servidor.");
     } catch (error) {
       if (!mountedRef.current) return;
+      if (redirectOnSessionEnded(error)) {
+        if (mountedRef.current) setIsSubmitting(false);
+        return;
+      }
       if (error.code === "BALLOT_INCOMPLETE") {
         setIncompleteDialog(getPendingItems(ballot.scores, error.details));
       } else {
@@ -380,14 +453,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       return (
         <div className="score-resolved-compact">
           <div
-            className={`locked-score ${isNotPresented ? "not-presented" : ""}`}
+            className={`locked-score ${isNotPresented ? "not-presented" : "is-sealed"}`}
             aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "No se presentó" : `puntuado ${scoreItem.score}`}`}
           >
             <span aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
             <div>
-              <strong>
-                {isNotPresented ? "No se presentó" : `${scoreItem.score} puntos`}
-              </strong>
+              {isNotPresented ? (
+                <strong>No se presentó</strong>
+              ) : (
+                <strong className="sealed-score">
+                  <span className="sealed-score-value" aria-hidden="true">{scoreItem.score}</span>
+                  <span className="sealed-score-caption">puntos</span>
+                </strong>
+              )}
               <small>Decisión registrada</small>
             </div>
           </div>
@@ -431,7 +509,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               itemName: scoreItem.itemName,
             })}
           >
-            No se presentó
+            <span aria-hidden="true">⚠</span> No se presentó
           </button>
         </div>
 
@@ -457,7 +535,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
   return (
     <PageShell layer="instrument" className="judge-ballot-page judge-operation-shell">
-      <div className="ballot-layout">
+      <div className={`ballot-layout${readonly ? " is-readonly" : ""}`}>
         {!readonly && (
         <aside className="ballot-context-rail" aria-label="Contexto de la planilla">
           <nav className="ballot-troupe-navigation" aria-label="Comparsas">
@@ -466,7 +544,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 const isGroupLocked = Boolean(!readonly && activeGroup && group.presentationOrder > activeGroup.presentationOrder);
                 const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
                 const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
-                const isCurrentGroup = Boolean(activeScore && group.nightScheduleId === activeScore.nightScheduleId);
+                // Resaltada = comparsa que se está votando actualmente (primer grupo
+                // con pendientes), no la última ya votada que se esté consultando.
+                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
+                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
                 return (
                   <li key={group.nightScheduleId}>
                     <button
@@ -478,8 +559,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       title={isGroupLocked ? "En espera de pasada" : undefined}
                       onClick={() => {
                         if (isGroupLocked) return;
-                        const firstScore = Object.values(group.rubrics)[0]?.scores[0];
-                        if (firstScore) goToScore(firstScore.id);
+                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
+                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
+                        if (firstPending) goToScore(firstPending.id);
                       }}
                     >
                       {group.brandColor && (
@@ -507,33 +589,53 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
             );
             const troupeDone = troupeItems.filter((item) => item.evaluationState !== "PENDING").length;
+            const troupePct = troupeItems.length ? Math.round((troupeDone / troupeItems.length) * 100) : 0;
             return (
-              <section className="ballot-summary" aria-label="Resumen de la comparsa">
-                <h2 className="judge-section-title">Resumen</h2>
+              <section className={`ballot-summary${summaryOpen ? " is-open" : " is-collapsed"}`} aria-label="Resumen de la comparsa">
+                <button
+                  type="button"
+                  className="ballot-summary-toggle"
+                  aria-expanded={summaryOpen}
+                  aria-label={summaryOpen ? "Ocultar resumen de la comparsa" : "Ampliar resumen de la comparsa"}
+                  onClick={() => setSummaryOpen((prev) => !prev)}
+                >
+                  <span className="ballot-summary-heading">
+                    <span className="judge-section-title">Resumen</span>
+                    <span className="ballot-summary-chevron" aria-hidden="true" />
+                    <span className="ballot-summary-count" aria-hidden="true">{troupeDone}/{troupeItems.length}</span>
+                  </span>
+                  <span className="ballot-summary-progress" aria-hidden="true">
+                    <span style={{ inlineSize: `${troupePct}%` }} />
+                  </span>
+                </button>
                 <p className="eyebrow">{currentGroup.troupeName}</p>
-                <ul className="judge-list">
-                  {troupeItems.map((item) => {
-                    const isResolved = item.evaluationState !== "PENDING";
-                    const isNotPresented = item.evaluationState === "NOT_PRESENTED";
-                    const isActive = item.id === activeScore.id;
-                    return (
-                      <li key={item.id}>
-                        <button
-                          type="button"
-                          className={`ballot-summary-item${isActive ? " is-active" : ""}`}
-                          aria-current={isActive ? "true" : undefined}
-                          aria-label={`Ir al ítem ${item.itemName}`}
-                          onClick={() => goToScore(item.id)}
-                        >
-                          <span aria-hidden="true">{isNotPresented ? "⊘" : isResolved ? "✓" : "○"}</span>
-                          <span className="ballot-summary-name">{item.itemName}</span>
-                          <span className="ballot-summary-value">{isNotPresented ? "NP" : isResolved ? item.score : "—"}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p className="judge-note">{troupeDone} / {troupeItems.length} completos</p>
+                {summaryOpen && (
+                  <div className="ballot-summary-body">
+                    <ul className="judge-list">
+                      {troupeItems.map((item) => {
+                        const isResolved = item.evaluationState !== "PENDING";
+                        const isNotPresented = item.evaluationState === "NOT_PRESENTED";
+                        const isActive = item.id === activeScore.id;
+                        const statusClass = isNotPresented ? "is-np" : isResolved ? "is-scored" : "is-pending";
+                        return (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              className={`ballot-summary-item${isActive ? " is-active" : ""}`}
+                              aria-current={isActive ? "true" : undefined}
+                              aria-label={`Ir al ítem ${item.itemName}`}
+                              onClick={() => goToScore(item.id)}
+                            >
+                              <span className={`ballot-summary-status ${statusClass}`} aria-hidden="true">{isNotPresented ? "⊘" : isResolved ? "✓" : "○"}</span>
+                              <span className="ballot-summary-name">{item.itemName}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="judge-note">{troupeDone} / {troupeItems.length} completos · {troupePct}%</p>
+                  </div>
+                )}
               </section>
             );
           })()}
@@ -545,8 +647,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <div>
               <a className="back-link" href="#/judge">← Mis comparsas</a>
               <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>
-              <h1>{activeScore ? activeScore.troupeName : ballot.nightName}</h1>
-              {activeScore && <p>Salida {activeScore.presentationOrder}</p>}
+              <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+              {readonly && targetGroup
+                ? <p>Salida {targetGroup.presentationOrder} · Planilla con {groups.length} comparsas</p>
+                : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
             </div>
             <div className="ballot-header-status">
               <StatusPill status={ballot.status} />
@@ -557,14 +661,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <ProgressBar
               value={troupeResolved}
               max={troupeScores.length}
-              label={`Comparsa: ${activeScore?.troupeName ?? "Sin comparsa"}`}
-              sublabel={`${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
+              label="Avance de la comparsa"
+              sublabel={`${activeScore?.troupeName ?? "Sin comparsa"} · ${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
             />
             <ProgressBar
               value={resolved}
               max={total}
-              label={`${resolved} de ${total} puntuaciones completadas`}
-              sublabel={`${progress}%`}
+              label="Avance de la planilla"
+              sublabel={`${resolved} de ${total} puntuaciones completadas · ${progress}%`}
             />
           </section>
 
@@ -591,11 +695,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     onClick={() => {
                       const nextId = continuityPrompt.nextNightScheduleId;
                       setContinuityPrompt(null);
+                      lastTroupeRef.current = null;
                       setSelectedTroupeId(nextId);
                       window.location.hash = `#/judge/ballot?ballotId=${ballotId}&troupeId=${encodeURIComponent(nextId)}`;
-                      const nextGrp = groups.find((g) => g.nightScheduleId === nextId);
-                      const firstScore = nextGrp ? Object.values(nextGrp.rubrics)[0]?.scores[0] : null;
-                      if (firstScore) goToScore(firstScore.id);
+                      const nextGrp = groups.find((g) => String(g.nightScheduleId) === String(nextId));
+                      const nextScores = nextGrp ? Object.values(nextGrp.rubrics).flatMap((r) => r.scores) : [];
+                      const firstPending = nextScores.find((s) => s.evaluationState === "PENDING") ?? nextScores[0];
+                      if (firstPending) goToScore(firstPending.id);
                     }}
                   >
                     Comenzar siguiente pasada ({continuityPrompt.nextTroupeName}) →
@@ -626,30 +732,93 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <div className="ballot-workspace">
             {readonly ? (
               <section className="ballot-readonly-summary" aria-label="Resumen de la planilla">
-                <p className="eyebrow">Planilla confirmada</p>
-                {groups.map((group) => {
+                <div className="readonly-hero">
+                  <span className="readonly-hero-icon" aria-hidden="true">✓</span>
+                  <div>
+                    <p className="eyebrow">Planilla confirmada · {groups.length} {groups.length === 1 ? "comparsa" : "comparsas"}</p>
+                    <p className="readonly-hero-total"><strong>{scoreTotal}</strong> puntos en total</p>
+                  </div>
+                </div>
+                {targetGroup && <p className="judge-note">Mostrando la sección de <strong>{targetGroup.troupeName}</strong> dentro de la planilla completa.</p>}
+                {groups.length > 1 && (
+                  <nav className="readonly-troupe-index" aria-label="Ir a una comparsa">
+                    {groups.map((group) => (
+                      <button
+                        key={group.nightScheduleId}
+                        type="button"
+                        className="readonly-troupe-chip"
+                        aria-label={`Ir a ${group.troupeName}`}
+                        onClick={() => goToReadonlyGroup(group)}
+                      >
+                        <span aria-hidden="true">{group.presentationOrder}</span> {group.troupeName}
+                      </button>
+                    ))}
+                  </nav>
+                )}
+                {groups.map((group, groupIndex) => {
                   const groupScores = Object.values(group.rubrics).flatMap((rubric) =>
                     rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
                   );
+                  const groupTotal = groupScores.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
+                  const isSelected = Boolean(targetGroup && String(group.nightScheduleId) === String(targetGroup.nightScheduleId));
+                  const isOpen = isGroupOpen(group, isSelected, groupIndex === 0);
                   return (
-                    <div key={group.nightScheduleId} className="readonly-group">
-                      <h2>{group.troupeName}</h2>
-                      <ul className="judge-list">
-                        {groupScores.map((score) => {
-                          const isNotPresented = score.evaluationState === "NOT_PRESENTED";
-                          return (
-                            <li key={score.id} className="judge-list-row">
-                              <span className="judge-list-check" aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
-                              <div className="judge-list-main">
-                                <h3>{score.itemName}</h3>
-                                <p>{score.rubricName}</p>
-                              </div>
-                              <span className="readonly-score-value">{isNotPresented ? "No se presentó" : `${score.score} pts`}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
+                    <article
+                      key={group.nightScheduleId}
+                      id={`readonly-group-${group.nightScheduleId}`}
+                      ref={(el) => {
+                        if (el) readonlyGroupRefs.current.set(String(group.nightScheduleId), el);
+                        else readonlyGroupRefs.current.delete(String(group.nightScheduleId));
+                      }}
+                      className={`readonly-group${isSelected ? " is-selected" : ""}${isOpen ? " is-open" : " is-collapsed"}`}
+                      aria-current={isSelected ? "true" : undefined}
+                    >
+                      {group.brandColor && (
+                        <div
+                          className="troupe-brand-stripe"
+                          style={{ backgroundColor: group.brandColor }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <header className="readonly-group-header">
+                        <span className="readonly-order-badge" aria-hidden="true">{group.presentationOrder}</span>
+                        <div className="readonly-group-titles">
+                          <h2>
+                            <button
+                              type="button"
+                              className="readonly-group-toggle"
+                              aria-expanded={isOpen}
+                              aria-label={isOpen ? `Ocultar votaciones de ${group.troupeName}` : `Ampliar votaciones de ${group.troupeName}`}
+                              onClick={() => toggleReadonlyGroup(group)}
+                            >
+                              <span>{group.troupeName}{isSelected ? " · Seleccionada" : ""}</span>
+                              <span className="readonly-group-chevron" aria-hidden="true" />
+                            </button>
+                          </h2>
+                          <p>{groupScores.length} {groupScores.length === 1 ? "ítem" : "ítems"}</p>
+                        </div>
+                        <span className="readonly-group-subtotal" aria-label={`Subtotal: ${groupTotal} puntos`}>{groupTotal} pts</span>
+                      </header>
+                      {isOpen && (
+                        <div className="readonly-group-body">
+                          <ul className="judge-list readonly-group-list">
+                            {groupScores.map((score) => {
+                              const isNotPresented = score.evaluationState === "NOT_PRESENTED";
+                              return (
+                                <li key={score.id} className={`judge-list-row${isNotPresented ? " is-np" : ""}`}>
+                                  <span className="judge-list-check" aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
+                                  <div className="judge-list-main">
+                                    <h3>{score.itemName}</h3>
+                                    <p>{score.rubricName}</p>
+                                  </div>
+                                  <span className="readonly-score-value">{isNotPresented ? "No se presentó" : `${score.score} pts`}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </article>
                   );
                 })}
                 <p className="judge-note">Resumen de solo lectura.</p>
@@ -710,15 +879,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         <span className="nav-counter" aria-live="polite">
                           Ítem {effectiveIndex + 1} de {total}
                         </span>
-                        <button
-                          type="button"
-                          className="nav-btn next-btn"
-                          disabled={effectiveIndex >= total - 1}
-                          onClick={() => setActiveItemIndex((prev) => Math.min(total - 1, prev + 1))}
-                          aria-label="Ítem siguiente"
-                        >
-                          Siguiente →
-                        </button>
+                        {/* Sin duplicar el avance: mientras el banner de continuidad ofrece
+                          "Comenzar siguiente pasada", el Siguiente genérico se oculta. */}
+                        {!continuityPrompt && (
+                          <button
+                            type="button"
+                            className="nav-btn next-btn"
+                            disabled={effectiveIndex >= total - 1}
+                            onClick={() => setActiveItemIndex((prev) => Math.min(total - 1, prev + 1))}
+                            aria-label="Ítem siguiente"
+                          >
+                            Siguiente →
+                          </button>
+                        )}
                       </div>
                       {!readonly && (
                         <button
@@ -741,11 +914,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <section className="review-ready-banner" aria-label="Lista para revisar">
               <div>
                 <strong>Lista para revisar</strong>
-                <p>{total} de {total} puntuaciones completas</p>
+                <p>{total} de {total} puntuaciones completas. Usá el botón Confirmar votación de abajo para el cierre definitivo.</p>
               </div>
-              <button type="button" className="button-link" onClick={beginSubmitReview}>
-                Revisar planilla
-              </button>
             </section>
           )}
 
@@ -753,7 +923,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <a className="secondary button-link" href="#/judge">← Comparsas</a>
             <span className="save-indicator" role="status" aria-live="polite">
               {message === "Decisión confirmada en el servidor." ? (
-                <><span aria-hidden="true">✓</span> Guardado</>
+                <><span aria-hidden="true">☁✓</span> Guardado</>
               ) : message?.includes("No hay conexión") ? (
                 <><span aria-hidden="true">⚠</span> Error de guardado — reintentá</>
               ) : null}
@@ -863,8 +1033,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <div className="score-dialog-content">
             <p><strong>{scoreConfirm.troupeName}</strong></p>
             <p>{scoreConfirm.rubricName} — {scoreConfirm.itemName}</p>
-            <p className="confirm-score-display">
-              Usted está por votar <strong>{scoreConfirm.score}</strong>. ¿Desea confirmar?
+            <p className="confirm-score-display is-solid">
+              Usted está por votar <strong className="confirm-score-value">{scoreConfirm.score}</strong>. ¿Desea confirmar?
             </p>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setScoreConfirm(null)}>
@@ -918,16 +1088,28 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         )}
       </Dialog>
 
-      {/* Final Submit Confirmation Modal */}
+      {/* Final Submit Confirmation Modal: cierra la PLANILLA completa, no una comparsa */}
       <Dialog
         isOpen={submitConfirm}
         onClose={() => setSubmitConfirm(false)}
-        title="Cierre definitivo"
+        title="Cierre definitivo de planilla"
         description="Una vez confirmada, esta planilla no podrá modificarse."
       >
         <div className="submit-dialog-content">
-          <p className="eyebrow">Confirmar votación</p>
-          <p>Estás por cerrar la votación de <strong>{ballot.nightName}</strong> para tu especialidad, incluidas todas sus comparsas.</p>
+          <p className="eyebrow">Confirmar votación · {ballot.specialtyName}</p>
+          <p>Estás por cerrar la planilla de <strong>{ballot.nightName}</strong> con las <strong>{groups.length} comparsas</strong> asignadas a tu especialidad. No se cierra una sola comparsa.</p>
+          <ul className="submit-dialog-troupes" aria-label="Comparsas incluidas en el cierre">
+            {groups.map((group) => {
+              const troupeTotal = Object.values(group.rubrics)
+                .flatMap((r) => r.scores)
+                .reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
+              return (
+                <li key={group.nightScheduleId}>
+                  {group.presentationOrder}. {group.troupeName} — {troupeTotal} puntos
+                </li>
+              );
+            })}
+          </ul>
           <p className="confirm-score-display">
             Total registrado: <strong>{scoreTotal} puntos</strong>
           </p>

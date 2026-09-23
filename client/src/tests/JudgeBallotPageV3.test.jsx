@@ -338,6 +338,23 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     expect(screen.getByText("Ítem 2 de 3")).toBeInTheDocument();
   });
 
+  it("el resumen lateral se puede ocultar y ampliar", async () => {
+    apiRequest.mockResolvedValue(ballotV3);
+    render(<JudgeBallotPage ballotId="ballot-v3" />);
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+
+    const summary = screen.getByRole("region", { name: "Resumen de la comparsa" });
+    expect(within(summary).getByRole("button", { name: "Ir al ítem Afinación" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar resumen de la comparsa" }));
+    expect(screen.getByRole("button", { name: "Ampliar resumen de la comparsa" })).toBeInTheDocument();
+    expect(within(summary).queryByRole("button", { name: "Ir al ítem Afinación" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar resumen de la comparsa" }));
+    expect(screen.getByRole("button", { name: "Ocultar resumen de la comparsa" })).toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: "Ir al ítem Afinación" })).toBeInTheDocument();
+  });
+
   it("muestra Lista para revisar con planilla completa y abre el cierre (Fase 3)", async () => {
     const complete = {
       ...ballotV3,
@@ -349,7 +366,10 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
 
     const banner = screen.getByRole("region", { name: "Lista para revisar" });
     expect(banner).toHaveTextContent("3 de 3 puntuaciones completas");
-    fireEvent.click(within(banner).getByRole("button", { name: "Revisar planilla" }));
-    expect(await screen.findByRole("dialog", { name: "Cierre definitivo" })).toBeInTheDocument();
+    // Sin duplicar el cierre: el banner es solo informativo, la única vía es
+    // el botón Confirmar votación del footer.
+    expect(within(banner).queryByRole("button")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    expect(await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" })).toBeInTheDocument();
   });
 });
