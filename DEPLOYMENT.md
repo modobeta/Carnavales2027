@@ -24,6 +24,49 @@ No configurar contraseñas de Gmail ni permisos para leer el buzón. No comparti
 
 Referencias: [envío MIME](https://developers.google.com/workspace/gmail/api/guides/sending), [OAuth y caducidad](https://developers.google.com/identity/protocols/oauth2), [límites de Gmail](https://support.google.com/mail/answer/22839?hl=es). Gmail personal puede bloquear envíos al superar 500 diarios; no es una capacidad reservada ni garantizada. Confirmar restricciones en la cuenta antes del piloto.
 
+## Registro operativo: Gmail OAuth / OTP — 23/09/2026
+
+**Estado: recuperación temporal aplicada; pendiente validar login + OTP de punta a punta y resolver publicación OAuth.**
+
+### Incidente y evidencia
+
+- Síntoma: al ingresar aparecía «No pudimos iniciar sesión. Intentá nuevamente.». Este mensaje corresponde a un fallo posterior al envío de credenciales, durante la habilitación de segundo factor o el envío de OTP; por sí solo no identifica la causa.
+- Google rechazó la credencial guardada del piloto con HTTP 400, `invalid_grant` y descripción de token expirado o revocado. La autorización anterior era del 16/09; el proyecto seguía en **Prueba (Testing)**, consistente con su caducidad de siete días. No se atribuye un motivo más preciso que el informado por Google.
+- `/health` respondió 200 durante el diagnóstico inicial. Esto no comprueba Gmail ni el flujo de autenticación.
+- Google rechazó el navegador automatizado; se utilizó el Chrome habitual del responsable, sin evadir controles de seguridad.
+
+### Recuperación realizada
+
+1. Se volvió a autorizar la cuenta remitente con el cliente OAuth existente y únicamente `gmail.send`, con acceso offline.
+2. Se intercambió el código con Google y se guardó el nuevo `refresh_token` en `api/.env.pilot` (ignorado por Git). No se publicaron credenciales.
+3. Se actualizó **solo `GMAIL_REFRESH_TOKEN`** en Render mediante combinación de variables, sin reemplazar las demás. No se cambió `BETTER_AUTH_SECRET`, contraseñas, base de datos ni segundo factor.
+4. Despliegue `dep-daq3gut9fdbs73fviodg`: **live**, sobre revisión remota `1718d2c0c767bee7f2e737c01aab6b97de646016`.
+5. Gmail aceptó un correo de prueba enviado con la credencial renovada. No equivale a recepción confirmada ni a una prueba completa de login desde Render. La consulta posterior a `/health` desde el equipo local falló por conexión/timeout; no se certificó disponibilidad con esa segunda comprobación.
+
+### Próxima renovación y solución duradera
+
+| Hito | Fecha / acción |
+| --- | --- |
+| Última autorización | 23/09/2026 |
+| Vencimiento esperado mientras siga en Testing | Alrededor del **30/09/2026**, siete días desde la emisión; puede invalidarse antes por revocación u otras causas |
+| Revisión preventiva sugerida | **29/09/2026**, antes del vencimiento y de cualquier jornada de uso |
+| Responsable operativo | Administrador del proyecto Google Cloud y del servicio Render |
+| Recordatorio automático | **No configurado**; estas fechas son registro documental, no una tarea programada |
+
+La aplicación renueva automáticamente el **access token** mientras el **refresh token** sea válido. No puede renovar por sí sola una autorización expirada o revocada: hay que repetir el consentimiento de la cuenta remitente y actualizar Render. Los jueces no deben renovar nada ni cambiar sus contraseñas.
+
+Para evitar la caducidad semanal específica de Testing, completar los requisitos de Google Auth Platform y pasar a **In production**, luego volver a autorizar y reemplazar el refresh token. El 23/09, «Publicar app» estaba deshabilitado por información de marca incompleta; los campos de página principal y política de privacidad estaban vacíos. Publicar una política real, acorde al tratamiento de datos, y atender los requisitos de dominio/verificación que Google solicite. No inventar enlaces ni asumir que cambiar el estado verifica automáticamente la app. Los tokens en producción también pueden ser revocados o invalidarse por otras causas.
+
+### Procedimiento ante una nueva caducidad
+
+1. Revisar el fallo del envío OTP y validar la credencial contra Google sin imprimir tokens, códigos ni respuestas sensibles. No asumir que cualquier error de login es caducidad OAuth.
+2. Reautorizar **solo la cuenta remitente** siguiendo la sección Gmail API anterior, con credenciales del cliente propio en OAuth Playground, alcance `gmail.send` y acceso offline.
+3. Guardar el nuevo refresh token privadamente; actualizar `GMAIL_REFRESH_TOKEN` en Render conservando el resto de variables. No pegarlo en tickets, documentación o chats.
+4. Aplicar la configuración mediante el despliegue/reinicio correspondiente, evitando operaciones activas. Verificar estado `live`, pedir un OTP propio desde la URL pública, comprobar recepción y completar el login. No reenviar códigos en bucle ni desactivar 2FA para sortear el fallo.
+5. Registrar fecha, estado OAuth, despliegue y resultado de la prueba. Si sigue Testing, calcular nuevamente la revisión preventiva y caducidad estimada desde la nueva emisión.
+
+Fuente: [Google OAuth — caducidad de refresh tokens](https://developers.google.com/identity/protocols/oauth2#expiration).
+
 ## Backup y restauración en destino vacío
 
 Detener escrituras locales antes del backup final. Conservar la base local y el dump.
