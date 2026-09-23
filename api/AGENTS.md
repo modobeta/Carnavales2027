@@ -133,10 +133,10 @@ El login debe contemplar el mecanismo 2FA definido por el proyecto.
 El login operativo actual valida:
 
 ```text
-nombre + email + DNI
+email + contraseña
 ```
 
-El DNI actúa como credencial operativa del usuario; no introducir una contraseña separada sin actualizar primero la documentación funcional y de seguridad.
+El email es el identificador de acceso. La contraseña debe cumplir la política de registro y el acceso se completa mediante el segundo factor habilitado para la cuenta.
 
 Los códigos temporales:
 
@@ -181,9 +181,9 @@ jurado
 
 # 7. Selección de noche
 
-La noche puede ser seleccionada por el jurado desde el catálogo creado por Administración.
+La noche y especialidad pueden ser seleccionadas por el jurado entre sus asignaciones activas creadas por Administración en Competencia.
 
-Resolver la autorización crítica validando en servidor que la noche exista y que la comparsa activa pertenezca a esa noche. El Administrador no asigna jurados como parte del flujo operativo actual.
+Resolver la autorización crítica validando en servidor que la asignación esté activa, que la noche exista y que la comparsa activa pertenezca a esa noche. Mientras el evento esté abierto, Administración puede revocar o reemplazar asignaciones sin modificar planillas confirmadas.
 
 ---
 
