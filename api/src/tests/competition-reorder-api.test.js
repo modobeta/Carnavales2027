@@ -48,8 +48,12 @@ async function fixture() {
     await client.query("BEGIN");
     const { rows: [event] } = await client.query("INSERT INTO carnival_event(name) VALUES('Reorder') RETURNING id");
     const { rows: [category] } = await client.query("INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'C','C',1) RETURNING id", [event.id]);
-    await client.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'T')", [event.id, category.id]);
-    await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'N',1,'COMPETITION')", [event.id]);
+    const { rows: [troupe] } = await client.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'T') RETURNING id", [event.id, category.id]);
+    const { rows: [night] } = await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'N',1,'COMPETITION') RETURNING id", [event.id]);
+    await client.query(
+      "INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)",
+      [event.id, night.id, troupe.id],
+    );
     const { rows: [specialty] } = await client.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'S','S',1) RETURNING id", [event.id]);
     const { rows: [rubric] } = await client.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'R','R','TROUPE') RETURNING id", [event.id]);
     const items = [];

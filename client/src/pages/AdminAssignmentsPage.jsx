@@ -16,7 +16,7 @@ const typeLabels = { PRIMARY: "Titular", SUBSTITUTE: "Suplente" };
  * (revocar/reemplazar/activar) viven en [Acciones ▾] + dialog con motivo.
  * Contratos API y reglas intactos.
  */
-export function AdminAssignmentsPage() {
+export function AdminAssignmentsPage({ initialEventId = "" }) {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
   const [judges, setJudges] = useState([]);
@@ -69,6 +69,17 @@ export function AdminAssignmentsPage() {
       .catch(() => setMessage("No se pudieron cargar eventos y jurados."));
   }, [Boolean(adminEvent)]);
 
+  useEffect(() => {
+    if (!initialEventId) return;
+    if (!adminEvent) {
+      setLocalEventId(initialEventId);
+      return;
+    }
+    if (adminEvent.events.some((event) => event.id === initialEventId)) {
+      adminEvent.setActiveEventId(initialEventId);
+    }
+  }, [initialEventId, adminEvent?.events, adminEvent?.setActiveEventId]);
+
   useEffect(() => { void refresh(); }, [eventId]);
 
   useEffect(() => {
@@ -81,8 +92,8 @@ export function AdminAssignmentsPage() {
     setBusy(key);
     setMessage("");
     try {
-      await operation();
-      setMessage(success);
+      const result = await operation();
+      setMessage(typeof success === "function" ? success(result) : success);
       await refresh();
     } catch (error) {
       const messages = {
@@ -91,7 +102,7 @@ export function AdminAssignmentsPage() {
         EVENT_LOCKED: "El evento ya no permite modificar esa configuración.",
         NIGHT_CLOSED: "La noche ya está cerrada.",
         JUDGE_NOT_ASSIGNABLE: "El jurado no está registrado o está suspendido.",
-        PRIMARY_BALLOT_SUBMITTED: "El titular ya presentó su planilla y no puede ser reemplazado.",
+        PRIMARY_BALLOT_SUBMITTED: "El titular ya presentó su planilla; no se puede revocar ni reemplazar esta asignación.",
         STANDBY_NOT_FOUND: "Esta asignación no tiene un suplente activo vinculado.",
       };
       setMessage(messages[error.code] ?? "No se pudo completar la operación.");
@@ -111,6 +122,7 @@ export function AdminAssignmentsPage() {
   const activeFor = (night, specialty) => (data.assignments ?? []).filter(
       (assignment) => assignment.status === "ACTIVE" && sameNight(assignment, night) && sameSpecialty(assignment, specialty),
     );
+  const selectedNight = nights.find((night) => night.id === nightId);
 
   const inactiveForNight = (data.assignments ?? []).filter(
     (assignment) => assignment.status !== "ACTIVE" && (nightId === "" || (selectedNight ? sameNight(assignment, selectedNight) : assignment.nightId === nightId)),
@@ -130,6 +142,7 @@ export function AdminAssignmentsPage() {
 
   const submitQuota = async (formEvent) => {
     formEvent.preventDefault();
+    if (!quotaTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const target = quotaTarget;
     closeDialogs();
@@ -140,6 +153,7 @@ export function AdminAssignmentsPage() {
   };
 
   const submitAssignment = async ({ judgeProfileId, assignmentType, standbyForAssignmentId }) => {
+    if (!assignTarget) return;
     const target = assignTarget;
     closeDialogs();
     await action("assignment", () => apiRequest(`/api/v1/events/${eventId}/judge-assignments`, {
@@ -149,11 +163,14 @@ export function AdminAssignmentsPage() {
         judgeProfileId, assignmentType,
         standbyForAssignmentId,
       }),
-    }), "Asignación creada.");
+    }), (result) => result?.ballotsCreated > 0
+      ? "Asignación creada; la planilla del jurado ya está disponible."
+      : "Asignación creada.");
   };
 
   const submitAction = async (formEvent) => {
     formEvent.preventDefault();
+    if (!actionTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const { assignment, action: actionName } = actionTarget;
     const reason = values.get("reason");
@@ -166,7 +183,9 @@ export function AdminAssignmentsPage() {
       await action(`replace-${assignment.id}`, () => apiRequest(`/api/v1/judge-assignments/${assignment.id}/replace`, {
         method: "POST",
         body: JSON.stringify({ replacementJudgeProfileId: values.get("replacementJudgeProfileId"), assignmentType: "PRIMARY", reason }),
-      }), "Asignación reemplazada.");
+      }), (result) => result?.ballotsCreated > 0
+        ? "Asignación reemplazada; la planilla del nuevo jurado ya está disponible."
+        : "Asignación reemplazada.");
     } else if (actionName === "activate") {
       await action(`activate-${assignment.id}`, () => apiRequest(`/api/v1/judge-assignments/${assignment.id}/activate-substitute`, {
         method: "POST", body: JSON.stringify({ reason }),
@@ -174,7 +193,6 @@ export function AdminAssignmentsPage() {
     }
   };
 
-  const selectedNight = nights.find((night) => night.id === nightId);
   const assignNight = assignTarget ? nights.find((night) => night.id === assignTarget.nightId) : null;
   const assignSpecialty = assignTarget ? specialties.find((specialty) => specialty.id === assignTarget.specialtyId) : null;
   const quotaNight = quotaTarget ? nights.find((night) => night.id === quotaTarget.nightId) : null;
@@ -185,15 +203,23 @@ export function AdminAssignmentsPage() {
   return (
     <PageShell layer="instrument" className="admin-shell assignment-page">
       <PageHeader
-        eyebrow="Operación de jurados"
-        title="Asignaciones"
-          actions={!adminEvent ? <label className="event-picker">Evento<select value={eventId} onChange={(event) => { setLocalEventId(event.target.value); setNightId(""); }}>
+        eyebrow="Competencia"
+        title="Asignar jurados"
+        actions={<>
+          {eventId && <a className="button-link secondary" href="#/admin/competencia">Volver a Competencia</a>}
+          {!adminEvent && <label className="event-picker">Evento<select value={eventId} onChange={(event) => { setLocalEventId(event.target.value); setNightId(""); }}>
             <option value="">Seleccionar evento</option>
             {events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
-          </select></label> : null}
+          </select></label>}
+        </>}
       />
       <p className="feedback" role="status" aria-live="polite">{message}</p>
       {eventId && <>
+        {selectedEvent?.status === "OPEN" && (
+          <p className="feedback" role="status">
+            Competencia en curso: podés asignar, reemplazar o revocar jurados de jornadas abiertas. Los cupos quedan bloqueados.
+          </p>
+        )}
         <div className="night-tabs" role="group" aria-label="Jornada">
           {availableNights.map((night) => (
             <button
@@ -221,7 +247,7 @@ export function AdminAssignmentsPage() {
                 <div className="event-actions">
                   {!quota && <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Configurar cupo</button>}
                   {quota && <button className="secondary" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
-                  <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
+                  <button type="button" disabled={Boolean(busy) || (selectedEvent?.status !== "CONFIGURING" && selectedEvent?.status !== "OPEN")} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
                 </div>
               </div>
               {slots.length === 0 ? (

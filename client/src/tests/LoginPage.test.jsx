@@ -180,6 +180,35 @@ describe("LoginPage", () => {
     expect(meCalls).toBe(3);
   });
 
+  it("muestra aviso de sesión expirada cuando vuelve con reason=session-expired", async () => {
+    window.location.hash = "#/login?reason=session-expired";
+    apiRequest.mockRejectedValue({ code: "UNAUTHENTICATED" });
+    render(<SessionProvider><LoginPage /></SessionProvider>);
+    expect(await screen.findByText(/Tu sesión ya no está activa/)).toBeInTheDocument();
+  });
+
+  it("retoma la planilla del jurado tras re-login cuando hay returnTo", async () => {
+    window.location.hash = "#/login?reason=session-expired&returnTo=%23%2Fjudge%2Fballot%3FballotId%3Db1";
+    let meCalls = 0;
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/me") {
+        meCalls += 1;
+        return meCalls === 1
+          ? Promise.reject({ code: "UNAUTHENTICATED" })
+          : Promise.resolve({ user: { id: "u1", name: "Jurado" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } });
+      }
+      return Promise.resolve({});
+    });
+    render(<SessionProvider><LoginPage /></SessionProvider>);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "judge@example.test" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "JudgePassword-2026!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    await screen.findByLabelText("Código de verificación");
+    fillOtp("123456");
+    fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
+    await waitFor(() => expect(window.location.hash).toBe("#/judge/ballot?ballotId=b1"));
+  });
+
   it("alterna la visibilidad de la contraseña al pulsar el botón con icono", () => {
     render(<LoginPage />);
     const passwordInput = screen.getByLabelText("Contraseña");

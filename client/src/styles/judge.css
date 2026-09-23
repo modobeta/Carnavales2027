@@ -810,6 +810,11 @@ button.button-link:disabled {
   color: var(--accent-light);
 }
 
+/* NOTA: styles/judge.css no está importado por index.css ni main.jsx, por lo que
+   no se carga en la app. Las reglas vivas del resumen lateral, planilla
+   confirmada y cierre viven en index.css. No agregar aquí reglas que deban
+   aplicarse en producción sin importar antes este archivo. */
+
 .readonly-notice > span {
   font-size: 1.3rem;
   flex-shrink: 0;

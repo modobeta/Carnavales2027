@@ -29,7 +29,7 @@ El servicio se creó directamente por Render MCP, **no como Blueprint vinculado*
 
 Hay instrucciones históricas que no coinciden con esta implementación:
 
-- Las reglas históricas indican notas **0–5** y selección de noche sin asignaciones. El código actual usa asignaciones/planillas; `ballot-service.js` acepta `SCORED` **1–10**, `NOT_PRESENTED` con 0 y `PENDING` sin nota.
+- La escala vigente para esta versión es **1–10**; `ballot-service.js` acepta `SCORED` **1–10**, `NOT_PRESENTED` con 0 y `PENDING` sin nota. Las asignaciones administrativas se gestionan por noche y especialidad; el backend valida el contexto antes de aceptar votos.
 - El stack real es JavaScript/JSX, navegación hash y CSS propio, aunque algunas instrucciones locales describen TypeScript, React Router y Tailwind.
 - El acta implementada verifica un payload JSON canónico con SHA-256. No equivale a generar un PDF oficial cuyo hash corresponda a los bytes del archivo.
 

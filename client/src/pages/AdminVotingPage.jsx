@@ -158,12 +158,19 @@ export function AdminVotingPage() {
   };
   const runwayTroupes = [...(status?.troupes ?? [])].sort((a, b) => a.presentationOrder - b.presentationOrder);
   const reorderView = reorderIds ?? runwayTroupes.map((troupe) => troupe.scheduleId);
+  const frozenThrough = runwayTroupes.reduce(
+    (lastStarted, troupe, index) => Number(troupe.resolvedScores) > 0
+      || (troupe.status === "IN_RUNWAY" && Number(troupe.totalScores) > 0)
+      ? index + 1
+      : lastStarted,
+    0,
+  );
 
   const moveReorder = (scheduleId, delta) => {
     const base = reorderIds ?? runwayTroupes.map((troupe) => troupe.scheduleId);
     const index = base.indexOf(scheduleId);
     const target = index + delta;
-    if (index < 0 || target < 0 || target >= base.length) return;
+    if (index < frozenThrough || target < frozenThrough || target >= base.length) return;
     const next = [...base];
     [next[index], next[target]] = [next[target], next[index]];
     setReorderIds(next);
@@ -189,11 +196,11 @@ export function AdminVotingPage() {
     } catch (error) {
       const messages = {
         REORDER_REASON_REQUIRED: "Indicá el motivo del reorden para continuar.",
-        NIGHT_VOTING_STARTED: "La jornada ya inició votación; el orden quedó congelado.",
+        NIGHT_REORDER_STARTED_TROUPES: "No se puede mover el tramo que ya comenzó. Actualizá el estado de pista y reordená solo las comparsas pendientes.",
         ORDER_CONFLICT: "El orden cambió. Recargamos la jornada; revisa antes de reintentar.",
         EVENT_LOCKED: "El evento ya no permite modificar su configuración.",
       };
-      if (error.code === "ORDER_CONFLICT") {
+      if (["ORDER_CONFLICT", "NIGHT_REORDER_STARTED_TROUPES"].includes(error.code)) {
         setReorderIds(null);
         try { await refreshNight(); } catch { /* mensaje ya fijado abajo */ }
       }
@@ -332,7 +339,7 @@ export function AdminVotingPage() {
           <div className="section-heading"><div>
             <p className="eyebrow">Corrección operativa</p>
             <h2>Reorden de pasada</h2>
-            <p>Solo antes de que la jornada inicie votación. Requiere motivo y queda auditado; no toca votos ni puntajes.</p>
+            <p>Podés corregir el orden aunque la jornada haya empezado. La comparsa que está en pista y las que ya tienen votos registrados quedan fijas; solo se puede reordenar el tramo pendiente. Requiere motivo y queda auditado.</p>
           </div></div>
           <p className="feedback" role="status">{reorderMessage}</p>
           <ol className="schedule-list">
@@ -343,14 +350,14 @@ export function AdminVotingPage() {
                 <li key={scheduleId} className="schedule-row">
                   <span className="mono-text">{index + 1}</span>
                   <strong>{troupe.troupeName}</strong>
-                  <button type="button" className="secondary" aria-label={`Subir ${troupe.troupeName}`} disabled={index === 0 || reorderBusy} onClick={() => moveReorder(scheduleId, -1)}>Subir</button>
-                  <button type="button" className="secondary" aria-label={`Bajar ${troupe.troupeName}`} disabled={index === reorderView.length - 1 || reorderBusy} onClick={() => moveReorder(scheduleId, 1)}>Bajar</button>
+                  <button type="button" className="secondary" aria-label={`Subir ${troupe.troupeName}`} disabled={index <= frozenThrough || reorderBusy} onClick={() => moveReorder(scheduleId, -1)}>Subir</button>
+                  <button type="button" className="secondary" aria-label={`Bajar ${troupe.troupeName}`} disabled={index < frozenThrough || index === reorderView.length - 1 || reorderBusy} onClick={() => moveReorder(scheduleId, 1)}>Bajar</button>
                 </li>
               );
             })}
           </ol>
           <label>Motivo del reorden<input value={reorderReason} onChange={(event) => setReorderReason(event.target.value)} aria-label="Motivo del reorden" placeholder="Ej.: intercambio acordado entre comparsas" /></label>
-          <div className="event-actions"><button type="button" disabled={reorderBusy || !reorderIds} onClick={() => void confirmReorder()}>Confirmar reorden</button></div>
+          <div className="event-actions"><button type="button" disabled={reorderBusy || !reorderIds || reorderView.every((id, index) => id === runwayTroupes[index]?.scheduleId)} onClick={() => void confirmReorder()}>Confirmar reorden</button></div>
         </section>
       )}
       <section className="assignment-grid" aria-label="Planillas de la noche">

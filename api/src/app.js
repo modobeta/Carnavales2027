@@ -30,6 +30,7 @@ import {
 export function createApp({
   authHandler,
   getSession,
+  signOut,
   createUser,
   sendInvitation,
   revokeSessions,
@@ -122,6 +123,7 @@ export function createApp({
     }));
     app.use("/api/v1", createJudgeRouter({
       requireSession: createRequireSession(getSession),
+      signOut,
     }));
     app.use("/api/v1", createEventsRouter({
       requireSession: createRequireSession(getSession),

@@ -15,6 +15,7 @@ test("una invitación real crea credenciales, exige OTP y habilita una sesión J
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    FRONTEND_URL: process.env.FRONTEND_URL,
     NODE_ENV: process.env.NODE_ENV,
     DB_POOL_MAX: process.env.DB_POOL_MAX,
   };
@@ -28,6 +29,7 @@ test("una invitación real crea credenciales, exige OTP y habilita una sesión J
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   process.env.BETTER_AUTH_SECRET = "test-only-secret-that-is-long-enough-for-better-auth";
   process.env.BETTER_AUTH_URL = "http://127.0.0.1";
+  process.env.FRONTEND_URL = "http://127.0.0.1";
   process.env.NODE_ENV = "test";
   process.env.DB_POOL_MAX = "1";
   await migrate();
@@ -64,35 +66,35 @@ test("una invitación real crea credenciales, exige OTP y habilita una sesión J
     const password = "RealJudgePassword-2026!";
     const accepted = await fetch(`${base}/api/v1/judge-invitations/accept`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: process.env.FRONTEND_URL },
       body: JSON.stringify({ secret: invitationSecret, password }),
     });
     assert.equal(accepted.status, 201);
 
     const signedIn = await fetch(`${base}/api/auth/sign-in/email`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: process.env.FRONTEND_URL },
       body: JSON.stringify({ email, password }),
     });
-    assert.equal(signedIn.status, 200);
+    assert.equal(signedIn.status, 200, await signedIn.clone().text());
     let cookie = signedIn.headers.get("set-cookie").split(";")[0];
 
     const beforeOtp = await fetch(`${base}/api/v1/me`, { headers: { cookie } });
     assert.equal(beforeOtp.status, 403);
     await fetch(`${base}/api/auth/two-factor/enable`, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie },
+      headers: { "content-type": "application/json", cookie, origin: process.env.FRONTEND_URL },
       body: JSON.stringify({ password }),
     });
     await fetch(`${base}/api/auth/two-factor/send-otp`, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie },
+      headers: { "content-type": "application/json", cookie, origin: process.env.FRONTEND_URL },
       body: "{}",
     });
     assert.match(otp, /^\d{6}$/);
     const verified = await fetch(`${base}/api/auth/two-factor/verify-otp`, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie },
+      headers: { "content-type": "application/json", cookie, origin: process.env.FRONTEND_URL },
       body: JSON.stringify({ code: otp }),
     });
     assert.equal(verified.status, 200);

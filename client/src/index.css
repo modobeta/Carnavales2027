@@ -472,8 +472,8 @@ label { color: #cbd5e1; }
 .assignment-card .muted,
 .operational-user span,
 .invitation-state { color: var(--muted-color); }
-.eyebrow { color: #b8cdfd; font-family: var(--mono-font); }
-.feedback { color: #bfdbfe; }
+.eyebrow { color: var(--accent-light); font-family: var(--mono-font); }
+.feedback { color: var(--accent-light); }
 
 .app-navigation {
   position: sticky;
@@ -693,6 +693,12 @@ label { color: #cbd5e1; }
 }
 .judge-progress-card > div:first-child,
 .ballot-progress > div:first-child { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+/* El encabezado de la barra puede llevar textos largos: permitir envoltura
+   limpia con el detalle alineado a la derecha. */
+.judge-progress-card .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
+.judge-progress-card .app-progress-sublabel { text-align: end; min-inline-size: 0; }
+.ballot-progress .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
+.ballot-progress .app-progress-sublabel { min-inline-size: 0; text-align: end; overflow-wrap: anywhere; }
 .judge-progress-card span,
 .ballot-progress span { color: var(--text-muted); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .judge-progress-card strong,
@@ -892,8 +898,145 @@ button.button-link:disabled {
 .review-ready-banner p { margin: 0.15rem 0 0; color: var(--text-secondary); font-size: 0.88rem; }
 .review-ready-banner .button-link { text-decoration: none; }
 .ballot-readonly-summary { display: grid; gap: 1rem; }
-.readonly-group { display: grid; gap: 0.5rem; }
+.readonly-summary-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.readonly-summary-controls label { display: grid; gap: 0.25rem; min-inline-size: min(12rem, 100%); color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
+.readonly-summary-controls select { min-block-size: 2.75rem; max-inline-size: 100%; }
+.readonly-summary-controls button { min-block-size: 2.75rem; }
+.evaluation-context { margin: 0.35rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.readonly-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  background: var(--success-bg);
+}
+.readonly-hero-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--success-text);
+  color: var(--success-border);
+  font-weight: 900;
+  font-size: 1.25rem;
+}
+.readonly-hero .eyebrow { margin: 0; }
+.readonly-hero-total { margin: 0.2rem 0 0; color: var(--success-text); font-size: 1rem; }
+.readonly-hero-total strong { font-size: 1.6rem; font-weight: 900; }
+.readonly-troupe-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.readonly-troupe-chip {
+  min-block-size: 2.75rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.readonly-troupe-chip:hover { background: var(--surface-card); border-color: var(--accent-primary); }
+.readonly-troupe-chip:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.readonly-troupe-chip > span { font-family: var(--font-mono); color: var(--text-muted); margin-inline-end: 0.25rem; }
+.readonly-group {
+  display: grid;
+  gap: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: var(--surface-card);
+  scroll-margin-block-start: 1rem;
+}
+.readonly-group .troupe-brand-stripe { margin: -1rem -1rem 0; block-size: 0.35rem; }
 .readonly-group h2 { margin: 0; font-size: 1.25rem; }
+.readonly-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.readonly-order-badge {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+.readonly-group-titles { flex: 1; min-inline-size: 0; }
+.readonly-group-titles p { margin: 0.1rem 0 0; color: var(--text-muted); font-size: 0.82rem; }
+.readonly-group-subtotal {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-lighter);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.readonly-group-list { margin: 0; }
+.readonly-group-list .judge-list-row { padding: 0.6rem 0.25rem; }
+.readonly-group-list .judge-list-row.is-np { border-inline-start: 3px solid var(--warning-border); padding-inline-start: 0.6rem; }
+.readonly-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-block-size: 2.75rem;
+  padding: 0.2rem 0.4rem;
+  margin-inline-start: -0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  transition: background-color var(--transition-fast);
+}
+.readonly-group-toggle:hover { background: var(--surface-raised); }
+.readonly-group-toggle:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.readonly-group-chevron {
+  flex-shrink: 0;
+  inline-size: 0.55rem;
+  block-size: 0.55rem;
+  border-inline-end: 2px solid var(--text-muted);
+  border-block-end: 2px solid var(--text-muted);
+  border-start-end-radius: 2px;
+  transform: rotate(45deg);
+  transition: transform var(--transition-fast);
+  margin-block-start: -0.15rem;
+}
+.readonly-group.is-collapsed .readonly-group-chevron {
+  transform: rotate(-45deg);
+  margin-block-start: 0.1rem;
+}
+.readonly-group-body {
+  min-inline-size: 0;
+  animation: ballot-summary-enter var(--transition-normal);
+}
 .readonly-score-value {
   flex-shrink: 0;
   font-family: var(--font-mono);
@@ -903,6 +1046,20 @@ button.button-link:disabled {
 @media (min-width: 80rem) {
   .ballot-layout { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); gap: 1.5rem; }
   .ballot-main { min-inline-size: 0; inline-size: 100%; max-inline-size: 60rem; justify-self: center; }
+  .ballot-layout.is-readonly { grid-template-columns: minmax(0, 1fr); }
+  .ballot-layout.is-readonly .ballot-main { max-inline-size: 76rem; }
+  /* Desktop: héroe e índice a todo el ancho, tarjetas en 2 columnas. */
+  .ballot-readonly-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 1.25rem;
+  }
+  .ballot-readonly-summary > .readonly-hero,
+  .ballot-readonly-summary > .judge-note,
+  .ballot-readonly-summary > .readonly-troupe-index {
+    grid-column: 1 / -1;
+  }
+  .ballot-readonly-summary > .readonly-summary-controls { grid-column: 1 / -1; }
   .ballot-troupe-navigation, .ballot-summary { position: static; }
   .ballot-summary {
     display: block;
@@ -912,14 +1069,14 @@ button.button-link:disabled {
     background: var(--surface-card);
   }
   .ballot-summary .eyebrow { margin: 0 0 0.5rem; }
-  .ballot-summary ul { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.35rem; }
+  .ballot-summary ul { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; gap: 0.5rem; }
   .ballot-summary-item {
     display: flex;
     align-items: center;
     gap: 0.6rem;
     inline-size: 100%;
-    min-block-size: 48px;
-    padding: 0.5rem 0.65rem;
+    min-block-size: 56px;
+    padding: 0.7rem 0.75rem;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -929,10 +1086,10 @@ button.button-link:disabled {
     box-shadow: none;
     transition: background-color var(--transition-fast), border-color var(--transition-fast);
   }
-  .ballot-summary-item:hover { background: var(--surface-raised); border-color: var(--border-subtle); }
-  .ballot-summary-item.is-active { border-color: var(--accent-primary); background: var(--accent-subtle); }
+  .ballot-summary-item:hover { background: var(--surface-raised); border-color: var(--border-subtle); transform: translateY(-1px); }
+  .ballot-summary-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+  .ballot-summary-item.is-active { border-color: var(--accent-primary); background: var(--accent-subtle); box-shadow: 0 0 0.6rem rgba(59, 130, 246, 0.25); }
   .ballot-summary-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ballot-summary-value { font-family: var(--font-mono); font-weight: 800; color: var(--text-secondary); }
   .ballot-shortcuts-hint {
     display: block;
     margin: 0.75rem 0 0;
@@ -945,10 +1102,205 @@ button.button-link:disabled {
   }
 }
 
+/* Resumen lateral colapsable + selección de planilla (fuente viva de estilos:
+   styles/judge.css no está importado y no se carga en la app). */
+.ballot-summary {
+  min-inline-size: 0;
+  overflow: hidden;
+  border-inline-start: 3px solid var(--accent-primary);
+}
+
+.ballot-summary.is-collapsed {
+  border-inline-start-color: var(--border-subtle);
+}
+
+/* El rail es un flex vertical con scroll: evitar que el resumen lo ensanche. */
+.ballot-context-rail {
+  overflow-x: hidden;
+}
+
+.ballot-summary-toggle {
+  display: grid;
+  gap: 0.45rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 0.35rem 0.4rem;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+  transition: background-color var(--transition-fast);
+}
+
+.ballot-summary-toggle:hover {
+  background: var(--surface-raised);
+}
+
+.ballot-summary-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.ballot-summary-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ballot-summary-heading .judge-section-title {
+  margin: 0;
+}
+
+.ballot-summary-count {
+  margin-inline-start: auto;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-input);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ballot-summary-progress {
+  display: block;
+  block-size: 0.35rem;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--surface-input);
+}
+
+.ballot-summary-progress > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-text));
+  transition: inline-size var(--transition-normal);
+}
+
+.ballot-summary-chevron {
+  flex-shrink: 0;
+  inline-size: 0.55rem;
+  block-size: 0.55rem;
+  border-inline-end: 2px solid var(--text-muted);
+  border-block-end: 2px solid var(--text-muted);
+  border-start-end-radius: 2px;
+  transform: rotate(45deg);
+  transition: transform var(--transition-fast);
+  margin-block-start: -0.15rem;
+}
+
+.ballot-summary.is-collapsed .ballot-summary-chevron {
+  transform: rotate(-45deg);
+  margin-block-start: 0.1rem;
+}
+
+.ballot-summary .eyebrow {
+  margin-block: 0.35rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ballot-summary-body {
+  min-inline-size: 0;
+  animation: ballot-summary-enter var(--transition-normal);
+}
+
+/* La lista puede ser larga: scroll vertical propio sin estirar ni desbordar
+   el rail lateral. El overflow-x se fija en hidden: con overflow-y auto, el
+   navegador lo computaría a auto y aparecería scroll horizontal. */
+.ballot-summary-body ul {
+  max-block-size: min(24rem, 42dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-inline-end: 0.25rem;
+}
+
+.ballot-summary-body li {
+  min-inline-size: 0;
+}
+
+.ballot-summary-item {
+  min-inline-size: 0;
+}
+
+@keyframes ballot-summary-enter {
+  from { opacity: 0; transform: translateY(-0.35rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.ballot-summary-status {
+  display: grid;
+  place-items: center;
+  inline-size: 1.55rem;
+  block-size: 1.55rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ballot-summary-status.is-pending {
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-input);
+  color: var(--text-muted);
+}
+
+.ballot-summary-status.is-scored {
+  border: 1px solid var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.ballot-summary-status.is-np {
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.readonly-group.is-selected {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-subtle);
+}
+
+.judge-review-ready {
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  background: var(--warning-bg);
+}
+
+.submit-dialog-troupes {
+  margin: 0.75rem 0;
+  padding-inline-start: 1.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ballot-summary-body {
+    animation: none;
+  }
+  .readonly-group-body {
+    animation: none;
+  }
+}
+
 
 .ballot-workspace { display: grid; gap: 1rem; min-inline-size: 0; }
 .ballot-header { align-items: flex-start; border-block-end-color: var(--border-subtle); }
 .ballot-header h1 { font-family: var(--font-sans); font-size: clamp(1.5rem, 4vw, 2.25rem); line-height: 1.05; letter-spacing: -0.02em; }
+/* Título de apoyo: el protagonista es el h2 de la tarjeta de evaluación. */
+.ballot-header h1.ballot-header-support { font-size: clamp(1.1rem, 3vw, 1.5rem); font-weight: 600; color: var(--text-secondary); letter-spacing: 0; }
 .back-link { display: inline-flex; min-block-size: 2.75rem; align-items: center; margin-block-end: 0.5rem; color: var(--accent-light); font-size: 0.9rem; font-weight: 750; text-decoration: none; }
 .ballot-header-status { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
 /* .ballot-status-* — fuente única en styles/judge.css (Spec 026/T03). */
@@ -986,6 +1338,32 @@ button.button-link:disabled {
 .locked-score strong { font-size: 1.3rem; }
 .locked-score small { color: var(--success-text); }
 .locked-score.not-presented { color: var(--warning-text); border-color: var(--warning-border); background: var(--warning-bg); }
+
+/* Puntaje confirmado en grande tipo sello. */
+.locked-score .sealed-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.locked-score .sealed-score-value {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 3rem;
+  min-block-size: 3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: var(--success-text);
+  color: var(--text-inverse);
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.locked-score .sealed-score-caption {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
 .locked-score.not-presented > span { color: var(--text-inverse); background: var(--warning-text); }
 .locked-score.not-presented small { color: var(--warning-text); }
 .ballot-footer { align-items: center; border-block-start: 1px solid var(--border-subtle); padding-block-start: 1rem; gap: 1rem; }
@@ -1023,7 +1401,9 @@ button.button-link:disabled {
 
 @media (min-width: 44rem) {
   .judge-ballot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .judge-progress-card { grid-template-columns: minmax(10rem, .35fr) minmax(10rem, 1fr); align-items: center; }
+  /* La tarjeta de progreso va apilada a todo el ancho: en 2 columnas la
+     barra quedaba al 35% y el sublabel largo se rompía en palabras sueltas. */
+  .judge-progress-card { grid-template-columns: minmax(0, 1fr); }
   .judge-progress-card p { grid-column: 1 / -1; }
   .score-grid { grid-template-columns: repeat(5, minmax(3rem, 1fr)); gap: .45rem; }
   .score-grid button { min-inline-size: 3rem; min-block-size: 3.25rem; font-size: 1.05rem; }
@@ -1038,6 +1418,9 @@ button.button-link:disabled {
   .ballot-progress { grid-template-columns: 10rem minmax(14rem, 1fr) auto; align-items: center; }
   .ballot-progress p { justify-self: end; }
   .ballot-layout { grid-template-columns: minmax(16rem, 22rem) 1fr; gap: 1.5rem; }
+  /* Planilla confirmada: sin rail lateral, ocupa todo el ancho. */
+  .ballot-layout.is-readonly { grid-template-columns: minmax(0, 1fr); }
+  .ballot-layout.is-readonly .ballot-main { max-inline-size: 76rem; }
   /* FIX sticky (Fase 3): un solo rail sticky; los hijos van en flujo normal */
   .ballot-context-rail {
     display: flex;
@@ -1282,6 +1665,20 @@ button.button-link:disabled {
   font-size: 0.85rem;
   color: var(--accent-text);
   margin-block-end: 0.5rem;
+}
+
+.login-expired-notice {
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 0.9rem;
+  margin-block-end: 1rem;
+}
+
+.login-expired-notice p {
+  margin: 0;
 }
 
 .judge-completion-message {

@@ -212,7 +212,12 @@ export function AdminCompetenciaPage({ event, onBack }) {
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <p className="step-intro">Definí las especialidades que evalúan: cada ítem del paso 3 pertenece a una especialidad activa. Los jurados se asignan en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">Definí las especialidades que evalúan: cada ítem del paso 3 pertenece a una especialidad activa. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">
+                <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
+                  Asignar jurados a la competencia
+                </a>
+              </p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={summaryByStep.jurados} />
               <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
             </section>
@@ -991,6 +996,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
   const [expanded, setExpanded] = useState(null);
+  const [editingRubricId, setEditingRubricId] = useState(null);
   const [highlightItemId, setHighlightItemId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [editingCriterion, setEditingCriterion] = useState(null);
@@ -1159,20 +1165,17 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
       <h3>Qué puntúa el jurado</h3>
       <RubricTree rubrics={rubrics} specialties={specialties} />
 
-      <p id="resolution-metadata">El metodo de resolucion es metadata futura: no ejecuta formulas ni decisiones automaticas o de Comision Organizadora.</p>
-      <p id="item-metadata">Obligatorio (required) y Permite No presentado (allowNotPresented) son metadata futura: todos los items generados deben resolverse y admiten No se presento (NOT_PRESENTED). Los pendientes bloquean confirmacion y cierre, sin importar estas opciones.</p>
-      <p id="subject-type-help">El tipo de sujeto solo aplica al objetivo Nominacion; para Comparsa se guarda sin tipo de sujeto.</p>
       {!locked && (
         <SaveForm resetOnSuccess className="config-card" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/events/${event.id}/rubrics`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null }); }}>
           <h3>Nuevo rubro</h3>
           <label>Nombre<input name="name" required /></label>
           <label>A quién se evalúa<select name="evaluationTarget"><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
           <label>Tipo de rubro<select name="rubricType">{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-          <label>Detalle del objetivo (texto libre, opcional)<input name="evaluationObjective" placeholder="Ej: Figura / participante" /></label>
+          <label>Detalle (opcional)<input name="evaluationObjective" placeholder="Ej: Figura / participante" /></label>
           <details className="advanced-options">
-            <summary>Opciones avanzadas (sin efecto operativo)</summary>
-            <label>Tipo de sujeto<select name="expectedSubjectType" aria-describedby="subject-type-help">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-            <label>Metodo de resolucion<select name="resolutionMethod" aria-describedby="resolution-metadata">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
+            <summary>Opciones avanzadas</summary>
+            <label>Tipo de sujeto<select name="expectedSubjectType" title="El tipo de sujeto solo aplica al objetivo Nominacion; para Comparsa se guarda sin tipo de sujeto.">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
+            <label>Metodo de resolucion<select name="resolutionMethod" title="El metodo de resolucion es metadata futura: no ejecuta formulas ni decisiones automaticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
           </details>
           <button type="submit">Crear rubro</button>
         </SaveForm>
@@ -1194,7 +1197,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                   <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
                 </div>
-                <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); }}>
+                <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
                   {isExpanded ? "Contraer" : "Expandir"}
                 </button>
               </div>
@@ -1202,19 +1205,28 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
               {isExpanded && (
                 <div className="rubric-expanded">
                   {!locked && (
-                    <SaveForm className="rubric-edit-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/rubrics/${rubric.id}`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }, "PATCH"); }}>
-                      <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
-                      <label>A quién se evalúa<select name="evaluationTarget" defaultValue={rubric.evaluationTarget}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
-                      <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-                      <label>Detalle del objetivo (texto libre, opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
-                      <details className="advanced-options">
-                        <summary>Opciones avanzadas (sin efecto operativo)</summary>
-                        <label>Tipo de sujeto<select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"} aria-describedby="subject-type-help">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-                        <label>Resolucion<select name="resolutionMethod" defaultValue={rubric.resolutionMethod} aria-describedby="resolution-metadata">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
-                      </details>
-                      <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
-                      <button type="submit">Guardar rubro</button>
-                    </SaveForm>
+                    editingRubricId === rubric.id ? (
+                      <SaveForm className="rubric-edit-form" onSubmit={async (e) => { const fd = new FormData(e.currentTarget); const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }, "PATCH"); if (ok) setEditingRubricId(null); return ok; }}>
+                        <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
+                        <label>A quién se evalúa<select name="evaluationTarget" defaultValue={rubric.evaluationTarget}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
+                        <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+                        <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
+                        <details className="advanced-options">
+                          <summary>Opciones avanzadas</summary>
+                          <label>Tipo de sujeto<select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"} title="El tipo de sujeto solo aplica al objetivo Nominacion; para Comparsa se guarda sin tipo de sujeto.">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
+                          <label>Resolucion<select name="resolutionMethod" defaultValue={rubric.resolutionMethod} title="El metodo de resolucion es metadata futura: no ejecuta formulas ni decisiones automaticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
+                        </details>
+                        <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
+                        <div className="form-actions">
+                          <button type="submit">Guardar rubro</button>
+                          <button type="button" className="secondary" onClick={() => setEditingRubricId(null)}>Cancelar</button>
+                        </div>
+                      </SaveForm>
+                    ) : (
+                      <div className="rubric-edit-actions" style={{ marginBottom: '1rem' }}>
+                        <button className="secondary" type="button" onClick={() => setEditingRubricId(rubric.id)}>Editar configuración del rubro</button>
+                      </div>
+                    )
                   )}
 
                   <h4>Items puntuables</h4>
@@ -1226,13 +1238,15 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                           <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
                           <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
                           <details className="advanced-options">
-                            <summary>Opciones avanzadas (sin efecto operativo)</summary>
-                            <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} aria-describedby="item-metadata" /> Obligatorio</label>
-                            <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} aria-describedby="item-metadata" /> Permite No presentado</label>
+                            <summary>Opciones avanzadas</summary>
+                            <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
+                            <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
                           </details>
                           <label className="check"><input name="active" type="checkbox" defaultChecked={item.active} /> Activo</label>
-                          <button type="submit">Guardar item</button>
-                          <button type="button" className="secondary" onClick={() => setEditingItem(null)}>Cancelar</button>
+                          <div className="form-actions">
+                            <button type="submit">Guardar item</button>
+                            <button type="button" className="secondary" onClick={() => setEditingItem(null)}>Cancelar</button>
+                          </div>
                         </SaveForm>
                       ) : (
                         <div className="subrecord-summary">
@@ -1273,7 +1287,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                         ))}
                         {!locked && (
                           <SaveForm resetOnSuccess className="inline-criterion-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveCriterion(rubric.id, { scoringItemId: item.id, description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")) }); }}>
-                            <input name="description" aria-label={`Nuevo criterio para ${item.name}`} placeholder="Nuevo criterio" required />
+                            <input name="description" aria-label={`Nuevo criterio para ${item.name}`} placeholder="Guía para el jurado (ej: Sincronización)" required />
                             <input name="displayOrder" aria-label={`Orden del nuevo criterio para ${item.name}`} type="number" min="1" defaultValue="1" required className="input-order" />
                             <button type="submit" aria-label={`Agregar criterio a ${item.name}`}>+</button>
                           </SaveForm>
@@ -1287,9 +1301,9 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                       <input name="name" aria-label={`Nuevo item puntuable para ${rubric.name}`} placeholder="Nuevo item puntuable" required />
                       <select name="specialtyId" aria-label={`Especialidad del nuevo item para ${rubric.name}`} required><option value="">Especialidad</option>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
                       <details className="advanced-options">
-                        <summary>Opciones avanzadas (sin efecto operativo)</summary>
-                        <label className="check"><input name="required" type="checkbox" defaultChecked aria-describedby="item-metadata" /> Obligatorio</label>
-                        <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked aria-describedby="item-metadata" /> Permite No presentado</label>
+                        <summary>Opciones avanzadas</summary>
+                        <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
+                        <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
                       </details>
                       <button type="submit" aria-label={`Agregar item a ${rubric.name}`}>Agregar item</button>
                     </SaveForm>

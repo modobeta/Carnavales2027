@@ -100,7 +100,8 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
          || filename === "073_event_delete_policy.sql"
          || filename === "074_schedule_reorder_in_open_event.sql"
           || filename === "075_carnival_event_active.sql"
-          || filename === "076_schedule_timestamps.sql"
+          || filename === "076_schedule_timestamps.sql" || filename === "077_allow_assignment_in_open_event.sql"
+          || filename === "078_close_event_after_all_nights.sql" || filename === "079_event_schedule_readiness_and_live_reorder.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -478,6 +479,21 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "076_schedule_timestamps.sql",
       version: "076",
+      applied: true,
+    },
+    {
+      filename: "077_allow_assignment_in_open_event.sql",
+      version: "077",
+      applied: true,
+    },
+    {
+      filename: "078_close_event_after_all_nights.sql",
+      version: "078",
+      applied: true,
+    },
+    {
+      filename: "079_event_schedule_readiness_and_live_reorder.sql",
+      version: "079",
       applied: true,
     },
   ]);

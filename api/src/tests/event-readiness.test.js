@@ -29,15 +29,21 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
     );
     await client.query("ROLLBACK TO SAVEPOINT direct_incomplete_open");
 
-    await createNight({ client, eventId: event.id, name: "Noche", displayOrder: 1, kind: "COMPETITION" });
+    const night = await createNight({ client, eventId: event.id, name: "Noche", displayOrder: 1, kind: "COMPETITION" });
     const { rows: categories } = await client.query(
       `INSERT INTO event_category(event_id, name, code, display_order)
        VALUES($1, 'Cat', 'CAT', 1) RETURNING id`,
       [event.id],
     );
-    await client.query(
-      "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1, $2, 'Troupe')",
+    const { rows: [troupe] } = await client.query(
+      "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1, $2, 'Troupe') RETURNING id",
       [event.id, categories[0].id],
+    );
+    const unscheduled = await getReadiness({ client, eventId: event.id });
+    assert.ok(unscheduled.missing.includes("INCOMPLETE_SCHEDULES"));
+    await client.query(
+      "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order) VALUES($1,$2,$3,1)",
+      [event.id, night.id, troupe.id],
     );
     const { rows: specialties } = await client.query(
       `INSERT INTO event_specialty(event_id, name, code, display_order)

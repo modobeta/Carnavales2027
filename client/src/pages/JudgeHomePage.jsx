@@ -4,6 +4,7 @@ import { apiRequest } from "../api/http.js";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { isSessionEndedError, redirectToLoginExpired } from "../auth/session-context.jsx";
 
 function summarizeTroupes(ballot, scores) {
   const groups = scores.reduce((result, score) => {
@@ -106,7 +107,14 @@ export function JudgeHomePage({ session }) {
         }));
         if (current) setBallots(details);
       })
-      .catch(() => { if (current) setBallots([]); })
+      .catch((error) => {
+        if (isSessionEndedError(error)) {
+          session?.clear?.({ sessionExpired: true });
+          redirectToLoginExpired("#/judge");
+          return;
+        }
+        if (current) setBallots([]);
+      })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
   }, [profile?.registrationStatus, session?.user?.id]);
@@ -116,7 +124,9 @@ export function JudgeHomePage({ session }) {
   const closed = troupes.filter((troupe) => troupe.status === "SUBMITTED").length;
   const resolved = troupes.reduce((sum, troupe) => sum + troupe.resolved, 0);
   const total = troupes.reduce((sum, troupe) => sum + troupe.total, 0);
-  const progress = total > 0 ? Math.round((resolved / total) * 100) : 0;
+  // Completado real = todas las comparsas confirmadas (SUBMITTED), no solo
+  // puntuadas: una planilla 100% votada pero sin cierre sigue pendiente.
+  const completed = troupes.length > 0 && closed === troupes.length;
 
   const getState = (troupe, isLocked) => {
     if (isLocked) return { label: "En espera", icon: "🔒", className: "is-locked", statusKey: "LOCKED" };
@@ -134,9 +144,13 @@ export function JudgeHomePage({ session }) {
   });
   const isActionable = (entry) => !entry.locked && entry.troupe.status !== "SUBMITTED";
   const actionable = entries.filter(isActionable);
-  const currentEntry = actionable.find((entry) => entry.troupe.resolved > 0)
-    ?? actionable[0]
+  // "Ahora" = primera comparsa con pendientes (la que se está votando actualmente),
+  // no la última ya votada. Si todo está resuelto pero la planilla sigue OPEN,
+  // no hay comparsa actual: corresponde revisar/confirmar la planilla.
+  const currentEntry = actionable.find((entry) => entry.troupe.resolved < entry.troupe.total)
     ?? null;
+  const allActionableResolved = actionable.length > 0
+    && actionable.every((entry) => entry.troupe.resolved >= entry.troupe.total);
   const evaluatedEntries = entries.filter((entry) => entry.troupe.status === "SUBMITTED");
   const upcomingEntries = entries.filter((entry) => entry.troupe.status !== "SUBMITTED" && entry !== currentEntry);
   const hasLockedUpcoming = upcomingEntries.some((entry) => entry.locked);
@@ -158,14 +172,14 @@ export function JudgeHomePage({ session }) {
           value={resolved}
           max={total}
           label="Progreso de la noche"
-          sublabel={`${closed} de ${troupes.length} comparsas confirmadas`}
+          sublabel={`${resolved} de ${total} ítems · ${closed} de ${troupes.length} comparsas confirmadas`}
         />
-        {progress === 100 && troupes.length > 0 && (
-          <div className="judge-completion-message">
+        {completed && (
+          <div className="judge-completion-message" role="status">
             <span className="completion-icon" aria-hidden="true">✓</span>
             <div>
               <strong>Votación completada</strong>
-              <p>Confirmaste las {troupes.length} comparsas asignadas.</p>
+              <p>Confirmaste las {troupes.length} de {troupes.length} comparsas asignadas.</p>
               <p>No tenés votaciones pendientes.</p>
             </div>
           </div>
@@ -207,6 +221,12 @@ export function JudgeHomePage({ session }) {
                     {currentCta}
                   </a>
                 </article>
+              </section>
+            )}
+            {allActionableResolved && (
+              <section aria-label="Lista para confirmar" className="judge-review-ready">
+                <strong>Todas las comparsas puntuadas</strong>
+                <p>Revisá y confirmá la planilla para el cierre definitivo.</p>
               </section>
             )}
             {(evaluatedEntries.length > 0 || upcomingEntries.length > 0) && (

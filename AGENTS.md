@@ -79,11 +79,11 @@ Cuando una implementación requiera una regla inexistente, dejar claramente iden
 
 ## Jurados
 
-El Jurado elige una noche creada después de autenticarse.
+El Jurado elige una noche competitiva y una especialidad para las que tenga una asignación activa.
 
-El backend debe validar que la noche exista y que la comparsa activa pertenezca a esa noche antes de aceptar votos o cierres.
+Administración gestiona asignaciones desde Competencia. En estado `OPEN` se pueden revocar o reemplazar asignaciones que todavía no tengan una planilla confirmada; una planilla presentada conserva su evidencia y bloquea cambios que la alteren.
 
-No se requiere asignación administrativa de jurados para votar. El jurado autenticado elige una noche creada y el backend valida que la comparsa pertenezca a esa noche.
+El backend debe validar que la asignación esté activa, que la noche exista y que la comparsa activa pertenezca a esa noche antes de aceptar votos o cierres.
 
 ---
 
@@ -117,8 +117,10 @@ Un ítem sin hijos es puntuable directamente.
 Las notas válidas actualmente son:
 
 ```text
-0, 1, 2, 3, 4, 5
+1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 ```
+
+La decisión separada `No se presentó` se registra con valor 0.
 
 Una puntuación confirmada debe considerarse **inmutable**.
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
+import { Dialog } from "../components/Dialog.jsx";
 import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { apiRequest } from "../api/http.js";
@@ -35,11 +36,31 @@ export function EventConfigurationPage({
   const [message, setMessage] = useState("");
   const [drawerMode, setDrawerMode] = useState(null);
   const [savingNight, setSavingNight] = useState(false);
+  const [closeNightTarget, setCloseNightTarget] = useState(null);
+  const [closingNight, setClosingNight] = useState(false);
+  const [votingStatuses, setVotingStatuses] = useState({});
   const drawerTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
-  const locked = currentEvent.status === "OPEN";
+  const locked = currentEvent.status !== "CONFIGURING";
 
   useEffect(() => setNights(initialNights), [initialNights]);
+
+  useEffect(() => {
+    if (currentEvent.status !== "OPEN") {
+      setVotingStatuses({});
+      return undefined;
+    }
+    let current = true;
+    void Promise.all(nights.filter((night) => night.kind === "COMPETITION").map(async (night) => {
+      try {
+        const result = await apiRequest(`/api/v1/events/${currentEvent.id}/nights/${night.id}/voting/status`);
+        return [night.id, result.votingStatus];
+      } catch {
+        return [night.id, "UNKNOWN"];
+      }
+    })).then((entries) => { if (current) setVotingStatuses(Object.fromEntries(entries)); });
+    return () => { current = false; };
+  }, [currentEvent.id, currentEvent.status, nights]);
 
   const save = async (path, body, { form, method = "POST", onSaved, reset = method === "POST" } = {}) => {
     try {
@@ -101,10 +122,37 @@ export function EventConfigurationPage({
     }
   };
 
+  const closeNight = async () => {
+    if (!closeNightTarget || closingNight) return;
+    setClosingNight(true);
+    setMessage("");
+    try {
+      const night = closeNightTarget;
+      const saved = await apiRequest(`/api/v1/nights/${night.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: night.name, displayOrder: night.displayOrder, kind: night.kind, eventDate: night.eventDate ?? null, status: "CLOSED" }),
+      });
+      setNights((current) => current.map((item) => item.id === saved.id ? saved : item));
+      const updatedEvent = await apiRequest(`/api/v1/events/${currentEvent.id}`);
+      setCurrentEvent(updatedEvent);
+      onEventChange?.(updatedEvent);
+      setMessage(updatedEvent.status === "CLOSED"
+        ? "Última jornada cerrada. El evento finalizó y las sesiones de jurado se cerrarán."
+        : `Jornada ${night.name} finalizada.`);
+      setCloseNightTarget(null);
+    } catch (error) {
+      setMessage(error.code === "VOTING_WINDOW_NOT_CLOSED"
+        ? "Cerrá primero la votación de esta jornada."
+        : "No se pudo finalizar la jornada.");
+    } finally {
+      setClosingNight(false);
+    }
+  };
+
   return (
     <PageShell layer="instrument" className="admin-shell">
       <PageHeader
-        eyebrow={locked ? "Evento abierto" : "Evento en configuracion"}
+        eyebrow={currentEvent.status === "OPEN" ? "Evento abierto" : currentEvent.status === "CLOSED" ? "Evento finalizado" : "Evento en configuracion"}
         title={currentEvent.name ?? "Evento"}
         status={currentEvent.status}
         actions={<>
@@ -137,21 +185,29 @@ export function EventConfigurationPage({
                   <th scope="col">Jornada</th>
                   <th scope="col">Fecha</th>
                   <th scope="col">Tipo</th>
-                  {!locked && <th scope="col">Acción</th>}
+                  {(!locked || currentEvent.status === "OPEN") && <th scope="col">Acción</th>}
                 </tr>
               </thead>
               <tbody>
                 {orderedNights.map((night, index) => (
                   <tr key={night.id}>
                     <td>{night.displayOrder ?? index + 1}</td>
-                    <td><strong>{night.name}</strong></td>
+                    <td><strong>{night.name}</strong>{night.status === "CLOSED" && <small> · Finalizada</small>}</td>
                     <td>{formatDate(night.eventDate)}</td>
                     <td>{nightKindLabel(night.kind)}</td>
-                    {!locked && (
+                    {(!locked || currentEvent.status === "OPEN") && (
                       <td>
-                        <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>
-                          Editar
-                        </button>
+                        {!locked && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
+                        {currentEvent.status === "OPEN" && night.status !== "CLOSED" && <>
+                          {night.kind === "COMPETITION" && (night.status !== "OPEN" || votingStatuses[night.id] !== "CLOSED") && <small> Abrí y cerrá la votación antes de finalizar.</small>}
+                          <button
+                            className="secondary"
+                            type="button"
+                            disabled={closingNight || (night.kind === "COMPETITION" && (night.status !== "OPEN" || votingStatuses[night.id] !== "CLOSED"))}
+                            aria-label={`Finalizar jornada ${night.name}`}
+                            onClick={() => setCloseNightTarget(night)}
+                          >Finalizar jornada</button>
+                        </>}
                       </td>
                     )}
                   </tr>
@@ -181,6 +237,18 @@ export function EventConfigurationPage({
           <button type="button" className="secondary" onClick={closeDrawer}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+
+      <Dialog
+        isOpen={closeNightTarget !== null}
+        onClose={() => { if (!closingNight) setCloseNightTarget(null); }}
+        title={`Finalizar ${closeNightTarget?.name ?? "jornada"}`}
+        description={`El cierre de una jornada es definitivo. Cuando todas las jornadas del evento estén cerradas, el evento finalizará y se cerrarán las sesiones de jurado.`}
+      >
+        <DialogFooter>
+          <button type="button" className="secondary" disabled={closingNight} onClick={() => setCloseNightTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" disabled={closingNight} onClick={() => void closeNight()}>{closingNight ? "Finalizando…" : "Confirmar cierre"}</button>
+        </DialogFooter>
+      </Dialog>
 
       <EventReadinessPanel
         event={currentEvent}

@@ -152,6 +152,24 @@ export async function listEventAssignments({ eventId }) {
   return { quotas, assignments: rows.map(assignmentView) };
 }
 
+export async function getJudgeEventCompletion({ judgeProfileId, client = getPool() }) {
+  const { rows } = await client.query(
+    `SELECT COUNT(DISTINCT e.id)::INTEGER AS "assignedEventCount",
+            COUNT(DISTINCT e.id) FILTER (WHERE e.status = 'CLOSED')::INTEGER AS "closedEventCount"
+       FROM judge_assignment a
+       JOIN carnival_event e ON e.id = a.event_id
+      WHERE a.judge_profile_id = $1 AND a.status = 'ACTIVE'`,
+    [requireText(judgeProfileId, "judgeProfileId")],
+  );
+  const assignedEventCount = rows[0]?.assignedEventCount ?? 0;
+  const closedEventCount = rows[0]?.closedEventCount ?? 0;
+  return {
+    eventEnded: assignedEventCount > 0 && closedEventCount === assignedEventCount,
+    assignedEventCount,
+    closedEventCount,
+  };
+}
+
 export async function setJudgeQuota({ actorUserId, eventId, nightId, specialtyId, maxAssignments }) {
   const value = requirePositiveInteger(maxAssignments, "maxAssignments");
   return inTransaction(async (client) => {
@@ -192,7 +210,7 @@ export async function createJudgeAssignment({
   const standbyId = type === "SUBSTITUTE" ? requireText(standbyForAssignmentId, "standbyForAssignmentId") : null;
   return inTransaction(async (client) => {
     const event = await lockEvent(client, eventId);
-    if (event.status !== "CONFIGURING") throw new Error("JUDGE_ASSIGNMENT_OPEN_REQUIRES_REPLACEMENT");
+    if (event.status !== "CONFIGURING" && event.status !== "OPEN") throw new Error("EVENT_LOCKED");
     const context = await lockNightSpecialty(client, { eventId, nightId, specialtyId });
     const quota = await lockQuota(client, context);
     if (standbyId) {
@@ -228,14 +246,23 @@ export async function createJudgeAssignment({
       [eventId, nightId, specialtyId, judges[0].id, type, standbyId],
     );
     const result = rows[0];
+    const { rows: windows } = type === "PRIMARY"
+      ? await client.query(
+        "SELECT status FROM voting_window WHERE event_id = $1 AND night_id = $2 FOR UPDATE",
+        [eventId, nightId],
+      )
+      : { rows: [] };
+    const created = windows[0]?.status === "OPEN"
+      ? await createBallotsForNight(client, { eventId, nightId, actorUserId })
+      : [];
     await auditEvent(client, {
       actorUserId,
       action: "JUDGE_ASSIGNMENT_CREATED",
       entityType: "judge_assignment",
       entityId: result.id,
-      after: result,
+      after: { ...result, ballotsCreated: created.length },
     });
-    return result;
+    return { ...result, ballotsCreated: created.length };
   });
 }
 
@@ -260,12 +287,40 @@ function ensureAssignmentChangeAllowed(assignment) {
   if (assignment.status !== "ACTIVE") throw new Error("JUDGE_ASSIGNMENT_FINAL");
 }
 
+async function replaceUnsubmittedBallot(client, { assignment, actorUserId, reason, replacementAssignmentId = null }) {
+  const { rows } = await client.query(
+    "SELECT id, status FROM ballot WHERE judge_assignment_id = $1 FOR UPDATE",
+    [assignment.id],
+  );
+  const ballot = rows[0];
+  if (ballot?.status === "SUBMITTED") throw new Error("PRIMARY_BALLOT_SUBMITTED");
+  if (ballot && ballot.status !== "REPLACED") {
+    await client.query(
+      `UPDATE ballot
+          SET status = 'REPLACED', replaced_at = clock_timestamp(), replaced_by = $2,
+              replacement_reason = $3
+        WHERE id = $1`,
+      [ballot.id, actorUserId, reason],
+    );
+    await client.query(
+      `INSERT INTO ballot_audit_log (ballot_id, event_id, action, actor_id, reason, details)
+       VALUES ($1, $2, 'BALLOT_REPLACED', $3, $4, $5)`,
+      [ballot.id, assignment.event_id, actorUserId, reason, JSON.stringify({
+        assignmentId: assignment.id,
+        replacementAssignmentId,
+      })],
+    );
+  }
+  return ballot;
+}
+
 export async function revokeJudgeAssignment({ actorUserId, assignmentId, reason }) {
   const actionReason = requireReason(reason);
   return inTransaction(async (client) => {
     const assignment = await lockAssignmentContext(client, assignmentId);
     await client.query("SELECT id FROM carnival_event WHERE id = $1 FOR UPDATE", [assignment.event_id]);
     ensureAssignmentChangeAllowed(assignment);
+    await replaceUnsubmittedBallot(client, { assignment, actorUserId, reason: actionReason });
     const { rows } = await client.query(
       `UPDATE judge_assignment
           SET status = 'REVOKED', reason = $2, revoked_at = clock_timestamp(), revoked_by = $3
@@ -319,6 +374,7 @@ export async function replaceJudgeAssignment({
       [judges[0].id, assignment.night_id],
     );
     if (duplicate.length > 0) throw new Error("JUDGE_ALREADY_ASSIGNED");
+    await replaceUnsubmittedBallot(client, { assignment, actorUserId, reason: actionReason });
     await client.query(
       `UPDATE judge_assignment
           SET status = 'REVOKED', reason = $2, revoked_at = clock_timestamp(), revoked_by = $3
@@ -336,6 +392,13 @@ export async function replaceJudgeAssignment({
       [assignment.event_id, assignment.night_id, assignment.specialty_id, judges[0].id, type, actionReason, assignment.id],
     );
     const result = rows[0];
+    const { rows: windows } = await client.query(
+      "SELECT status FROM voting_window WHERE event_id = $1 AND night_id = $2 FOR UPDATE",
+      [assignment.event_id, assignment.night_id],
+    );
+    const created = windows[0]?.status === "OPEN"
+      ? await createBallotsForNight(client, { eventId: assignment.event_id, nightId: assignment.night_id, actorUserId })
+      : [];
     await auditEvent(client, {
       actorUserId,
       action: "JUDGE_ASSIGNMENT_REPLACED",
@@ -347,9 +410,9 @@ export async function replaceJudgeAssignment({
         assignmentType: assignment.assignment_type,
         status: "ACTIVE",
       },
-      after: result,
+      after: { ...result, ballotsCreated: created.length },
     });
-    return result;
+    return { ...result, ballotsCreated: created.length };
   });
 }
 
