@@ -93,7 +93,7 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
       "INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'Categoría','CAT_API',1) RETURNING id",
       [event.id],
     );
-    await pool.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'Comparsa')", [event.id, categories[0].id]);
+    const { rows: [troupe] } = await pool.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'Comparsa') RETURNING id", [event.id, categories[0].id]);
     const { rows: specialties } = await pool.query(
       "INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'Baile','BAILE_API',1) RETURNING id",
       [event.id],
@@ -105,6 +105,11 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
     await pool.query(
       "INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'Ítem','ITEM_API')",
       [event.id, rubrics[0].id, specialties[0].id],
+    );
+    const { rows: [night] } = await pool.query("SELECT id FROM night WHERE event_id=$1", [event.id]);
+    await pool.query(
+      "INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)",
+      [event.id, night.id, troupe.id],
     );
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",

@@ -22,8 +22,8 @@ async function seedVirginEvent(pool, name) {
   const { rows: [event] } = await pool.query(
     "INSERT INTO carnival_event(name) VALUES($1) RETURNING id", [name],
   );
-  await pool.query(
-    "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5)",
+  const { rows: [night] } = await pool.query(
+    "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
     [event.id, "Noche 1", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [category] } = await pool.query(
@@ -33,6 +33,10 @@ async function seedVirginEvent(pool, name) {
   const { rows: [troupe] } = await pool.query(
     "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1,$2,$3) RETURNING id",
     [event.id, category.id, "Comparsa X"],
+  );
+  await pool.query(
+    "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order) VALUES($1,$2,$3,1)",
+    [event.id, night.id, troupe.id],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",

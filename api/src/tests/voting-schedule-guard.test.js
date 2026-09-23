@@ -18,7 +18,7 @@ async function withServer(app, run) {
   }
 }
 
-test("API votación: abrir sin comparsas programadas falla 409 y no crea ballots", {
+test("API eventos: bloquea la apertura sin cronograma y no habilita planillas", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   context.after(async () => {
@@ -81,19 +81,6 @@ test("API votación: abrir sin comparsas programadas falla 409 y no crea ballots
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
 
-  const openClient = await pool.connect();
-  try {
-    await openClient.query("BEGIN");
-    await openClient.query("SELECT set_config('app.allow_event_open','true',true)");
-    await openClient.query("UPDATE carnival_event SET status = 'OPEN', updated_at = CURRENT_TIMESTAMP WHERE id = $1", [event.id]);
-    await openClient.query("COMMIT");
-  } catch (err) {
-    await openClient.query("ROLLBACK");
-    throw err;
-  } finally {
-    openClient.release();
-  }
-
   const app = createApp({
     getSession: async ({ headers }) => {
       if (headers.get("x-test-session") === "admin") return { user: { id: adminId, twoFactorEnabled: true } };
@@ -103,11 +90,19 @@ test("API votación: abrir sin comparsas programadas falla 409 y no crea ballots
 
   await withServer(app, async (baseUrl) => {
     const adminHeaders = { "content-type": "application/json", "x-test-session": "admin" };
-    const openRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/open`, {
+    const openRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST", headers: adminHeaders,
     });
     assert.equal(openRes.status, 409);
-    assert.equal((await openRes.json()).code, "NIGHT_SCHEDULE_EMPTY");
+    const openBody = await openRes.json();
+    assert.equal(openBody.code, "EVENT_CONFIGURATION_INCOMPLETE");
+    assert.equal(openBody.details.missing.includes("INCOMPLETE_SCHEDULES"), true);
+
+    const votingRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/open`, {
+      method: "POST", headers: adminHeaders,
+    });
+    assert.equal(votingRes.status, 409);
+    assert.equal((await votingRes.json()).code, "EVENT_NOT_OPEN");
 
     const { rows: [ballotCount] } = await pool.query(
       "SELECT count(*)::INTEGER AS count FROM ballot WHERE night_id = $1 AND event_id = $2",
