@@ -69,6 +69,39 @@ export function SessionProvider({ children }) {
     void refresh();
     return () => { requestRevision.current += 1; };
   }, []);
+  useEffect(() => {
+    if (session.status !== "authenticated" || !session.roles?.includes("JUDGE")) return undefined;
+    let active = true;
+    let checking = false;
+    const checkEventCompletion = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const result = await apiRequest("/api/v1/judge/session-status");
+        if (!active || !result.eventEnded) return;
+        requestRevision.current += 1;
+        await apiRequest("/api/auth/sign-out", { method: "POST", body: "{}" }).catch(() => {});
+        if (activeUserId.current) void clearUserOfflineData(activeUserId.current).catch(() => {});
+        activeUserId.current = null;
+        if (active) {
+          setSession({ status: "anonymous", roles: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
+          window.location.hash = "#/login?reason=event-ended";
+        }
+      } catch {
+        // A temporary network failure must not end the local session.
+      } finally {
+        checking = false;
+      }
+    };
+    void checkEventCompletion();
+    const timer = window.setInterval(checkEventCompletion, 5 * 60 * 1000);
+    window.addEventListener("focus", checkEventCompletion);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", checkEventCompletion);
+    };
+  }, [session.status, session.roles?.join(",")]);
   return <SessionContext.Provider value={{
     ...session,
     refresh,

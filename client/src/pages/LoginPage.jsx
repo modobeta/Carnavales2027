@@ -10,6 +10,7 @@ export function getLoginParams() {
   const returnTo = params.get("returnTo");
   return {
     sessionExpiredNotice: reason === "session-expired",
+    eventEndedNotice: reason === "event-ended",
     // Solo se retoma dentro del área del jurado (misma app, sin redirect abierto).
     returnTo: returnTo && returnTo.startsWith("#/judge") ? returnTo : null,
   };
@@ -109,7 +110,7 @@ export function LoginPage({ onAuthenticated }) {
   const session = useSession();
   const [step, setStep] = useState("credentials");
   const [message, setMessage] = useState("");
-  const [{ sessionExpiredNotice }] = useState(getLoginParams);
+  const [{ sessionExpiredNotice, eventEndedNotice }] = useState(getLoginParams);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -282,7 +283,12 @@ export function LoginPage({ onAuthenticated }) {
         <p className="login-subtitle">Sistema de jurados</p>
         {sessionExpiredNotice && step === "credentials" && (
           <div className="login-expired-notice" role="status">
-            <p>Tu sesión expiró por inactividad o se cerró en otro dispositivo. Iniciá sesión nuevamente para retomar tu votación.</p>
+            <p>Tu sesión ya no está activa. Iniciá sesión nuevamente para continuar.</p>
+          </div>
+        )}
+        {eventEndedNotice && step === "credentials" && (
+          <div className="login-expired-notice" role="status">
+            <p>El evento finalizó y tu sesión de jurado se cerró.</p>
           </div>
         )}
         {step === "credentials" ? (
@@ -291,7 +297,7 @@ export function LoginPage({ onAuthenticated }) {
               Email
               <div className="login-input-wrapper">
                 <span className="login-input-icon" aria-hidden="true"><UserIcon /></span>
-                <input name="email" type="text" autoComplete="username" placeholder="Ingrese su identificador" required />
+                <input name="email" type="email" autoComplete="username" placeholder="Ingrese su email" required />
               </div>
             </label>
             <label className="login-field-label">

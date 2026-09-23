@@ -184,7 +184,7 @@ describe("LoginPage", () => {
     window.location.hash = "#/login?reason=session-expired";
     apiRequest.mockRejectedValue({ code: "UNAUTHENTICATED" });
     render(<SessionProvider><LoginPage /></SessionProvider>);
-    expect(await screen.findByText(/Tu sesión expiró por inactividad/)).toBeInTheDocument();
+    expect(await screen.findByText(/Tu sesión ya no está activa/)).toBeInTheDocument();
   });
 
   it("retoma la planilla del jurado tras re-login cuando hay returnTo", async () => {

@@ -9,6 +9,7 @@ const READINESS_LABELS = {
   ACTIVE_RUBRIC: "No existe ningun rubro activo",
   INCOMPLETE_TROUPES: "Existen comparsas sin categoria activa",
   INCOMPLETE_RUBRICS: "Existen rubros sin items puntuables o con especialidades inactivas",
+  INCOMPLETE_SCHEDULES: "Una o mas jornadas no tienen comparsas programadas en el orden de pasada",
 };
 
 export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, refreshKey = 0 }) {
@@ -68,7 +69,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
             {readiness.ready ? (
               <p className="readiness-ok">Configuracion completa. El evento esta listo para abrir.</p>
             ) : (
-               <p className="readiness-pending">{(readiness.missing?.length ?? 0) + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0)} problema(s) impiden abrir la configuracion.</p>
+              <p className="readiness-pending">{(readiness.missing ?? []).filter((code) => code !== "INCOMPLETE_SCHEDULES").length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0)} problema(s) impiden abrir la configuracion.</p>
             )}
           </div>
           <ul className="readiness-checklist">
@@ -97,12 +98,20 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
                 <a href="#/admin/competencia">Ir al problema</a>
               </li>
             ))}
+            {(readiness.incompleteSchedules ?? []).map((schedule) => (
+              <li key={schedule.nightId} className="readiness-fail">
+                <span className="readiness-icon">&#x2717;</span>
+                La jornada &ldquo;{schedule.nightName}&rdquo; no tiene comparsas programadas en el orden de pasada. {" "}
+                <a href="#/admin/competencia">Configurar el orden</a>
+              </li>
+            ))}
             {readiness.ready && (
               <>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Jornadas de competencia configuradas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Comparsas activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Especialidades activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Rubros activos con items validos</li>
+                <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Orden de pasada configurado en las jornadas de competencia</li>
               </>
             )}
           </ul>

@@ -176,11 +176,11 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
 
     // Click "No se presentó"
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
 
     // Modal dialog appears
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
-    expect(within(dialog).getByText(/Esta acción registrará 0 \(cero\) puntos de manera inmutable/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Se registrará este ítem como no presentado con 0 puntos/)).toBeInTheDocument();
 
     // Confirm inside modal
     fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar" }));

@@ -697,6 +697,8 @@ label { color: #cbd5e1; }
    limpia con el detalle alineado a la derecha. */
 .judge-progress-card .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
 .judge-progress-card .app-progress-sublabel { text-align: end; min-inline-size: 0; }
+.ballot-progress .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
+.ballot-progress .app-progress-sublabel { min-inline-size: 0; text-align: end; overflow-wrap: anywhere; }
 .judge-progress-card span,
 .ballot-progress span { color: var(--text-muted); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .judge-progress-card strong,
@@ -896,6 +898,17 @@ button.button-link:disabled {
 .review-ready-banner p { margin: 0.15rem 0 0; color: var(--text-secondary); font-size: 0.88rem; }
 .review-ready-banner .button-link { text-decoration: none; }
 .ballot-readonly-summary { display: grid; gap: 1rem; }
+.readonly-summary-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.readonly-summary-controls label { display: grid; gap: 0.25rem; min-inline-size: min(12rem, 100%); color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
+.readonly-summary-controls select { min-block-size: 2.75rem; max-inline-size: 100%; }
+.readonly-summary-controls button { min-block-size: 2.75rem; }
+.evaluation-context { margin: 0.35rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .readonly-hero {
   display: flex;
   align-items: center;
@@ -1046,6 +1059,7 @@ button.button-link:disabled {
   .ballot-readonly-summary > .readonly-troupe-index {
     grid-column: 1 / -1;
   }
+  .ballot-readonly-summary > .readonly-summary-controls { grid-column: 1 / -1; }
   .ballot-troupe-navigation, .ballot-summary { position: static; }
   .ballot-summary {
     display: block;

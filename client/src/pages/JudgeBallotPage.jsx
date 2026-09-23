@@ -33,6 +33,8 @@ function groupScores(scores) {
   }, {});
 }
 
+const SUBJECT_LABELS = { PERSON: "Persona o bailarín", COUPLE: "Pareja", GROUP: "Grupo", FIGURE: "Figura", ELEMENT: "Elemento", OTHER: "Otro sujeto" };
+
 function getPendingItems(scores, details) {
   const scoresById = new Map(scores.map((score) => [score.id, score]));
   const source = details?.length > 0
@@ -76,6 +78,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [continuityPrompt, setContinuityPrompt] = useState(null); // { completedTroupeName, nextTroupeName, nextNightScheduleId }
   const [summaryOpen, setSummaryOpen] = useState(true);
+  const [showAllReadonlyGroups, setShowAllReadonlyGroups] = useState(false);
+  const [readonlyTroupeFilter, setReadonlyTroupeFilter] = useState("");
+  const [readonlyRubricFilter, setReadonlyRubricFilter] = useState("");
 
   const cardSectionRef = useRef(null);
   const submitButtonRef = useRef(null);
@@ -454,12 +459,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div className="score-resolved-compact">
           <div
             className={`locked-score ${isNotPresented ? "not-presented" : "is-sealed"}`}
-            aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "No se presentó" : `puntuado ${scoreItem.score}`}`}
+            aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "Rubro no presentado" : `puntuado ${scoreItem.score}`}`}
           >
             <span aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
             <div>
               {isNotPresented ? (
-                <strong>No se presentó</strong>
+                <strong>Rubro no presentado</strong>
               ) : (
                 <strong className="sealed-score">
                   <span className="sealed-score-value" aria-hidden="true">{scoreItem.score}</span>
@@ -497,7 +502,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
         {/* Segregated "No se presentó" */}
         <div className="not-presented-section">
-          <p className="not-presented-hint">Marcar exclusivamente si la comparsa no se presentó o no completó este rubro.</p>
+          <p className="not-presented-hint">Esta decisión se registra para este rubro de la comparsa.</p>
           <button
             type="button"
             className="not-presented-btn"
@@ -509,7 +514,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               itemName: scoreItem.itemName,
             })}
           >
-            <span aria-hidden="true">⚠</span> No se presentó
+            <span aria-hidden="true">⚠</span> No se presentó este rubro
           </button>
         </div>
 
@@ -739,7 +744,26 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     <p className="readonly-hero-total"><strong>{scoreTotal}</strong> puntos en total</p>
                   </div>
                 </div>
-                {targetGroup && <p className="judge-note">Mostrando la sección de <strong>{targetGroup.troupeName}</strong> dentro de la planilla completa.</p>}
+                {targetGroup && !showAllReadonlyGroups && !readonlyTroupeFilter && <p className="judge-note">Mostrando la sección de <strong>{targetGroup.troupeName}</strong>. Usá el control para ver el resumen de todas las comparsas.</p>}
+                <div className="readonly-summary-controls" aria-label="Filtros del resumen de planilla">
+                  <label>Comparsa
+                    <select value={readonlyTroupeFilter} onChange={(event) => { setReadonlyTroupeFilter(event.target.value); if (event.target.value) setShowAllReadonlyGroups(true); }}>
+                      <option value="">Todas</option>
+                      {groups.map((group) => <option key={group.nightScheduleId} value={String(group.nightScheduleId)}>{group.troupeName}</option>)}
+                    </select>
+                  </label>
+                  <label>Rubro
+                    <select value={readonlyRubricFilter} onChange={(event) => setReadonlyRubricFilter(event.target.value)}>
+                      <option value="">Todos</option>
+                      {[...new Map(groups.flatMap((group) => Object.values(group.rubrics).map((rubric) => [String(rubric.rubricId), rubric])).values())].map((rubric) => <option key={rubric.rubricId} value={String(rubric.rubricId)}>{rubric.rubricName}</option>)}
+                    </select>
+                  </label>
+                  {targetGroup && groups.length > 1 && <button type="button" className="secondary" onClick={() => {
+                    setShowAllReadonlyGroups((value) => !value);
+                    setReadonlyTroupeFilter("");
+                    setReadonlyRubricFilter("");
+                  }}>{showAllReadonlyGroups ? "Ver solo la comparsa seleccionada" : "Ver resumen de todas las comparsas"}</button>}
+                </div>
                 {groups.length > 1 && (
                   <nav className="readonly-troupe-index" aria-label="Ir a una comparsa">
                     {groups.map((group) => (
@@ -748,17 +772,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         type="button"
                         className="readonly-troupe-chip"
                         aria-label={`Ir a ${group.troupeName}`}
-                        onClick={() => goToReadonlyGroup(group)}
+                        onClick={() => { setShowAllReadonlyGroups(true); setReadonlyTroupeFilter(String(group.nightScheduleId)); goToReadonlyGroup(group); }}
                       >
                         <span aria-hidden="true">{group.presentationOrder}</span> {group.troupeName}
                       </button>
                     ))}
                   </nav>
                 )}
-                {groups.map((group, groupIndex) => {
+                {groups.filter((group) => !targetGroup || showAllReadonlyGroups || !selectedTroupeId || String(group.nightScheduleId) === String(selectedTroupeId))
+                  .filter((group) => !readonlyTroupeFilter || String(group.nightScheduleId) === readonlyTroupeFilter)
+                  .map((group, groupIndex) => {
                   const groupScores = Object.values(group.rubrics).flatMap((rubric) =>
                     rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
-                  );
+                  ).filter((score) => !readonlyRubricFilter || String(score.rubricId) === readonlyRubricFilter);
                   const groupTotal = groupScores.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
                   const isSelected = Boolean(targetGroup && String(group.nightScheduleId) === String(targetGroup.nightScheduleId));
                   const isOpen = isGroupOpen(group, isSelected, groupIndex === 0);
@@ -810,8 +836,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                   <div className="judge-list-main">
                                     <h3>{score.itemName}</h3>
                                     <p>{score.rubricName}</p>
+                                    {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">{score.evaluationObjective}{score.expectedSubjectType ? ` · Sujeto: ${SUBJECT_LABELS[score.expectedSubjectType] ?? score.expectedSubjectType}` : ""}</p>}
                                   </div>
-                                  <span className="readonly-score-value">{isNotPresented ? "No se presentó" : `${score.score} pts`}</span>
+                                  <span className="readonly-score-value">{isNotPresented ? "Rubro no presentado" : `${score.score} pts`}</span>
                                 </li>
                               );
                             })}
@@ -859,6 +886,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       <>
                         <h3 className="card-item-title">{activeScore.itemName}</h3>
                         <p className="rubric-instruction">Seleccioná una puntuación para este criterio.</p>
+                        {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
+                          {activeScore.evaluationObjective && <span>{activeScore.evaluationObjective}</span>}
+                          {activeScore.expectedSubjectType && <span> · Sujeto: {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
+                        </p>}
                         {renderScoreDecision(activeScore, activeScore.troupeName, activeScore.rubricName)}
                       </>
                     )}
@@ -1055,7 +1086,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         )}
       </Dialog>
 
-      {/* Segregated "No se presentó" Modal (RF-186) */}
+      {/* Registrar ausencia para el ítem/rubro actual, sin acción masiva por comparsa. */}
       <Dialog
         isOpen={Boolean(notPresentedConfirm)}
         onClose={() => setNotPresentedConfirm(null)}
@@ -1067,7 +1098,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <p><strong>{notPresentedConfirm.troupeName}</strong></p>
             <p>{notPresentedConfirm.rubricName} — {notPresentedConfirm.itemName}</p>
             <p className="warning-inline-alert">
-              Esta acción registrará 0 (cero) puntos de manera inmutable.
+              Se registrará este ítem como no presentado con 0 puntos. La decisión es inmutable.
             </p>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setNotPresentedConfirm(null)}>
