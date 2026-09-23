@@ -155,7 +155,7 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
   }
   if (route === "#/admin/assignments") {
-    return <RoleArea session={session} admin><AdminAssignmentsPage /></RoleArea>;
+    return <RoleArea session={session} admin><AdminAssignmentsPage initialEventId={new URLSearchParams(query).get("eventId") ?? ""} /></RoleArea>;
   }
   if (route === "#/admin/voting") {
     return <RoleArea session={session} admin><AdminVotingPage /></RoleArea>;

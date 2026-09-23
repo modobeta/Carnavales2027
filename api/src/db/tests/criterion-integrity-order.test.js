@@ -45,9 +45,11 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   }
   // Also exercise backfill through the existing OPEN guard without disabling it in tests.
   const { rows: [opened] } = await client.query("INSERT INTO carnival_event(name) VALUES('Historical OPEN') RETURNING id");
-  await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'N',1,'COMPETITION')", [opened.id]);
+  const { rows: [openNight] } = await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'N',1,'COMPETITION') RETURNING id", [opened.id]);
   const { rows: [category] } = await client.query("INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'C','C',1) RETURNING id", [opened.id]);
-  await client.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'T')", [opened.id, category.id]);
+  const { rows: [openTroupe] } = await client.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'T') RETURNING id", [opened.id, category.id]);
+  // La apertura exige que cada jornada tenga comparsas programadas (migración 079).
+  await client.query("INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)", [opened.id, openNight.id, openTroupe.id]);
   const { rows: [openSpecialty] } = await client.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'S','S',1) RETURNING id", [opened.id]);
   const { rows: [openRubric] } = await client.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'R','R','TROUPE') RETURNING id", [opened.id]);
   const { rows: [openItem] } = await client.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'I','I') RETURNING id", [opened.id, openRubric.id, openSpecialty.id]);

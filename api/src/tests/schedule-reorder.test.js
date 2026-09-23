@@ -137,7 +137,7 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
   }
 });
 
-test("API schedule: reorden bloqueado cuando la jornada ya tiene ballots", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
+test("API schedule: en OPEN el reorden conserva el tramo ya iniciado y libera el resto", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   await migrate();
   const pool = getPool();
@@ -167,8 +167,8 @@ test("API schedule: reorden bloqueado cuando la jornada ya tiene ballots", { ski
     "INSERT INTO judge_assignment(event_id, night_id, specialty_id, judge_profile_id) VALUES($1,$2,$3,$4) RETURNING id",
     [seeded.event.id, seeded.night.id, specialty.id, profile.id],
   );
-  await pool.query(
-    "INSERT INTO ballot(event_id, night_id, judge_assignment_id, judge_profile_id, specialty_id, status) VALUES($1,$2,$3,$4,$5,'OPEN')",
+  const { rows: [ballot] } = await pool.query(
+    "INSERT INTO ballot(event_id, night_id, judge_assignment_id, judge_profile_id, specialty_id, status) VALUES($1,$2,$3,$4,$5,'OPEN') RETURNING id",
     [seeded.event.id, seeded.night.id, assignment.id, profile.id, specialty.id],
   );
 
@@ -178,12 +178,26 @@ test("API schedule: reorden bloqueado cuando la jornada ya tiene ballots", { ski
     const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
     const openRes = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/open`, { method: "POST", headers });
     assert.equal(openRes.status, 200);
-    const blocked = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/schedule/reorder`, {
+
+    // Sin votos registrados el reorden sigue permitido, aunque el evento ya esté abierto.
+    const allowed = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/schedule/reorder`, {
       method: "PATCH", headers,
       body: JSON.stringify({ nightId: seeded.night.id, orderedIds: [seeded.entryB.id, seeded.entryA.id], reason: "Tarde" }),
     });
+    assert.equal(allowed.status, 200);
+
+    // Con una planilla iniciada en la primera comparsa, esa posición queda fija.
+    const { rows: [item] } = await pool.query("SELECT id FROM evaluation_item WHERE event_id = $1", [seeded.event.id]);
+    await pool.query(
+      "INSERT INTO ballot_score(ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id) VALUES($1,$2,$3,$4,$5)",
+      [ballot.id, seeded.event.id, item.id, seeded.rubric.id, seeded.entryB.id],
+    );
+    const blocked = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/schedule/reorder`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ nightId: seeded.night.id, orderedIds: [seeded.entryA.id, seeded.entryB.id], reason: "Tarde" }),
+    });
     assert.equal(blocked.status, 409);
-    assert.equal((await blocked.json()).code, "NIGHT_VOTING_STARTED");
+    assert.equal((await blocked.json()).code, "NIGHT_REORDER_STARTED_TROUPES");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

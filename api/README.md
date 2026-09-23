@@ -170,7 +170,7 @@ La fuente exacta de métodos y payloads es `src/routes/*.routes.js`; la tabla ag
 | `/api/v1/judge-invitations`, `/operational-invitations`, `/invitations` | Inspección/aceptación por secreto o token según el circuito |
 | `/api/v1/events/:eventId/judge-assignments` | Asignaciones y cupos; administración |
 | `/api/v1/events/:eventId/nights/:nightId/voting/*` | Apertura/cierre ADMIN; consulta de estado autorizada |
-| `/api/v1/judge/assignments`, `/judge/ballots` | Asignaciones y planillas del jurado habilitado |
+| `/api/v1/judge/assignments`, `/judge/ballots`, `/judge/session-status` | Asignaciones, planillas y estado de fin del evento del jurado habilitado |
 | `/api/v1/monitor/*` | Monitor y stream SSE; ADMIN o VEEDOR registrado, con 2FA |
 | `/api/v1/events/:eventId/penalties` | Penalizaciones; ADMIN o COMISARIO, con 2FA |
 | `/api/v1/events/:eventId/results` | Consulta de resultados; ADMIN, SCRUTINEER o ESCRIBANO |
@@ -186,7 +186,7 @@ Las escrituras de `/api/v1` verifican `Origin` contra `FRONTEND_URL`; en producc
 
 ## Invariantes y tiempo real
 
-**Discrepancia funcional pendiente:** `ballot-service.js` implementa `SCORED` entero 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin puntuación. Las reglas históricas de la raíz dicen 0–5 y ausencia de asignaciones, mientras el backend actual valida asignaciones. Documentar este comportamiento no lo convierte en reglamento aprobado: conciliar antes de una votación real.
+La escala vigente para esta versión es `SCORED` entero 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin puntuación. Las asignaciones se gestionan por jornada y especialidad; la API valida que la planilla corresponda a una asignación activa y a comparsas de esa jornada.
 
 - Guardar una decisión online la confirma; el cliente no debe presentarla como persistida antes de la respuesta. `PENDING` no es un cero válido ni una omisión aceptada.
 - Se preservan completitud, inmutabilidad por ítem, pertenencia del jurado y precedencia de pasada. No existe un flujo habilitado de nuevas reaperturas.
@@ -263,7 +263,11 @@ Las tres aceptaciones de invitación (jurado, perfil operativo y rol) validan la
 
 El flujo de la interfaz es correo/contraseña → desafío 2FA → envío OTP → verificación → `/api/v1/me`. El campo visual «Email» corresponde al contrato de `/api/auth/sign-in/email`, que recibe `email` y `password`. En el primer ingreso puede requerirse habilitar el segundo factor antes de verificarlo.
 
-Las sesiones usan cookies de Better Auth, no un JWT administrado manualmente por el frontend. La identidad y los roles se obtienen del servidor; no aceptar roles enviados en el body. La contraseña se verifica mediante hash; no se recupera en texto claro desde la base.
+Las sesiones usan cookies de Better Auth, no un JWT administrado manualmente por el frontend. La identidad y los roles se obtienen del servidor; no aceptar roles enviados en el body. La contraseña se verifica mediante hash; no se recupera en texto claro desde la base. La sesión renovable tiene un plazo de respaldo de un año; la PWA del Jurado consulta su estado periódicamente para mantenerla activa durante el evento. No hay cierre por inactividad. Cuando todas las jornadas de los eventos asignados están cerradas, `/api/v1/judge/session-status` revoca la sesión del servidor y el cliente vuelve al login.
+
+El cierre de una jornada de competencia requiere que su ventana de votación ya esté cerrada. Al cerrar la última jornada, el evento pasa a `CLOSED` y queda inmutable. Las jornadas de premiación también deben cerrarse para completar el evento.
+
+La apertura del evento valida en `/api/v1/events/:eventId/readiness` que cada jornada de competencia tenga al menos una comparsa programada en el orden de pasada. La respuesta incluye `missing: ["INCOMPLETE_SCHEDULES"]` e `incompleteSchedules` con las jornadas sin programación; PostgreSQL repite la misma validación al cambiar el evento a `OPEN`. Cada entrada tiene un puesto único y positivo por las restricciones de base de datos. Una vez abierto, el reorden requiere motivo y auditoría. La comparsa actualmente en pista y las comparsas con decisiones de voto registradas conservan su posición; solo se puede ordenar el tramo restante.
 
 | Control | Configuración actual |
 | --- | --- |

@@ -27,7 +27,7 @@ La pantalla debe mostrar:
 - conexión simple (`Con conexión` / `Sin conexión`);
 - pestañas de comparsas de la noche elegida;
 - rubros/subrubros;
-- puntajes 0–5;
+- puntajes 1–10 (y decisión separada `No se presentó`);
 - progreso y cierre de comparsa.
 
 ### Confirmación de voto

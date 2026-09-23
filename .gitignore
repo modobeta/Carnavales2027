@@ -3,6 +3,7 @@ node_modules/
 
 # Local documentation and agent instructions (not published)
 /docs/
+/graphify-out/
 /specs/*
 !/specs/029-piloto-produccion/
 

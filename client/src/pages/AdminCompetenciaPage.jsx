@@ -212,7 +212,12 @@ export function AdminCompetenciaPage({ event, onBack }) {
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <p className="step-intro">Definí las especialidades que evalúan: cada ítem del paso 3 pertenece a una especialidad activa. Los jurados se asignan en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">Definí las especialidades que evalúan: cada ítem del paso 3 pertenece a una especialidad activa. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">
+                <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
+                  Asignar jurados a la competencia
+                </a>
+              </p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={summaryByStep.jurados} />
               <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
             </section>

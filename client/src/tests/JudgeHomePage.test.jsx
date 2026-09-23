@@ -190,9 +190,10 @@ describe("JudgeHomePage", () => {
 
     render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
 
-    // Comparsa 1: Lista para revisar
-    expect(await screen.findByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Continuar/ })).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-1");
+    // Comparsa actual = la que se está votando (Sapucay, 0/2), no la ya votada (Ara Berá, 2/2)
+    const nowSection = await screen.findByRole("region", { name: "Comparsa actual" });
+    expect(nowSection).toHaveTextContent("Sapucay");
+    expect(nowSection.querySelector("a.judge-now-cta")).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-2");
 
     // Comparsa 2: Desbloqueada y lista para comenzar
     expect(screen.getByRole("heading", { name: "Sapucay", level: 3 })).toBeInTheDocument();
@@ -234,6 +235,60 @@ describe("JudgeHomePage", () => {
     expect(cta).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-1");
     // Un solo CTA primario en toda la pantalla
     expect(document.querySelectorAll("a.judge-now-cta")).toHaveLength(1);
+  });
+
+  it("no muestra votación completada si todo está puntuado pero falta el cierre (7 de 7 real exige SUBMITTED)", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/judge/ballots?include=progress") {
+        return Promise.resolve([
+          {
+            id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Baile",
+            status: "OPEN", totalScores: 2, resolvedScores: 2,
+            troupes: [{ troupeId: "sched-1", troupeName: "Ara Berá", presentationOrder: 1, total: 2, resolved: 2 }],
+          },
+          {
+            id: "ballot-2", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Baile",
+            status: "SUBMITTED", totalScores: 2, resolvedScores: 2,
+            troupes: [{ troupeId: "sched-2", troupeName: "Sapucay", presentationOrder: 2, total: 2, resolved: 2 }],
+          },
+        ]);
+      }
+      return Promise.reject(new Error(`Llamada inesperada: ${path}`));
+    });
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    const progress = await screen.findByRole("region", { name: "Progreso general" });
+    // Barra al 100% de ítems pero solo 1 de 2 comparsas confirmadas.
+    expect(progress).toHaveTextContent("1 de 2 comparsas confirmadas");
+    expect(screen.queryByText("Votación completada")).not.toBeInTheDocument();
+    // En cambio ofrece revisar/confirmar la pendiente.
+    expect(await screen.findByRole("region", { name: "Lista para confirmar" })).toBeInTheDocument();
+  });
+
+  it("muestra votación completada solo con todas las comparsas confirmadas", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/judge/ballots?include=progress") {
+        return Promise.resolve([
+          {
+            id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Baile",
+            status: "SUBMITTED", totalScores: 4, resolvedScores: 4,
+            troupes: [
+              { troupeId: "sched-1", troupeName: "Ara Berá", presentationOrder: 1, total: 2, resolved: 2 },
+              { troupeId: "sched-2", troupeName: "Sapucay", presentationOrder: 2, total: 2, resolved: 2 },
+            ],
+          },
+        ]);
+      }
+      return Promise.reject(new Error(`Llamada inesperada: ${path}`));
+    });
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    const progress = await screen.findByRole("region", { name: "Progreso general" });
+    expect(progress).toHaveTextContent("2 de 2 comparsas confirmadas");
+    expect(screen.getByText("Votación completada")).toBeInTheDocument();
+    expect(screen.getByText("Confirmaste las 2 de 2 comparsas asignadas.")).toBeInTheDocument();
   });
 
   it("mantiene acceso a planillas cerradas con acción secundaria (TAREA 2)", async () => {

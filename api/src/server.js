@@ -13,6 +13,7 @@ const port = Number(process.env.PORT) || 3000;
 const app = createApp({
   authHandler: toNodeHandler(auth),
   getSession: auth.api.getSession,
+  signOut: auth.api.signOut,
 });
 
 if (process.env.NODE_ENV === "production") {

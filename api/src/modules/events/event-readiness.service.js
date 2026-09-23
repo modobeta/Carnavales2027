@@ -8,6 +8,7 @@ const READINESS_MESSAGES = {
   ACTIVE_RUBRIC: { ok: "Rubros activos", fail: "No existe ningún rubro activo" },
   INCOMPLETE_TROUPES: { ok: "Comparsas con categoría válida", fail: "Existen comparsas sin categoría activa" },
   INCOMPLETE_RUBRICS: { ok: "Rubros con ítems válidos", fail: "Existen rubros sin ítems puntuables o con especialidades inactivas" },
+  INCOMPLETE_SCHEDULES: { ok: "Orden de pasada completo", fail: "Una o más jornadas no tienen comparsas programadas en el orden de pasada" },
 };
 
 function humanLabel(code) {
@@ -20,6 +21,7 @@ export async function getReadiness({ client = getPool(), eventId }) {
   const missing = [];
   const incompleteTroupes = [];
   const incompleteRubrics = [];
+  const incompleteSchedules = [];
   const scalar = async (sql) => Number((await client.query(sql, [eventId])).rows[0].count);
 
   if (!await scalar("SELECT COUNT(*) FROM night WHERE event_id=$1 AND kind='COMPETITION'")) missing.push("COMPETITION_NIGHT");
@@ -43,11 +45,26 @@ export async function getReadiness({ client = getPool(), eventId }) {
       )`, [eventId]);
   for (const r of rubricRows) incompleteRubrics.push({ id: r.id, name: r.name, code: r.code });
 
+  const { rows: scheduleRows } = await client.query(
+    `SELECT n.id AS "nightId", n.name AS "nightName"
+       FROM night n
+      WHERE n.event_id = $1 AND n.kind = 'COMPETITION'
+        AND NOT EXISTS (
+          SELECT 1 FROM night_troupe_schedule s
+           WHERE s.night_id = n.id AND s.event_id = n.event_id AND s.status = 'SCHEDULED'
+        )
+      ORDER BY n.display_order`,
+    [eventId],
+  );
+  for (const row of scheduleRows) incompleteSchedules.push({ nightId: row.nightId, nightName: row.nightName });
+  if (incompleteSchedules.length) missing.push("INCOMPLETE_SCHEDULES");
+
   return {
     ready: missing.length === 0 && incompleteTroupes.length === 0 && incompleteRubrics.length === 0,
     missing,
     incompleteTroupes,
     incompleteRubrics,
+    incompleteSchedules,
     humanMessages: missing.map((code) => humanLabel(code)),
   };
 }

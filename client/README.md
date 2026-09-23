@@ -121,6 +121,8 @@ Al completar el registro por invitación, ambos campos de contraseña permiten m
 
 No guardar contraseña, OTP ni cookies de sesión en localStorage. Para recuperar acceso, abrir `/#/forgot-password`; para cambiar contraseña, usar las opciones de `/#/cuenta`. Un enlace de invitación o recuperación es sensible: no incluirlo en logs, capturas ni reportes.
 
+La PWA no cierra la sesión por inactividad. Mientras el Jurado está autenticado consulta `/api/v1/judge/session-status` cada cinco minutos; cuando todas las jornadas de sus eventos asignados están cerradas, termina la sesión y vuelve al login.
+
 Si la API muestra un error de red al consultar la sesión, no presentarlo como si el usuario careciera de permisos. Mantener estados de carga, error, sesión anónima y segundo factor separados.
 
 ## Votación y persistencia
@@ -132,7 +134,7 @@ La interfaz vigente trabaja **online**. `JudgeBallotPage` consulta la planilla, 
 - No se aceptan nuevas reaperturas ni se usa caché/outbox para votar sin conexión.
 - `ballot-store.js` conserva utilidades históricas y pruebas; `SessionProvider` limpia datos offline del usuario al cambiar/cerrar sesión. Su existencia no habilita el modo offline.
 
-En esta versión, `JudgeHomePage` obtiene planillas y progreso desde `/api/v1/judge/ballots?include=progress`. La API valida `SCORED` 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin nota; las reglas históricas 0–5/sin asignaciones **siguen pendientes de conciliación**. No usar la escala implementada como prueba de aprobación reglamentaria.
+En esta versión, `JudgeHomePage` obtiene planillas y progreso desde `/api/v1/judge/ballots?include=progress`. La API valida `SCORED` 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin nota. Las asignaciones administrativas se hacen por jornada y especialidad; cada voto confirmado sigue siendo inmutable.
 
 Ante un timeout, no habilitar edición de un ítem potencialmente confirmado ni disparar una cola automática. Recuperar estado del servidor y respetar el mecanismo de reintento/idempotencia del flujo. Un error de carga no debe mostrarse como una lista vacía exitosa.
 

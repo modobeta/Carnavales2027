@@ -3,8 +3,26 @@ import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 
+export function getLoginParams() {
+  const [, query = ""] = (window.location.hash || "").split("?");
+  const params = new URLSearchParams(query);
+  const reason = params.get("reason");
+  const returnTo = params.get("returnTo");
+  return {
+    sessionExpiredNotice: reason === "session-expired",
+    eventEndedNotice: reason === "event-ended",
+    // Solo se retoma dentro del área del jurado (misma app, sin redirect abierto).
+    returnTo: returnTo && returnTo.startsWith("#/judge") ? returnTo : null,
+  };
+}
+
 export function goToRoleHome(session) {
   if (session.status !== "authenticated") return false;
+  const { returnTo } = getLoginParams();
+  if (returnTo && (session.roles ?? []).includes("JUDGE")) {
+    window.location.hash = returnTo;
+    return true;
+  }
   const roles = session.roles ?? [];
   if (roles.includes("ADMIN")) window.location.hash = "#/admin/home";
   else if (roles.includes("JUDGE")) window.location.hash = "#/judge";
@@ -92,6 +110,7 @@ export function LoginPage({ onAuthenticated }) {
   const session = useSession();
   const [step, setStep] = useState("credentials");
   const [message, setMessage] = useState("");
+  const [{ sessionExpiredNotice, eventEndedNotice }] = useState(getLoginParams);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -262,13 +281,23 @@ export function LoginPage({ onAuthenticated }) {
         <p className="login-kicker">Acceso seguro</p>
         <h1>Carnavales Goya <span>2027</span></h1>
         <p className="login-subtitle">Sistema de jurados</p>
+        {sessionExpiredNotice && step === "credentials" && (
+          <div className="login-expired-notice" role="status">
+            <p>Tu sesión ya no está activa. Iniciá sesión nuevamente para continuar.</p>
+          </div>
+        )}
+        {eventEndedNotice && step === "credentials" && (
+          <div className="login-expired-notice" role="status">
+            <p>El evento finalizó y tu sesión de jurado se cerró.</p>
+          </div>
+        )}
         {step === "credentials" ? (
           <form onSubmit={submitCredentials}>
             <label className="login-field-label">
               Email
               <div className="login-input-wrapper">
                 <span className="login-input-icon" aria-hidden="true"><UserIcon /></span>
-                <input name="email" type="text" autoComplete="username" placeholder="Ingrese su identificador" required />
+                <input name="email" type="email" autoComplete="username" placeholder="Ingrese su email" required />
               </div>
             </label>
             <label className="login-field-label">
