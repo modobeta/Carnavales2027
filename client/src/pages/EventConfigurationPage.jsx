@@ -18,7 +18,17 @@ const errorMessages = {
 
 function formatDate(value) {
   if (!value) return "—";
-  const date = new Date(value);
+  // 'YYYY-MM-DD' debe interpretarse como fecha local, no como UTC midnight.
+  // new Date("2027-02-20") => UTC que en es-AR (UTC-3) muestra el día anterior.
+  if (typeof value === "string") {
+    const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      if (!Number.isNaN(date.getTime())) return date.toLocaleDateString("es-AR");
+      return "—";
+    }
+  }
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("es-AR");
 }
