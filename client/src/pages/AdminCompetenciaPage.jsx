@@ -759,7 +759,9 @@ function AdminCategoriesSection({ event }) {
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
@@ -808,9 +810,53 @@ function AdminCategoriesSection({ event }) {
   const nextOrder = ordered.length === 0 ? 1 : Math.max(...ordered.map((c) => c.displayOrder ?? 0)) + 1;
   const editingCategory = drawerMode?.mode === "edit" ? categories.find((c) => c.id === drawerMode.categoryId) : null;
 
+  const refreshCategories = async (fallback) => {
+    const fresh = await apiRequest(`/api/v1/events/${event.id}/categories`).catch(() => null);
+    if (fresh) setCategories(fresh);
+    else if (fallback) setCategories(fallback);
+  };
+
+  const confirmDeleteCategory = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/categories/${target.id}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+      await refreshCategories((prev) => prev.map((c) => c.id === target.id ? { ...c, active: false } : c));
+      setMessage(`Tipo ${target.name} eliminado (desactivado en BD).`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo eliminar el tipo.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const reactivateCategory = async (category) => {
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/categories/${category.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
+      await refreshCategories((prev) => prev.map((c) => c.id === category.id ? { ...c, active: true } : c));
+      setMessage(`Tipo ${category.name} reactivado.`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo reactivar el tipo.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas.</p></div>
+      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas. Eliminar oculta el tipo y lo conserva desactivado en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       {ordered.length === 0 ? (
@@ -838,7 +884,16 @@ function AdminCategoriesSection({ event }) {
                     <td>
                       <button className="secondary" type="button" aria-label={`Editar tipo ${category.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", categoryId: category.id }); }}>
                         Editar
-                      </button>
+                      </button>{" "}
+                      {category.active !== false ? (
+                        <button className="secondary danger-action" type="button" aria-label={`Eliminar tipo ${category.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(category); }}>
+                          Eliminar
+                        </button>
+                      ) : (
+                        <button className="secondary" type="button" aria-label={`Reactivar tipo ${category.name}`} onClick={() => reactivateCategory(category)}>
+                          Reactivar
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -869,6 +924,18 @@ function AdminCategoriesSection({ event }) {
           <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+      <Dialog
+        isOpen={deleteTarget !== null && !locked}
+        onClose={() => setDeleteTarget(null)}
+        title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar tipo"}
+        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        focusReturnRef={deleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteCategory}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
     </section>
   );
 }
@@ -878,7 +945,9 @@ function AdminSpecialtiesSection({ event }) {
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
@@ -927,9 +996,53 @@ function AdminSpecialtiesSection({ event }) {
   const nextOrder = ordered.length === 0 ? 1 : Math.max(...ordered.map((s) => s.displayOrder ?? 0)) + 1;
   const editingSpecialty = drawerMode?.mode === "edit" ? specialties.find((s) => s.id === drawerMode.specialtyId) : null;
 
+  const refreshSpecialties = async (fallback) => {
+    const fresh = await apiRequest(`/api/v1/events/${event.id}/specialties`).catch(() => null);
+    if (fresh) setSpecialties(fresh);
+    else if (fallback) setSpecialties(fallback);
+  };
+
+  const confirmDeleteSpecialty = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/specialties/${target.id}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+      await refreshSpecialties((prev) => prev.map((s) => s.id === target.id ? { ...s, active: false } : s));
+      setMessage(`Especialidad ${target.name} eliminada (desactivada en BD).`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo eliminar la especialidad.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const reactivateSpecialty = async (specialty) => {
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/specialties/${specialty.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
+      await refreshSpecialties((prev) => prev.map((s) => s.id === specialty.id ? { ...s, active: true } : s));
+      setMessage(`Especialidad ${specialty.name} reactivada.`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo reactivar la especialidad.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3.</p></div>
+      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3. Eliminar la oculta y la conserva desactivada en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
       {ordered.length === 0 ? (
@@ -957,7 +1070,16 @@ function AdminSpecialtiesSection({ event }) {
                     <td>
                       <button className="secondary" type="button" aria-label={`Editar especialidad ${spec.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", specialtyId: spec.id }); }}>
                         Editar
-                      </button>
+                      </button>{" "}
+                      {spec.active !== false ? (
+                        <button className="secondary danger-action" type="button" aria-label={`Eliminar especialidad ${spec.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(spec); }}>
+                          Eliminar
+                        </button>
+                      ) : (
+                        <button className="secondary" type="button" aria-label={`Reactivar especialidad ${spec.name}`} onClick={() => reactivateSpecialty(spec)}>
+                          Reactivar
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -988,6 +1110,18 @@ function AdminSpecialtiesSection({ event }) {
           <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+      <Dialog
+        isOpen={deleteTarget !== null && !locked}
+        onClose={() => setDeleteTarget(null)}
+        title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar especialidad"}
+        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras reactivarla. No se borra el historial."
+        focusReturnRef={deleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteSpecialty}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
     </section>
   );
 }
@@ -1000,6 +1134,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   const [highlightItemId, setHighlightItemId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [editingCriterion, setEditingCriterion] = useState(null);
+  const [rubricDeleteTarget, setRubricDeleteTarget] = useState(null);
+  const rubricDeleteTriggerRef = useRef(null);
   const [message, setMessage] = useState("");
   const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
 
@@ -1157,9 +1293,47 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     }
   };
 
+  const setRubricActive = async (rubric, active) => {
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/rubrics/${rubric.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: rubric.name,
+          evaluationTarget: rubric.evaluationTarget,
+          expectedSubjectType: rubric.expectedSubjectType ?? null,
+          rubricType: rubric.rubricType,
+          resolutionMethod: rubric.resolutionMethod,
+          evaluationObjective: rubric.evaluationObjective ?? null,
+          active,
+        }),
+      });
+      const fresh = await apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => null);
+      if (fresh) setRubrics(fresh);
+      else setRubrics((prev) => prev.map((r) => r.id === rubric.id ? { ...r, active } : r));
+      setMessage(active ? `Rubro ${rubric.name} reactivado.` : `Rubro ${rubric.name} eliminado (desactivado en BD).`);
+      if (incRevision) incRevision();
+      reloadProgress?.();
+    } catch {
+      setMessage(active ? "No se pudo reactivar el rubro." : "No se pudo eliminar el rubro.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const confirmDeleteRubric = async () => {
+    const target = rubricDeleteTarget;
+    setRubricDeleteTarget(null);
+    if (!target) return;
+    await setRubricActive(target, false);
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos.</p></div>
+      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
 
       <h3>Qué puntúa el jurado</h3>
@@ -1192,7 +1366,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
             <article className="rubric-card" key={rubric.id} data-rubric-id={rubric.id}>
               <div className="rubric-card-header">
                 <div>
-                  <h3>{rubric.name}</h3>
+                  <h3>{rubric.name}{rubric.active === false && <small> · Inactivo</small>}</h3>
                   <span className="rubric-meta">{rubricTypeLabel} &middot; {resolutionLabel}</span>
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                   <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
@@ -1200,6 +1374,15 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                 <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
                   {isExpanded ? "Contraer" : "Expandir"}
                 </button>
+                {!locked && (rubric.active !== false ? (
+                  <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
+                    Eliminar
+                  </button>
+                ) : (
+                  <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => setRubricActive(rubric, true)}>
+                    Reactivar
+                  </button>
+                ))}
               </div>
 
               {isExpanded && (
@@ -1314,6 +1497,18 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
           );
         })}
       </div>
+      <Dialog
+        isOpen={rubricDeleteTarget !== null && !locked}
+        onClose={() => setRubricDeleteTarget(null)}
+        title={rubricDeleteTarget ? `Eliminar ${rubricDeleteTarget.name}` : "Eliminar rubro"}
+        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        focusReturnRef={rubricDeleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setRubricDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteRubric}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
     </section>
   );
 }

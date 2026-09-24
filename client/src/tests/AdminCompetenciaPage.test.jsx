@@ -200,6 +200,41 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.submit(form);
     expect(await screen.findByText("Ese nombre u orden ya está en uso.")).toBeInTheDocument();
   });
+
+  it.each([
+    [/Participantes/, "Eliminar tipo Comparsa", "Eliminar Comparsa", "/api/v1/categories/category-1", "Tipo Comparsa eliminado (desactivado en BD)."],
+    [/Jurados y especialidades/, "Eliminar especialidad Danza", "Eliminar Danza", "/api/v1/specialties/specialty-1", "Especialidad Danza eliminada (desactivada en BD)."],
+  ])("%s elimina con confirmacion previa", async (section, deleteLabel, dialogName, deletePath, message) => {
+    const write = vi.fn().mockImplementation(async (path, options) => ({ id: path.split("/").at(-1), ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: section }));
+    fireEvent.click(await screen.findByRole("button", { name: deleteLabel }));
+    expect(await screen.findByRole("dialog", { name: dialogName })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith(deletePath, {
+      method: "PATCH",
+      body: JSON.stringify({ active: false }),
+    }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("elimina (desactiva) rubro con confirmacion", async () => {
+    const write = vi.fn().mockImplementation(async (path, options) => ({ id: path.split("/").at(-1), ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar rubro Coreografia" }));
+    expect(await screen.findByRole("dialog", { name: "Eliminar Coreografia" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith(
+      "/api/v1/rubrics/rubric-1",
+      expect.objectContaining({ method: "PATCH" }),
+    ));
+    const [, options] = write.mock.calls.find(([path]) => path === "/api/v1/rubrics/rubric-1");
+    expect(JSON.parse(options.body).active).toBe(false);
+    expect(await screen.findByText("Rubro Coreografia eliminado (desactivado en BD).")).toBeInTheDocument();
+  });
   it.each([
     [/Rubros, ítems y criterios/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
     [/Rubros, ítems y criterios/, "Guardar rubro", "Expandir Coreografia", "/api/v1/rubrics/rubric-1"],

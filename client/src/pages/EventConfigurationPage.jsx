@@ -48,8 +48,11 @@ export function EventConfigurationPage({
   const [savingNight, setSavingNight] = useState(false);
   const [closeNightTarget, setCloseNightTarget] = useState(null);
   const [closingNight, setClosingNight] = useState(false);
+  const [deleteNightTarget, setDeleteNightTarget] = useState(null);
+  const [deletingNight, setDeletingNight] = useState(false);
   const [votingStatuses, setVotingStatuses] = useState({});
   const drawerTriggerRef = useRef(null);
+  const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
   const locked = currentEvent.status !== "CONFIGURING";
 
@@ -132,6 +135,28 @@ export function EventConfigurationPage({
     }
   };
 
+  const deleteNight = async () => {
+    if (!deleteNightTarget || deletingNight) return;
+    setDeletingNight(true);
+    setMessage("");
+    try {
+      const night = deleteNightTarget;
+      await apiRequest(`/api/v1/nights/${night.id}`, { method: "DELETE" });
+      setNights((current) => current.filter((item) => item.id !== night.id));
+      setReadinessRevision((revision) => revision + 1);
+      setMessage(`Jornada ${night.name} eliminada.`);
+      setDeleteNightTarget(null);
+    } catch (error) {
+      setMessage(error.code === "NIGHT_HAS_HISTORY"
+        ? "Solo se pueden eliminar jornadas sin programación ni historial operativo."
+        : error.code === "EVENT_LOCKED"
+          ? "El evento esta abierto y su configuracion ya no puede modificarse."
+          : "No se pudo eliminar la jornada.");
+    } finally {
+      setDeletingNight(false);
+    }
+  };
+
   const closeNight = async () => {
     if (!closeNightTarget || closingNight) return;
     setClosingNight(true);
@@ -208,6 +233,12 @@ export function EventConfigurationPage({
                     {(!locked || currentEvent.status === "OPEN") && (
                       <td>
                         {!locked && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
+                        {!locked && <button
+                          className="secondary danger-action"
+                          type="button"
+                          aria-label={`Eliminar jornada ${night.name}`}
+                          onClick={(event) => { deleteNightTriggerRef.current = event.currentTarget; setDeleteNightTarget(night); }}
+                        >Eliminar</button>}
                         {currentEvent.status === "OPEN" && night.status !== "CLOSED" && <>
                           {night.kind === "COMPETITION" && (night.status !== "OPEN" || votingStatuses[night.id] !== "CLOSED") && <small> Abrí y cerrá la votación antes de finalizar.</small>}
                           <button
@@ -247,6 +278,19 @@ export function EventConfigurationPage({
           <button type="button" className="secondary" onClick={closeDrawer}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+
+      <Dialog
+        isOpen={deleteNightTarget !== null}
+        onClose={() => { if (!deletingNight) setDeleteNightTarget(null); }}
+        title={`Eliminar ${deleteNightTarget?.name ?? "jornada"}`}
+        description="La jornada se borra definitivamente. Solo es posible si no tiene comparsas programadas ni historial operativo (asignaciones, votos, penalizaciones o votación)."
+        focusReturnRef={deleteNightTriggerRef}
+      >
+        <DialogFooter>
+          <button type="button" className="secondary" disabled={deletingNight} onClick={() => setDeleteNightTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" disabled={deletingNight} onClick={() => void deleteNight()}>{deletingNight ? "Eliminando…" : "Eliminar jornada"}</button>
+        </DialogFooter>
+      </Dialog>
 
       <Dialog
         isOpen={closeNightTarget !== null}

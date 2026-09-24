@@ -129,6 +129,48 @@ export async function createNight({ client = getPool(), eventId, name, displayOr
   );
   return rows[0];
 }
+const NIGHT_DELETE_BLOCKERS = [
+  ["ballot", "NIGHT_HAS_HISTORY"],
+  ["judge_assignment", "NIGHT_HAS_HISTORY"],
+  ["judge_quota", "NIGHT_HAS_HISTORY"],
+  ["night_troupe_schedule", "NIGHT_HAS_HISTORY"],
+  ["troupe_penalty", "NIGHT_HAS_HISTORY"],
+  ["voting_window", "NIGHT_HAS_HISTORY"],
+];
+
+export async function deleteNight({ client = null, nightId, actorUserId = null }) {
+  const owned = !client;
+  const db = client ?? await getPool().connect();
+  try {
+    if (owned) await db.query("BEGIN");
+    const id = requireText(nightId, "nightId");
+    const { rows: nights } = await db.query(
+      `SELECT n.id, n.name, n.event_id AS "eventId", e.status AS "eventStatus"
+         FROM night n JOIN carnival_event e ON e.id = n.event_id
+        WHERE n.id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
+    if (nights[0].eventStatus !== "CONFIGURING") throw new Error("EVENT_LOCKED");
+    for (const [table, code] of NIGHT_DELETE_BLOCKERS) {
+      const { rows: [{ n }] } = await db.query(`SELECT COUNT(*)::int AS n FROM ${table} WHERE night_id = $1`, [id]);
+      if (n > 0) throw new Error(code);
+    }
+    await db.query("DELETE FROM night WHERE id = $1", [id]);
+    await auditEvent(db, {
+      actorUserId, action: "NIGHT_DELETED", entityType: "night", entityId: id,
+      before: { name: nights[0].name, eventId: nights[0].eventId },
+      after: null,
+    });
+    if (owned) await db.query("COMMIT");
+    return { id };
+  } catch (error) {
+    if (owned) await db.query("ROLLBACK");
+    throw error;
+  } finally {
+    if (owned) db.release();
+  }
+}
 export async function updateNight({ client = getPool(), actorUserId = null, nightId, name, displayOrder, kind, eventDate = null, status = null }) {
   if (status === "CLOSED") {
     const { rows: current } = await client.query(

@@ -103,6 +103,13 @@ export function sendKnownError(response, error) {
     });
     return true;
   }
+  if (error.message === "NIGHT_HAS_HISTORY") {
+    response.status(409).json({
+      code: error.message,
+      message: "Solo se pueden eliminar jornadas sin programación ni historial operativo.",
+    });
+    return true;
+  }
   if (["INVALID_JUDGE_STATUS", "ACCOUNT_ALREADY_EXISTS"].includes(error.message)) {
     response.status(409).json({ code: error.message });
     return true;
