@@ -1,5 +1,10 @@
 import pg from "pg";
 
+// DATE (OID 1082) como string 'YYYY-MM-DD' sin convertir a Date.
+// Evita que el mismo día se desplace según TZ del servidor/cliente
+// (local vs deploy) al serializar a JSON.
+pg.types.setTypeParser(1082, (value) => value);
+
 const poolsByConnectionString = new Map();
 
 function getConnectionString() {
