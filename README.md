@@ -279,5 +279,6 @@ No se incluye un archivo de licencia en este árbol; los paquetes npm están mar
 ## Piloto gratuito
 
 Configuracion y traslado conservando datos: [DEPLOYMENT.md](DEPLOYMENT.md).
+Registro del incidente Gmail/OTP del 23/09/2026 y procedimiento de renovación: [mantenimiento OAuth](DEPLOYMENT.md#registro-operativo-gmail-oauth--otp--23092026). Mientras siga en Testing, revisar antes del 30/09/2026; no hay recordatorio automático configurado.
 Contrato aprobado: [Spec 029](specs/029-piloto-produccion/spec.md).
 El workflow del piloto y esta spec son excepciones versionadas a las exclusiones locales.
