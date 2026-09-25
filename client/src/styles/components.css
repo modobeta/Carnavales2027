@@ -580,6 +580,30 @@
   background: rgba(245, 158, 11, 0.4);
 }
 
+.troupe-absent-actions {
+  margin-block-start: var(--space-3);
+  padding-inline: var(--space-4);
+}
+
+.troupe-absent-btn {
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(220, 38, 38, 0.14);
+  border: 1px solid var(--danger-border);
+  border-inline-start: 5px solid var(--danger-border);
+  color: var(--danger-light);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.troupe-absent-btn:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.28);
+}
+
 .item-status-error {
   display: flex;
   align-items: center;

@@ -1286,6 +1286,56 @@ button.button-link:disabled {
   padding-inline-start: 1.25rem;
 }
 
+.submit-dialog-troupe {
+  margin-block-end: 1rem;
+  padding: 0.75rem;
+  border-inline-start: 3px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.submit-dialog-troupe > strong {
+  display: block;
+  margin-block-end: 0.5rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.submit-dialog-rubric {
+  margin: 0.5rem 0 0 1rem;
+  padding-inline-start: 1rem;
+  border-inline-start: 2px solid var(--border-subtle);
+}
+
+.rubric-header {
+  margin: 0 0 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.submit-dialog-item {
+  margin: 0.15rem 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  padding-inline-start: 0.5rem;
+}
+
+.submit-dialog-item:empty {
+  display: none;
+}
+
+.troupe-subtotal {
+  display: block;
+  margin-block-start: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-align: end;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ballot-summary-body {
     animation: none;
@@ -1369,6 +1419,13 @@ button.button-link:disabled {
 .ballot-footer { align-items: center; border-block-start: 1px solid var(--border-subtle); padding-block-start: 1rem; gap: 1rem; }
 .ballot-footer > button,
 .ballot-footer > .button-link { min-block-size: 3.4rem; }
+.voting-confirm-summary {
+  display: block;
+  margin-block-start: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
 .save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .save-indicator span:first-child { color: var(--success); }
 .locked-sheet { display: flex; align-items: center; gap: .9rem; flex: 1; border: 1px solid var(--success-border); border-radius: var(--radius-lg); padding: .8rem 1rem; color: var(--success-text); background: var(--success-bg); }

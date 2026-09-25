@@ -73,6 +73,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [scoreConfirm, setScoreConfirm] = useState(null); // { scoreId, score, troupeName, rubricName, itemName } — Spec 007 RF-77
   const [itemStatuses, setItemStatuses] = useState({}); // { [id]: { status: 'idle'|'saving'|'saved'|'error', errorMsg, lastAttempt } }
   const [notPresentedConfirm, setNotPresentedConfirm] = useState(null); // score item
+  const [troupeAbsentConfirm, setTroupeAbsentConfirm] = useState(null); // { nightScheduleId, troupeName, pendingCount }
+  const [markingAbsent, setMarkingAbsent] = useState(false);
   const [pendingDialogOpen, setPendingDialogOpen] = useState(false);
   const [incompleteDialog, setIncompleteDialog] = useState(null);
   const [submitConfirm, setSubmitConfirm] = useState(false);
@@ -289,6 +291,47 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
   };
 
+  const markTroupeAbsent = async (nightScheduleId) => {
+    if (!ballot || markingAbsent) return;
+    setMarkingAbsent(true);
+    setMessage("");
+    try {
+      const result = await apiRequest(`/api/v1/judge/ballots/${ballotId}/troupes/${nightScheduleId}/mark-absent`, { method: "POST" });
+      if (!mountedRef.current) return;
+      setBallot((current) => current && {
+        ...current,
+        revision: result.revision,
+        scores: current.scores.map((item) =>
+          item.nightScheduleId === nightScheduleId && item.evaluationState === "PENDING"
+            ? { ...item, evaluationState: "NOT_PRESENTED", score: 0 }
+            : item
+        ),
+      });
+      setMessage("Comparsa marcada como no presentada.");
+      const currentGroupIdx = groups.findIndex((g) => String(g.nightScheduleId) === String(nightScheduleId));
+      if (currentGroupIdx !== -1 && currentGroupIdx < groups.length - 1) {
+        const nextGroup = groups[currentGroupIdx + 1];
+        setContinuityPrompt({
+          completedTroupeName: groups[currentGroupIdx].troupeName,
+          nextTroupeName: nextGroup.troupeName,
+          nextNightScheduleId: nextGroup.nightScheduleId,
+        });
+      }
+    } catch (error) {
+      if (!mountedRef.current) return;
+      if (redirectOnSessionEnded(error)) return;
+      if (error.code === "TROUPE_PRECEDENCE_REQUIRED") {
+        setMessage("Primero debés resolver la comparsa anterior.");
+      } else {
+        setMessage(error.code === "NETWORK_ERROR"
+          ? "No hay conexión. Volvé a intentarlo para marcar la comparsa."
+          : "No se pudo marcar la comparsa.");
+      }
+    } finally {
+      if (mountedRef.current) setMarkingAbsent(false);
+    }
+  };
+
   const submit = async () => {
     if (!ballot || isSubmitting) return;
     setMessage("");
@@ -333,6 +376,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         e.target.tagName === "INPUT" ||
         e.target.tagName === "TEXTAREA" ||
         notPresentedConfirm ||
+        troupeAbsentConfirm ||
         scoreConfirm ||
         pendingDialogOpen ||
         incompleteDialog ||
@@ -365,7 +409,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ballot, activeItemIndex, scoreConfirm, notPresentedConfirm, pendingDialogOpen, incompleteDialog, submitConfirm]);
+  }, [ballot, activeItemIndex, scoreConfirm, notPresentedConfirm, troupeAbsentConfirm, pendingDialogOpen, incompleteDialog, submitConfirm]);
 
   if (!ballotId) {
     return (
@@ -431,6 +475,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const troupeScores = activeScore ? ballot.scores.filter((score) => score.nightScheduleId === activeScore.nightScheduleId) : [];
   const troupeResolved = troupeScores.filter((score) => score.evaluationState !== "PENDING").length;
   const troupeProgress = troupeScores.length ? Math.round(troupeResolved / troupeScores.length * 100) : 0;
+  const activeTroupePending = troupeScores.filter((score) => score.evaluationState === "PENDING").length;
   const canConfirmVoting = total > 0 && resolved === total && !isSubmitting
     && !Object.values(itemStatuses).some((item) => item.status === "saving");
 
@@ -459,12 +504,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div className="score-resolved-compact">
           <div
             className={`locked-score ${isNotPresented ? "not-presented" : "is-sealed"}`}
-            aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "Rubro no presentado" : `puntuado ${scoreItem.score}`}`}
+            aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "Ítem no presentado" : `puntuado ${scoreItem.score}`}`}
           >
             <span aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
             <div>
               {isNotPresented ? (
-                <strong>Rubro no presentado</strong>
+                <strong>Ítem no presentado</strong>
               ) : (
                 <strong className="sealed-score">
                   <span className="sealed-score-value" aria-hidden="true">{scoreItem.score}</span>
@@ -502,7 +547,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
         {/* Segregated "No se presentó" */}
         <div className="not-presented-section">
-          <p className="not-presented-hint">Esta decisión se registra para este rubro de la comparsa.</p>
+          <p className="not-presented-hint">Esta decisión se registra para este ítem de la comparsa.</p>
           <button
             type="button"
             className="not-presented-btn"
@@ -514,7 +559,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               itemName: scoreItem.itemName,
             })}
           >
-            <span aria-hidden="true">⚠</span> No se presentó este rubro
+            <span aria-hidden="true">⚠</span> No se presentó este ítem
           </button>
         </div>
 
@@ -755,7 +800,21 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   <label>Rubro
                     <select value={readonlyRubricFilter} onChange={(event) => setReadonlyRubricFilter(event.target.value)}>
                       <option value="">Todos</option>
-                      {[...new Map(groups.flatMap((group) => Object.values(group.rubrics).map((rubric) => [String(rubric.rubricId), rubric])).values())].map((rubric) => <option key={rubric.rubricId} value={String(rubric.rubricId)}>{rubric.rubricName}</option>)}
+                      {(() => {
+                        const seen = new Set();
+                        return groups.flatMap((group) =>
+                          Object.values(group.rubrics).filter((rubric) => {
+                            const key = String(rubric.rubricId);
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                          })
+                        ).map((rubric) => (
+                          <option key={rubric.rubricId} value={String(rubric.rubricId)}>
+                            {rubric.rubricName ?? `Rubro ${rubric.rubricId}`}
+                          </option>
+                        ));
+                      })()}
                     </select>
                   </label>
                   {targetGroup && groups.length > 1 && <button type="button" className="secondary" onClick={() => {
@@ -838,7 +897,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                     <p>{score.rubricName}</p>
                                     {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">{score.evaluationObjective}{score.expectedSubjectType ? ` · Sujeto: ${SUBJECT_LABELS[score.expectedSubjectType] ?? score.expectedSubjectType}` : ""}</p>}
                                   </div>
-                                  <span className="readonly-score-value">{isNotPresented ? "Rubro no presentado" : `${score.score} pts`}</span>
+                                  <span className="readonly-score-value">{isNotPresented ? "Ítem no presentado" : `${score.score} pts`}</span>
                                 </li>
                               );
                             })}
@@ -872,6 +931,23 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     <h2>{activeScore.troupeName}</h2>
                     <p className="card-rubric-name">{activeScore.rubricName}</p>
                   </div>
+
+                  {!readonly && !isCardScoreLocked && activeTroupePending > 0 && (
+                    <div className="troupe-absent-actions">
+                      <button
+                        type="button"
+                        className="troupe-absent-btn"
+                        disabled={markingAbsent}
+                        onClick={() => setTroupeAbsentConfirm({
+                          nightScheduleId: activeScore.nightScheduleId,
+                          troupeName: activeScore.troupeName,
+                          pendingCount: activeTroupePending,
+                        })}
+                      >
+                        <span aria-hidden="true">⚠</span> {markingAbsent ? "Marcando…" : "Comparsa completa no se presentó"}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="card-item-body">
                     {isCardScoreLocked ? (
@@ -960,15 +1036,27 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               ) : null}
             </span>
             {!readonly && (
-              <button
-                ref={submitButtonRef}
-                type="button"
-                disabled={!canConfirmVoting}
-                aria-describedby={!canConfirmVoting ? "voting-confirm-help" : undefined}
-                onClick={beginSubmitReview}
-              >
-                {isSubmitting ? "Confirmando…" : "Confirmar votación"}
-              </button>
+              <>
+                <button
+                  ref={submitButtonRef}
+                  type="button"
+                  disabled={!canConfirmVoting}
+                  aria-describedby={!canConfirmVoting ? "voting-confirm-help" : "voting-confirm-summary"}
+                  onClick={beginSubmitReview}
+                >
+                  {isSubmitting ? "Confirmando…" : "Confirmar votación"}
+                </button>
+                {canConfirmVoting && (
+                  <small id="voting-confirm-summary" className="voting-confirm-summary" aria-live="polite">
+                    {groups.map((g) => {
+                      const gTotal = Object.values(g.rubrics)
+                        .flatMap((r) => r.scores)
+                        .reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
+                      return `${g.troupeName}: ${gTotal} pts`;
+                    }).join(" · ")}
+                  </small>
+                )}
+              </>
             )}
             {!readonly && !canConfirmVoting && <small id="voting-confirm-help">Completá todas las puntuaciones y esperá su confirmación en el servidor para habilitar el cierre.</small>}
             {readonly && (
@@ -1086,7 +1174,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         )}
       </Dialog>
 
-      {/* Registrar ausencia para el ítem/rubro actual, sin acción masiva por comparsa. */}
+      {/* Registrar ausencia para el ítem actual, sin acción masiva por comparsa. */}
       <Dialog
         isOpen={Boolean(notPresentedConfirm)}
         onClose={() => setNotPresentedConfirm(null)}
@@ -1119,6 +1207,39 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         )}
       </Dialog>
 
+      {/* Registrar ausencia para toda la comparsa (acción masiva auditable). */}
+      <Dialog
+        isOpen={Boolean(troupeAbsentConfirm)}
+        onClose={() => setTroupeAbsentConfirm(null)}
+        title="Confirmación de voto"
+        description="Una vez confirmada, esta decisión no podrá modificarse."
+      >
+        {troupeAbsentConfirm && (
+          <div className="not-presented-dialog-content">
+            <p><strong>{troupeAbsentConfirm.troupeName}</strong></p>
+            <p className="warning-inline-alert">
+              Se registrarán {troupeAbsentConfirm.pendingCount} {troupeAbsentConfirm.pendingCount === 1 ? "ítem pendiente" : "ítems pendientes"} como no presentados (0 puntos). Los ítems ya puntuados no se modifican. La decisión es inmutable.
+            </p>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setTroupeAbsentConfirm(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                disabled={markingAbsent}
+                onClick={() => {
+                  const target = troupeAbsentConfirm;
+                  setTroupeAbsentConfirm(null);
+                  void markTroupeAbsent(target.nightScheduleId);
+                }}
+              >
+                Confirmar
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </Dialog>
+
       {/* Final Submit Confirmation Modal: cierra la PLANILLA completa, no una comparsa */}
       <Dialog
         isOpen={submitConfirm}
@@ -1135,8 +1256,22 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 .flatMap((r) => r.scores)
                 .reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
               return (
-                <li key={group.nightScheduleId}>
-                  {group.presentationOrder}. {group.troupeName} — {troupeTotal} puntos
+                <li key={group.nightScheduleId} className="submit-dialog-troupe">
+                  <strong>{group.presentationOrder}. {group.troupeName}</strong>
+                  {Object.values(group.rubrics).map((rubric) => (
+                    <ul key={rubric.rubricId} className="submit-dialog-rubric">
+                      <li className="rubric-header">{rubric.rubricName}</li>
+                      {rubric.scores.map((score) => (
+                        <li key={score.id} className="submit-dialog-item">
+                          {score.itemName}:{" "}
+                          {score.evaluationState === "NOT_PRESENTED"
+                            ? "No se presentó (0)"
+                            : `${score.score} pts`}
+                        </li>
+                      ))}
+                    </ul>
+                  ))}
+                  <span className="troupe-subtotal">Subtotal: {troupeTotal} pts</span>
                 </li>
               );
             })}

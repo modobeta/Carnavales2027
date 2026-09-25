@@ -81,7 +81,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
     expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuemax", "2");
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/scores/score-1",
@@ -131,7 +131,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toBeInTheDocument();
 
     // Botón de excepción con ícono de alerta.
-    const npBtn = screen.getAllByRole("button", { name: "No se presentó este rubro" })[0];
+    const npBtn = screen.getAllByRole("button", { name: "No se presentó este ítem" })[0];
     expect(within(npBtn).getByText("⚠")).toBeInTheDocument();
 
     // Modal con el valor en pastilla sólida.
@@ -148,7 +148,7 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
@@ -204,7 +204,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     const banner = await screen.findByRole("region", { name: "Pasada completada" });
@@ -228,7 +228,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     const banner = await screen.findByRole("region", { name: "Pasada completada" });
@@ -269,7 +269,7 @@ describe("JudgeBallotPage", () => {
 
     // Sin grilla 1–10 (ni siquiera deshabilitada) y sin navegación por ítems
     expect(screen.queryByRole("button", { name: /Votar \d/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "No se presentó este rubro" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "No se presentó este ítem" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Navegación de planilla" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Faltantes/ })).not.toBeInTheDocument();
   });
