@@ -10,6 +10,7 @@ import {
   listJudgeBallots,
   getBallot,
   saveScore,
+  markTroupeAbsent,
   submitBallot,
   syncBallot,
   listNightBallots,
@@ -142,6 +143,24 @@ export function createVotingRouter({ requireSession }) {
           response.set("Idempotency-Replay", "true");
         }
         response.json(result);
+      } catch (error) {
+        if (sendKnownError(response, error)) return;
+        throw error;
+      }
+    },
+  );
+
+  router.post(
+    "/judge/ballots/:ballotId/troupes/:nightScheduleId/mark-absent",
+    ...judge,
+    async (request, response) => {
+      try {
+        const result = await markTroupeAbsent({
+          actorUserId: request.user.id,
+          ballotId: request.params.ballotId,
+          nightScheduleId: request.params.nightScheduleId,
+        });
+        response.status(200).json(result);
       } catch (error) {
         if (sendKnownError(response, error)) return;
         throw error;

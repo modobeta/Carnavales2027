@@ -732,6 +732,91 @@ export async function saveScore({ actorUserId, ballotId, scoreId, evaluationStat
   });
 }
 
+export async function markTroupeAbsent({ actorUserId, ballotId, nightScheduleId }) {
+  const bid = requireText(ballotId, "ballotId");
+  const scheduleId = requireUuid(nightScheduleId, "nightScheduleId");
+
+  return inTransaction(async (client) => {
+    const ballot = await lockJudgeBallot(client, { ballotId: bid, actorUserId });
+    if (ballot.status === "SUBMITTED") throw new Error("BALLOT_ALREADY_SUBMITTED");
+
+    const { rows: schedule } = await client.query(
+      `SELECT nts.id, nts.presentation_order AS "presentationOrder"
+         FROM night_troupe_schedule nts
+        WHERE nts.id = $1
+          AND EXISTS (SELECT 1 FROM ballot_score bs WHERE bs.ballot_id = $2 AND bs.night_schedule_id = nts.id)
+        FOR SHARE`,
+      [scheduleId, bid],
+    );
+    if (!schedule[0]) throw new Error("NIGHT_SCHEDULE_NOT_FOUND");
+
+    const { rows: priorPending } = await client.query(
+      `SELECT 1
+         FROM ballot_score bs
+         JOIN night_troupe_schedule nts ON nts.id = bs.night_schedule_id
+        WHERE bs.ballot_id = $1
+          AND bs.evaluation_state = 'PENDING'
+          AND nts.presentation_order < $2
+        LIMIT 1`,
+      [bid, schedule[0].presentationOrder],
+    );
+    if (priorPending.length > 0) {
+      const error = new Error("TROUPE_PRECEDENCE_REQUIRED");
+      error.code = "TROUPE_PRECEDENCE_REQUIRED";
+      throw error;
+    }
+
+    const { rows: pending } = await client.query(
+      `SELECT bs.id
+         FROM ballot_score bs
+        WHERE bs.ballot_id = $1 AND bs.night_schedule_id = $2
+          AND bs.evaluation_state = 'PENDING' AND bs.status = 'DRAFT'
+        FOR UPDATE`,
+      [bid, scheduleId],
+    );
+
+    const updatedScoreIds = [];
+    for (const score of pending) {
+      await client.query(
+        `UPDATE ballot_score
+            SET score = 0, evaluation_state = 'NOT_PRESENTED', updated_at = clock_timestamp()
+          WHERE id = $1 AND ballot_id = $2`,
+        [score.id, bid],
+      );
+      updatedScoreIds.push(score.id);
+      await auditBallot(client, {
+        ballotId: bid,
+        eventId: ballot.eventId,
+        action: "SCORE_DECISION_SAVED",
+        actorUserId,
+        details: { scoreId: score.id, source: "TROUPE_ABSENT" },
+      });
+    }
+
+    // Idempotente por construcción: un replay no encuentra ítems PENDING y no
+    // re-incrementa la revisión ni duplica auditoría.
+    let revision = Number(ballot.revision);
+    if (updatedScoreIds.length > 0) {
+      revision = await incrementBallotRevision(client, bid);
+      await auditBallot(client, {
+        ballotId: bid,
+        eventId: ballot.eventId,
+        action: "TROUPE_MARKED_ABSENT",
+        actorUserId,
+        details: { nightScheduleId: scheduleId, updatedScoreIds },
+      });
+      emitMonitorEvent("TROUPE_MARKED_ABSENT", {
+        eventId: ballot.eventId,
+        nightId: ballot.nightId,
+        ballotId: bid,
+        nightScheduleId: scheduleId,
+      });
+    }
+
+    return { revision, updatedScoreIds };
+  });
+}
+
 export async function submitBallot({ actorUserId, ballotId, operationId }) {
   const bid = requireText(ballotId, "ballotId");
   const opId = operationId ? requireUuid(operationId, "operationId") : undefined;
