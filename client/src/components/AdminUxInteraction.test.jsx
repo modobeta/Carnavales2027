@@ -73,7 +73,7 @@ describe("Spec 027/G — interacción y accesibilidad", () => {
     expect(tree).toHaveTextContent("Sin rubros asignados a esta especialidad.");
   });
 
-  it("JudgeAssignmentDialog revela Suplente de solo con teclado", () => {
+  it("JudgeAssignmentDialog revela titular automático al elegir suplente con teclado", () => {
     const onClose = vi.fn();
     render(
       <JudgeAssignmentDialog
@@ -86,13 +86,31 @@ describe("Spec 027/G — interacción y accesibilidad", () => {
         primaryOptions={[{ id: "p1", judgeName: "Titular", nightName: "Noche 1", specialtyName: "Baile" }]}
       />,
     );
-    expect(screen.queryByLabelText("Suplente de")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Suplente de:/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Suplente" }));
-    expect(screen.getByLabelText("Suplente de")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "Titular" }));
+    expect(screen.getByText(/Suplente de:/)).toHaveTextContent("Titular");
     expect(screen.queryByLabelText("Suplente de")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Titular" }));
+    expect(screen.queryByText(/Suplente de:/)).not.toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "Asignar jurado" });
     fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("JudgeAssignmentDialog bloquea Suplente sin titular asignado", () => {
+    render(
+      <JudgeAssignmentDialog
+        isOpen
+        onClose={() => {}}
+        onSubmit={() => {}}
+        nightName="Noche 1"
+        specialtyName="Baile"
+        judges={[{ id: "j1", name: "Jurado Uno" }]}
+        primaryOptions={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Suplente" }));
+    expect(screen.getByText("No hay titular asignado para esta especialidad.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asignar" })).toBeDisabled();
   });
 });

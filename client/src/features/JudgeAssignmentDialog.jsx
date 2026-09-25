@@ -21,6 +21,7 @@ export function JudgeAssignmentDialog({
   focusReturnRef,
 }) {
   const [assignmentType, setAssignmentType] = useState("PRIMARY");
+  const standbyMissing = assignmentType === "SUBSTITUTE" && primaryOptions.length === 0;
 
   return (
     <Dialog
@@ -88,24 +89,31 @@ export function JudgeAssignmentDialog({
             </option>
           ))}
         </select>
-        {assignmentType === "SUBSTITUTE" && (
+        {assignmentType === "SUBSTITUTE" && primaryOptions.length === 1 && (
+          <>
+            <p>Suplente de: <strong>{primaryOptions[0].judgeName}</strong></p>
+            <input type="hidden" name="standbyForAssignmentId" value={primaryOptions[0].id} />
+          </>
+        )}
+        {assignmentType === "SUBSTITUTE" && primaryOptions.length > 1 && (
           <>
             <label htmlFor="assignment-standby">Suplente de</label>
             <select id="assignment-standby" name="standbyForAssignmentId" required defaultValue="">
               <option value="">Elegir titular</option>
               {primaryOptions.map((assignment) => (
                 <option key={assignment.id} value={assignment.id}>
-                  {assignment.judgeName} · {assignment.nightName} · {assignment.specialtyName}
+                  {assignment.judgeName}
                 </option>
               ))}
             </select>
           </>
         )}
+        {standbyMissing && <p className="feedback">No hay titular asignado para esta especialidad.</p>}
         <DialogFooter>
           <button type="button" className="secondary" onClick={onClose} disabled={submitting}>
             Cancelar
           </button>
-          <button type="submit" disabled={submitting}>
+          <button type="submit" disabled={submitting || standbyMissing}>
             {submitting ? "Asignando…" : "Asignar"}
           </button>
         </DialogFooter>
