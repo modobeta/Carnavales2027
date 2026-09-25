@@ -97,8 +97,11 @@ export function AdminHomePage() {
     apiRequest("/api/v1/events")
       .then((items) => {
         if (!active) return;
-        setLocalEvents(items ?? []);
-        setLocalEventId((items ?? [])[0]?.id ?? "");
+        const events = items ?? [];
+        const firstEventId = events[0]?.id ?? "";
+        setLocalEvents(events);
+        setLocalEventId(firstEventId);
+        if (!firstEventId) setLocalLoading(false);
       })
       .catch(() => {
         if (active) {
@@ -113,13 +116,10 @@ export function AdminHomePage() {
 
   const events = adminEvent?.events ?? localEvents;
   const eventId = adminEvent?.activeEventId ?? localEventId;
-  const loading = adminEvent ? adminEvent.loading || localLoading : localLoading;
+  const loading = adminEvent ? adminEvent.loading || (eventId ? localLoading : false) : localLoading;
 
   useEffect(() => {
-    if (!eventId) {
-      setLocalLoading(false);
-      return;
-    }
+    if (!eventId) return;
     let active = true;
     setLocalLoading(true);
     setMessage("");
