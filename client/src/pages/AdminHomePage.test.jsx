@@ -52,9 +52,9 @@ describe("AdminHomePage (Spec 027/B)", () => {
     render(<AdminHomePage />);
     expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
     expect(screen.getAllByText("En configuración").length).toBeGreaterThan(0);
-    expect(screen.getByRole("progressbar", { name: "Preparación del evento" })).toBeInTheDocument();
+    expect(await screen.findByRole("progressbar", { name: "Preparación del evento" })).toBeInTheDocument();
     expect(await screen.findByText(/Siguiente paso/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Configurar comparsas" })).toHaveLength(2);
+    expect(await screen.findAllByRole("link", { name: "Configurar comparsas" })).toHaveLength(2);
     expect((await screen.findAllByText(/Todavía no hay comparsas activas/)).length).toBeGreaterThan(0);
     const problemLinks = [...document.querySelectorAll(".admin-problem-list a")];
     expect(problemLinks[0]).toHaveAttribute("href", "#/admin/competencia");
@@ -62,6 +62,22 @@ describe("AdminHomePage (Spec 027/B)", () => {
     // Solo lectura: 1 lista de eventos + readiness + 6 lecturas, cero escrituras.
     expect(apiRequest).toHaveBeenCalledTimes(8);
     expect(vi.mocked(apiRequest).mock.calls.every(([path, options]) => !options?.method || options.method === "GET")).toBe(true);
+  });
+
+  it("espera los datos del evento antes de mostrar el siguiente paso", async () => {
+    mockAll();
+    let finishNights;
+    const nights = new Promise((resolve) => { finishNights = resolve; });
+    const request = apiRequest.getMockImplementation();
+    apiRequest.mockImplementation((path) => path === "/api/v1/events/e1/nights" ? nights : request(path));
+
+    render(<AdminHomePage />);
+    expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
+    expect(screen.getByText("Cargando panel…")).toBeInTheDocument();
+    expect(screen.queryByText("Siguiente paso")).not.toBeInTheDocument();
+
+    finishNights([{ id: "n1", kind: "COMPETITION" }]);
+    expect(await screen.findAllByRole("link", { name: "Configurar comparsas" })).toHaveLength(2);
   });
 
   it("muestra resumen con contadores y accesos directos", async () => {
