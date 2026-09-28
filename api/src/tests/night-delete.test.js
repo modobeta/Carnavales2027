@@ -124,6 +124,7 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
       body: JSON.stringify({ name: "Otra", displayOrder: 2, kind: "COMPETITION" }),
     });
     assert.equal(createNight3.status, 201);
+    const thirdNight = await createNight3.json();
     const { rows: specialties } = await pool.query(
       "INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'Baile','BAILE_DEL',1) RETURNING id",
       [event.id],
@@ -139,9 +140,9 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
     const program2 = await fetch(`${baseUrl}/api/v1/events/${event.id}/schedule`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ nightId: busyNight.id, troupeId: troupe.id }),
+      body: JSON.stringify({ nightId: thirdNight.id, troupeId: troupe.id }),
     });
-    assert.ok([201, 409].includes(program2.status));
+    assert.equal(program2.status, 201);
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",
       headers: { "x-test-session": "admin" },

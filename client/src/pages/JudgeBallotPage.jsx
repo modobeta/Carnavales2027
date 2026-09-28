@@ -33,7 +33,7 @@ function groupScores(scores) {
   }, {});
 }
 
-const SUBJECT_LABELS = { PERSON: "Persona o bailarín", COUPLE: "Pareja", GROUP: "Grupo", FIGURE: "Figura", ELEMENT: "Elemento", OTHER: "Otro sujeto" };
+const SUBJECT_LABELS = { PERSON: "Persona", COUPLE: "Pareja", GROUP: "Grupo", FIGURE: "Figura", ELEMENT: "Elemento", BATTERY: "Batería", FLOAT: "Carroza", OTHER: "Otro sujeto" };
 
 function getPendingItems(scores, details) {
   const scoresById = new Map(scores.map((score) => [score.id, score]));
@@ -48,6 +48,8 @@ function getPendingItems(scores, details) {
       troupeName: score.troupeName ?? item.troupeName ?? "Comparsa sin identificar",
       rubricName: score.rubricName ?? item.rubricName ?? "Rubro sin identificar",
       itemName: score.itemName ?? item.name ?? item.itemName ?? item.code ?? "Ítem pendiente",
+      participantName: score.participantName ?? item.participantName ?? null,
+      participantType: score.participantType ?? item.participantType ?? null,
     };
   });
 }
@@ -83,10 +85,15 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [showAllReadonlyGroups, setShowAllReadonlyGroups] = useState(false);
   const [readonlyTroupeFilter, setReadonlyTroupeFilter] = useState("");
   const [readonlyRubricFilter, setReadonlyRubricFilter] = useState("");
+  const [readonlySearchFilter, setReadonlySearchFilter] = useState("");
+  const [readonlyStateFilter, setReadonlyStateFilter] = useState("ALL");
+  const [expandedGroups, setExpandedGroups] = useState(null);
 
   const cardSectionRef = useRef(null);
   const submitButtonRef = useRef(null);
   const mountedRef = useRef(true);
+  const ballotLoadRequestRef = useRef(0);
+  const submitOperationRef = useRef({ ballotId: null, operationId: null });
   const lastTroupeRef = useRef(null);
   const readonlyGroupRefs = useRef(new Map());
 
@@ -104,19 +111,27 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   }, []);
 
   useEffect(() => {
-    if (initialTroupeId) {
-      setSelectedTroupeId(initialTroupeId);
-    }
-  }, [initialTroupeId]);
+    setSelectedTroupeId(initialTroupeId || "");
+  }, [ballotId, initialTroupeId]);
+
+  useEffect(() => {
+    setShowAllReadonlyGroups(false);
+    setReadonlyTroupeFilter("");
+    setReadonlyRubricFilter("");
+    setReadonlySearchFilter("");
+    setReadonlyStateFilter("ALL");
+    setExpandedGroups(null);
+  }, [ballotId, initialTroupeId]);
 
   const loadBallot = async () => {
+    const requestId = ++ballotLoadRequestRef.current;
     if (!ballotId) return;
     try {
       const loaded = await apiRequest(`/api/v1/judge/ballots/${ballotId}`);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       setBallot(loaded);
     } catch (error) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       if (redirectOnSessionEnded(error)) return;
       const messages = {
         BALLOT_ACCESS_DENIED: "No tenés acceso a esta planilla.",
@@ -127,6 +142,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   useEffect(() => {
+    setBallot(null);
+    setMessage("");
+    submitOperationRef.current = { ballotId, operationId: null };
     void loadBallot();
   }, [ballotId]);
 
@@ -166,7 +184,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
   // Tarjetas de comparsa desplegables: por defecto solo la seleccionada
   // (o la primera) abierta para reducir ruido; el resto colapsado.
-  const [expandedGroups, setExpandedGroups] = useState(null);
   const defaultExpandedGroups = (list, selected) => new Set(
     list
       .filter((g, i) => (selected ? String(g.nightScheduleId) === String(selected.nightScheduleId) : i === 0))
@@ -174,13 +191,16 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   );
   const isGroupOpen = (group, isSelected, isFirst) => {
     if (expandedGroups !== null) return expandedGroups.has(String(group.nightScheduleId));
-    if (targetGroup) return isSelected;
+    if (hasReadonlyFilters) return true;
+    if (targetGroup && !showAllReadonlyGroups) return isSelected;
     return isFirst;
   };
   const toggleReadonlyGroup = (group) => {
     const key = String(group.nightScheduleId);
     setExpandedGroups((prev) => {
-      const base = prev ?? defaultExpandedGroups(groups, targetGroup);
+      const base = prev ?? (hasReadonlyFilters
+        ? new Set(readonlyVisibleGroups.map((entry) => String(entry.group.nightScheduleId)))
+        : defaultExpandedGroups(groups, targetGroup));
       const next = new Set(base);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -212,6 +232,26 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     ? groups.find((g) => g.nightScheduleId === selectedTroupeId || String(g.nightScheduleId) === String(selectedTroupeId))
     : null;
 
+  const readonlyVisibleGroups = groups
+    .filter((group) => !targetGroup || showAllReadonlyGroups || !selectedTroupeId || String(group.nightScheduleId) === String(selectedTroupeId))
+    .filter((group) => !readonlyTroupeFilter || String(group.nightScheduleId) === readonlyTroupeFilter)
+    .map((group) => {
+      const search = readonlySearchFilter.trim().toLocaleLowerCase("es");
+      const scores = Object.values(group.rubrics).flatMap((rubric) =>
+        rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
+      ).filter((score) =>
+        (!readonlyRubricFilter || String(score.rubricId) === readonlyRubricFilter) &&
+        (!search || [score.itemName, score.rubricName, score.participantName, group.troupeName]
+          .filter(Boolean)
+          .some((value) => value.toLocaleLowerCase("es").includes(search))) &&
+        (readonlyStateFilter === "ALL" || score.evaluationState === readonlyStateFilter)
+      );
+      return { group, scores };
+    })
+    .filter(({ scores }) => scores.length > 0);
+  const readonlyVisibleScoreCount = readonlyVisibleGroups.reduce((count, entry) => count + entry.scores.length, 0);
+  const hasReadonlyFilters = Boolean(readonlyTroupeFilter || readonlyRubricFilter || readonlySearchFilter || readonlyStateFilter !== "ALL");
+
   const isTargetTroupeLocked = Boolean(
     !readonly &&
     targetGroup &&
@@ -219,16 +259,17 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     targetGroup.presentationOrder > activeGroup.presentationOrder
   );
 
-  const saveDecision = async (scoreId, evaluationState, score) => {
+  const saveDecision = async (scoreId, evaluationState, score, operationId = globalThis.crypto.randomUUID()) => {
     if (!ballot) return;
     setItemStatuses((prev) => ({
       ...prev,
-      [scoreId]: { status: "saving", lastAttempt: { evaluationState, score } },
+      [scoreId]: { status: "saving", lastAttempt: { evaluationState, score, operationId } },
     }));
     try {
       const saved = await apiRequest(`/api/v1/judge/ballots/${ballotId}/scores/${scoreId}`, {
         method: "PUT",
         body: JSON.stringify({ evaluationState, score }),
+        headers: { "Idempotency-Key": operationId },
       });
       if (!mountedRef.current) return;
       setBallot((current) => current && {
@@ -267,7 +308,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         : "El servidor no pudo registrar la decisión.";
       setItemStatuses((prev) => ({
         ...prev,
-        [scoreId]: { status: "error", errorMsg, lastAttempt: { evaluationState, score } },
+      [scoreId]: { status: "error", errorMsg, lastAttempt: { evaluationState, score, operationId } },
       }));
       setMessage(errorMsg);
     }
@@ -281,13 +322,15 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       troupeName: troupeName ?? scoreItem.troupeName ?? "",
       rubricName: rubricName ?? scoreItem.rubricName ?? "",
       itemName: scoreItem.itemName ?? "",
+      participantName: scoreItem.participantName ?? null,
+      participantType: scoreItem.participantType ?? null,
     });
   };
 
   const handleRetry = (scoreId) => {
     const itemState = itemStatuses[scoreId];
     if (itemState?.lastAttempt) {
-      void saveDecision(scoreId, itemState.lastAttempt.evaluationState, itemState.lastAttempt.score);
+      void saveDecision(scoreId, itemState.lastAttempt.evaluationState, itemState.lastAttempt.score, itemState.lastAttempt.operationId);
     }
   };
 
@@ -342,7 +385,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
     setIsSubmitting(true);
     try {
-      const submitted = await apiRequest(`/api/v1/judge/ballots/${ballotId}/submit`, { method: "POST" });
+      if (submitOperationRef.current.ballotId !== ballotId || !submitOperationRef.current.operationId) {
+        submitOperationRef.current = { ballotId, operationId: globalThis.crypto.randomUUID() };
+      }
+      const submitted = await apiRequest(`/api/v1/judge/ballots/${ballotId}/submit`, {
+        method: "POST",
+        headers: { "Idempotency-Key": submitOperationRef.current.operationId },
+      });
       if (!mountedRef.current) return;
       setBallot((current) => current && {
         ...current,
@@ -381,7 +430,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         pendingDialogOpen ||
         incompleteDialog ||
         submitConfirm ||
-        !ballot
+        !ballot ||
+        itemStatuses[ballot.scores[activeItemIndex]?.id]?.status === "saving"
       ) {
         return;
       }
@@ -396,6 +446,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           troupeName: activeScore.troupeName ?? "",
           rubricName: activeScore.rubricName ?? "",
           itemName: activeScore.itemName ?? "",
+          participantName: activeScore.participantName ?? null,
+          participantType: activeScore.participantType ?? null,
         });
       } else if (e.key === "0") {
         setScoreConfirm({
@@ -404,12 +456,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           troupeName: activeScore.troupeName ?? "",
           rubricName: activeScore.rubricName ?? "",
           itemName: activeScore.itemName ?? "",
+          participantName: activeScore.participantName ?? null,
+          participantType: activeScore.participantType ?? null,
         });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ballot, activeItemIndex, scoreConfirm, notPresentedConfirm, troupeAbsentConfirm, pendingDialogOpen, incompleteDialog, submitConfirm]);
+  }, [ballot, activeItemIndex, itemStatuses, scoreConfirm, notPresentedConfirm, troupeAbsentConfirm, pendingDialogOpen, incompleteDialog, submitConfirm]);
 
   if (!ballotId) {
     return (
@@ -504,7 +558,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div className="score-resolved-compact">
           <div
             className={`locked-score ${isNotPresented ? "not-presented" : "is-sealed"}`}
-            aria-label={`${troupeName}: ${scoreItem.itemName}, ${isNotPresented ? "Ítem no presentado" : `puntuado ${scoreItem.score}`}`}
+            aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}, ${isNotPresented ? "Rubro no presentado" : `puntuado ${scoreItem.score}`}`}
           >
             <span aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
             <div>
@@ -524,9 +578,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
 
     return (
-      <div className="score-actions" role="group" aria-label={`${troupeName}: ${scoreItem.itemName}`}>
+      <div className="score-actions" role="group" aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}`}>
         <div className="score-copy">
           <span className="score-copy-name">{scoreItem.itemName}</span>
+          {scoreItem.participantName && <span className="score-copy-name">{SUBJECT_LABELS[scoreItem.participantType] ?? "Participante"}: {scoreItem.participantName}</span>}
         </div>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
@@ -547,7 +602,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
         {/* Segregated "No se presentó" */}
         <div className="not-presented-section">
-          <p className="not-presented-hint">Esta decisión se registra para este ítem de la comparsa.</p>
+          <p className="not-presented-hint">Esta decisión se registra para este rubro{scoreItem.participantName ? ` y participante (${scoreItem.participantName})` : " de la comparsa"}.</p>
           <button
             type="button"
             className="not-presented-btn"
@@ -557,6 +612,8 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               troupeName,
               rubricName,
               itemName: scoreItem.itemName,
+              participantName: scoreItem.participantName ?? null,
+              participantType: scoreItem.participantType ?? null,
             })}
           >
             <span aria-hidden="true">⚠</span> No se presentó este ítem
@@ -584,7 +641,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   return (
-    <PageShell layer="instrument" className="judge-ballot-page judge-operation-shell">
+    <PageShell layer="instrument" className={`judge-ballot-page judge-operation-shell${readonly ? " is-readonly" : ""}`}>
       <div className={`ballot-layout${readonly ? " is-readonly" : ""}`}>
         {!readonly && (
         <aside className="ballot-context-rail" aria-label="Contexto de la planilla">
@@ -673,11 +730,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                               type="button"
                               className={`ballot-summary-item${isActive ? " is-active" : ""}`}
                               aria-current={isActive ? "true" : undefined}
-                              aria-label={`Ir al ítem ${item.itemName}`}
+                              aria-label={`Ir al ítem ${item.itemName}${item.participantName ? `, participante ${item.participantName}` : ""}`}
                               onClick={() => goToScore(item.id)}
                             >
                               <span className={`ballot-summary-status ${statusClass}`} aria-hidden="true">{isNotPresented ? "⊘" : isResolved ? "✓" : "○"}</span>
-                              <span className="ballot-summary-name">{item.itemName}</span>
+                              <span className="ballot-summary-name">{item.itemName}{item.participantName ? ` · ${item.participantName}` : ""}</span>
                             </button>
                           </li>
                         );
@@ -781,7 +838,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
           <div className="ballot-workspace">
             {readonly ? (
-              <section className="ballot-readonly-summary" aria-label="Resumen de la planilla">
+                <section className={`ballot-readonly-summary${readonlyVisibleGroups.length === 1 ? " is-single-view" : ""}`} aria-label="Resumen de la planilla">
                 <div className="readonly-hero">
                   <span className="readonly-hero-icon" aria-hidden="true">✓</span>
                   <div>
@@ -790,15 +847,15 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   </div>
                 </div>
                 {targetGroup && !showAllReadonlyGroups && !readonlyTroupeFilter && <p className="judge-note">Mostrando la sección de <strong>{targetGroup.troupeName}</strong>. Usá el control para ver el resumen de todas las comparsas.</p>}
-                <div className="readonly-summary-controls" aria-label="Filtros del resumen de planilla">
+                <div className="readonly-summary-controls" role="group" aria-label="Filtros del resumen de planilla">
                   <label>Comparsa
-                    <select value={readonlyTroupeFilter} onChange={(event) => { setReadonlyTroupeFilter(event.target.value); if (event.target.value) setShowAllReadonlyGroups(true); }}>
+                    <select value={readonlyTroupeFilter || (!showAllReadonlyGroups && targetGroup ? String(targetGroup.nightScheduleId) : "")} onChange={(event) => { setReadonlyTroupeFilter(event.target.value); setShowAllReadonlyGroups(true); setExpandedGroups(null); }}>
                       <option value="">Todas</option>
                       {groups.map((group) => <option key={group.nightScheduleId} value={String(group.nightScheduleId)}>{group.troupeName}</option>)}
                     </select>
                   </label>
                   <label>Rubro
-                    <select value={readonlyRubricFilter} onChange={(event) => setReadonlyRubricFilter(event.target.value)}>
+                    <select value={readonlyRubricFilter} onChange={(event) => { setReadonlyRubricFilter(event.target.value); setExpandedGroups(null); }}>
                       <option value="">Todos</option>
                       {(() => {
                         const seen = new Set();
@@ -817,11 +874,38 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       })()}
                     </select>
                   </label>
+                  <label className="readonly-search-filter">Buscar ítem o participante
+                    <input
+                      type="search"
+                      value={readonlySearchFilter}
+                      onChange={(event) => { setReadonlySearchFilter(event.target.value); setExpandedGroups(null); }}
+                      placeholder="Nombre, rubro o participante"
+                    />
+                  </label>
+                  <label>Decisión
+                    <select value={readonlyStateFilter} onChange={(event) => { setReadonlyStateFilter(event.target.value); setExpandedGroups(null); }}>
+                      <option value="ALL">Todas</option>
+                      <option value="SCORED">Puntuadas</option>
+                      <option value="NOT_PRESENTED">No se presentó</option>
+                    </select>
+                  </label>
                   {targetGroup && groups.length > 1 && <button type="button" className="secondary" onClick={() => {
                     setShowAllReadonlyGroups((value) => !value);
                     setReadonlyTroupeFilter("");
                     setReadonlyRubricFilter("");
+                    setReadonlySearchFilter("");
+                    setReadonlyStateFilter("ALL");
+                    setExpandedGroups(null);
                   }}>{showAllReadonlyGroups ? "Ver solo la comparsa seleccionada" : "Ver resumen de todas las comparsas"}</button>}
+                  {hasReadonlyFilters && <button type="button" className="secondary" onClick={() => {
+                    setReadonlyTroupeFilter("");
+                    setReadonlyRubricFilter("");
+                    setReadonlySearchFilter("");
+                    setReadonlyStateFilter("ALL");
+                    setShowAllReadonlyGroups(true);
+                    setExpandedGroups(null);
+                  }}>Limpiar filtros</button>}
+                  <p className="readonly-filter-count" aria-live="polite">{readonlyVisibleScoreCount} {readonlyVisibleScoreCount === 1 ? "ítem" : "ítems"} en {readonlyVisibleGroups.length} {readonlyVisibleGroups.length === 1 ? "comparsa" : "comparsas"}</p>
                 </div>
                 {groups.length > 1 && (
                   <nav className="readonly-troupe-index" aria-label="Ir a una comparsa">
@@ -838,12 +922,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     ))}
                   </nav>
                 )}
-                {groups.filter((group) => !targetGroup || showAllReadonlyGroups || !selectedTroupeId || String(group.nightScheduleId) === String(selectedTroupeId))
-                  .filter((group) => !readonlyTroupeFilter || String(group.nightScheduleId) === readonlyTroupeFilter)
-                  .map((group, groupIndex) => {
-                  const groupScores = Object.values(group.rubrics).flatMap((rubric) =>
-                    rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
-                  ).filter((score) => !readonlyRubricFilter || String(score.rubricId) === readonlyRubricFilter);
+                {readonlyVisibleGroups.map(({ group, scores: groupScores }, groupIndex) => {
                   const groupTotal = groupScores.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
                   const isSelected = Boolean(targetGroup && String(group.nightScheduleId) === String(targetGroup.nightScheduleId));
                   const isOpen = isGroupOpen(group, isSelected, groupIndex === 0);
@@ -895,6 +974,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                   <div className="judge-list-main">
                                     <h3>{score.itemName}</h3>
                                     <p>{score.rubricName}</p>
+                                    {score.participantName && <p className="evaluation-context">{SUBJECT_LABELS[score.participantType] ?? "Participante"}: {score.participantName}</p>}
                                     {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">{score.evaluationObjective}{score.expectedSubjectType ? ` · Sujeto: ${SUBJECT_LABELS[score.expectedSubjectType] ?? score.expectedSubjectType}` : ""}</p>}
                                   </div>
                                   <span className="readonly-score-value">{isNotPresented ? "Ítem no presentado" : `${score.score} pts`}</span>
@@ -907,6 +987,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     </article>
                   );
                 })}
+                {readonlyVisibleGroups.length === 0 && <p className="readonly-filter-empty">No hay ítems que coincidan con estos filtros.</p>}
                 <p className="judge-note">Resumen de solo lectura.</p>
               </section>
             ) : (
@@ -961,6 +1042,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     ) : (
                       <>
                         <h3 className="card-item-title">{activeScore.itemName}</h3>
+                        {activeScore.participantName && <p className="nomination-target-label"><strong>{SUBJECT_LABELS[activeScore.participantType] ?? "Participante"}:</strong> {activeScore.participantName}</p>}
                         <p className="rubric-instruction">Seleccioná una puntuación para este criterio.</p>
                         {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
                           {activeScore.evaluationObjective && <span>{activeScore.evaluationObjective}</span>}
@@ -1092,6 +1174,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               >
                 <span className="pending-troupe">{item.troupeName}</span>
                 <span className="pending-rubric">{item.rubricName}</span>
+                {item.participantName && <span className="pending-item-name">{SUBJECT_LABELS[item.participantType] ?? "Participante"}: {item.participantName}</span>}
                 <strong className="pending-item-name">{item.itemName}</strong>
               </button>
             </li>
@@ -1129,6 +1212,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               >
                 <span className="pending-troupe">{item.troupeName}</span>
                 <span className="pending-rubric">{item.rubricName}</span>
+                {item.participantName && <span className="pending-item-name">{SUBJECT_LABELS[item.participantType] ?? "Participante"}: {item.participantName}</span>}
                 <strong className="pending-item-name">{item.itemName}</strong>
               </button>
             </li>
@@ -1152,6 +1236,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <div className="score-dialog-content">
             <p><strong>{scoreConfirm.troupeName}</strong></p>
             <p>{scoreConfirm.rubricName} — {scoreConfirm.itemName}</p>
+            {scoreConfirm.participantName && <p><strong>{SUBJECT_LABELS[scoreConfirm.participantType] ?? "Participante"}:</strong> {scoreConfirm.participantName}</p>}
             <p className="confirm-score-display is-solid">
               Usted está por votar <strong className="confirm-score-value">{scoreConfirm.score}</strong>. ¿Desea confirmar?
             </p>
@@ -1185,6 +1270,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <div className="not-presented-dialog-content">
             <p><strong>{notPresentedConfirm.troupeName}</strong></p>
             <p>{notPresentedConfirm.rubricName} — {notPresentedConfirm.itemName}</p>
+            {notPresentedConfirm.participantName && <p><strong>{SUBJECT_LABELS[notPresentedConfirm.participantType] ?? "Participante"}:</strong> {notPresentedConfirm.participantName}</p>}
             <p className="warning-inline-alert">
               Se registrará este ítem como no presentado con 0 puntos. La decisión es inmutable.
             </p>

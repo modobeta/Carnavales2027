@@ -113,7 +113,7 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/submit",
-      { method: "POST" },
+      expect.objectContaining({ method: "POST", headers: { "Idempotency-Key": expect.any(String) } }),
     ));
     expect(await screen.findByRole("region", { name: "Planilla confirmada" })).toBeInTheDocument();
     expect(screen.queryByText(/pendiente de sincronización/i)).not.toBeInTheDocument();
@@ -178,6 +178,36 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     expect(await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" })).toBeInTheDocument();
+  });
+
+  it("reutiliza la clave de idempotencia al reintentar el envío final tras un error de red", async () => {
+    const complete = { ...ballot, scores: ballot.scores.map((score) => ({ ...score, score: 8, evaluationState: "SCORED" })) };
+    let attempts = 0;
+    apiRequest.mockImplementation((path, options) => {
+      if (!options) return Promise.resolve(complete);
+      if (path.endsWith("/submit")) {
+        attempts += 1;
+        return attempts === 1
+          ? Promise.reject(new ApiError({ code: "NETWORK_ERROR" }))
+          : Promise.resolve({ status: "SUBMITTED", revision: 1 });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
+
+    await screen.findByText("No hay conexión. Volvé a intentarlo para confirmar la planilla.");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
+
+    await screen.findByRole("region", { name: "Planilla confirmada" });
+    const submitCalls = apiRequest.mock.calls.filter(([path]) => path.endsWith("/submit"));
+    expect(submitCalls).toHaveLength(2);
+    const firstKey = submitCalls[0][1].headers["Idempotency-Key"];
+    expect(firstKey).toEqual(expect.any(String));
+    expect(submitCalls[1][1].headers["Idempotency-Key"]).toBe(firstKey);
   });
 
   it("bloquea acceso directo por URL a una comparsa en espera y redirige a la comparsa activa (RF-191)", async () => {

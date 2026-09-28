@@ -7,7 +7,7 @@ import { getFullEventSeedConfig, seedFixtureUsers } from "./full-event.users.js"
 import { upsertRubric } from "./full-event.rubrics.js";
 import {
   FULL_EVENT, FULL_NIGHTS, FULL_TROUPES, FULL_CATEGORY, FULL_SPECIALTIES, FULL_RUBRICS,
-  FULL_JUDGES, FULL_AUXILIARIES, fullScheduleForNight,
+  FULL_JUDGES, FULL_AUXILIARIES, fullNominationPlaceholder, fullScheduleForNight,
 } from "./full-event.fixture.js";
 
 async function findFixture(client) {
@@ -59,7 +59,29 @@ export async function validateFullCarnivalEvent(client, eventId) {
         [`${entry.code}_ITEM`, `${entry.name} — Evaluación integral`, specialties.find((s) => s.code === entry.specialty).id, 1, true, true, true]);
     }
     assert.equal((await rows("rubric_criterion")).length, 0);
-    assert.equal((await rows("troupe_nomination")).length, 0);
+    const nominations = (await client.query(
+      `SELECT tn.subject_type, tn.display_name, tn.active, r.code AS "rubricCode", et.name AS "troupeName"
+         FROM troupe_nomination tn
+         JOIN rubric r ON r.id = tn.rubric_id
+         JOIN event_troupe et ON et.id = tn.event_troupe_id
+        WHERE tn.event_id=$1`,
+      [eventId],
+    )).rows;
+    const expectedNominations = FULL_RUBRICS.filter((rubric) => rubric.target === "NOMINATION")
+      .flatMap((rubric) => FULL_TROUPES.map((troupe) => [
+        rubric.expectedSubjectType,
+        fullNominationPlaceholder(rubric.code, troupe.code),
+        true,
+        rubric.code,
+        troupe.name,
+      ]))
+      .sort((left, right) => left.join("|").localeCompare(right.join("|")));
+    const actualNominations = nominations
+      .map((nomination) => [nomination.subject_type, nomination.display_name, nomination.active,
+        nomination.rubricCode, nomination.troupeName])
+      .sort((left, right) => left.join("|").localeCompare(right.join("|")));
+    assert.equal(actualNominations.length, FULL_TROUPES.length * FULL_RUBRICS.filter((rubric) => rubric.target === "NOMINATION").length);
+    assert.deepEqual(actualNominations, expectedNominations);
     const assignments = (await client.query(
       `SELECT a.*, p.email, p.name, p.document_number, p.registration_status, p.user_id,
         s.code AS specialty_code FROM judge_assignment a
@@ -110,7 +132,7 @@ export async function validateFullCarnivalEvent(client, eventId) {
     return { eventId, name: event.name, status: event.status, ready: readiness.ready, nights: nightSummary,
       troupes: troupes.length, nominative, random: rubrics.length - nominative, rubrics: rubrics.length,
       items: items.length, jurors: assignments.length, assignments: assignments.length,
-      participations: schedule.length, coverage: troupes.length * nominative,
+      participations: schedule.length, nominations: nominations.length, coverage: troupes.length * nominative,
       ballots: 0, ballotsOnOpeningAllNights: assignments.length, votes: 0, penalties: 0 };
   } catch (error) {
     if (error.code !== "ERR_ASSERTION") throw error;
@@ -141,6 +163,18 @@ async function insertConfiguration(client, users) {
     specialties.set(entry.code, specialty.id);
   }
   for (const entry of FULL_RUBRICS) await upsertRubric(client, eventId, specialties, entry, entry.type, entry.target);
+  // Readiness requires nomination records for each scheduled troupe and
+  // active NOMINATION rubric. These labels are unmistakable synthetic data.
+  for (const entry of FULL_RUBRICS.filter((rubric) => rubric.target === "NOMINATION")) {
+    for (const troupe of FULL_TROUPES) {
+      await client.query(
+        `INSERT INTO troupe_nomination(event_id,event_troupe_id,rubric_id,subject_type,display_name)
+         VALUES($1,$2,(SELECT id FROM rubric WHERE event_id=$1 AND code=$3),$4,$5)`,
+        [eventId, troupes.get(troupe.code), entry.code, entry.expectedSubjectType,
+          fullNominationPlaceholder(entry.code, troupe.code)],
+      );
+    }
+  }
   for (const entry of FULL_NIGHTS) {
     const { rows: [night] } = await client.query(
       "INSERT INTO night(event_id,name,display_order,event_date,kind) VALUES($1,$2,$3,$4,'COMPETITION') RETURNING id",

@@ -1,5 +1,5 @@
 export function sendKnownError(response, error) {
-  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED", "NIGHT_REORDER_STARTED_TROUPES"].includes(error.message)) {
+  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED", "NIGHT_REORDER_STARTED_TROUPES", "NOMINATION_ALREADY_EXISTS", "RANDOM_RUBRIC_NOMINATION_LIMIT", "NOMINATION_CONFIGURATION_INCOMPLETE"].includes(error.message)) {
     response.status(409).json({ code: error.message });
     return true;
   }
@@ -28,7 +28,8 @@ export function sendKnownError(response, error) {
   }
   if (
     error.message === "OFFICIAL_RECORD_NOT_FOUND" ||
-    error.message === "EVENT_NOT_FOUND"
+    error.message === "EVENT_NOT_FOUND" ||
+    error.message === "NOMINATION_TROUPE_NOT_FOUND"
   ) {
     response.status(404).json({ code: error.message });
     return true;

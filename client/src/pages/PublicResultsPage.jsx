@@ -405,16 +405,21 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
                   <span className="public-section-badge">Evaluación Artística</span>
                 </div>
                 <div className="rubrics-cards-grid">
-                  {results.rubricRankings.map((rubric) => (
-                    <div key={rubric.rubricId} className="rubric-result-card">
+                  {results.rubricRankings.map((rubric) => {
+                    const resultEntries = rubric.evaluationTarget === "NOMINATION" && rubric.competitors?.length
+                      ? rubric.competitors
+                      : rubric.winners ?? [];
+                    return <div key={rubric.rubricId} className="rubric-result-card">
                       <div className="rubric-card-header">
                         <span className="rubric-kind-tag">{rubric.rubricCode}</span>
                         <h4>{rubric.rubricName}</h4>
                       </div>
                       <div className="rubric-winners-list">
-                        {rubric.winners && rubric.winners.length > 0 ? (
-                          rubric.winners.map((winner) => (
-                            <div key={winner.troupeId} className="rubric-winner-entry">
+                        {resultEntries.length > 0 ? (
+                          resultEntries.map((winner) => (
+                            <div key={winner.nominationId ?? winner.troupeId} className="rubric-winner-entry">
+                              {rubric.evaluationTarget === "NOMINATION" && <span className="winner-rank">{winner.rank}.</span>}
+                              {winner.participantName && <strong className="winner-participant-name">{winner.participantName}</strong>}
                               <span className="winner-troupe-name">{winner.troupeName}</span>
                               <span className="winner-troupe-score">{winner.totalScore} pts</span>
                             </div>
@@ -423,8 +428,8 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
                           <p className="no-rubric-winner">Sin ganador registrado</p>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    </div>;
+                  })}
                 </div>
               </section>
             )}

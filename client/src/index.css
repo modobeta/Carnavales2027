@@ -908,6 +908,10 @@ button.button-link:disabled {
 .readonly-summary-controls label { display: grid; gap: 0.25rem; min-inline-size: min(12rem, 100%); color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
 .readonly-summary-controls select { min-block-size: 2.75rem; max-inline-size: 100%; }
 .readonly-summary-controls button { min-block-size: 2.75rem; }
+.readonly-summary-controls .readonly-search-filter { flex: 1 1 18rem; }
+.readonly-summary-controls .readonly-search-filter input { box-sizing: border-box; inline-size: 100%; min-block-size: 2.75rem; }
+.readonly-summary-controls .readonly-filter-count { flex: 1 1 100%; margin: 0; color: var(--text-muted); font-size: 0.84rem; }
+.readonly-filter-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--border-default); border-radius: var(--radius-md); padding: 1rem; color: var(--text-secondary); background: var(--surface-card); }
 .evaluation-context { margin: 0.35rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .readonly-hero {
   display: flex;
@@ -1044,10 +1048,11 @@ button.button-link:disabled {
   color: var(--text-primary);
 }
 @media (min-width: 80rem) {
+  .judge-ballot-page.is-readonly { max-inline-size: 82rem; }
   .ballot-layout { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr); gap: 1.5rem; }
   .ballot-main { min-inline-size: 0; inline-size: 100%; max-inline-size: 60rem; justify-self: center; }
   .ballot-layout.is-readonly { grid-template-columns: minmax(0, 1fr); }
-  .ballot-layout.is-readonly .ballot-main { max-inline-size: 76rem; }
+  .ballot-layout.is-readonly .ballot-main { max-inline-size: 82rem; }
   /* Desktop: héroe e índice a todo el ancho, tarjetas en 2 columnas. */
   .ballot-readonly-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1273,6 +1278,7 @@ button.button-link:disabled {
   border-radius: var(--radius-lg);
   background: var(--accent-subtle);
 }
+.ballot-readonly-summary.is-single-view > .readonly-group { grid-column: 1 / -1; }
 
 .judge-review-ready {
   border: 1px solid var(--warning-border);
@@ -1477,7 +1483,7 @@ button.button-link:disabled {
   .ballot-layout { grid-template-columns: minmax(16rem, 22rem) 1fr; gap: 1.5rem; }
   /* Planilla confirmada: sin rail lateral, ocupa todo el ancho. */
   .ballot-layout.is-readonly { grid-template-columns: minmax(0, 1fr); }
-  .ballot-layout.is-readonly .ballot-main { max-inline-size: 76rem; }
+  .ballot-layout.is-readonly .ballot-main { max-inline-size: 82rem; }
   /* FIX sticky (Fase 3): un solo rail sticky; los hijos van en flujo normal */
   .ballot-context-rail {
     display: flex;

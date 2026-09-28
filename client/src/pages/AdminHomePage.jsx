@@ -12,6 +12,7 @@ const READINESS_LABELS = {
   ACTIVE_TROUPE: { label: "Comparsas activas", href: "#/admin/competencia" },
   ACTIVE_SPECIALTY: { label: "Especialidades activas", href: "#/admin/competencia" },
   ACTIVE_RUBRIC: { label: "Rubros con ítems válidos", href: "#/admin/competencia" },
+  INCOMPLETE_NOMINATIONS: { label: "Participantes nominados", href: "#/admin/competencia" },
 };
 
 function countActive(items) {
@@ -216,6 +217,15 @@ export function AdminHomePage() {
         description: "Agregá al menos un ítem para que el rubro pueda formar parte de la evaluación.",
         href: "#/admin/competencia",
         action: "Configurar evaluación",
+      });
+    });
+    (readiness?.incompleteNominations ?? []).forEach((item) => {
+      items.push({
+        key: `nomination-${item.rubricId}-${item.troupeId}`,
+        title: `Falta un participante para "${item.rubricName}" en ${item.troupeName}`,
+        description: "Agregá la persona o unidad que el jurado puntuará en esta comparsa.",
+        href: "#/admin/competencia",
+        action: "Cargar participante",
       });
     });
     return items;

@@ -235,27 +235,51 @@ export async function createBallotsForNight(client, { eventId, nightId, actorUse
     const ballot = rows[0];
 
     const { rows: items } = await client.query(
-      `SELECT ei.id AS "itemId", ei.rubric_id AS "rubricId"
+      `SELECT ei.id AS "itemId", ei.rubric_id AS "rubricId",
+              r.evaluation_target AS "evaluationTarget"
          FROM evaluation_item ei
+         JOIN rubric r ON r.id = ei.rubric_id
         WHERE ei.event_id = $1 AND ei.specialty_id = $2 AND ei.active = true`,
       [eventId, assignment.specialtyId],
     );
 
     const { rows: schedules } = await client.query(
-      `SELECT id AS "scheduleId"
+      `SELECT id AS "scheduleId", event_troupe_id AS "eventTroupeId"
          FROM night_troupe_schedule
         WHERE event_id = $1 AND night_id = $2 AND status = 'SCHEDULED'`,
       [eventId, nightId],
     );
 
+    const { rows: nominations } = await client.query(
+      `SELECT id, event_troupe_id AS "eventTroupeId", rubric_id AS "rubricId"
+         FROM troupe_nomination
+        WHERE event_id=$1 AND active`,
+      [eventId],
+    );
+    const nominationsByTroupeAndRubric = new Map();
+    for (const nomination of nominations) {
+      const key = `${nomination.eventTroupeId}:${nomination.rubricId}`;
+      const list = nominationsByTroupeAndRubric.get(key) ?? [];
+      list.push(nomination);
+      nominationsByTroupeAndRubric.set(key, list);
+    }
+
     for (const schedule of schedules) {
       for (const item of items) {
-        await client.query(
-          `INSERT INTO ballot_score (ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (ballot_id, evaluation_item_id, night_schedule_id) DO NOTHING`,
-          [ballot.id, eventId, item.itemId, item.rubricId, schedule.scheduleId],
-        );
+        const itemNominations = item.evaluationTarget === "NOMINATION"
+          ? nominationsByTroupeAndRubric.get(`${schedule.eventTroupeId}:${item.rubricId}`) ?? []
+          : [null];
+        if (item.evaluationTarget === "NOMINATION" && itemNominations.length === 0) {
+          throw new Error("NOMINATION_CONFIGURATION_INCOMPLETE");
+        }
+        for (const nomination of itemNominations) {
+          await client.query(
+            `INSERT INTO ballot_score (ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id, nomination_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT DO NOTHING`,
+            [ballot.id, eventId, item.itemId, item.rubricId, schedule.scheduleId, nomination?.id ?? null],
+          );
+        }
       }
     }
 
@@ -616,6 +640,8 @@ export async function getBallot({ ballotId, userId }) {
             r.evaluation_target AS "evaluationTarget",
             r.evaluation_objective AS "evaluationObjective",
             r.expected_subject_type AS "expectedSubjectType",
+            tn.id AS "nominationId", tn.display_name AS "participantName",
+            tn.subject_type AS "participantType",
              bs.rubric_id AS "rubricId", bs.night_schedule_id AS "nightScheduleId",
              nts.presentation_order AS "presentationOrder",
              et.name AS "troupeName",
@@ -625,10 +651,11 @@ export async function getBallot({ ballotId, userId }) {
        FROM ballot_score bs
        JOIN evaluation_item ei ON ei.id = bs.evaluation_item_id
        JOIN rubric r ON r.id = bs.rubric_id
+       LEFT JOIN troupe_nomination tn ON tn.id = bs.nomination_id
        JOIN night_troupe_schedule nts ON nts.id = bs.night_schedule_id
        JOIN event_troupe et ON et.id = nts.event_troupe_id
       WHERE bs.ballot_id = $1
-      ORDER BY nts.presentation_order, r.name, ei.name`,
+      ORDER BY nts.presentation_order, r.name, ei.name, tn.display_name NULLS FIRST`,
     [id],
   );
 
@@ -659,6 +686,9 @@ export async function getBallot({ ballotId, userId }) {
       evaluationTarget: s.evaluationTarget,
       evaluationObjective: s.evaluationObjective,
       expectedSubjectType: s.expectedSubjectType,
+      nominationId: s.nominationId,
+      participantName: s.participantName,
+      participantType: s.participantType,
       rubricId: s.rubricId,
        nightScheduleId: s.nightScheduleId,
        presentationOrder: s.presentationOrder,

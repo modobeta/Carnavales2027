@@ -75,6 +75,31 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
     assert.deepEqual(incomplete.incompleteRubrics.map(({ code }) => code), ["RUB"]);
 
     await client.query("UPDATE event_specialty SET active = true WHERE id = $1", [disabledSpecialty.id]);
+    const { rows: [nominationRubric] } = await client.query(
+      `INSERT INTO rubric(event_id, name, code, evaluation_target, expected_subject_type)
+       VALUES($1, 'Rubro nominativo', 'NOMINATION_READY', 'NOMINATION', 'PERSON') RETURNING id`,
+      [event.id],
+    );
+    await client.query(
+      `INSERT INTO evaluation_item(event_id, rubric_id, specialty_id, name, code)
+       VALUES($1, $2, $3, 'Participante', 'PARTICIPANTE')`,
+      [event.id, nominationRubric.id, activeSpecialty.id],
+    );
+    const missingNomination = await getReadiness({ client, eventId: event.id });
+    assert.ok(missingNomination.missing.includes("INCOMPLETE_NOMINATIONS"));
+    assert.equal(missingNomination.incompleteNominations.length, 1);
+    await client.query("SAVEPOINT direct_open_without_nomination");
+    await client.query("SELECT set_config('app.allow_event_open', 'true', true)");
+    await assert.rejects(
+      () => client.query("UPDATE carnival_event SET status='OPEN' WHERE id=$1", [event.id]),
+      /EVENT_CONFIGURATION_INCOMPLETE/,
+    );
+    await client.query("ROLLBACK TO SAVEPOINT direct_open_without_nomination");
+    await client.query(
+      `INSERT INTO troupe_nomination(event_id, event_troupe_id, rubric_id, subject_type, display_name)
+       VALUES($1, $2, $3, 'PERSON', 'Participante')`,
+      [event.id, troupe.id, nominationRubric.id],
+    );
     const ready = await getReadiness({ client, eventId: event.id });
     assert.equal(ready.ready, true);
     await client.query("SAVEPOINT direct_ready_open");

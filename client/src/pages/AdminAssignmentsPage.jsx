@@ -204,17 +204,19 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
           assignment.status === "ACTIVE" &&
           assignment.assignmentType === "PRIMARY" &&
           sameNight(assignment, assignNight) &&
-          sameSpecialty(assignment, assignSpecialty),
+          sameSpecialty(assignment, assignSpecialty) &&
+          !(data.assignments ?? []).some((candidate) =>
+            candidate.status === "ACTIVE" && candidate.standbyForAssignmentId === assignment.id,
+          ),
       )
     : [];
-  const assignedJudgeIds = new Set(
-    assignTarget
-      ? (data.assignments ?? [])
-          .filter((assignment) => assignment.status === "ACTIVE" && sameNight(assignment, assignNight))
-          .map((assignment) => assignment.judgeProfileId)
-      : [],
-  );
-  const assignableJudges = assignTarget ? judges.filter((judge) => !assignedJudgeIds.has(judge.id)) : judges;
+  const assignedJudgeIds = assignTarget
+    ? (data.assignments ?? [])
+        .filter((assignment) => assignment.status === "ACTIVE" && sameNight(assignment, assignNight))
+        .map((assignment) => assignment.judgeProfileId)
+    : [];
+  const assignedJudgeIdSet = new Set(assignedJudgeIds);
+  const assignableJudges = assignTarget ? judges.filter((judge) => !assignedJudgeIdSet.has(judge.id)) : judges;
 
   return (
     <PageShell layer="instrument" className="admin-shell assignment-page">
@@ -356,6 +358,7 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
         specialtyName={assignSpecialty?.name ?? ""}
         judges={assignableJudges}
         primaryOptions={primaryOptions}
+        assignedJudgeIds={assignedJudgeIds}
         submitting={Boolean(busy)}
         focusReturnRef={dialogTriggerRef}
       />

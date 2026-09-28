@@ -111,6 +111,52 @@ describe("ballots DB", () => {
 
   });
 
+  it("solo acepta scores nuevos para nominaciones activas del tipo esperado", async () => {
+    const data = await setupTestData();
+    const { rows: [rubric] } = await client.query(
+      `INSERT INTO rubric(event_id, name, code, evaluation_target, expected_subject_type)
+       VALUES($1, 'Participante', 'PARTICIPANTE_NOM', 'NOMINATION', 'PERSON') RETURNING id`,
+      [data.event.id],
+    );
+    const { rows: [item] } = await client.query(
+      `INSERT INTO evaluation_item(event_id, rubric_id, specialty_id, name, code)
+       VALUES($1, $2, $3, 'Persona', 'PERSONA') RETURNING id`,
+      [data.event.id, rubric.id, data.specialty.id],
+    );
+    const { rows: [validNomination] } = await client.query(
+      `INSERT INTO troupe_nomination(event_id, event_troupe_id, rubric_id, subject_type, display_name)
+       VALUES($1, $2, $3, 'PERSON', 'Activa') RETURNING id`,
+      [data.event.id, data.troupe.id, rubric.id],
+    );
+    const { rows: [wrongTypeNomination] } = await client.query(
+      `INSERT INTO troupe_nomination(event_id, event_troupe_id, rubric_id, subject_type, display_name)
+       VALUES($1, $2, $3, 'COUPLE', 'Tipo incorrecto') RETURNING id`,
+      [data.event.id, data.troupe.id, rubric.id],
+    );
+    const { rows: [inactiveNomination] } = await client.query(
+      `INSERT INTO troupe_nomination(event_id, event_troupe_id, rubric_id, subject_type, display_name, active)
+       VALUES($1, $2, $3, 'PERSON', 'Inactiva', false) RETURNING id`,
+      [data.event.id, data.troupe.id, rubric.id],
+    );
+    const { rows: [ballot] } = await client.query(
+      `INSERT INTO ballot(event_id, night_id, judge_assignment_id, judge_profile_id, specialty_id)
+       VALUES($1,$2,$3,$4,$5) RETURNING id`,
+      [data.event.id, data.night.id, data.assignment.id, data.judgeProfile.id, data.specialty.id],
+    );
+    const insertScore = (nominationId) => client.query(
+      `INSERT INTO ballot_score(ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id, nomination_id)
+       VALUES($1,$2,$3,$4,$5,$6)`,
+      [ballot.id, data.event.id, item.id, rubric.id, data.schedule.id, nominationId],
+    );
+
+    await insertScore(validNomination.id);
+    for (const nominationId of [wrongTypeNomination.id, inactiveNomination.id]) {
+      await client.query("SAVEPOINT invalid_nomination_score");
+      await assert.rejects(() => insertScore(nominationId), /BALLOT_SCORE_NOMINATION_MISMATCH/);
+      await client.query("ROLLBACK TO SAVEPOINT invalid_nomination_score");
+    }
+  });
+
   it("permite un score del mismo ítem por cada comparsa programada", async () => {
     const data = await setupTestData();
     const { rows: [ballot] } = await client.query(

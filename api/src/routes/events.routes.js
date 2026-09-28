@@ -22,6 +22,8 @@ import {
   getRubric,
   listCriteriaByItem,
   listRubrics,
+  createNomination,
+  setNominationActive,
   reorderCriterion,
   reorderItem,
   updateCriterion,
@@ -76,6 +78,7 @@ export function createEventsRouter({ requireSession }) {
     "/troupes",
     "/specialties",
     "/evaluation-items",
+    "/nominations",
     "/rubric-criteria",
     "/schedule",
   ]) {
@@ -174,6 +177,15 @@ export function createEventsRouter({ requireSession }) {
     return createRubric({ client, eventId: request.params.eventId, ...body });
   }));
   router.patch("/rubrics/:rubricId", createWriteHandler("RUBRIC_UPDATED", "rubric", (client, request) => updateRubric({ ...request.body, client, rubricId: request.params.rubricId })));
+
+  router.post("/rubrics/:rubricId/nominations", createWriteHandler("TROUPE_NOMINATION_CREATED", "troupe_nomination", (client, request) => {
+    const { eventTroupeId, displayName } = request.body ?? {};
+    return createNomination({ client, rubricId: request.params.rubricId, eventTroupeId, displayName });
+  }));
+  router.patch("/nominations/:nominationId", createWriteHandler("TROUPE_NOMINATION_UPDATED", "troupe_nomination", (client, request) => {
+    const { active } = request.body ?? {};
+    return setNominationActive({ client, nominationId: request.params.nominationId, active });
+  }));
 
   // ---- Evaluation Items ----
   router.get("/rubrics/:rubricId/items", async (request, response, next) => {
