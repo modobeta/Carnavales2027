@@ -65,6 +65,8 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
     [event.id, "Batería", "BATERIA", "TROUPE", "NOMINATIVE"],
   );
   let rubricRandom = null;
+  let randomNominationA = null;
+  let randomNominationB = null;
   if (withRandomRubric) {
     const { rows: [r] } = await client.query(
       "INSERT INTO rubric(event_id, name, code, evaluation_target, expected_subject_type, rubric_type) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
@@ -102,6 +104,35 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
     "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1,$2,$3) RETURNING id",
     [event.id, category.id, "Comparsa B"],
   );
+
+  if (withRandomRubric) {
+    const { rows: [nominationA] } = await client.query(
+      `INSERT INTO troupe_nomination(
+         event_id,
+         event_troupe_id,
+         rubric_id,
+         subject_type,
+         display_name
+       )
+       VALUES($1,$2,$3,'PERSON',$4)
+       RETURNING id`,
+      [event.id, troupeA.id, rubricRandom.id, "Bailarina A"],
+    );
+    const { rows: [nominationB] } = await client.query(
+      `INSERT INTO troupe_nomination(
+         event_id,
+         event_troupe_id,
+         rubric_id,
+         subject_type,
+         display_name
+       )
+       VALUES($1,$2,$3,'PERSON',$4)
+       RETURNING id`,
+      [event.id, troupeB.id, rubricRandom.id, "Bailarina B"],
+    );
+    randomNominationA = nominationA.id;
+    randomNominationB = nominationB.id;
+  }
 
   const { rows: [scheduleA] } = await client.query(
     "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
@@ -163,8 +194,8 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
   ];
   if (withRandomRubric) {
     scoreFixtures.push(
-      { key: "randomA", ballot: ballotA.id, item: itemRandom.id, rubric: rubricRandom.id, schedule: scheduleA.id, score: 10, state: "SCORED" },
-      { key: "randomB", ballot: ballotA.id, item: itemRandom.id, rubric: rubricRandom.id, schedule: scheduleB.id, score: 5, state: "SCORED" },
+      { key: "randomA", ballot: ballotA.id, item: itemRandom.id, rubric: rubricRandom.id, schedule: scheduleA.id, score: 10, state: "SCORED", nominationId: randomNominationA },
+      { key: "randomB", ballot: ballotA.id, item: itemRandom.id, rubric: rubricRandom.id, schedule: scheduleB.id, score: 5, state: "SCORED", nominationId: randomNominationB },
     );
   }
 
@@ -172,9 +203,9 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
     const override = scoreOverrides[s.key];
     const finalScore = override !== undefined ? override : s.score;
     await client.query(
-      `INSERT INTO ballot_score(ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id, score, evaluation_state, status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,'DRAFT')`,
-      [s.ballot, event.id, s.item, s.rubric, s.schedule, finalScore, s.state],
+      `INSERT INTO ballot_score(ballot_id, event_id, evaluation_item_id, rubric_id, night_schedule_id, score, evaluation_state, status, nomination_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,'DRAFT',$8)`,
+      [s.ballot, event.id, s.item, s.rubric, s.schedule, finalScore, s.state, s.nominationId ?? null],
     );
   }
 
@@ -209,6 +240,14 @@ describe("results DB", () => {
   it("ignora rubros aleatorios en el cómputo de Mejor Comparsa (RF-91)", async () => {
     const data = await setupResultFixtures({ withRandomRubric: true });
     const scores = await fetchConsolidatedScores({ eventId: data.event.id, client });
+    const rankings = computeRubricRankings(scores);
+    const random = rankings.find((r) => r.rubricCode === "BAILARINA");
+    assert.ok(random, "el rubro aleatorio participa en su ranking");
+    const byParticipant = Object.fromEntries(random.competitors.map((c) => [c.participantName, c.totalScore]));
+    assert.equal(byParticipant["Bailarina A"], 10);
+    assert.equal(byParticipant["Bailarina B"], 5);
+    assert.equal(random.winners[0].participantName, "Bailarina A");
+
     const overall = computeOverallRanking(scores);
     assert.equal(overall.length, 2);
     const troupeA = overall.find((t) => t.troupeName === "Comparsa A");
