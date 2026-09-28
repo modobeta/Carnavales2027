@@ -110,6 +110,8 @@ La cabecera muestra nombre, roles en español y evento activo. **Evento activo**
 
 En **Votación**, el administrador sigue este orden: evento abierto → **Abrir jornada** (confirmar) → **Abrir votación** (confirmar). La pantalla muestra por separado el estado de jornada y ventana; abrir la jornada no habilita votos por sí solo. Si la ventana está abierta, **Habilitar planillas pendientes** permite generar las de asignaciones nuevas sin reabrir una ventana cerrada. Si no hay planillas, se indica revisar las asignaciones. El cierre requiere confirmación, planillas completas y no permite reapertura. Las reglas y la auditoría existentes de la API siguen siendo la autoridad.
 
+En **Competencia**, los rubros nuevos ofrecen los tipos vigentes **Nominativo** y **Aleatorio**. Los tipos General, Calculado y Especial pueden aparecer como históricos al consultar o editar configuraciones antiguas; no se ofrecen para crear rubros. Si el rubro evalúa una nominación, cargar sus participantes por comparsa antes de abrir el evento. La preparación marca las combinaciones pendientes y la API impide abrir hasta completarlas. En rubros Aleatorios se admiten hasta tres nominaciones activas por comparsa.
+
 El menú lateral habilita **Resultados** solo cuando `/api/v1/public/events` informa al menos un evento con resultados publicados. Mientras se consulta, si no hay resultados o si la consulta falla, aparece atenuado y sin destino navegable. Se vuelve a comprobar al cambiar de sección, al regresar a la pestaña y cada 60 segundos mientras está visible. El enlace abre dentro de la aplicación y conserva el menú y la sesión. El acceso público directo sigue disponible y muestra un estado vacío o un error con reintento, no una carga indefinida.
 
 Al completar el registro por invitación, ambos campos de contraseña permiten mostrar/ocultar su contenido de forma independiente. Se requieren entre 8 y 128 caracteres, al menos una mayúscula, una minúscula y un número (0–9). Los tres indicadores pasan de rojo/pendiente a verde/cumplido al escribir y vuelven a pendiente si se elimina el requisito. La confirmación debe coincidir. La API también valida estos requisitos; no se modifican contraseñas existentes.
@@ -153,7 +155,7 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 - El build genera un identificador derivado del contenido y la lista de precache. El HTML usa red primero con respaldo de caché; los recursos precacheados usan caché. No publicar directamente el template `public/sw.js` con sus marcadores sin reemplazar.
 - Un worker nuevo espera a que se cierren los clientes anteriores; no usa activación forzada para interrumpir planillas. Para actualizar, terminar operaciones, cerrar todas las pestañas/ventanas de la aplicación y volver a abrir online.
 - El manifest usa iconos PNG de 192/512 y SVG. Las rutas de recursos y worker son absolutas desde `/`; un despliegue en subcarpeta requiere adaptar estas referencias.
-- El manifest conserva `start_url="/#/"`, pero `App.jsx` no define `#/` como ruta de inicio. No asumir que el arranque instalado equivale a `#/login`; esta discrepancia requiere una corrección aparte.
+- El manifest abre `/#/login`, la ruta de inicio reconocida por `App.jsx`.
 
 ## Pruebas y despliegue
 
@@ -193,7 +195,7 @@ Al 16/09/2026 se verificó la carga pública, `/health` y la transición de logi
 | 403 al guardar | Rol, 2FA, contexto y header `Origin`; no solucionar desactivando autorización |
 | 429 al ingresar o reenviar | Esperar el tiempo del servidor; el contador visual no amplía el presupuesto de la API |
 | Pantalla vieja | Worker anterior activo en otra pestaña; completar acciones y cerrar todas antes de reabrir |
-| PWA abre ruta inexistente | Discrepancia `start_url=/#/`; usar `/#/login` mientras se resuelve |
+| PWA abre una ruta inexistente | Confirmar que se instaló la versión más reciente de la aplicación y volver a abrir `/#/login` |
 | No hay resultados públicos | Verificar liberación y evento seleccionado antes de asumir error de datos |
 
 Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y códigos HTTP/de dominio. No adjuntar contraseñas, OTP, cookies, tokens ni respuestas con datos personales.

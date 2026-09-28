@@ -245,7 +245,8 @@ export function OfficialRecordPage() {
                 <tr>
                   <th scope="col">Código</th>
                   <th scope="col">Rubro Artístico</th>
-                  <th scope="col">Comparsa Ganadora</th>
+                  <th scope="col">Participante o unidad ganadora</th>
+                  <th scope="col">Comparsa</th>
                   <th scope="col" className="text-end">Puntaje</th>
                 </tr>
               </thead>
@@ -256,7 +257,8 @@ export function OfficialRecordPage() {
                     <tr key={rubric.rubricId}>
                       <td className="code-cell">{rubric.rubricCode}</td>
                       <td><strong>{rubric.rubricName}</strong></td>
-                      <td>{winner ? winner.troupeName : "Sin ganador"}</td>
+                      <td>{winner ? winner.participantName ?? winner.troupeName : "Sin ganador"}</td>
+                      <td>{winner?.participantName ? winner.troupeName : "—"}</td>
                       <td className="text-end">{winner ? `${winner.totalScore} pts` : "—"}</td>
                     </tr>
                   );

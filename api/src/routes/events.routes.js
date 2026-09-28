@@ -3,7 +3,7 @@ import { auditEvent } from "../audit/audit-service.js";
 import { requireAdmin } from "../auth/require-admin.js";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { getPool } from "../db/pool.js";
-import { createEvent, createNight, deleteEvent, getEvent, listEvents, listNights, updateEvent, updateNight } from "../modules/events/event-service.js";
+import { createEvent, createNight, deleteEvent, deleteNight, getEvent, listEvents, listNights, updateEvent, updateNight } from "../modules/events/event-service.js";
 import {
   createCategory,
   createTroupe,
@@ -22,6 +22,8 @@ import {
   getRubric,
   listCriteriaByItem,
   listRubrics,
+  createNomination,
+  setNominationActive,
   reorderCriterion,
   reorderItem,
   updateCriterion,
@@ -76,6 +78,7 @@ export function createEventsRouter({ requireSession }) {
     "/troupes",
     "/specialties",
     "/evaluation-items",
+    "/nominations",
     "/rubric-criteria",
     "/schedule",
   ]) {
@@ -125,6 +128,14 @@ export function createEventsRouter({ requireSession }) {
   });
   router.post("/events/:eventId/nights", createWriteHandler("NIGHT_CREATED", "night", (client, request) => createNight({ client, eventId: request.params.eventId, ...request.body })));
   router.patch("/nights/:nightId", createWriteHandler("NIGHT_UPDATED", "night", (client, request) => updateNight({ client, actorUserId: request.user.id, nightId: request.params.nightId, ...request.body })));
+  router.delete("/nights/:nightId", async (request, response, next) => {
+    try {
+      response.json(await deleteNight({ nightId: request.params.nightId, actorUserId: request.user.id }));
+    } catch (error) {
+      if (error.message === "NIGHT_NOT_FOUND") return response.status(404).json({ code: error.message });
+      if (!sendKnownError(response, error)) next(error);
+    }
+  });
 
   // ---- Categories ----
   router.get("/events/:eventId/categories", async (request, response, next) => {
@@ -166,6 +177,15 @@ export function createEventsRouter({ requireSession }) {
     return createRubric({ client, eventId: request.params.eventId, ...body });
   }));
   router.patch("/rubrics/:rubricId", createWriteHandler("RUBRIC_UPDATED", "rubric", (client, request) => updateRubric({ ...request.body, client, rubricId: request.params.rubricId })));
+
+  router.post("/rubrics/:rubricId/nominations", createWriteHandler("TROUPE_NOMINATION_CREATED", "troupe_nomination", (client, request) => {
+    const { eventTroupeId, displayName } = request.body ?? {};
+    return createNomination({ client, rubricId: request.params.rubricId, eventTroupeId, displayName });
+  }));
+  router.patch("/nominations/:nominationId", createWriteHandler("TROUPE_NOMINATION_UPDATED", "troupe_nomination", (client, request) => {
+    const { active } = request.body ?? {};
+    return setNominationActive({ client, nominationId: request.params.nominationId, active });
+  }));
 
   // ---- Evaluation Items ----
   router.get("/rubrics/:rubricId/items", async (request, response, next) => {

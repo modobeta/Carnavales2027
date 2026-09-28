@@ -3,8 +3,9 @@ import { auditEvent } from "../../audit/audit-service.js";
 import { requireConfiguringEvent, requireEventExists } from "../events/event-service.js";
 
 const EVALUATION_TARGETS = new Set(["TROUPE", "NOMINATION"]);
-const SUBJECT_TYPES = new Set(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "OTHER"]);
-const RUBRIC_TYPES = new Set(["NOMINATIVE", "RANDOM", "GENERAL", "CALCULATED", "SPECIAL"]);
+const SUBJECT_TYPES = new Set(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "BATTERY", "FLOAT", "OTHER"]);
+const RUBRIC_TYPES = new Set(["NOMINATIVE", "RANDOM"]);
+const LEGACY_RUBRIC_TYPES = new Set(["GENERAL", "CALCULATED", "SPECIAL"]);
 const RESOLUTION_METHODS = new Set(["JURY", "COMMITTEE", "AUTOMATIC", "ADMINISTRATIVE"]);
 
 function text(value, name) {
@@ -55,9 +56,9 @@ function boolean(value, name) {
   return value;
 }
 
-function rubricType(value) {
+function rubricType(value, { allowLegacy = false } = {}) {
   const t = value === undefined ? "NOMINATIVE" : text(value, "rubricType");
-  if (!RUBRIC_TYPES.has(t)) throw new TypeError("rubricType inválido.");
+  if (!RUBRIC_TYPES.has(t) && !(allowLegacy && LEGACY_RUBRIC_TYPES.has(t))) throw new TypeError("rubricType inválido.");
   return t;
 }
 
@@ -67,7 +68,7 @@ function resolutionMethod(value) {
   return m;
 }
 
-function rubricValues({ name, code, evaluationTarget, expectedSubjectType, active = true, rubricType: type = "NOMINATIVE", resolutionMethod: method = "JURY", evaluationObjective = null }) {
+function rubricValues({ name, code, evaluationTarget, expectedSubjectType, active = true, rubricType: type = "NOMINATIVE", resolutionMethod: method = "JURY", evaluationObjective = null, allowLegacyRubricType = false }) {
   const target = text(evaluationTarget, "evaluationTarget");
   if (!EVALUATION_TARGETS.has(target)) throw new TypeError("evaluationTarget inválido.");
   let subjectType = null;
@@ -83,7 +84,7 @@ function rubricValues({ name, code, evaluationTarget, expectedSubjectType, activ
     evaluationTarget: target,
     expectedSubjectType: subjectType,
     active: boolean(active, "active"),
-    rubricType: rubricType(type),
+    rubricType: rubricType(type, { allowLegacy: allowLegacyRubricType }),
     resolutionMethod: resolutionMethod(method),
     evaluationObjective: evaluationObjective === null || evaluationObjective === undefined ? null : text(evaluationObjective, "evaluationObjective"),
   };
@@ -130,6 +131,7 @@ export async function getRubric({ client = getPool(), rubricId }) {
   if (!rows[0]) return null;
   const items = await listItems({ client, rubricId });
   const criteria = await listCriteria({ client, rubricId });
+  const nominations = await listNominations({ client, rubricId });
   const { rows: specialties } = await client.query(
     `SELECT DISTINCT s.id, s.code, s.name
        FROM evaluation_item i
@@ -138,7 +140,7 @@ export async function getRubric({ client = getPool(), rubricId }) {
       ORDER BY s.code`,
     [rubricId],
   );
-  return { ...rows[0], items, criteria, specialties };
+  return { ...rows[0], items, criteria, nominations, specialties };
 }
 
 export async function updateRubric({ client = null, rubricId, ...input }) {
@@ -163,6 +165,9 @@ export async function updateRubric({ client = null, rubricId, ...input }) {
       : input.expectedSubjectType === undefined ? current.expectedSubjectType : input.expectedSubjectType,
     active: input.active === undefined ? current.active : input.active,
     rubricType: input.rubricType === undefined ? current.rubricType : input.rubricType,
+    // Migration 081 preserves these historical values; partial updates must
+    // retain them without allowing new rubrics to introduce them.
+    allowLegacyRubricType: input.rubricType === undefined || input.rubricType === current.rubricType,
     resolutionMethod: input.resolutionMethod === undefined ? current.resolutionMethod : input.resolutionMethod,
     evaluationObjective: input.evaluationObjective === undefined ? current.evaluationObjective : input.evaluationObjective,
   });
@@ -205,6 +210,100 @@ export async function listItems({ client = getPool(), rubricId }) {
     [text(rubricId, "rubricId")],
   );
   return rows;
+}
+
+export async function listNominations({ client = getPool(), rubricId }) {
+  const { rows } = await client.query(
+    `SELECT tn.id, tn.event_id AS "eventId", tn.event_troupe_id AS "eventTroupeId",
+            tn.rubric_id AS "rubricId", tn.subject_type AS "subjectType",
+            tn.display_name AS "displayName", tn.active,
+            et.name AS "troupeName"
+       FROM troupe_nomination tn
+       JOIN event_troupe et ON et.id = tn.event_troupe_id
+      WHERE tn.rubric_id = $1
+      ORDER BY et.name, tn.display_name, tn.id`,
+    [text(rubricId, "rubricId")],
+  );
+  return rows;
+}
+
+async function assertNominationCapacity(client, { rubric, eventTroupeId }) {
+  if ((rubric.rubricType ?? rubric.rubric_type) !== "RANDOM") return;
+  const { rows } = await client.query(
+    `SELECT COUNT(*)::INTEGER AS count
+       FROM troupe_nomination
+      WHERE rubric_id=$1 AND event_troupe_id=$2 AND active`,
+    [rubric.id, eventTroupeId],
+  );
+  if (rows[0].count >= 3) throw new Error("RANDOM_RUBRIC_NOMINATION_LIMIT");
+}
+
+export async function createNomination({ client = null, rubricId, eventTroupeId, displayName }) {
+  if (!client) {
+    return inTransaction((client) => createNomination({ client, rubricId, eventTroupeId, displayName }));
+  }
+  const rubricRow = await lockConfigurationParent(client, "rubric", rubricId);
+  const { rows: rubrics } = await client.query(
+    `SELECT id,event_id AS "eventId",evaluation_target AS "evaluationTarget",
+            expected_subject_type AS "expectedSubjectType",rubric_type AS "rubricType"
+       FROM rubric WHERE id=$1 AND event_id=$2`,
+    [rubricId, rubricRow.event_id],
+  );
+  const rubric = rubrics[0];
+  if (rubric.evaluationTarget !== "NOMINATION") throw new TypeError("Solo se pueden nominar participantes en rubros configurados para nominación.");
+  const troupeId = text(eventTroupeId, "eventTroupeId");
+  const name = text(displayName, "displayName");
+  const { rows: troupes } = await client.query(
+    `SELECT id FROM event_troupe WHERE id=$1 AND event_id=$2 AND active FOR SHARE`,
+    [troupeId, rubric.eventId],
+  );
+  if (!troupes[0]) throw new Error("NOMINATION_TROUPE_NOT_FOUND");
+  await assertNominationCapacity(client, { rubric, eventTroupeId: troupeId });
+  const { rows: duplicates } = await client.query(
+    `SELECT 1 FROM troupe_nomination
+      WHERE event_troupe_id=$1 AND rubric_id=$2 AND lower(display_name)=lower($3) AND active`,
+    [troupeId, rubricId, name],
+  );
+  if (duplicates.length) throw new Error("NOMINATION_ALREADY_EXISTS");
+  const { rows } = await client.query(
+    `INSERT INTO troupe_nomination(event_id,event_troupe_id,rubric_id,subject_type,display_name)
+     VALUES($1,$2,$3,$4,$5)
+     RETURNING id,event_id AS "eventId",event_troupe_id AS "eventTroupeId",
+               rubric_id AS "rubricId",subject_type AS "subjectType",display_name AS "displayName",active`,
+    [rubric.eventId, troupeId, rubricId, rubric.expectedSubjectType, name],
+  );
+  return rows[0];
+}
+
+export async function setNominationActive({ client = null, nominationId, active }) {
+  if (!client) {
+    return inTransaction((client) => setNominationActive({ client, nominationId, active }));
+  }
+  if (typeof active !== "boolean") throw new TypeError("active debe ser booleano.");
+  const current = await lockConfigurationParent(client, "troupe_nomination", nominationId);
+  if (active && !current.active) {
+    const { rows: rubricRows } = await client.query(
+      `SELECT id,event_id AS "eventId",rubric_type AS "rubricType"
+         FROM rubric WHERE id=$1`,
+      [current.rubric_id],
+    );
+    await assertNominationCapacity(client, { rubric: rubricRows[0], eventTroupeId: current.event_troupe_id });
+    const { rows: duplicates } = await client.query(
+      `SELECT 1 FROM troupe_nomination
+        WHERE id<>$1 AND event_troupe_id=$2 AND rubric_id=$3
+          AND lower(display_name)=lower($4) AND active`,
+      [nominationId, current.event_troupe_id, current.rubric_id, current.display_name],
+    );
+    if (duplicates.length) throw new Error("NOMINATION_ALREADY_EXISTS");
+  }
+  const { rows } = await client.query(
+    `UPDATE troupe_nomination SET active=$2,updated_at=CURRENT_TIMESTAMP
+      WHERE id=$1
+      RETURNING id,event_id AS "eventId",event_troupe_id AS "eventTroupeId",
+                rubric_id AS "rubricId",subject_type AS "subjectType",display_name AS "displayName",active`,
+    [nominationId, active],
+  );
+  return rows[0];
 }
 
 export async function updateItem({ client = null, itemId, name, code, specialtyId, active, displayOrder, required, allowNotPresented }) {

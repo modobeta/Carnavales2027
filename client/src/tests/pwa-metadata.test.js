@@ -11,6 +11,7 @@ describe("Especificación PWA y Metadatos Accesibles (Spec 020 / RF-181)", () =>
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
     expect(manifest.name).toBe("Carnavales 2027");
+    expect(manifest.start_url).toBe("/#/login");
     expect(manifest.display).toBe("standalone");
     expect(manifest.theme_color).toBe("#090d16");
     expect(manifest.background_color).toBe("#090d16");

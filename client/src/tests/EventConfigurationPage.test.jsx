@@ -101,4 +101,32 @@ describe("EventConfigurationPage", () => {
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
     await waitFor(() => expect(screen.getByText("Preparacion del evento")).toBeInTheDocument());
   });
+
+  it("permite eliminar una jornada con confirmacion previa", async () => {
+    apiRequest.mockImplementation((url, options) => options?.method === "DELETE"
+      ? Promise.resolve({ id: "n1" })
+      : Promise.resolve({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] }));
+    render(<EventConfigurationPage
+      event={{ id: "event-1", status: "CONFIGURING" }}
+      nights={[{ id: "n1", name: "Noche 1", displayOrder: 1, kind: "COMPETITION", eventDate: null }]}
+    />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar jornada Noche 1" }));
+    expect(await screen.findByRole("dialog", { name: "Eliminar Noche 1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar jornada" }));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/nights/n1",
+      expect.objectContaining({ method: "DELETE" }),
+    ));
+    expect(await screen.findByText("Jornada Noche 1 eliminada.")).toBeInTheDocument();
+  });
+
+  it("oculta eliminar jornada cuando el evento esta OPEN", () => {
+    render(<EventConfigurationPage
+      event={{ id: "event-1", status: "OPEN" }}
+      nights={[{ id: "n1", name: "Noche 1", displayOrder: 1, kind: "COMPETITION", eventDate: null, status: "DRAFT" }]}
+    />);
+    expect(screen.queryByRole("button", { name: "Eliminar jornada Noche 1" })).not.toBeInTheDocument();
+  });
 });

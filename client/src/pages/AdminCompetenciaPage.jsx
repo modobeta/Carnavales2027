@@ -212,14 +212,21 @@ export function AdminCompetenciaPage({ event, onBack }) {
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <p className="step-intro">Definí las especialidades que evalúan: cada ítem del paso 3 pertenece a una especialidad activa. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
-              <p className="step-intro">
-                <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
-                  Asignar jurados a la competencia
-                </a>
-              </p>
+              <p className="step-intro">Primero creá al menos una especialidad activa. Después vas a poder asignar jurados a cada especialidad. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={summaryByStep.jurados} />
               <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+              <p className="step-intro">
+                {specialtiesActive.length > 0 ? (
+                  <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
+                    Asignar jurados a la competencia
+                  </a>
+                ) : (
+                  <button className="button-link" type="button" disabled aria-disabled="true">
+                    Asignar jurados a la competencia
+                  </button>
+                )}
+                {specialtiesActive.length === 0 && <span className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</span>}
+              </p>
             </section>
           )}
           {step === "rubros" && (
@@ -258,9 +265,10 @@ function StepSummary({ stepLabel, recommendation }) {
 function CompetenciaOverview({ event, onGoStep }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState("");
+  const [criterionConfirmTarget, setCriterionConfirmTarget] = useState(null);
   const locked = event.status === "OPEN";
 
-  const { incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
+  const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
     let active = true;
@@ -277,6 +285,9 @@ function CompetenciaOverview({ event, onGoStep }) {
   }, [event.id, dataRevision]);
 
   const reassignCriterion = async (criterionId, scoringItemId) => {
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
     try {
       const saved = await apiRequest(`/api/v1/rubric-criteria/${criterionId}`, {
         method: "PATCH",
@@ -295,6 +306,9 @@ function CompetenciaOverview({ event, onGoStep }) {
       return true;
     } catch {
       setMessage("No se pudo reasignar el criterio.");
+    } finally {
+      writing.current = false;
+      setPending(false);
     }
   };
 
@@ -336,7 +350,9 @@ function CompetenciaOverview({ event, onGoStep }) {
                 .filter((item) => item.active !== false);
               return (
                 <SaveForm key={criterion.id} onSubmit={(e) => {
-                  return reassignCriterion(criterion.id, new FormData(e.currentTarget).get("scoringItemId"));
+                  const scoringItemId = new FormData(e.currentTarget).get("scoringItemId");
+                  setCriterionConfirmTarget({ criterion, scoringItemId });
+                  return false;
                 }}>
                   <span>{criterion.rubricName}: {criterion.description}</span>
                   <select name="scoringItemId" aria-label={`Item para ${criterion.rubricName}: ${criterion.description}`} required disabled={locked || items.length === 0}>
@@ -350,6 +366,21 @@ function CompetenciaOverview({ event, onGoStep }) {
           </article>
         )}
       </div>
+      <Dialog
+        isOpen={criterionConfirmTarget !== null && !locked}
+        onClose={() => setCriterionConfirmTarget(null)}
+        title="Confirmar reasignación"
+        description={criterionConfirmTarget ? `El criterio ${criterionConfirmTarget.criterion.description} se moverá a otro ítem puntuable.` : ""}
+      >
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setCriterionConfirmTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={async () => {
+            const target = criterionConfirmTarget;
+            setCriterionConfirmTarget(null);
+            if (target) await reassignCriterion(target.criterion.id, target.scoringItemId);
+          }}>Confirmar reasignación</Button>
+        </DialogFooter>
+      </Dialog>
     </section>
   );
 }
@@ -364,6 +395,7 @@ function AdminTroupesSection({ event }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [mutationTarget, setMutationTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
   const { writing, setPending, dataRevision, incRevision, reloadProgress } = useContext(WriteContext);
@@ -401,7 +433,11 @@ function AdminTroupesSection({ event }) {
     }
   };
 
-  const submitTroupe = async (body) => {
+  const submitTroupe = async (body, confirmed = false) => {
+    if (drawerMode?.mode === "edit" && !confirmed) {
+      setMutationTarget({ title: "Guardar cambios de comparsa", description: `Se actualizarán los datos de ${editingTroupe?.name ?? "la comparsa"}.`, confirm: () => submitTroupe(body, true) });
+      return;
+    }
     if (writing.current) return;
     writing.current = true;
     setPending(true);
@@ -441,7 +477,11 @@ function AdminTroupesSection({ event }) {
     }
   };
 
-  const reactivateTroupe = async (troupe) => {
+  const reactivateTroupe = async (troupe, confirmed = false) => {
+    if (!confirmed) {
+      setMutationTarget({ title: "Reactivar comparsa", description: `Se volverá a incluir ${troupe.name} en la competencia.`, confirm: () => reactivateTroupe(troupe, true) });
+      return;
+    }
     if (writing.current) return;
     writing.current = true;
     setPending(true);
@@ -562,6 +602,12 @@ function AdminTroupesSection({ event }) {
           <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+      <Dialog isOpen={mutationTarget !== null && !locked} onClose={() => setMutationTarget(null)} title={mutationTarget?.title ?? "Confirmar cambio"} description={mutationTarget?.description ?? ""}>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setMutationTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { const target = mutationTarget; setMutationTarget(null); void target?.confirm(); }}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
       <Dialog
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
@@ -586,6 +632,8 @@ function TroupeScheduleSection({ event }) {
   const [nightId, setNightId] = useState("");
   const [troupeToAdd, setTroupeToAdd] = useState("");
   const [quitTarget, setQuitTarget] = useState(null);
+  const [reorderTarget, setReorderTarget] = useState(null);
+  const [scheduleAddTarget, setScheduleAddTarget] = useState(null);
   const [message, setMessage] = useState("");
   const { writing, setPending, dataRevision } = useContext(WriteContext);
   const locked = event.status === "OPEN";
@@ -615,6 +663,32 @@ function TroupeScheduleSection({ event }) {
   const ordered = [...schedule].sort((a, b) => a.presentationOrder - b.presentationOrder);
   const nightName = nights.find((n) => n.id === nightId)?.name ?? "";
   const unprogrammed = troupes.filter((t) => t.active !== false && !schedule.some((s) => s.troupeId === t.id));
+
+  const addToSchedule = async (troupeId) => {
+    if (writing.current || locked || !troupeId) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      const saved = await apiRequest(`/api/v1/events/${event.id}/schedule`, {
+        method: "POST",
+        body: JSON.stringify({ nightId, troupeId }),
+      });
+      const troupe = troupes.find((t) => t.id === troupeId);
+      scheduleRequest.current += 1;
+      setSchedule((prev) => [...prev, { ...saved, nightId, troupeId, troupeName: troupe?.name ?? "", troupeBrandColor: troupe?.brandColor ?? null }]);
+      setTroupeToAdd("");
+      setMessage("Comparsa programada en la jornada.");
+    } catch (error) {
+      setMessage(error.code === "SCHEDULE_CONFLICT"
+        ? "Esa comparsa ya está programada en la jornada."
+        : error.code === "EVENT_LOCKED"
+          ? "El evento ya no permite modificar su configuracion."
+          : "No se pudo programar la comparsa.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
 
   const reorder = async (current, neighbor, direction) => {
     if (writing.current || locked || !neighbor) return;
@@ -662,31 +736,9 @@ function TroupeScheduleSection({ event }) {
       {!locked && nightId && unprogrammed.length > 0 && (
         <form
           className="inline-item-form"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
-            if (writing.current || !troupeToAdd) return;
-            writing.current = true;
-            setPending(true);
-            try {
-              const saved = await apiRequest(`/api/v1/events/${event.id}/schedule`, {
-                method: "POST",
-                body: JSON.stringify({ nightId, troupeId: troupeToAdd }),
-              });
-              const troupe = troupes.find((t) => t.id === troupeToAdd);
-              scheduleRequest.current += 1;
-              setSchedule((prev) => [...prev, { ...saved, nightId, troupeId: troupeToAdd, troupeName: troupe?.name ?? "", troupeBrandColor: troupe?.brandColor ?? null }]);
-              setTroupeToAdd("");
-              setMessage("Comparsa programada en la jornada.");
-            } catch (error) {
-              setMessage(error.code === "SCHEDULE_CONFLICT"
-                ? "Esa comparsa ya está programada en la jornada."
-                : error.code === "EVENT_LOCKED"
-                  ? "El evento ya no permite modificar su configuracion."
-                  : "No se pudo programar la comparsa.");
-            } finally {
-              writing.current = false;
-              setPending(false);
-            }
+            if (!writing.current && troupeToAdd) setScheduleAddTarget(troupeToAdd);
           }}
         >
           <select value={troupeToAdd} onChange={(e) => setTroupeToAdd(e.target.value)} aria-label="Comparsa para programar en la jornada" required>
@@ -704,8 +756,8 @@ function TroupeScheduleSection({ event }) {
             <strong>{entry.troupeName}</strong>
             <ScheduledPassTime scheduledAt={entry.scheduledAt} scheduledTimezone={entry.scheduledTimezone} />
             {!locked && <>
-              <button className="secondary" type="button" aria-label={`Subir ${entry.troupeName} en ${nightName}`} disabled={index === 0} onClick={() => reorder(entry, ordered[index - 1], "UP")}>Subir</button>
-              <button className="secondary" type="button" aria-label={`Bajar ${entry.troupeName} en ${nightName}`} disabled={index === ordered.length - 1} onClick={() => reorder(entry, ordered[index + 1], "DOWN")}>Bajar</button>
+              <button className="secondary" type="button" aria-label={`Subir ${entry.troupeName} en ${nightName}`} disabled={index === 0} onClick={() => setReorderTarget({ current: entry, neighbor: ordered[index - 1], direction: "UP" })}>Subir</button>
+              <button className="secondary" type="button" aria-label={`Bajar ${entry.troupeName} en ${nightName}`} disabled={index === ordered.length - 1} onClick={() => setReorderTarget({ current: entry, neighbor: ordered[index + 1], direction: "DOWN" })}>Bajar</button>
               <button className="secondary" type="button" aria-label={`Quitar ${entry.troupeName} de ${nightName}`} onClick={() => setQuitTarget(entry)}>Quitar</button>
             </>}
           </li>
@@ -714,6 +766,28 @@ function TroupeScheduleSection({ event }) {
       {ordered.some((entry) => entry.orderSource === "TEST_SIMULATED_DRAW") && (
         <p>Horarios y orden simulados para pruebas; no son un cronograma oficial de la COC.</p>
       )}
+      <Dialog
+        isOpen={scheduleAddTarget !== null && !locked}
+        onClose={() => setScheduleAddTarget(null)}
+        title="Confirmar programación"
+        description={`Se agregará ${troupes.find((t) => t.id === scheduleAddTarget)?.name ?? "la comparsa"} al orden de pasada de ${nightName}.`}
+      >
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setScheduleAddTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { const troupeId = scheduleAddTarget; setScheduleAddTarget(null); if (troupeId) void addToSchedule(troupeId); }}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog
+        isOpen={reorderTarget !== null && !locked}
+        onClose={() => setReorderTarget(null)}
+        title="Confirmar cambio de orden"
+        description={reorderTarget ? `Se cambiará el orden de ${reorderTarget.current.troupeName} en ${nightName}.` : ""}
+      >
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setReorderTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { const target = reorderTarget; setReorderTarget(null); if (target) void reorder(target.current, target.neighbor, target.direction); }}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
       {nightId && ordered.length === 0 && <p>Sin comparsas programadas en esta jornada. Programá al menos una para poder abrir la votación.</p>}
       {quitTarget && (
         <Dialog
@@ -759,7 +833,10 @@ function AdminCategoriesSection({ event }) {
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [mutationTarget, setMutationTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
@@ -786,7 +863,11 @@ function AdminCategoriesSection({ event }) {
     }
   };
 
-  const submitCategory = async (body) => {
+  const submitCategory = async (body, confirmed = false) => {
+    if (drawerMode?.mode === "edit" && !confirmed) {
+      setMutationTarget({ title: "Guardar cambios del tipo", description: `Se actualizarán los datos de ${editingCategory?.name ?? "el tipo"}.`, confirm: () => submitCategory(body, true) });
+      return;
+    }
     if (writing.current) return;
     writing.current = true;
     setPending(true);
@@ -808,9 +889,57 @@ function AdminCategoriesSection({ event }) {
   const nextOrder = ordered.length === 0 ? 1 : Math.max(...ordered.map((c) => c.displayOrder ?? 0)) + 1;
   const editingCategory = drawerMode?.mode === "edit" ? categories.find((c) => c.id === drawerMode.categoryId) : null;
 
+  const refreshCategories = async (fallback) => {
+    const fresh = await apiRequest(`/api/v1/events/${event.id}/categories`).catch(() => null);
+    if (fresh) setCategories(fresh);
+    else if (fallback) setCategories(fallback);
+  };
+
+  const confirmDeleteCategory = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/categories/${target.id}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+      await refreshCategories((prev) => prev.map((c) => c.id === target.id ? { ...c, active: false } : c));
+      setMessage(`Tipo ${target.name} eliminado (desactivado en BD).`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo eliminar el tipo.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const reactivateCategory = async (category, confirmed = false) => {
+    if (!confirmed) {
+      setMutationTarget({ title: "Reactivar tipo", description: `Se volverá a habilitar ${category.name} para comparsas nuevas.`, confirm: () => reactivateCategory(category, true) });
+      return;
+    }
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/categories/${category.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
+      await refreshCategories((prev) => prev.map((c) => c.id === category.id ? { ...c, active: true } : c));
+      setMessage(`Tipo ${category.name} reactivado.`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo reactivar el tipo.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas.</p></div>
+      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas. Eliminar oculta el tipo y lo conserva desactivado en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       {ordered.length === 0 ? (
@@ -838,7 +967,16 @@ function AdminCategoriesSection({ event }) {
                     <td>
                       <button className="secondary" type="button" aria-label={`Editar tipo ${category.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", categoryId: category.id }); }}>
                         Editar
-                      </button>
+                      </button>{" "}
+                      {category.active !== false ? (
+                        <button className="secondary danger-action" type="button" aria-label={`Eliminar tipo ${category.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(category); }}>
+                          Eliminar
+                        </button>
+                      ) : (
+                        <button className="secondary" type="button" aria-label={`Reactivar tipo ${category.name}`} onClick={() => reactivateCategory(category)}>
+                          Reactivar
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -869,6 +1007,24 @@ function AdminCategoriesSection({ event }) {
           <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+      <Dialog isOpen={mutationTarget !== null && !locked} onClose={() => setMutationTarget(null)} title={mutationTarget?.title ?? "Confirmar cambio"} description={mutationTarget?.description ?? ""}>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setMutationTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { const target = mutationTarget; setMutationTarget(null); void target?.confirm(); }}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog
+        isOpen={deleteTarget !== null && !locked}
+        onClose={() => setDeleteTarget(null)}
+        title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar tipo"}
+        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        focusReturnRef={deleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteCategory}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
     </section>
   );
 }
@@ -878,7 +1034,10 @@ function AdminSpecialtiesSection({ event }) {
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [mutationTarget, setMutationTarget] = useState(null);
   const drawerTriggerRef = useRef(null);
+  const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
   useEffect(() => {
@@ -905,7 +1064,11 @@ function AdminSpecialtiesSection({ event }) {
     }
   };
 
-  const submitSpecialty = async (body) => {
+  const submitSpecialty = async (body, confirmed = false) => {
+    if (drawerMode?.mode === "edit" && !confirmed) {
+      setMutationTarget({ title: "Guardar cambios de especialidad", description: `Se actualizarán los datos de ${editingSpecialty?.name ?? "la especialidad"}.`, confirm: () => submitSpecialty(body, true) });
+      return;
+    }
     if (writing.current) return;
     writing.current = true;
     setPending(true);
@@ -927,9 +1090,57 @@ function AdminSpecialtiesSection({ event }) {
   const nextOrder = ordered.length === 0 ? 1 : Math.max(...ordered.map((s) => s.displayOrder ?? 0)) + 1;
   const editingSpecialty = drawerMode?.mode === "edit" ? specialties.find((s) => s.id === drawerMode.specialtyId) : null;
 
+  const refreshSpecialties = async (fallback) => {
+    const fresh = await apiRequest(`/api/v1/events/${event.id}/specialties`).catch(() => null);
+    if (fresh) setSpecialties(fresh);
+    else if (fallback) setSpecialties(fallback);
+  };
+
+  const confirmDeleteSpecialty = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/specialties/${target.id}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+      await refreshSpecialties((prev) => prev.map((s) => s.id === target.id ? { ...s, active: false } : s));
+      setMessage(`Especialidad ${target.name} eliminada (desactivada en BD).`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo eliminar la especialidad.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const reactivateSpecialty = async (specialty, confirmed = false) => {
+    if (!confirmed) {
+      setMutationTarget({ title: "Reactivar especialidad", description: `Se volverá a habilitar ${specialty.name} para la configuración de rubros.`, confirm: () => reactivateSpecialty(specialty, true) });
+      return;
+    }
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/specialties/${specialty.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
+      await refreshSpecialties((prev) => prev.map((s) => s.id === specialty.id ? { ...s, active: true } : s));
+      setMessage(`Especialidad ${specialty.name} reactivada.`);
+      if (incRevision) incRevision();
+      if (reloadProgress) reloadProgress();
+    } catch {
+      setMessage("No se pudo reactivar la especialidad.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3.</p></div>
+      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3. Eliminar la oculta y la conserva desactivada en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
       {ordered.length === 0 ? (
@@ -957,7 +1168,16 @@ function AdminSpecialtiesSection({ event }) {
                     <td>
                       <button className="secondary" type="button" aria-label={`Editar especialidad ${spec.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", specialtyId: spec.id }); }}>
                         Editar
-                      </button>
+                      </button>{" "}
+                      {spec.active !== false ? (
+                        <button className="secondary danger-action" type="button" aria-label={`Eliminar especialidad ${spec.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(spec); }}>
+                          Eliminar
+                        </button>
+                      ) : (
+                        <button className="secondary" type="button" aria-label={`Reactivar especialidad ${spec.name}`} onClick={() => reactivateSpecialty(spec)}>
+                          Reactivar
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -988,6 +1208,24 @@ function AdminSpecialtiesSection({ event }) {
           <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
+      <Dialog isOpen={mutationTarget !== null && !locked} onClose={() => setMutationTarget(null)} title={mutationTarget?.title ?? "Confirmar cambio"} description={mutationTarget?.description ?? ""}>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setMutationTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => { const target = mutationTarget; setMutationTarget(null); void target?.confirm(); }}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog
+        isOpen={deleteTarget !== null && !locked}
+        onClose={() => setDeleteTarget(null)}
+        title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar especialidad"}
+        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras reactivarla. No se borra el historial."
+        focusReturnRef={deleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteSpecialty}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
     </section>
   );
 }
@@ -995,11 +1233,17 @@ function AdminSpecialtiesSection({ event }) {
 function AdminRubricsSection({ event, focusRubricId = null }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
+  const [troupes, setTroupes] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [editingRubricId, setEditingRubricId] = useState(null);
   const [highlightItemId, setHighlightItemId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [editingCriterion, setEditingCriterion] = useState(null);
+  const [rubricDeleteTarget, setRubricDeleteTarget] = useState(null);
+  const [nominationCreateTarget, setNominationCreateTarget] = useState(null);
+  const [nominationStatusTarget, setNominationStatusTarget] = useState(null);
+  const [mutationConfirmTarget, setMutationConfirmTarget] = useState(null);
+  const rubricDeleteTriggerRef = useRef(null);
   const [message, setMessage] = useState("");
   const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
 
@@ -1013,6 +1257,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     let active = true;
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
     return () => { active = false; };
   }, [event.id, dataRevision]);
 
@@ -1026,14 +1271,17 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
 
   const locked = event.status === "OPEN";
   const activeSpecialties = specialties.filter((s) => s.active !== false);
+  const activeTroupes = troupes.filter((troupe) => troupe.active !== false).sort((a, b) => a.name.localeCompare(b.name));
 
   const RUBRIC_TYPES = [
     { value: "NOMINATIVE", label: "Nominativo" },
     { value: "RANDOM", label: "Aleatorio" },
-    { value: "GENERAL", label: "General" },
-    { value: "CALCULATED", label: "Calculado" },
-    { value: "SPECIAL", label: "Especial" },
   ];
+  const LEGACY_RUBRIC_TYPE_LABELS = {
+    GENERAL: "General (histórico)",
+    CALCULATED: "Calculado (histórico)",
+    SPECIAL: "Especial (histórico)",
+  };
   const RESOLUTION_METHODS = [
     { value: "JURY", label: "Jurado" },
     { value: "COMMITTEE", label: "Comision Organizadora" },
@@ -1048,6 +1296,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     { value: "ELEMENT", label: "Elemento" },
     { value: "OTHER", label: "Otro" },
   ];
+
+  const subjectTypeLabel = (value) => SUBJECT_TYPES.find((type) => type.value === value)?.label ?? value;
 
   const saveRubric = async (path, body, method = "POST") => {
     try {
@@ -1098,6 +1348,60 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     }
   };
 
+  const confirmNominationCreate = async () => {
+    const target = nominationCreateTarget;
+    setNominationCreateTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/rubrics/${target.rubricId}/nominations`, {
+        method: "POST",
+        body: JSON.stringify(target.body),
+      });
+      const fresh = await apiRequest(`/api/v1/rubrics/${target.rubricId}`).catch(() => null);
+      if (fresh) setRubrics((previous) => previous.map((rubric) => rubric.id === target.rubricId ? fresh : rubric));
+      setMessage("Participante agregado al rubro.");
+      if (incRevision) incRevision();
+      reloadProgress?.();
+    } catch (error) {
+      setMessage(error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
+        ? "Los rubros aleatorios permiten hasta 3 participantes por comparsa."
+        : error.code === "NOMINATION_ALREADY_EXISTS"
+          ? "Ese participante ya está cargado para esta comparsa y rubro."
+          : "No se pudo agregar el participante.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const confirmNominationStatus = async () => {
+    const target = nominationStatusTarget;
+    setNominationStatusTarget(null);
+    if (!target || writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/nominations/${target.nomination.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: target.active }),
+      });
+      const fresh = await apiRequest(`/api/v1/rubrics/${target.nomination.rubricId}`).catch(() => null);
+      if (fresh) setRubrics((previous) => previous.map((rubric) => rubric.id === fresh.id ? fresh : rubric));
+      setMessage(target.active ? "Participante reactivado." : "Participante desactivado.");
+      if (incRevision) incRevision();
+      reloadProgress?.();
+    } catch (error) {
+      setMessage(error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
+        ? "Los rubros aleatorios permiten hasta 3 participantes activos por comparsa."
+        : "No se pudo actualizar el participante.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
   const saveCriterion = async (rubricId, body, method = "POST", criterionId = null) => {
     try {
       const path = method === "PATCH" ? `/api/v1/rubric-criteria/${criterionId}` : `/api/v1/rubrics/${rubricId}/criteria`;
@@ -1120,6 +1424,24 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     } catch (e) {
       setMessage(e.code === "EVALUATION_ITEM_NOT_FOUND" ? "El item seleccionado no es valido." : "No se pudo guardar.");
     }
+  };
+
+  const requestMutationConfirmation = (title, description, commit, managesWrite = false) =>
+    setMutationConfirmTarget({ title, description, commit, managesWrite });
+
+  const confirmMutation = async () => {
+    const target = mutationConfirmTarget;
+    setMutationConfirmTarget(null);
+    if (!target) return;
+    if (target.managesWrite) {
+      await target.commit();
+      return;
+    }
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try { await target.commit(); }
+    finally { writing.current = false; setPending(false); }
   };
 
   const reorder = async (rubricId, collection, current, neighbor, direction) => {
@@ -1157,9 +1479,47 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
     }
   };
 
+  const setRubricActive = async (rubric, active) => {
+    if (writing.current) return;
+    writing.current = true;
+    setPending(true);
+    try {
+      await apiRequest(`/api/v1/rubrics/${rubric.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: rubric.name,
+          evaluationTarget: rubric.evaluationTarget,
+          expectedSubjectType: rubric.expectedSubjectType ?? null,
+          rubricType: rubric.rubricType,
+          resolutionMethod: rubric.resolutionMethod,
+          evaluationObjective: rubric.evaluationObjective ?? null,
+          active,
+        }),
+      });
+      const fresh = await apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => null);
+      if (fresh) setRubrics(fresh);
+      else setRubrics((prev) => prev.map((r) => r.id === rubric.id ? { ...r, active } : r));
+      setMessage(active ? `Rubro ${rubric.name} reactivado.` : `Rubro ${rubric.name} eliminado (desactivado en BD).`);
+      if (incRevision) incRevision();
+      reloadProgress?.();
+    } catch {
+      setMessage(active ? "No se pudo reactivar el rubro." : "No se pudo eliminar el rubro.");
+    } finally {
+      writing.current = false;
+      setPending(false);
+    }
+  };
+
+  const confirmDeleteRubric = async () => {
+    const target = rubricDeleteTarget;
+    setRubricDeleteTarget(null);
+    if (!target) return;
+    await setRubricActive(target, false);
+  };
+
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos.</p></div>
+      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
       <p className="feedback" role="status">{message}</p>
 
       <h3>Qué puntúa el jurado</h3>
@@ -1186,13 +1546,13 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
           const orderedItems = [...(rubric.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
           const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id));
           const isExpanded = expanded === rubric.id;
-          const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? rubric.rubricType;
+          const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? rubric.rubricType;
           const resolutionLabel = RESOLUTION_METHODS.find((m) => m.value === rubric.resolutionMethod)?.label ?? rubric.resolutionMethod;
           return (
             <article className="rubric-card" key={rubric.id} data-rubric-id={rubric.id}>
               <div className="rubric-card-header">
                 <div>
-                  <h3>{rubric.name}</h3>
+                  <h3>{rubric.name}{rubric.active === false && <small> · Inactivo</small>}</h3>
                   <span className="rubric-meta">{rubricTypeLabel} &middot; {resolutionLabel}</span>
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                   <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
@@ -1200,16 +1560,28 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                 <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
                   {isExpanded ? "Contraer" : "Expandir"}
                 </button>
+                {!locked && (rubric.active !== false ? (
+                  <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
+                    Eliminar
+                  </button>
+                ) : (
+                  <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
+                    Reactivar
+                  </button>
+                ))}
               </div>
 
               {isExpanded && (
                 <div className="rubric-expanded">
                   {!locked && (
                     editingRubricId === rubric.id ? (
-                      <SaveForm className="rubric-edit-form" onSubmit={async (e) => { const fd = new FormData(e.currentTarget); const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }, "PATCH"); if (ok) setEditingRubricId(null); return ok; }}>
+                      <SaveForm className="rubric-edit-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del rubro", `Se actualizará la configuración de ${rubric.name}.`, async () => { const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, body, "PATCH"); if (ok) setEditingRubricId(null); }); return false; }}>
                         <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
                         <label>A quién se evalúa<select name="evaluationTarget" defaultValue={rubric.evaluationTarget}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
-                        <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+                        <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>
+                          {!RUBRIC_TYPES.some((type) => type.value === rubric.rubricType) && <option value={rubric.rubricType}>{LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? `${rubric.rubricType} (histórico)`}</option>}
+                          {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select></label>
                         <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
                         <details className="advanced-options">
                           <summary>Opciones avanzadas</summary>
@@ -1229,11 +1601,57 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                     )
                   )}
 
+                  {rubric.evaluationTarget === "NOMINATION" && (
+                    <section className="rubric-nominations" aria-label={`Participantes nominados para ${rubric.name}`}>
+                      <h4>Participantes nominados</h4>
+                      <p>Agregá a cada persona, pareja o unidad que el jurado puntuará por separado. El tipo {subjectTypeLabel(rubric.expectedSubjectType)} se hereda de este rubro.</p>
+                      <ul className="rubric-nomination-list">
+                        {(rubric.nominations ?? []).map((nomination) => (
+                          <li key={nomination.id} className={nomination.active ? "" : "is-inactive"}>
+                            <span><strong>{nomination.displayName}</strong> · {nomination.troupeName} <small>({subjectTypeLabel(nomination.subjectType)})</small></span>
+                            {!locked && (
+                              <button
+                                className="secondary"
+                                type="button"
+                                onClick={() => setNominationStatusTarget({ nomination, active: !nomination.active })}
+                              >
+                                {nomination.active ? "Desactivar" : "Reactivar"}
+                              </button>
+                            )}
+                            {!nomination.active && <StatusPill status="SUSPENDED" label="Inactivo" />}
+                          </li>
+                        ))}
+                      </ul>
+                      {!locked && activeTroupes.length > 0 && (
+                        <SaveForm
+                          resetOnSuccess
+                          className="inline-nomination-form"
+                          onSubmit={(e) => {
+                            const fd = new FormData(e.currentTarget);
+                            const troupe = activeTroupes.find((entry) => entry.id === fd.get("eventTroupeId"));
+                            setNominationCreateTarget({
+                              rubricId: rubric.id,
+                              rubricName: rubric.name,
+                              troupeName: troupe?.name ?? "la comparsa seleccionada",
+                              body: { eventTroupeId: fd.get("eventTroupeId"), displayName: fd.get("displayName") },
+                            });
+                            return false;
+                          }}
+                        >
+                          <label>Comparsa<select name="eventTroupeId" required defaultValue=""><option value="" disabled>Elegí una comparsa</option>{activeTroupes.map((troupe) => <option key={troupe.id} value={troupe.id}>{troupe.name}</option>)}</select></label>
+                          <label>Nombre del participante<input name="displayName" required placeholder="Ej.: Ana López o Pareja de baile" /></label>
+                          {rubric.rubricType === "RANDOM" && <small>Máximo 3 participantes activos por comparsa en este rubro.</small>}
+                          <button type="submit">Agregar participante</button>
+                        </SaveForm>
+                      )}
+                    </section>
+                  )}
+
                   <h4>Items puntuables</h4>
                   {orderedItems.map((item, itemIndex) => (
                     <article className={`subrecord${highlightItemId === item.id ? " is-target" : ""}`} key={item.id} data-item-id={item.id}>
                       {editingItem === item.id ? (
-                        <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveItem(rubric.id, { name: fd.get("name"), specialtyId: fd.get("specialtyId"), displayOrder: Number(fd.get("displayOrder")), required: fd.get("required") === "on", allowNotPresented: fd.get("allowNotPresented") === "on", active: fd.get("active") === "on" }, "PATCH", item.id); }}>
+                        <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), specialtyId: fd.get("specialtyId"), displayOrder: Number(fd.get("displayOrder")), required: fd.get("required") === "on", allowNotPresented: fd.get("allowNotPresented") === "on", active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará ${item.name} y su configuración de puntuación.`, () => saveItem(rubric.id, body, "PATCH", item.id)); return false; }}>
                           <label>Nombre<input name="name" defaultValue={item.name} required /></label>
                           <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
                           <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
@@ -1255,8 +1673,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                           <span className="mono-text">Orden: {item.displayOrder}</span>
                           {!locked && <button className="secondary" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
                           {!locked && <>
-                            <button className="secondary" type="button" aria-label={`Subir item ${item.name}`} disabled={itemIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => reorder(rubric.id, "items", item, orderedItems[itemIndex - 1], "UP")}>Subir</button>
-                            <button className="secondary" type="button" aria-label={`Bajar item ${item.name}`} disabled={itemIndex === orderedItems.length - 1 || !!editingItem || !!editingCriterion} onClick={() => reorder(rubric.id, "items", item, orderedItems[itemIndex + 1], "DOWN")}>Bajar</button>
+                            <button className="secondary" type="button" aria-label={`Subir item ${item.name}`} disabled={itemIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex - 1], "UP"), true)}>Subir</button>
+                            <button className="secondary" type="button" aria-label={`Bajar item ${item.name}`} disabled={itemIndex === orderedItems.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex + 1], "DOWN"), true)}>Bajar</button>
                           </>}
                         </div>
                       )}
@@ -1264,7 +1682,7 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                         {(rubric.criteria ?? []).filter((c) => c.scoringItemId === item.id).sort((a, b) => a.displayOrder - b.displayOrder).map((crit, criterionIndex, siblings) => (
                           <article className="subrecord criterion" key={crit.id}>
                             {editingCriterion === crit.id ? (
-                              <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveCriterion(rubric.id, { scoringItemId: fd.get("scoringItemId"), description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")), active: fd.get("active") === "on" }, "PATCH", crit.id); }}>
+                              <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { scoringItemId: fd.get("scoringItemId"), description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")), active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del criterio", `Se actualizará el criterio ${crit.description}.`, () => saveCriterion(rubric.id, body, "PATCH", crit.id)); return false; }}>
                                 <label>Descripcion<textarea name="description" defaultValue={crit.description} required /></label>
                                 <label>Item<select name="scoringItemId" defaultValue={crit.scoringItemId} required>{(rubric.items ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
                                 <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={crit.displayOrder} required /></label>
@@ -1278,8 +1696,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                                 <span className="mono-text">#{crit.displayOrder}</span>
                                 {!locked && <button className="secondary" type="button" aria-label={`Editar criterio ${crit.description}`} onClick={() => setEditingCriterion(crit.id)}>Editar</button>}
                                 {!locked && <>
-                                  <button className="secondary" type="button" aria-label={`Subir criterio ${crit.description}`} disabled={criterionIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => reorder(rubric.id, "criteria", crit, siblings[criterionIndex - 1], "UP")}>Subir</button>
-                                  <button className="secondary" type="button" aria-label={`Bajar criterio ${crit.description}`} disabled={criterionIndex === siblings.length - 1 || !!editingItem || !!editingCriterion} onClick={() => reorder(rubric.id, "criteria", crit, siblings[criterionIndex + 1], "DOWN")}>Bajar</button>
+                                  <button className="secondary" type="button" aria-label={`Subir criterio ${crit.description}`} disabled={criterionIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex - 1], "UP"), true)}>Subir</button>
+                                  <button className="secondary" type="button" aria-label={`Bajar criterio ${crit.description}`} disabled={criterionIndex === siblings.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex + 1], "DOWN"), true)}>Bajar</button>
                                 </>}
                               </div>
                             )}
@@ -1314,6 +1732,58 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
           );
         })}
       </div>
+      <Dialog
+        isOpen={mutationConfirmTarget !== null && !locked}
+        onClose={() => setMutationConfirmTarget(null)}
+        title={mutationConfirmTarget?.title ?? "Confirmar cambio"}
+        description={mutationConfirmTarget?.description ?? "Confirmá el cambio antes de guardarlo."}
+      >
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setMutationConfirmTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => void confirmMutation()}>Confirmar y guardar</Button>
+        </DialogFooter>
+      </Dialog>
+      <Dialog
+        isOpen={rubricDeleteTarget !== null && !locked}
+        onClose={() => setRubricDeleteTarget(null)}
+        title={rubricDeleteTarget ? `Eliminar ${rubricDeleteTarget.name}` : "Eliminar rubro"}
+        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        focusReturnRef={rubricDeleteTriggerRef}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setRubricDeleteTarget(null)}>Cancelar</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteRubric}>Eliminar (desactivar)</button>
+        </div>
+      </Dialog>
+      <Dialog
+        isOpen={nominationCreateTarget !== null && !locked}
+        onClose={() => setNominationCreateTarget(null)}
+        title="Agregar participante al rubro"
+        description={nominationCreateTarget
+          ? `Se agregará a ${nominationCreateTarget.body.displayName} de ${nominationCreateTarget.troupeName} a ${nominationCreateTarget.rubricName}. El participante tendrá una puntuación independiente.`
+          : ""}
+      >
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setNominationCreateTarget(null)}>Cancelar</Button>
+          <Button variant="primary" onClick={() => void confirmNominationCreate()}>Agregar participante</Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        isOpen={nominationStatusTarget !== null && !locked}
+        onClose={() => setNominationStatusTarget(null)}
+        title={nominationStatusTarget?.active ? "Reactivar participante" : "Desactivar participante"}
+        description={nominationStatusTarget
+          ? `${nominationStatusTarget.active ? "Se incluirá" : "Se excluirá"} a ${nominationStatusTarget.nomination.displayName} (${nominationStatusTarget.nomination.troupeName}) de las nuevas planillas de este rubro.`
+          : "Confirmá el cambio del participante."}
+      >
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => setNominationStatusTarget(null)}>Cancelar</button>
+          <button type="button" className={nominationStatusTarget?.active ? "primary" : "danger-action"} onClick={confirmNominationStatus}>
+            {nominationStatusTarget?.active ? "Reactivar" : "Desactivar"}
+          </button>
+        </div>
+      </Dialog>
     </section>
   );
 }

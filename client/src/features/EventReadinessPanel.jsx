@@ -9,6 +9,7 @@ const READINESS_LABELS = {
   ACTIVE_RUBRIC: "No existe ningun rubro activo",
   INCOMPLETE_TROUPES: "Existen comparsas sin categoria activa",
   INCOMPLETE_RUBRICS: "Existen rubros sin items puntuables o con especialidades inactivas",
+  INCOMPLETE_NOMINATIONS: "Faltan participantes nominados para rubros o comparsas programadas",
   INCOMPLETE_SCHEDULES: "Una o mas jornadas no tienen comparsas programadas en el orden de pasada",
 };
 
@@ -69,7 +70,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
             {readiness.ready ? (
               <p className="readiness-ok">Configuracion completa. El evento esta listo para abrir.</p>
             ) : (
-              <p className="readiness-pending">{(readiness.missing ?? []).filter((code) => code !== "INCOMPLETE_SCHEDULES").length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0)} problema(s) impiden abrir la configuracion.</p>
+              <p className="readiness-pending">{(readiness.missing ?? []).filter((code) => !["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS"].includes(code)).length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0) + (readiness.incompleteNominations?.length ?? 0)} problema(s) impiden abrir la configuracion.</p>
             )}
           </div>
           <ul className="readiness-checklist">
@@ -105,12 +106,20 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
                 <a href="#/admin/competencia">Configurar el orden</a>
               </li>
             ))}
+            {(readiness.incompleteNominations ?? []).map((item) => (
+              <li key={`${item.rubricId}-${item.troupeId}`} className="readiness-fail">
+                <span className="readiness-icon">&#x2717;</span>
+                El rubro &ldquo;{item.rubricName}&rdquo; necesita al menos un participante para &ldquo;{item.troupeName}&rdquo;. {" "}
+                <a href="#/admin/competencia">Cargar participante</a>
+              </li>
+            ))}
             {readiness.ready && (
               <>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Jornadas de competencia configuradas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Comparsas activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Especialidades activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Rubros activos con items validos</li>
+                <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Participantes nominados cargados</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Orden de pasada configurado en las jornadas de competencia</li>
               </>
             )}

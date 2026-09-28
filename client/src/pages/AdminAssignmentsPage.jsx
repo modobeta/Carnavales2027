@@ -198,7 +198,25 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
   const quotaNight = quotaTarget ? nights.find((night) => night.id === quotaTarget.nightId) : null;
   const quotaSpecialty = quotaTarget ? specialties.find((specialty) => specialty.id === quotaTarget.specialtyId) : null;
   const quotaValue = quotaTarget ? quotaFor(quotaTarget.nightId, quotaTarget.specialtyId) : null;
-  const primaryOptions = (data.assignments ?? []).filter((assignment) => assignment.status === "ACTIVE" && assignment.assignmentType === "PRIMARY");
+  const primaryOptions = assignTarget
+    ? (data.assignments ?? []).filter(
+        (assignment) =>
+          assignment.status === "ACTIVE" &&
+          assignment.assignmentType === "PRIMARY" &&
+          sameNight(assignment, assignNight) &&
+          sameSpecialty(assignment, assignSpecialty) &&
+          !(data.assignments ?? []).some((candidate) =>
+            candidate.status === "ACTIVE" && candidate.standbyForAssignmentId === assignment.id,
+          ),
+      )
+    : [];
+  const assignedJudgeIds = assignTarget
+    ? (data.assignments ?? [])
+        .filter((assignment) => assignment.status === "ACTIVE" && sameNight(assignment, assignNight))
+        .map((assignment) => assignment.judgeProfileId)
+    : [];
+  const assignedJudgeIdSet = new Set(assignedJudgeIds);
+  const assignableJudges = assignTarget ? judges.filter((judge) => !assignedJudgeIdSet.has(judge.id)) : judges;
 
   return (
     <PageShell layer="instrument" className="admin-shell assignment-page">
@@ -338,8 +356,9 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
         onSubmit={submitAssignment}
         nightName={assignNight?.name ?? ""}
         specialtyName={assignSpecialty?.name ?? ""}
-        judges={judges}
+        judges={assignableJudges}
         primaryOptions={primaryOptions}
+        assignedJudgeIds={assignedJudgeIds}
         submitting={Boolean(busy)}
         focusReturnRef={dialogTriggerRef}
       />
