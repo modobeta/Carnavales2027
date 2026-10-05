@@ -386,6 +386,11 @@ export function LoginPage({ onAuthenticated }) {
             🏆 Ver Resultados Oficiales Públicos
           </a>
         </div>
+        <nav className="login-public-link" aria-label="Información pública">
+          <a href="/acerca.html">Acerca de Carnavales2027</a>
+          {" · "}
+          <a href="/privacidad.html">Política de privacidad</a>
+        </nav>
       </div>
     </PageShell>
   );

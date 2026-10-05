@@ -24,6 +24,14 @@ No configurar contraseñas de Gmail ni permisos para leer el buzón. No comparti
 
 Referencias: [envío MIME](https://developers.google.com/workspace/gmail/api/guides/sending), [OAuth y caducidad](https://developers.google.com/identity/protocols/oauth2), [límites de Gmail](https://support.google.com/mail/answer/22839?hl=es). Gmail personal puede bloquear envíos al superar 500 diarios; no es una capacidad reservada ni garantizada. Confirmar restricciones en la cuenta antes del piloto.
 
+## Páginas públicas para OAuth — 05/10/2026
+
+- Texto de presentación y privacidad aprobado por Martín Juncos, responsable personal, el 05/10/2026. Registro: `PRIVACIDAD-BORRADOR.md`.
+- Archivos estáticos sin autenticación: `client/public/acerca.html` y `client/public/privacidad.html`, con estilos locales y enlaces desde login. Vite los copia al cliente servido por la API; no cambian permisos ni sesiones.
+- URLs previstas: `https://carnavales2027-piloto.onrender.com/acerca.html` y `https://carnavales2027-piloto.onrender.com/privacidad.html`.
+- Publicar estas páginas no equivale a publicar/verificar OAuth. Quedan pendientes guardar las URLs en Google, confirmar el cambio a producción, reautorizar el remitente, actualizar exclusivamente `GMAIL_REFRESH_TOKEN` y comprobar login + OTP público.
+- La salida de Testing elimina la caducidad de siete días propia de ese modo, pero no evita revocaciones u otras causas de expiración. No desactivar 2FA ni modificar `BETTER_AUTH_SECRET` para resolver un fallo de Gmail.
+
 ## Registro operativo: Gmail OAuth / OTP — 23/09/2026
 
 **Estado: recuperación temporal aplicada; pendiente validar login + OTP de punta a punta y resolver publicación OAuth.**
