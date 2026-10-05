@@ -7,6 +7,9 @@ node_modules/
 /specs/*
 !/specs/029-piloto-produccion/
 
+api/.env.pilot
+api/.env.pilot*
+
 # Local automation except the approved pilot CI
 /.github/*
 !/.github/workflows/
