@@ -32,6 +32,19 @@ Referencias: [envío MIME](https://developers.google.com/workspace/gmail/api/gui
 - Publicar estas páginas no equivale a publicar/verificar OAuth. Quedan pendientes guardar las URLs en Google, confirmar el cambio a producción, reautorizar el remitente, actualizar exclusivamente `GMAIL_REFRESH_TOKEN` y comprobar login + OTP público.
 - La salida de Testing elimina la caducidad de siete días propia de ese modo, pero no evita revocaciones u otras causas de expiración. No desactivar 2FA ni modificar `BETTER_AUTH_SECRET` para resolver un fallo de Gmail.
 
+### Resultado verificado del 05/10/2026
+
+- Render: commit `bf76fa0e152ebd1476b83f5aaefdbcf8920b2931`, deploy `dep-db1vbdss728c73ag8g0g` **live**. Ambas páginas públicas se abrieron correctamente; 21 pruebas de login pasaron. Sin build local ni cambios en base de datos.
+- Google confirmó guardado de las URLs y del dominio autorizado exacto `carnavales2027-piloto.onrender.com`; se conservó `google.com` para OAuth Playground. El botón **Publicar app** ahora está habilitado, pero el estado sigue **Prueba**, a la espera de confirmación del responsable. No se cambió el token.
+- Se publicó la rama `deploy/privacidad-oauth` y se desplegó el SHA específico. **No desplegar latest main para renovar Gmail:** `origin/main` avanzó a `f7cc693` con 25 commits adicionales y migraciones 080–083 que no pertenecen a esta tarea. La versión publicada solo incorpora las páginas, enlaces y documentación sobre el código previamente desplegado. Mantener auto-deploy desactivado; actualizar la credencial sin desplegar esas migraciones accidentalmente.
+- Pendiente integrar estos cambios en main sin perder los cambios remotos, como operación separada de la publicación de OAuth.
+
+### OAuth en producción; renovación pendiente
+
+- Con confirmación explícita del responsable, Google OAuth pasó de **Prueba** a **En producción**, verificado en la página Público. Esto no equivale a una app verificada por Google: la consola sigue indicando que requiere verificación.
+- Se inició una nueva autorización offline, únicamente `gmail.send`, para la cuenta remitente. Google mostró «Google no verificó esta app». El control de seguridad de la automatización bloqueó abrir «Configuración avanzada»; no se eludió el bloqueo. Se dejó el navegador para intervención del responsable.
+- Aún no se obtuvo un nuevo token ni se actualizó Render. El envío de OTP sigue pendiente de verificación; no considerar restablecido el login solamente por el cambio a producción.
+
 ## Registro operativo: Gmail OAuth / OTP — 23/09/2026
 
 **Estado: recuperación temporal aplicada; pendiente validar login + OTP de punta a punta y resolver publicación OAuth.**
