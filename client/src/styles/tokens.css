@@ -109,6 +109,7 @@
   --surface-input: var(--palette-input);
   --surface-login-input: var(--palette-input);
   --surface-hover-subtle: rgba(255, 255, 255, 0.16); /* Hover de navegación, no estado activo. */
+  --surface-nav-translucent: rgba(9, 13, 22, 0.6); /* Barra de navegación sticky; se apoya en backdrop-filter para legibilidad. */
 
   /* ==========================================================================
      Texto (contraste AA verificado sobre cada superficie)

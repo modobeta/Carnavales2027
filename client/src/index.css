@@ -486,7 +486,7 @@ label { color: var(--text-secondary); }
   gap: 0.5rem 1rem;
   padding: 0.55rem 1rem;
   border-block-end: 1px solid rgba(41, 53, 72, 0.6);
-  background: rgba(9, 13, 22, 0.85);
+  background: var(--surface-nav-translucent);
   backdrop-filter: blur(0.5rem);
 }
 .app-navigation .brand {
