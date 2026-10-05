@@ -6,6 +6,7 @@
 @import "./styles/admin.css";
 @import "./styles/competencia.css";
 @import "./styles/utilities.css";
+@import "./styles/legibility.css";
 
 .sr-only {
   position: absolute;
@@ -117,7 +118,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #9a5700;
+  outline: 3px solid var(--focus-color);
   outline-offset: 2px;
 }
 
@@ -294,7 +295,7 @@ form {
 
 .ballot-rubric {
   margin: 1rem;
-  border-block-start: 1px solid #d5dae4;
+  border-block-start: 1px solid var(--border-default);
   padding-block-start: 0.9rem;
 }
 
@@ -303,7 +304,7 @@ form {
   grid-template-columns: minmax(0, 1fr) minmax(17rem, 30rem);
   align-items: center;
   gap: 1rem;
-  border-block-end: 1px solid #e6eaf0;
+  border-block-end: 1px solid var(--border-subtle);
   padding-block: 0.75rem;
   color: var(--text-color);
   font-size: 1rem;
@@ -386,8 +387,8 @@ form {
   }
 }
 
-/* Spec 009: operational dark interface. These overrides keep the existing
-   route and component contracts while making field use legible at night. */
+/* Spec 009: interfaz operativa. Las capas decorativas usan los tonos
+   Derived de la paleta Carnaval declarada en tokens.css. */
 * { box-sizing: border-box; }
 
 body {
@@ -395,13 +396,13 @@ body {
   min-block-size: 100dvb;
   padding: clamp(0.75rem, 2vw, 1.5rem);
   background:
-    radial-gradient(circle, rgba(169, 194, 255, 0.12) 1px, transparent 1.5px) 0 0 / 1.35rem 1.35rem,
-    radial-gradient(circle at 92% -10%, rgba(59, 130, 246, 0.13), transparent 34rem),
+    radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1.5px) 0 0 / 1.35rem 1.35rem,
+    radial-gradient(circle at 92% -10%, rgba(156, 39, 176, 0.45), transparent 34rem),
     var(--bg-color);
   color: var(--text-color);
 }
 
-a { color: #93c5fd; }
+a { color: var(--accent-text); }
 button,
 .button-link {
   min-block-size: 3rem;
@@ -421,7 +422,7 @@ button.secondary,
   box-shadow: none;
 }
 button.secondary:hover:not(:disabled),
-.button-link.secondary:hover { background: rgba(148, 163, 184, 0.12); }
+.button-link.secondary:hover { background: var(--surface-hover-subtle); }
 button.danger-action { background: var(--danger-color); }
 button:focus-visible,
 a:focus-visible,
@@ -442,7 +443,7 @@ textarea {
   color: var(--text-color);
 }
 input::placeholder { color: var(--text-muted); }
-label { color: #cbd5e1; }
+label { color: var(--text-secondary); }
 
 .card,
 .config-section,
@@ -501,15 +502,34 @@ label { color: #cbd5e1; }
   min-block-size: 2rem;
   padding: 0.35rem 0.65rem;
   border-radius: 0.4rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 650;
   text-decoration: none;
   transition: color 0.15s, background 0.15s;
 }
-.app-navigation nav a:hover { color: #e2e8f0; background: var(--surface-hover-subtle); }
-.app-navigation nav a[aria-current="page"] { color: #f8fafc; background: rgba(148, 163, 184, 0.12); }
-.nav-section-label { padding-inline: 0.3rem 0.5rem; color: var(--text-muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.app-navigation nav a:hover { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-navigation nav a[aria-current="page"] { color: var(--text-primary); background: var(--surface-hover-subtle); }
+/* Separadores de sección del menú lateral: el título va con más presencia
+   que los enlaces (0.82rem) y queda separado del bloque anterior. */
+.nav-section-label {
+  display: block;
+  margin-block-start: var(--space-3);
+  padding: var(--space-3) 0.85rem var(--space-1);
+  border-block-start: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* La primera sección sigue al encabezado del menú: no necesita separador. */
+.app-drawer-header + .nav-section-label {
+  margin-block-start: var(--space-1);
+  padding-block-start: 0;
+  border-block-start: 0;
+}
 .session-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.8rem; }
 .nav-toggle {
   display: inline-flex;
@@ -570,8 +590,8 @@ label { color: #cbd5e1; }
   margin-block-end: 0.5rem;
 }
 .app-drawer-title {
-  color: var(--muted-color);
-  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -586,22 +606,22 @@ label { color: #cbd5e1; }
   min-block-size: var(--touch-target-min);
   padding: 0.65rem 0.85rem;
   border-radius: 0.5rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.92rem;
   font-weight: 650;
   text-decoration: none;
   transition: color 0.15s, background 0.15s;
 }
-.app-drawer a:hover { color: #e2e8f0; background: var(--surface-hover-subtle); }
+.app-drawer a:hover { color: var(--text-primary); background: var(--surface-hover-subtle); }
 .app-drawer .nav-link-disabled {
   display: block;
   padding: 0.6rem 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   opacity: 0.55;
   cursor: not-allowed;
 }
-.app-drawer a[aria-current="page"] { color: #f8fafc; background: rgba(148, 163, 184, 0.12); }
-.app-drawer .nav-section-label { padding: 0.6rem 0.85rem 0.2rem; }
+.app-drawer a[aria-current="page"] { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-drawer .nav-section-label { padding-inline: 0.85rem; }
 @media (min-width: 64rem) {
   .app-shell:has(> .app-drawer) { padding-inline-start: 16rem; }
   .app-drawer {
@@ -620,15 +640,15 @@ label { color: #cbd5e1; }
   border: 1px solid var(--line-color);
   border-radius: 999px;
   padding: 0.42rem 0.7rem;
-  color: #cbd5e1;
-  background: #0d1523;
+  color: var(--text-secondary);
+  background: var(--surface-input);
   font-size: 0.73rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.connection-badge.is-online { color: #86efac; border-color: rgba(34, 197, 94, 0.42); }
-.connection-badge.is-offline { color: #fbbf24; border-color: rgba(245, 158, 11, 0.5); }
+.connection-badge.is-online { color: var(--success-text); border-color: var(--success-border); }
+.connection-badge.is-offline { color: var(--warning-text); border-color: var(--warning-border); }
 
 @media (max-width: 64rem) {
   .app-navigation:not(.judge-navigation) nav {
@@ -706,7 +726,7 @@ label { color: #cbd5e1; }
 .judge-progress-card p,
 .ballot-progress p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
 .progress-track { block-size: 0.6rem; overflow: hidden; border-radius: var(--radius-full); background: var(--surface-input); }
-.progress-track > span { display: block; block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent-primary), #60a5fa); box-shadow: 0 0 1rem var(--accent-subtle); }
+.progress-track > span { display: block; block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent-primary), var(--accent-light)); box-shadow: 0 0 1rem var(--accent-subtle); }
 .progress-track.small { block-size: 0.42rem; }
 .judge-home-content { display: grid; gap: 1rem; }
 .judge-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-block: 0.75rem; }
@@ -1761,8 +1781,8 @@ button.button-link:disabled {
   block-size: 2.5rem;
   place-items: center;
   border-radius: 50%;
-  background: #86efac;
-  color: #052e16;
+  background: var(--confirm-fill);
+  color: var(--confirm-ink);
   font-weight: 900;
   font-size: 1.25rem;
   flex-shrink: 0;
@@ -1812,8 +1832,8 @@ button.button-link:disabled {
 .admin-release-notice {
   padding: 0.75rem 1rem;
   border-radius: var(--radius-md);
-  background: rgba(100, 116, 139, 0.16);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 0.88rem;
   margin-block-start: 0.75rem;
@@ -1845,7 +1865,7 @@ button.button-link:disabled {
 
 .assignment-confirm-brand strong {
   display: block;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1.1rem;
   line-height: 1.1;
 }
@@ -1858,11 +1878,11 @@ button.button-link:disabled {
   border: 1px solid var(--line-color);
   border-radius: 0.6rem;
   background: var(--surface);
-  color: #93c5fd;
+  color: var(--accent-text);
 }
 
 .assignment-confirm-online {
-  color: #86efac;
+  color: var(--success-text);
   border-color: rgba(34, 197, 94, 0.42);
 }
 
@@ -1877,7 +1897,7 @@ button.button-link:disabled {
   font-size: clamp(2.5rem, 10vw, 4.5rem);
   line-height: 0.95;
   letter-spacing: -0.055em;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .assignment-confirm-date {
@@ -1905,13 +1925,13 @@ button.button-link:disabled {
 }
 
 .assignment-confirm-shield {
-  color: #fbbf24;
+  color: var(--warning-text);
 }
 
 .assignment-confirm-card-header h2 {
   margin: 0;
   font-size: 1.2rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .assignment-confirm-field {
@@ -1921,7 +1941,7 @@ button.button-link:disabled {
   border: 1px solid var(--line-color);
   border-radius: 0.7rem;
   padding: 0.85rem 1rem;
-  background: #0d1523;
+  background: var(--surface-input);
 }
 
 .assignment-confirm-field-icon {
@@ -1941,7 +1961,7 @@ button.button-link:disabled {
 }
 
 .assignment-confirm-field strong {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1.05rem;
 }
 
@@ -1963,8 +1983,8 @@ button.button-link:disabled {
   inline-size: 2.5rem;
   block-size: 2.5rem;
   border-radius: 0.5rem;
-  background: #182233;
-  color: #fff;
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-size: 1.3rem;
   font-weight: 800;
 }
@@ -1995,7 +2015,7 @@ button.button-link:disabled {
 }
 
 .assignment-report-error {
-  color: #f87171 !important;
+  color: var(--state-danger) !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
   background: transparent !important;
   font-size: 0.82rem;
@@ -2164,8 +2184,8 @@ button.button-link:disabled {
 }
 .password-requirements { display: grid; gap: 0.25rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; }
 .password-requirements span { padding: 0.2rem 0.5rem; border-radius: 0.25rem; }
-.password-requirements .requirement-pending { color: #991b1b; background: #fef2f2; }
-.password-requirements .requirement-met { color: #166534; background: #f0fdf4; }
+.password-requirements .requirement-pending { color: var(--danger-text); background: var(--danger-bg); }
+.password-requirements .requirement-met { color: var(--success-text); background: var(--success-bg); }
 .session-identity { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; max-width: 20rem; }
 .session-identity .session-role { font-size: 0.8rem; color: var(--text-muted); }
 .session-identity .session-event { font-size: 0.8rem; overflow-wrap: anywhere; }

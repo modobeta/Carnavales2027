@@ -10,10 +10,35 @@ const READINESS_MESSAGES = {
   INCOMPLETE_RUBRICS: { ok: "Rubros con ítems válidos", fail: "Existen rubros sin ítems puntuables o con especialidades inactivas" },
   INCOMPLETE_NOMINATIONS: { ok: "Participantes nominados cargados", fail: "Faltan participantes nominados en rubros o comparsas" },
   INCOMPLETE_SCHEDULES: { ok: "Orden de pasada completo", fail: "Una o más jornadas no tienen comparsas programadas en el orden de pasada" },
+  NIGHTS_WITHOUT_JURY: { ok: "Jurado asignado en todas las jornadas", fail: "Hay jornadas de competencia sin jurado asignado" },
 };
 
 function humanLabel(code) {
   return READINESS_MESSAGES[code]?.fail ?? code;
+}
+
+/**
+ * Noches de competencia sin ningún jurado activo.
+ *
+ * El alcance es kind='COMPETITION' porque `protect_judge_assignment` sólo admite
+ * asignaciones sobre noches de competencia; exigir jurado en noches AWARDS haría
+ * imposible abrir cualquier evento que las tenga. La misma condición está en el
+ * guard de base de datos (migración 083) para que un UPDATE directo de status no
+ * pueda esquivarla.
+ */
+async function findNightsWithoutJury(client, eventId) {
+  const { rows } = await client.query(
+    `SELECT n.id AS "nightId", n.name AS "nightName", n.display_order AS "displayOrder"
+       FROM night n
+      WHERE n.event_id = $1 AND n.kind = 'COMPETITION'
+        AND NOT EXISTS (
+          SELECT 1 FROM judge_assignment ja
+           WHERE ja.event_id = n.event_id AND ja.night_id = n.id AND ja.status = 'ACTIVE'
+        )
+      ORDER BY n.display_order, n.name`,
+    [eventId],
+  );
+  return rows;
 }
 
 export async function getReadiness({ client = getPool(), eventId }) {
@@ -80,6 +105,9 @@ export async function getReadiness({ client = getPool(), eventId }) {
   incompleteNominations.push(...nominationRows);
   if (incompleteNominations.length) missing.push("INCOMPLETE_NOMINATIONS");
 
+  const nightsWithoutJury = await findNightsWithoutJury(client, eventId);
+  if (nightsWithoutJury.length) missing.push("NIGHTS_WITHOUT_JURY");
+
   return {
     ready: missing.length === 0 && incompleteTroupes.length === 0 && incompleteRubrics.length === 0 && incompleteNominations.length === 0,
     missing,
@@ -87,6 +115,7 @@ export async function getReadiness({ client = getPool(), eventId }) {
     incompleteRubrics,
     incompleteSchedules,
     incompleteNominations,
+    nightsWithoutJury,
     humanMessages: missing.map((code) => humanLabel(code)),
   };
 }

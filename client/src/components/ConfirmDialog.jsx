@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { Button } from "./Button.jsx";
 import { Dialog } from "./Dialog.jsx";
 import { DialogFooter } from "./DialogFooter.jsx";
 
@@ -8,6 +8,8 @@ import { DialogFooter } from "./DialogFooter.jsx";
  *
  * Reutiliza `Dialog` (foco, Escape, backdrop, retorno de foco).
  * Las consecuencias van en `description` (=> `aria-describedby`).
+ * `danger` pinta la acción afirmativa en rojo de cancelar; en otro caso
+ * la confirmación usa el verde de la paleta Carnaval.
  */
 export function ConfirmDialog({
   isOpen,
@@ -21,8 +23,6 @@ export function ConfirmDialog({
   danger = false,
   focusReturnRef,
 }) {
-  const confirmRef = useRef(null);
-
   return (
     <Dialog
       isOpen={isOpen}
@@ -32,19 +32,18 @@ export function ConfirmDialog({
       focusReturnRef={focusReturnRef}
       className="confirm-dialog"
     >
-      <DialogFooter>
-        <button type="button" className="secondary" onClick={onClose} disabled={confirming}>
+<DialogFooter>
+        <Button variant="cancel" onClick={onClose} disabled={confirming}>
           {cancelLabel}
-        </button>
-        <button
-          ref={confirmRef}
-          type="button"
-          className={danger ? "danger-action" : undefined}
+        </Button>
+        <Button
+          variant={danger ? "cancel" : "confirm"}
           onClick={onConfirm}
           disabled={confirming}
+          busyText="Procesando…"
         >
-          {confirming ? "Procesando…" : confirmLabel}
-        </button>
+          {confirmLabel}
+        </Button>
       </DialogFooter>
     </Dialog>
   );

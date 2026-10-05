@@ -28,12 +28,13 @@
 
 /* ==========================================================================
    Dialog (<dialog>)
+   Superficie de modal: turquesa de la paleta con tinta oscura (7.4:1).
    ========================================================================== */
 .app-dialog {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-modal);
   border-radius: var(--radius-lg);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  background: var(--surface-modal);
+  color: var(--text-on-modal);
   padding: 0;
   max-inline-size: min(90vw, 540px);
   inline-size: 100%;
@@ -64,7 +65,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  border-block-end: 1px solid var(--border-subtle);
+  border-block-end: 1px solid var(--border-modal);
   padding-block-end: var(--space-3);
 }
 
@@ -72,13 +73,14 @@
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-on-modal);
+  overflow-wrap: anywhere;
 }
 
 .app-dialog-close-btn {
   background: transparent;
   border: 0;
-  color: var(--text-muted);
+  color: var(--text-on-modal);
   cursor: pointer;
   font-size: var(--text-lg);
   padding: var(--space-2);
@@ -88,18 +90,20 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
 }
 
 .app-dialog-close-btn:hover {
-  color: var(--text-primary);
-  background: var(--surface-raised);
+  color: var(--text-on-modal);
+  background: var(--surface-modal-hover);
 }
 
 .app-dialog-description {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-on-modal-soft);
   font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .app-dialog-body {
@@ -137,12 +141,19 @@
   min-block-size: var(--touch-target-min); /* 48px */
   padding: 0 var(--space-4);
   font-size: var(--text-base);
+  /* Las etiquetas largas nunca deben recortarse ni desbordar el botón. */
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .app-button-lg {
   min-block-size: var(--touch-target-lg); /* 56px */
   padding: 0 var(--space-6);
   font-size: var(--text-lg);
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .app-button-primary {
@@ -152,6 +163,26 @@
 
 .app-button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+/* Acción afirmativa: verde con tinta oscura (9.3:1). */
+.app-button-confirm {
+  background: var(--confirm-fill);
+  color: var(--confirm-ink);
+}
+
+.app-button-confirm:hover:not(:disabled) {
+  background: var(--confirm-fill-hover);
+}
+
+/* Acción de cancelación: rojo con blanco (4.9:1). */
+.app-button-cancel {
+  background: var(--cancel-fill);
+  color: var(--cancel-ink);
+}
+
+.app-button-cancel:hover:not(:disabled) {
+  background: var(--cancel-fill-hover);
 }
 
 .app-button-secondary {
@@ -1385,9 +1416,9 @@
   height: 80px;
   border-radius: 50%;
   background: var(--brand-gold);
-  color: var(--surface-card);
+  color: var(--text-on-highlight);
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 16px rgba(26, 5, 36, 0.35);
 }
 
 .champion-info {

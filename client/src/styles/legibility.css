@@ -1,0 +1,125 @@
+/**
+ * legibility.css — Red de seguridad transversal de legibilidad (Spec 020/RF-178)
+ *
+ * Se importa al final de `index.css`, después de `utilities.css`, para que
+ * sus reglas compongan sobre los estilos por componente sin depender de la
+ * especificidad de cada archivo.
+ *
+ * Reglas:
+ *  - ningún color literal: todo pasa por `tokens.css`;
+ *  - ningún texto se recorta ni se superpone: se ajusta al contenedor;
+ *  - los targets táctiles conservan su mínimo de 48px.
+ *
+ * Cada bloque documenta el síntoma que corrige.
+ */
+
+/* ==========================================================================
+   1. Contenedores flexibles/grid: los hijos deben poder encogerse.
+   Sin esto, un nombre largo o un código largo ensancha la columna y
+   empuja al contenido vecino hasta superponerse.
+   ========================================================================== */
+:where(
+  .app-shell,
+  .config-section,
+  .config-grid,
+  .records-grid,
+  .subrecords,
+  .card,
+  .config-card,
+  .record,
+  .rubric-card,
+  .event-actions,
+  .section-heading,
+  .dialog-footer-actions,
+  .app-dialog-body
+) > * {
+  min-inline-size: 0;
+}
+
+/* ==========================================================================
+   2. Encabezados y párrafos: salto de línea antes que recorte.
+   `break-word` no parte palabras cortas de forma agresiva ni reduce el
+   tamaño mínimo del contenido.
+   ========================================================================== */
+:where(h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, figcaption, legend, label) {
+  overflow-wrap: break-word;
+}
+
+/* ==========================================================================
+   3. Celdas de tabla: las tablas de tipos de participación, especialidades,
+   rubros y resultados se solapaban porque el contenido no podía partirse.
+   ========================================================================== */
+:where(.data-table, .matrix-table, .record-table, .results-table) :is(th, td) {
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+/* Los hashes SHA-256 y los códigos largos son la causa más común del
+   desborde horizontal en las tablas de resultados y actas. */
+:where(.mono-text, .seal-hash, .record-table .code-cell) {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* ==========================================================================
+   4. Píldoras y badges en línea-flex: no pueden encogerse y terminaban
+   superpuestas sobre la celda contigua (p. ej. "No se presentó").
+   ========================================================================== */
+:where(.status-pill, .connection-badge, .judge-status-badge, .staged-confirm-badge) {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+:where(.troupe-cell, .chip, .badge) {
+  max-inline-size: 100%;
+  flex-wrap: wrap;
+}
+
+:where(.troupe-cell) > span:last-child {
+  min-inline-size: 0;
+  overflow-wrap: break-word;
+}
+
+/* ==========================================================================
+   5. Botones y enlaces de acción: la etiqueta se parte en varias líneas en
+   lugar de recortarse con ellipsis o desbordar el botón.
+   ========================================================================== */
+:where(button, .button-link, .app-button, .nav-btn, .faltantes-btn) {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  text-align: center;
+}
+
+/* Los iconos no se comprimen cuando el texto largo obliga a partirse. */
+:where(button, .button-link, .app-button) :is(svg, img, .app-button-spinner) {
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   6. Superficies con scroll horizontal: la tabla se desplaza dentro de su
+   contenedor en lugar de invadir el ancho de la página.
+   ========================================================================== */
+:where(.table-wrapper, .matrix-wrapper, .table-scroll) {
+  max-inline-size: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================================================
+   7. Barras de navegación y bloques de texto largo en línea: se parten en
+   varias líneas en pantallas angostas en vez de recortarse.
+   ========================================================================== */
+:where(.global-event-picker, .event-active-label, .config-progress-state, .status-pill) {
+  max-inline-size: 100%;
+  white-space: normal;
+}
+
+/* ==========================================================================
+   8. Iconos de comparsa y de rubro: tamaño estable y sin deformarse.
+   ========================================================================== */
+:where(.troupe-logo, .troupe-color-dot, .rubric-icon) {
+  flex-shrink: 0;
+  object-fit: contain;
+}
