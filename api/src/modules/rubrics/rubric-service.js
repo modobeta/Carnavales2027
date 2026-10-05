@@ -8,6 +8,32 @@ const RUBRIC_TYPES = new Set(["NOMINATIVE", "RANDOM"]);
 const LEGACY_RUBRIC_TYPES = new Set(["GENERAL", "CALCULATED", "SPECIAL"]);
 const RESOLUTION_METHODS = new Set(["JURY", "COMMITTEE", "AUTOMATIC", "ADMINISTRATIVE"]);
 
+/**
+ * Catálogo cerrado de íconos de rubro. La clave corresponde al nombre del asset
+ * versionado en `client/public/icons/rubros`, de modo que el cliente resuelve el
+ * archivo sin recibirlo de la API y PostgreSQL no almacena binarios de interfaz.
+ */
+export const RUBRIC_ICONS = Object.freeze([
+  "Bastonera",
+  "Bateria",
+  "Carruaje",
+  "Musica",
+  "Pareja",
+  "PortaEstandarte",
+  "Presentador",
+  "Reina",
+  "Rey",
+  "Traje",
+]);
+const RUBRIC_ICON_SET = new Set(RUBRIC_ICONS);
+
+function rubricIcon(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const key = text(value, "icon");
+  if (!RUBRIC_ICON_SET.has(key)) throw new TypeError(`icon inválido. Valores permitidos: ${RUBRIC_ICONS.join(", ")}.`);
+  return key;
+}
+
 function text(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new TypeError(`${name} debe ser texto no vacío.`);
   return value.trim();
@@ -68,7 +94,7 @@ function resolutionMethod(value) {
   return m;
 }
 
-function rubricValues({ name, code, evaluationTarget, expectedSubjectType, active = true, rubricType: type = "NOMINATIVE", resolutionMethod: method = "JURY", evaluationObjective = null, allowLegacyRubricType = false }) {
+function rubricValues({ name, code, evaluationTarget, expectedSubjectType, active = true, rubricType: type = "NOMINATIVE", resolutionMethod: method = "JURY", evaluationObjective = null, allowLegacyRubricType = false, icon = null }) {
   const target = text(evaluationTarget, "evaluationTarget");
   if (!EVALUATION_TARGETS.has(target)) throw new TypeError("evaluationTarget inválido.");
   let subjectType = null;
@@ -87,6 +113,7 @@ function rubricValues({ name, code, evaluationTarget, expectedSubjectType, activ
     rubricType: rubricType(type, { allowLegacy: allowLegacyRubricType }),
     resolutionMethod: resolutionMethod(method),
     evaluationObjective: evaluationObjective === null || evaluationObjective === undefined ? null : text(evaluationObjective, "evaluationObjective"),
+    icon: rubricIcon(icon),
   };
 }
 
@@ -94,12 +121,12 @@ export async function createRubric({ client = getPool(), eventId, ...input }) {
   await requireConfiguringEvent({ client, eventId });
   const values = rubricValues(input);
   const { rows } = await client.query(
-    `INSERT INTO rubric(event_id,name,code,evaluation_target,expected_subject_type,active,rubric_type,resolution_method,evaluation_objective)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO rubric(event_id,name,code,evaluation_target,expected_subject_type,active,rubric_type,resolution_method,evaluation_objective,icon)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING id,event_id AS "eventId",name,code,evaluation_target AS "evaluationTarget",
                expected_subject_type AS "expectedSubjectType",active,rubric_type AS "rubricType",
-               resolution_method AS "resolutionMethod",evaluation_objective AS "evaluationObjective"`,
-    [text(eventId, "eventId"), values.name, values.code, values.evaluationTarget, values.expectedSubjectType, values.active, values.rubricType, values.resolutionMethod, values.evaluationObjective],
+               resolution_method AS "resolutionMethod",evaluation_objective AS "evaluationObjective",icon`,
+    [text(eventId, "eventId"), values.name, values.code, values.evaluationTarget, values.expectedSubjectType, values.active, values.rubricType, values.resolutionMethod, values.evaluationObjective, values.icon],
   );
   return rows[0];
 }
@@ -109,7 +136,7 @@ export async function listRubrics({ client = getPool(), eventId }) {
   const { rows } = await client.query(
     `SELECT id, event_id AS "eventId", name, code, evaluation_target AS "evaluationTarget",
             expected_subject_type AS "expectedSubjectType", active, rubric_type AS "rubricType",
-            resolution_method AS "resolutionMethod", evaluation_objective AS "evaluationObjective"
+            resolution_method AS "resolutionMethod", evaluation_objective AS "evaluationObjective", icon
        FROM rubric
       WHERE event_id = $1
       ORDER BY code`,
@@ -124,7 +151,7 @@ export async function getRubric({ client = getPool(), rubricId }) {
   const { rows } = await client.query(
     `SELECT id, event_id AS "eventId", name, code, evaluation_target AS "evaluationTarget",
             expected_subject_type AS "expectedSubjectType", active, rubric_type AS "rubricType",
-            resolution_method AS "resolutionMethod", evaluation_objective AS "evaluationObjective"
+            resolution_method AS "resolutionMethod", evaluation_objective AS "evaluationObjective", icon
        FROM rubric WHERE id=$1`,
     [text(rubricId, "rubricId")],
   );
@@ -170,16 +197,17 @@ export async function updateRubric({ client = null, rubricId, ...input }) {
     allowLegacyRubricType: input.rubricType === undefined || input.rubricType === current.rubricType,
     resolutionMethod: input.resolutionMethod === undefined ? current.resolutionMethod : input.resolutionMethod,
     evaluationObjective: input.evaluationObjective === undefined ? current.evaluationObjective : input.evaluationObjective,
+    icon: input.icon === undefined ? current.icon : input.icon,
   });
   const { rows: updatedRows } = await client.query(
     `UPDATE rubric SET name=$2,code=$3,evaluation_target=$4,expected_subject_type=$5,active=$6,
-                       rubric_type=$7,resolution_method=$8,evaluation_objective=$9,
+                       rubric_type=$7,resolution_method=$8,evaluation_objective=$9,icon=$10,
                        updated_at=CURRENT_TIMESTAMP
       WHERE id=$1
       RETURNING id,event_id AS "eventId",name,code,evaluation_target AS "evaluationTarget",
                 expected_subject_type AS "expectedSubjectType",active,rubric_type AS "rubricType",
-                resolution_method AS "resolutionMethod",evaluation_objective AS "evaluationObjective"`,
-    [rubricId, values.name, values.code, values.evaluationTarget, values.expectedSubjectType, values.active, values.rubricType, values.resolutionMethod, values.evaluationObjective],
+                resolution_method AS "resolutionMethod",evaluation_objective AS "evaluationObjective",icon`,
+    [rubricId, values.name, values.code, values.evaluationTarget, values.expectedSubjectType, values.active, values.rubricType, values.resolutionMethod, values.evaluationObjective, values.icon],
   );
   return updatedRows[0];
 }
@@ -476,4 +504,32 @@ async function reorderConfiguration(table, id, { client = null, actorUserId = nu
     after: { ...context, changes },
   });
   return { changes };
+}
+
+/**
+ * Creación atómica de un rubro junto con su primer ítem.
+ *
+ * El modelo vincula la especialidad al ítem (evaluation_item.specialty_id), no al
+ * rubro, así que un rubro recién creado no es puntuable hasta que tiene al menos
+ * un ítem. Esta operación evita el estado intermedio "rubro sin ítems" que la
+ * readiness de apertura del evento rechaza.
+ *
+ * Requiere que el cliente venga dentro de una transacción (createWriteHandler).
+ */
+export async function createRubricWithInitialItem({ client = null, eventId, rubric = {}, initialItem = {} }) {
+  const run = async (tx) => {
+    const createdRubric = await createRubric({ client: tx, eventId, ...rubric });
+    const item = await createItem({
+      client: tx,
+      rubricId: createdRubric.id,
+      name: initialItem.name,
+      code: initialItem.code,
+      specialtyId: initialItem.specialtyId,
+      required: initialItem.required,
+      allowNotPresented: initialItem.allowNotPresented,
+    });
+    return { ...createdRubric, initialItem: item };
+  };
+  if (client) return run(client);
+  return inTransaction(run);
 }
