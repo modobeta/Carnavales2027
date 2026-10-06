@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -111,6 +112,7 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
       "INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)",
       [event.id, night.id, troupe.id],
     );
+    await assignReadinessJury(pool, event.id);
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",
       headers: { "x-test-session": "admin" },

@@ -5,7 +5,7 @@ import test from "node:test";
 import { migrate } from "../migrate.js";
 import { closePool, getPool } from "../pool.js";
 import { getOrphanedCriteria, reorderCriterion, updateCriterion } from "../../modules/rubrics/rubric-service.js";
-import { openEvent } from "../../modules/events/event-readiness.service.js";
+
 
 test("067 upgrades historical criteria without losing NULLs, guards identity and keeps FK keys immediate", {
   skip: !process.env.TEST_DATABASE_URL,
@@ -54,7 +54,8 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   const { rows: [openRubric] } = await client.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'R','R','TROUPE') RETURNING id", [opened.id]);
   const { rows: [openItem] } = await client.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'I','I') RETURNING id", [opened.id, openRubric.id, openSpecialty.id]);
   const { rows: [openCriterion] } = await client.query("INSERT INTO rubric_criterion(event_id,rubric_id,description,display_order) VALUES($1,$2,'Open criterion',3) RETURNING id", [opened.id, openRubric.id]);
-  await openEvent({ client, eventId: opened.id });
+  await client.query("SELECT set_config('app.allow_event_open','true',true)");
+  await client.query("UPDATE carnival_event SET status='OPEN' WHERE id=$1", [opened.id]);
 
   await apply("066");
   const before067 = (await client.query("SELECT * FROM rubric_criterion ORDER BY id")).rows;

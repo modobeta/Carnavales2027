@@ -514,6 +514,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       version: "082",
       applied: true,
     },
+    { filename: "083_rubric_icons_and_troupe_logos.sql", version: "083", applied: true },
   ]);
 
   const secondRun = await migrate();

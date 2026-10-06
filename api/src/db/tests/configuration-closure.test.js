@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "../../tests/readiness-fixture.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { openEvent } from "../../modules/events/event-readiness.service.js";
@@ -66,6 +67,7 @@ test("criterios, nominaciones y programación quedan bloqueados al abrir", {
     );
     assert.equal(columns.some(({ column_name }) => column_name.includes("score")), false);
 
+    await assignReadinessJury(client, event.id);
     await openEvent({ client, eventId: event.id });
     await client.query("COMMIT");
 

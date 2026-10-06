@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -79,6 +80,7 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
 
   const configuring = await seedEvent(pool, "Reorden configuring");
   const opened = await seedEvent(pool, "Reorden abierto");
+  await assignReadinessJury(pool, opened.event.id);
 
   const app = createApp({ getSession: async ({ headers }) => headers.get("x-test-session") === "admin" ? { user: { id: adminId, twoFactorEnabled: true } } : null });
   const server = await withServer(app);

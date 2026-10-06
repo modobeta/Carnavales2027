@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -142,6 +143,7 @@ test("Spec 017 T09a/T09b: brandColor de comparsa y orden de pasada por jornada",
     const rubric = (await post(`/api/v1/events/${event.id}/rubrics`, { name: "Coreografia", code: "COREO", evaluationTarget: "TROUPE" })).body;
     const rubricItem = await post(`/api/v1/rubrics/${rubric.id}/items`, { name: "Interpretacion", code: "INTERP", specialtyId: specialty.id });
     assert.equal(rubricItem.status, 201);
+    await assignReadinessJury(pool, event.id);
     const opened = await post(`/api/v1/events/${event.id}/open`, {});
     assert.equal(opened.status, 200);
     const locked = await post(`/api/v1/schedule/${last.id}/reorder`, {

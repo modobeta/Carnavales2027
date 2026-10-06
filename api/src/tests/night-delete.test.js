@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -143,6 +144,7 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
       body: JSON.stringify({ nightId: thirdNight.id, troupeId: troupe.id }),
     });
     assert.equal(program2.status, 201);
+    await assignReadinessJury(pool, event.id);
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",
       headers: { "x-test-session": "admin" },

@@ -75,3 +75,17 @@ test("HTTP ignora X-Forwarded-For con 0/false y respeta el salto o red configura
     }
   }
 });
+
+// GHSA-jqcg-44mw-7w3h: short IPv6 prefixes must not trust every IPv4 client.
+test("IPv6 trust networks do not promote arbitrary IPv4 callers to proxies", (context) => {
+  const previous = process.env.TRUST_PROXY;
+  context.after(() => { if (previous === undefined) delete process.env.TRUST_PROXY; else process.env.TRUST_PROXY = previous; });
+  for (const subnet of ["::ffff:10.0.0.0/8", "::/1"]) {
+    process.env.TRUST_PROXY = subnet;
+    assert.equal(createApp().get("trust proxy fn")("192.0.2.10", 0), false);
+  }
+  process.env.TRUST_PROXY = "::ffff:10.0.0.0/104";
+  const trust = createApp().get("trust proxy fn");
+  assert.equal(trust("10.1.2.3", 0), true);
+  assert.equal(trust("192.0.2.10", 0), false);
+});

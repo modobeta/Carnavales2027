@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
@@ -64,6 +65,7 @@ async function fixture() {
       criteria.push(await createCriterion({ client, rubricId: rubric.id, scoringItemId: items[itemIndex].id, description: `C${displayOrder}`, displayOrder }));
     }
     await updateCriterion({ client, criterionId: criteria[2].id, active: false });
+    await assignReadinessJury(client, event.id);
     await client.query("COMMIT");
     return { event, rubric, specialty, items, criteria };
   } catch (error) {

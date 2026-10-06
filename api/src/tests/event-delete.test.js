@@ -1,3 +1,4 @@
+import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -147,6 +148,7 @@ test("API eventos: borrado bloqueado con ballots, asignaciones o evento abierto"
   );
 
   const opened = await seedVirginEvent(pool, "Evento abierto");
+  await assignReadinessJury(pool, opened.event.id);
 
   const app = createApp({ getSession: async ({ headers }) => headers.get("x-test-session") === "admin" ? { user: { id: adminId, twoFactorEnabled: true } } : null });
   await withServer(app, async (baseUrl) => {
