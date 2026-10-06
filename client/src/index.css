@@ -110,7 +110,7 @@ button.secondary {
 }
 
 .app-navigation nav a[aria-current="page"] {
-  box-shadow: 0 1px 2px rgba(24, 58, 120, 0.25);
+  box-shadow: none;
 }
 
 button:focus-visible,
@@ -158,7 +158,7 @@ form {
   background: var(--card-bg);
   padding: var(--spacing-lg);
   border-radius: var(--border-radius);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: none;
 }
 
 /* Spec 003, 007, 009: Admin shell y mesa de control
@@ -166,11 +166,10 @@ form {
 
 .eyebrow {
   margin-block: 0 0.4rem;
-  color: var(--accent-color);
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  letter-spacing: 0.01em;
 }
 
 .status-configuring {
@@ -225,9 +224,10 @@ form {
 
 .invitation-page h1,
 .judge-home h1 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2rem, 8vw, 4rem);
-  line-height: 1;
+  font-family: var(--font-sans);
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.025em;
 }
 
 .home-links {
@@ -254,7 +254,7 @@ form {
 
 .ballot-header {
   margin-block-end: 0.75rem;
-  border-block-end: 4px solid var(--accent-color);
+  border-block-end: 1px solid var(--border-subtle);
   padding-block: 0.5rem 0.75rem;
 }
 
@@ -277,7 +277,7 @@ form {
 
 .ballot-troupe {
   border: 1px solid var(--line-color);
-  border-inline-start: 6px solid var(--accent-color);
+  border-inline-start: 3px solid var(--border-default);
   border-radius: 0.7rem;
   background: var(--card-bg);
   overflow: hidden;
@@ -387,18 +387,15 @@ form {
   }
 }
 
-/* Spec 009: interfaz operativa. Las capas decorativas usan los tonos
-   Derived de la paleta Carnaval declarada en tokens.css. */
+/* Spec 009: interfaz operativa. La paleta se concentra en acciones y estados;
+   las superficies permanecen tranquilas para priorizar el contenido. */
 * { box-sizing: border-box; }
 
 body {
   min-inline-size: 320px;
   min-block-size: 100dvb;
   padding: clamp(0.75rem, 2vw, 1.5rem);
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1.5px) 0 0 / 1.35rem 1.35rem,
-    radial-gradient(circle at 92% -10%, rgba(156, 39, 176, 0.45), transparent 34rem),
-    var(--bg-color);
+  background: var(--surface-base);
   color: var(--text-color);
 }
 
@@ -406,10 +403,10 @@ a { color: var(--accent-text); }
 button,
 .button-link {
   min-block-size: 3rem;
-  border-radius: 0.7rem;
+  border-radius: var(--radius-md);
   background: var(--primary-color);
   color: var(--text-on-primary);
-  box-shadow: 0 0.5rem 1.2rem rgba(15, 23, 42, 0.25);
+  box-shadow: none;
 }
 
 button:hover:not(:disabled),
@@ -459,21 +456,21 @@ label { color: var(--text-secondary); }
 .ballot-troupe,
 .operational-user {
   border-color: var(--line-color);
-  background: var(--surface);
-  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.14);
+  background: var(--surface-card);
+  box-shadow: none;
 }
 .config-card,
 .record,
 .rubric-card,
 .empty-state,
 .success-panel,
-.operational-user { background: var(--surface-raised); }
+.operational-user { background: var(--surface-card); }
 .section-heading p,
 .derived,
 .assignment-card .muted,
 .operational-user span,
 .invitation-state { color: var(--muted-color); }
-.eyebrow { color: var(--accent-light); font-family: var(--mono-font); }
+.eyebrow { color: var(--text-muted); font-family: var(--font-sans); }
 .feedback { color: var(--accent-light); }
 
 .app-navigation {
@@ -485,7 +482,7 @@ label { color: var(--text-secondary); }
   align-items: center;
   gap: 0.5rem 1rem;
   padding: 0.55rem 1rem;
-  border-block-end: 1px solid rgba(41, 53, 72, 0.6);
+  border-block-end: 1px solid var(--border-subtle);
   background: var(--surface-nav-translucent);
   backdrop-filter: blur(0.5rem);
 }
@@ -686,10 +683,10 @@ label { color: var(--text-secondary); }
 .login-emblem { position: relative; inline-size: 7rem; block-size: 7rem; margin: 0 auto 2rem; border: 2px solid var(--border-input); border-radius: 1.5rem; background: var(--surface-raised); }
 .login-emblem::before { content: ""; position: absolute; inset: 2rem 1.65rem auto; block-size: 1.7rem; border-block: .35rem solid var(--accent-text); background: linear-gradient(90deg, var(--accent-text) 0 16%, transparent 16% 29%, var(--accent-text) 29% 45%, transparent 45% 58%, var(--accent-text) 58% 74%, transparent 74%); clip-path: polygon(50% 0, 100% 42%, 100% 58%, 0 58%, 0 42%); }
 .login-emblem::after { content: ""; position: absolute; inset: auto 1.65rem 1.9rem; block-size: .35rem; background: var(--accent-text); }
-.login-kicker { margin: 0 0 .7rem; color: var(--text-secondary); font-family: var(--mono-font); font-size: .78rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
-.login-subtitle { margin: 1rem 0 2.2rem; color: var(--text-muted); font-family: var(--mono-font); font-size: .95rem; letter-spacing: .16em; text-transform: uppercase; }
-.login-card form { border: 1px solid var(--border-input); border-radius: 1rem; padding: clamp(0.75rem, 3vw, 2rem); text-align: start; }
-.login-card label { gap: .6rem; color: var(--text-secondary); font-family: var(--mono-font); font-size: .9rem; letter-spacing: .09em; text-transform: uppercase; }
+.login-kicker { margin: 0 0 .7rem; color: var(--text-secondary); font-size: .82rem; font-weight: 700; letter-spacing: .03em; }
+.login-subtitle { margin: 1rem 0 2.2rem; color: var(--text-muted); font-size: .95rem; letter-spacing: .01em; }
+.login-card form { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: clamp(0.75rem, 3vw, 2rem); text-align: start; }
+.login-card label { gap: .6rem; color: var(--text-secondary); font-size: .9rem; letter-spacing: 0; }
 .login-card input { min-block-size: 4rem; border: 2px solid var(--border-input); border-radius: .55rem; background: var(--surface-login-input); font-size: 1.1rem; color: var(--text-primary); }
 .primary-action { margin-block-start: .75rem; min-block-size: 4rem; font-size: 1.2rem; letter-spacing: .08em; }
 .login-public-link { margin: 1.5rem 0 0; text-align: center; }
@@ -701,7 +698,7 @@ label { color: var(--text-secondary); }
 .judge-home { display: grid; gap: 1rem; }
 .judge-home-intro { padding: clamp(0.75rem, 3vw, 1.5rem) 0 0; }
 .judge-home-intro h1 { margin: 0; font-family: var(--font-sans); font-size: clamp(2rem, 6vw, 4.25rem); line-height: .95; letter-spacing: -.06em; }
-.judge-home-intro > p:last-child { color: var(--text-secondary); font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: .06em; text-transform: uppercase; }
+.judge-home-intro > p:last-child { color: var(--text-secondary); font-size: var(--text-sm); letter-spacing: 0.01em; }
 .judge-progress-card,
 .ballot-progress {
   display: grid;
@@ -720,7 +717,7 @@ label { color: var(--text-secondary); }
 .ballot-progress .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
 .ballot-progress .app-progress-sublabel { min-inline-size: 0; text-align: end; overflow-wrap: anywhere; }
 .judge-progress-card span,
-.ballot-progress span { color: var(--text-muted); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.ballot-progress span { color: var(--text-muted); font-size: 0.8rem; font-weight: 650; letter-spacing: 0.01em; }
 .judge-progress-card strong,
 .ballot-progress strong { color: var(--text-primary); font-size: 1.5rem; }
 .judge-progress-card p,
@@ -733,16 +730,16 @@ label { color: var(--text-secondary); }
 .judge-section-heading h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); }
 .judge-section-heading > span { color: var(--text-muted); font-size: 0.85rem; }
 .judge-ballot-grid { display: grid; gap: 1rem; }
-.judge-ballot-card { position: relative; display: grid; gap: 1rem; min-block-size: auto; border: 2px solid var(--border-default); border-radius: var(--radius-xl); padding: clamp(1.1rem, 3vw, 1.6rem); background: var(--surface-card); box-shadow: var(--shadow-md); }
-.judge-ballot-card.is-progress { border-inline-start: 5px solid var(--accent-primary); }
-.judge-ballot-card.is-pending { border-inline-start: 5px solid var(--border-strong); }
-.judge-ballot-card.is-ready { border-inline-start: 5px solid var(--warning); }
-.judge-ballot-card.is-closed { border-inline-start: 5px solid var(--success); background: linear-gradient(145deg, var(--surface-card), rgba(22, 163, 74, 0.1)); }
-.judge-ballot-card.is-locked { border-inline-start: 5px solid var(--border-subtle); border-inline-start-style: dashed; background: var(--surface-input); }
+.judge-ballot-card { position: relative; display: grid; gap: 1rem; min-block-size: auto; border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: clamp(1.1rem, 3vw, 1.6rem); background: var(--surface-card); box-shadow: none; }
+.judge-ballot-card.is-progress { border-inline-start: 3px solid var(--accent-primary); }
+.judge-ballot-card.is-pending { border-inline-start: 3px solid var(--border-strong); }
+.judge-ballot-card.is-ready { border-inline-start: 3px solid var(--warning); }
+.judge-ballot-card.is-closed { border-inline-start: 3px solid var(--success); }
+.judge-ballot-card.is-locked { border-inline-start: 3px dashed var(--border-subtle); background: var(--surface-input); }
 .judge-ballot-card .judge-status-badge { position: absolute; inset-block-start: 1rem; inset-inline-end: 1rem; }
 .judge-ballot-card-header { display: flex; justify-content: space-between; gap: 0.75rem; }
 .judge-ballot-card-header > div { min-inline-size: 0; }
-.judge-ballot-card h3 { margin: 0; color: var(--text-primary); font-size: clamp(1.7rem, 5vw, 2.65rem); letter-spacing: -.04em; text-transform: uppercase; }
+.judge-ballot-card h3 { margin: 0; color: var(--text-primary); font-size: clamp(1.7rem, 5vw, 2.65rem); letter-spacing: -.025em; }
 .judge-status-badge.is-ready { color: var(--warning-text); }
 .judge-status-badge.is-progress { color: var(--accent-text); }
 .judge-status-badge.is-pending { color: var(--text-secondary); }
@@ -768,11 +765,11 @@ button.button-link:disabled {
 .judge-now-card {
   display: grid;
   gap: 0.85rem;
-  border: 2px solid var(--accent-primary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   padding: clamp(1.25rem, 4vw, 2rem);
-  background: linear-gradient(160deg, var(--surface-card), var(--accent-subtle));
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-card);
+  box-shadow: none;
 }
 .judge-now-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
 .judge-now-header > .eyebrow { margin: 0; }
@@ -782,7 +779,7 @@ button.button-link:disabled {
   font-size: clamp(1.9rem, 6vw, 3rem);
   line-height: 1;
   letter-spacing: -0.03em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .judge-now-remaining { margin: 0; color: var(--text-secondary); font-weight: 700; }
 .judge-now-cta {
@@ -1113,7 +1110,7 @@ button.button-link:disabled {
   }
   .ballot-summary-item:hover { background: var(--surface-raised); border-color: var(--border-subtle); transform: translateY(-1px); }
   .ballot-summary-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
-  .ballot-summary-item.is-active { border-color: var(--accent-primary); background: var(--accent-subtle); box-shadow: 0 0 0.6rem rgba(59, 130, 246, 0.25); }
+  .ballot-summary-item.is-active { border-color: var(--accent-primary); background: var(--accent-subtle); box-shadow: none; }
   .ballot-summary-name { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ballot-shortcuts-hint {
     display: block;
@@ -1469,7 +1466,7 @@ button.button-link:disabled {
 .ballot-item-nav button { min-block-size: 3rem; min-inline-size: 6rem; }
 .ballot-item-nav-counter { color: var(--text-muted); font-family: var(--font-mono); font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 
-.pending-dialog { border-color: var(--border-subtle); color: var(--text-primary); background: var(--surface-card); box-shadow: 0 1.5rem 5rem rgba(0,0,0,.58); }
+.pending-dialog { border-color: var(--border-subtle); color: var(--text-primary); background: var(--surface-card); box-shadow: var(--shadow-lg); }
 .pending-dialog::backdrop { background: var(--surface-overlay); backdrop-filter: blur(.25rem); }
 .pending-dialog-content h2 { color: var(--text-primary); font-family: var(--font-sans); }
 .pending-dialog-list { padding-inline-start: 0; list-style: none; }
@@ -1557,10 +1554,10 @@ button.button-link:disabled {
 .login-field-label {
   gap: 0.5rem !important;
   color: var(--text-secondary) !important;
-  font-family: var(--mono-font) !important;
-  font-size: 0.85rem !important;
-  letter-spacing: 0.09em !important;
-  text-transform: uppercase !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-sm) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
 }
 
 .login-input-wrapper {
@@ -2100,7 +2097,7 @@ button.button-link:disabled {
   padding: 0.9rem;
   background: var(--card-bg);
 }
-.monitor-count-card span { color: var(--muted-color); font-size: 0.78rem; font-weight: 800; text-transform: uppercase; }
+.monitor-count-card span { color: var(--muted-color); font-size: 0.82rem; font-weight: 650; }
 .monitor-count-card strong { font-size: 2rem; line-height: 1; }
 .monitor-count-total { border-color: var(--primary-color); }
 
@@ -2197,3 +2194,237 @@ button.button-link:disabled {
 }
 .ballot-progress.ballot-progress-stack { grid-template-columns: minmax(0, 1fr); }
 .ballot-progress-stack > .app-progress-container:first-child { align-items: stretch; gap: var(--space-2); }
+
+/* Jurado desktop refinement — planilla prioritaria */
+@media (min-width: 80rem) {
+  .app-navigation.judge-navigation {
+    gap: 0.75rem 1rem;
+    padding-block: 0.4rem;
+  }
+
+  .app-navigation.judge-navigation .session-identity {
+    max-inline-size: 17rem;
+  }
+
+  .app-navigation.judge-navigation .session-event {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-layout { grid-template-columns: minmax(15rem, 0.82fr) minmax(0, 1.8fr); gap: 1.25rem; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-context-rail {
+    inset-block-start: 4.5rem;
+    max-block-size: calc(100dvh - 5.5rem);
+    gap: 0.75rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-troupe-navigation {
+    padding: 0.75rem;
+    border-radius: var(--radius-md);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-troupe-navigation ul { gap: 0.25rem; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-sidebar-item {
+    min-block-size: 2.75rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-sidebar-item.is-current {
+    border-color: var(--border-default);
+    border-inline-start: 3px solid var(--accent-primary);
+    background: var(--surface-hover-subtle);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-summary-item.is-active {
+    border-color: var(--border-default);
+    border-inline-start: 3px solid var(--accent-primary);
+    background: var(--surface-hover-subtle);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-summary {
+    padding: 0.75rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-summary > .eyebrow { display: none; }
+  .judge-ballot-page:not(.is-readonly) .ballot-summary-body ul { max-block-size: min(12rem, 24dvh); }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-header {
+    align-items: center;
+    margin-block-end: 0;
+    padding-block: 0.25rem 0.65rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-header-support {
+    font-size: 1.5rem;
+    text-transform: none;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-header > div:first-child > p:not(.eyebrow) { display: none; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-block: 0.25rem 0.5rem;
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress .app-progress-container { gap: 0.35rem; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress .app-progress-header {
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress .app-progress-label { color: var(--text-muted); }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress .app-progress-sublabel {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-progress .app-progress-track { block-size: 0.3rem; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-card-mode {
+    margin-block-end: 0.75rem;
+    padding: 1.25rem;
+    border-color: var(--border-subtle);
+    box-shadow: none;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-card-header {
+    margin-block-end: 0.75rem;
+    padding-block-end: 0.75rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-card-header h2 {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .card-rubric-name {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .card-item-title {
+    margin-block-end: 0.35rem;
+    font-size: 1.25rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .score-copy-name:first-child { display: none; }
+
+  .judge-ballot-page:not(.is-readonly) .score-row .score-grid-v3 {
+    max-inline-size: 44rem;
+    margin-block: 0.75rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .score-option-btn {
+    min-block-size: 4.25rem;
+    border-color: var(--border-subtle);
+    background: var(--surface-card);
+    box-shadow: none;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .score-option-btn:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    background: var(--surface-raised);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
+    border-color: var(--accent-primary);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .troupe-absent-actions { margin-block-start: 0.5rem; padding-inline: 0; }
+
+  .judge-ballot-page:not(.is-readonly) .troupe-absent-btn {
+    inline-size: auto;
+    min-block-size: 2.75rem;
+    border: 1px solid var(--warning-border);
+    border-inline-start-width: 3px;
+    background: transparent;
+    color: var(--warning-text);
+    font-weight: 650;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .troupe-absent-btn:hover:not(:disabled) {
+    background: var(--warning-bg);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .not-presented-section {
+    padding: 0.75rem;
+    border-inline-start: 3px solid var(--warning-border);
+    background: rgba(255, 179, 0, 0.08);
+    text-align: start;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .not-presented-btn {
+    border-inline-start-width: 3px;
+    background: transparent;
+    font-weight: 650;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .not-presented-btn:hover:not(:disabled) {
+    background: var(--warning-bg);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-item-nav {
+    margin-block-start: 0.75rem;
+    padding-block: 0.65rem;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-item-nav .bottom-bar-content { gap: 0.75rem; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-shortcuts-hint {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-footer {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-block: 0.75rem 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.75rem;
+    background: var(--surface-base);
+  }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-footer .save-indicator { justify-self: start; }
+
+  .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary,
+  .judge-ballot-page:not(.is-readonly) .ballot-footer #voting-confirm-help { grid-column: 1 / -1; }
+}

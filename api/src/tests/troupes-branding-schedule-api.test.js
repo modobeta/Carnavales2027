@@ -4,6 +4,7 @@ import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 async function withServer(app, run) {
   const server = await new Promise((resolve) => { const instance = app.listen(0, "127.0.0.1", () => resolve(instance)); });
@@ -142,6 +143,7 @@ test("Spec 017 T09a/T09b: brandColor de comparsa y orden de pasada por jornada",
     const rubric = (await post(`/api/v1/events/${event.id}/rubrics`, { name: "Coreografia", code: "COREO", evaluationTarget: "TROUPE" })).body;
     const rubricItem = await post(`/api/v1/rubrics/${rubric.id}/items`, { name: "Interpretacion", code: "INTERP", specialtyId: specialty.id });
     assert.equal(rubricItem.status, 201);
+    await seedActiveJudge({ client: pool, eventId: event.id, nightId: night.id, specialtyId: specialty.id });
     const opened = await post(`/api/v1/events/${event.id}/open`, {});
     assert.equal(opened.status, 200);
     const locked = await post(`/api/v1/schedule/${last.id}/reorder`, {

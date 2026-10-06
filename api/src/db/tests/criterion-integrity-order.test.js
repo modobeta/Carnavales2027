@@ -6,6 +6,7 @@ import { migrate } from "../migrate.js";
 import { closePool, getPool } from "../pool.js";
 import { getOrphanedCriteria, reorderCriterion, updateCriterion } from "../../modules/rubrics/rubric-service.js";
 import { openEvent } from "../../modules/events/event-readiness.service.js";
+import { seedActiveJudge } from "../../tests/helpers/judge-fixture.js";
 
 test("067 upgrades historical criteria without losing NULLs, guards identity and keeps FK keys immediate", {
   skip: !process.env.TEST_DATABASE_URL,
@@ -29,6 +30,11 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   await apply("003");
   for (let version = 7; version <= 21; version++) await apply(String(version).padStart(3, "0"));
   await apply("053");
+  // Apertura exige jurado activo (migración 083): el esquema parcial necesita
+  // las tablas de jurado y una asignación para que openEvent funcione.
+  await apply("002");
+  await apply("022");
+  await apply("028");
 
   const { rows: [event] } = await client.query("INSERT INTO carnival_event(name) VALUES('Historical criteria') RETURNING id");
   const { rows: [specialty] } = await client.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'S','S',1) RETURNING id", [event.id]);
@@ -54,6 +60,7 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   const { rows: [openRubric] } = await client.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'R','R','TROUPE') RETURNING id", [opened.id]);
   const { rows: [openItem] } = await client.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'I','I') RETURNING id", [opened.id, openRubric.id, openSpecialty.id]);
   const { rows: [openCriterion] } = await client.query("INSERT INTO rubric_criterion(event_id,rubric_id,description,display_order) VALUES($1,$2,'Open criterion',3) RETURNING id", [opened.id, openRubric.id]);
+  await seedActiveJudge({ client, eventId: opened.id, nightId: openNight.id, specialtyId: openSpecialty.id });
   await openEvent({ client, eventId: opened.id });
 
   await apply("066");

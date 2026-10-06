@@ -4,6 +4,7 @@ import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
@@ -86,6 +87,7 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
   try {
     const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
 
+    await seedActiveJudge({ client: pool, eventId: opened.event.id, nightId: opened.night.id, specialtyId: opened.specialty.id, adminId });
     const openRes = await fetch(`${baseUrl}/api/v1/events/${opened.event.id}/open`, { method: "POST", headers });
     assert.equal(openRes.status, 200);
 

@@ -86,6 +86,30 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     expect(screen.getByText("Ítem 1 de 3")).toBeInTheDocument();
   });
 
+  it("muestra el logo de la comparsa en la tarjeta cuando la API lo expone", async () => {
+    apiRequest.mockResolvedValue({
+      ...ballotV3,
+      scores: ballotV3.scores.map((s) => (s.id === "score-1"
+        ? { ...s, troupeId: "troupe-verde", hasLogo: true, logoSha256: "hash-logo" }
+        : s)),
+    });
+    render(<JudgeBallotPage ballotId="ballot-v3" />);
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+
+    expect(screen.getByRole("img", { name: "Logo de Comparsa Verde" })).toHaveAttribute(
+      "src",
+      "/api/v1/troupes/troupe-verde/logo?v=hash-logo",
+    );
+  });
+
+  it("no muestra logo en la tarjeta cuando la comparsa no tiene", async () => {
+    apiRequest.mockResolvedValue(ballotV3);
+    render(<JudgeBallotPage ballotId="ballot-v3" />);
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+
+    expect(screen.queryByRole("img", { name: "Logo de Comparsa Verde" })).not.toBeInTheDocument();
+  });
+
   it("no regresa a la primera tarjeta al confirmar un voto en modo tarjeta", async () => {
     apiRequest.mockImplementation((path, options) => {
       if (!options) return Promise.resolve(ballotV3);
@@ -371,6 +395,23 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     expect(within(banner).queryByRole("button")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
     expect(await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["SCORED", 7],
+    ["NOT_PRESENTED", 0],
+  ])("oculta marcar comparsa ausente tras una decisión confirmada (%s)", async (evaluationState, score) => {
+    apiRequest.mockResolvedValue({
+      ...ballotV3,
+      scores: ballotV3.scores.map((item) => item.id === "score-1"
+        ? { ...item, evaluationState, score }
+        : item),
+    });
+    render(<JudgeBallotPage ballotId="ballot-v3" />);
+
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+
+    expect(screen.queryByRole("button", { name: "Comparsa completa no se presentó" })).not.toBeInTheDocument();
   });
 
   it("marca la comparsa completa como no presentada en una sola acción", async () => {

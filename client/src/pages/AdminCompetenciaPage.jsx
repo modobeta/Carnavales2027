@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
+import { removeTroupeLogo, uploadTroupeLogo } from "../api/troupes.js";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
+import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { RubricTree } from "../features/RubricTree.jsx";
@@ -423,19 +425,29 @@ function AdminTroupesSection({ event }) {
       setDrawerMode(null);
       if (incRevision) incRevision();
       if (reloadProgress) reloadProgress();
-      return true;
+      return saved;
     } catch (e) {
       if (e.code === "CATEGORY_INACTIVE") setMessage("La categoria seleccionada esta inactiva.");
       else if (e.code === "VALIDATION_ERROR") setMessage("Revisa los campos: el nombre y el tipo son obligatorios y el color debe tener formato #RRGGBB.");
       else if (e.code === "EVENT_LOCKED") setMessage("El evento ya no permite modificar su configuracion.");
       else setMessage("No se pudo guardar.");
-      return false;
+      return null;
     }
   };
 
-  const submitTroupe = async (body, confirmed = false) => {
+  // La comparsa ya quedó guardada cuando falla el logo: informamos eso y
+  // dejamos reintentar desde Editar, sin volver a crear la comparsa.
+  const logoErrorMessage = (error) => {
+    if (error?.code === "PAYLOAD_TOO_LARGE") return "Los datos se guardaron, pero el logo supera 1 MB.";
+    if (error?.code === "VALIDATION_ERROR") return "Los datos se guardaron, pero el logo no es válido (PNG, JPG, WebP o SVG hasta 1 MB).";
+    if (error?.code === "EVENT_LOCKED") return "Los datos se guardaron, pero el evento ya no permite modificar el logo.";
+    return "Los datos se guardaron, pero no se pudo guardar el logo. Reintentá desde Editar.";
+  };
+
+  const submitTroupe = async (payload, confirmed = false) => {
+    const { logoFile = null, removeLogo = false, ...fields } = payload ?? {};
     if (drawerMode?.mode === "edit" && !confirmed) {
-      setMutationTarget({ title: "Guardar cambios de comparsa", description: `Se actualizarán los datos de ${editingTroupe?.name ?? "la comparsa"}.`, confirm: () => submitTroupe(body, true) });
+      setMutationTarget({ title: "Guardar cambios de comparsa", description: `Se actualizarán los datos de ${editingTroupe?.name ?? "la comparsa"}.`, confirm: () => submitTroupe(payload, true) });
       return;
     }
     if (writing.current) return;
@@ -443,10 +455,19 @@ function AdminTroupesSection({ event }) {
     setPending(true);
     setSaving(true);
     try {
-      if (drawerMode?.mode === "edit") {
-        await save(`/api/v1/troupes/${drawerMode.troupeId}`, body, "PATCH");
-      } else {
-        await save(`/api/v1/events/${event.id}/troupes`, body);
+      const isEdit = drawerMode?.mode === "edit";
+      const path = isEdit ? `/api/v1/troupes/${drawerMode.troupeId}` : `/api/v1/events/${event.id}/troupes`;
+      const saved = await save(path, fields, isEdit ? "PATCH" : "POST");
+      if (saved && (logoFile || removeLogo)) {
+        try {
+          if (logoFile) await uploadTroupeLogo(saved.id, logoFile);
+          else await removeTroupeLogo(saved.id);
+          const fresh = await apiRequest(`/api/v1/events/${event.id}/troupes`).catch(() => null);
+          if (fresh) setTroupes(fresh);
+          setMessage(logoFile ? "Guardado. Logo actualizado." : "Guardado. Logo eliminado.");
+        } catch (error) {
+          setMessage(logoErrorMessage(error));
+        }
       }
     } finally {
       writing.current = false;
@@ -551,6 +572,7 @@ function AdminTroupesSection({ event }) {
                 <tr key={troupe.id}>
                   <td>
                     <span className="troupe-cell">
+                      <TroupeLogo troupeId={troupe.id} hasLogo={troupe.hasLogo} sha256={troupe.logoSha256} alt={`Logo de ${troupe.name}`} />
                       {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
                       <span>
                         <strong>{troupe.name}</strong>
@@ -1557,18 +1579,20 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                   <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
                 </div>
-                <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
-                  {isExpanded ? "Contraer" : "Expandir"}
-                </button>
-                {!locked && (rubric.active !== false ? (
-                  <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
-                    Eliminar
+                <div className="rubric-card-actions">
+                  <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
+                    {isExpanded ? "Contraer" : "Expandir"}
                   </button>
-                ) : (
-                  <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
-                    Reactivar
-                  </button>
-                ))}
+                  {!locked && (rubric.active !== false ? (
+                    <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
+                      Eliminar
+                    </button>
+                  ) : (
+                    <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
+                      Reactivar
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {isExpanded && (

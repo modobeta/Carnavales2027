@@ -75,6 +75,30 @@ function createWriteHandler(action, entityType, operation) {
 export function createEventsRouter({ requireSession }) {
   const router = Router();
   const admin = [requireSession, requireTwoFactor, requireAdmin];
+
+  // Logo de comparsa — lectura operativa, escritura ADMIN (Spec 029).
+  // Se registra antes del bloque admin de /troupes para que el jurado pueda
+  // identificar la comparsa durante la votación. La lectura sigue exigiendo
+  // sesión y 2FA; la escritura (PUT/DELETE) queda abajo bajo `...admin`.
+  router.get("/troupes/:troupeId/logo", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const logo = await getTroupeLogo({ troupeId: request.params.troupeId });
+      if (!logo) return response.status(404).json({ code: "TROUPE_LOGO_NOT_FOUND" });
+      response.set("Content-Type", logo.logoMime);
+      response.set("X-Content-Type-Options", "nosniff");
+      // Un SVG servido desde el mismo origen queda aislado: no puede ejecutar
+      // script ni cargar recursos externos aunque se abra en una pestaña.
+      response.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+      response.set("ETag", `"${logo.logoSha256}"`);
+      response.set("Cache-Control", "private, max-age=86400");
+      if (request.headers["if-none-match"] === `"${logo.logoSha256}"`) return response.status(304).end();
+      return response.status(200).send(logo.logoData);
+    } catch (error) {
+      if (error.message === "TROUPE_NOT_FOUND") return response.status(404).json({ code: error.message });
+      return next(error);
+    }
+  });
+
   for (const prefix of [
     "/events",
     "/rubrics",
@@ -160,26 +184,8 @@ export function createEventsRouter({ requireSession }) {
 
   // Logo de comparsa. Se almacena como BYTEA (migración 083) y se sirve como
   // binario: el listado sólo expone hasLogo/logoSha256, nunca los bytes.
-  // La escritura exige ADMIN; la lectura admite cualquier sesión operativa
-  // porque el jurado necesita identificar la comparsa durante la votación.
-  router.get("/troupes/:troupeId/logo", requireSession, requireTwoFactor, async (request, response, next) => {
-    try {
-      const logo = await getTroupeLogo({ troupeId: request.params.troupeId });
-      if (!logo) return response.status(404).json({ code: "TROUPE_LOGO_NOT_FOUND" });
-      response.set("Content-Type", logo.logoMime);
-      response.set("X-Content-Type-Options", "nosniff");
-      // Un SVG servido desde el mismo origen queda aislado: no puede ejecutar
-      // script ni cargar recursos externos aunque se abra en una pestaña.
-      response.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-      response.set("ETag", `"${logo.logoSha256}"`);
-      response.set("Cache-Control", "private, max-age=86400");
-      if (request.headers["if-none-match"] === `"${logo.logoSha256}"`) return response.status(304).end();
-      return response.status(200).send(logo.logoData);
-    } catch (error) {
-      if (error.message === "TROUPE_NOT_FOUND") return response.status(404).json({ code: error.message });
-      return next(error);
-    }
-  });
+  // La lectura vive más arriba (antes del bloque admin) para que el jurado
+  // pueda identificarlo; la escritura exige ADMIN.
   router.put(
     "/troupes/:troupeId/logo",
     ...admin,
