@@ -1,10 +1,10 @@
-import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
@@ -148,7 +148,9 @@ test("API eventos: borrado bloqueado con ballots, asignaciones o evento abierto"
   );
 
   const opened = await seedVirginEvent(pool, "Evento abierto");
-  await assignReadinessJury(pool, opened.event.id);
+  const { rows: [openNight] } = await pool.query("SELECT id FROM night WHERE event_id=$1", [opened.event.id]);
+  const { rows: [openSpecialty] } = await pool.query("SELECT id FROM event_specialty WHERE event_id=$1", [opened.event.id]);
+  await seedActiveJudge({ client: pool, eventId: opened.event.id, nightId: openNight.id, specialtyId: openSpecialty.id, adminId });
 
   const app = createApp({ getSession: async ({ headers }) => headers.get("x-test-session") === "admin" ? { user: { id: adminId, twoFactorEnabled: true } } : null });
   await withServer(app, async (baseUrl) => {

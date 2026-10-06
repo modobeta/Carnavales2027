@@ -1,4 +1,3 @@
-import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -6,6 +5,7 @@ import { getReadiness, openEvent } from "../modules/events/event-readiness.servi
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
 import { createEvent, createNight } from "../modules/events/event-service.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 test("readiness exige que todos los ítems activos usen especialidades activas antes de abrir", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -110,7 +110,7 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
     await client.query("ROLLBACK TO SAVEPOINT missing_jury_guard");
     // Awards nights cannot have assignments and must not prevent opening.
     await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'Awards',99,'AWARDS')", [event.id]);
-    await assignReadinessJury(client, event.id);
+    await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id });
     const ready = await getReadiness({ client, eventId: event.id });
     assert.equal(ready.ready, true);
     await client.query("SAVEPOINT direct_ready_open");

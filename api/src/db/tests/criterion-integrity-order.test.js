@@ -6,7 +6,6 @@ import { migrate } from "../migrate.js";
 import { closePool, getPool } from "../pool.js";
 import { getOrphanedCriteria, reorderCriterion, updateCriterion } from "../../modules/rubrics/rubric-service.js";
 
-
 test("067 upgrades historical criteria without losing NULLs, guards identity and keeps FK keys immediate", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (t) => {
@@ -29,6 +28,11 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   await apply("003");
   for (let version = 7; version <= 21; version++) await apply(String(version).padStart(3, "0"));
   await apply("053");
+  // Apertura exige jurado activo (migraciÃ³n 083): el esquema parcial necesita
+  // las tablas de jurado y una asignaciÃ³n para que openEvent funcione.
+  await apply("002");
+  await apply("022");
+  await apply("028");
 
   const { rows: [event] } = await client.query("INSERT INTO carnival_event(name) VALUES('Historical criteria') RETURNING id");
   const { rows: [specialty] } = await client.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'S','S',1) RETURNING id", [event.id]);
@@ -48,7 +52,7 @@ test("067 upgrades historical criteria without losing NULLs, guards identity and
   const { rows: [openNight] } = await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'N',1,'COMPETITION') RETURNING id", [opened.id]);
   const { rows: [category] } = await client.query("INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'C','C',1) RETURNING id", [opened.id]);
   const { rows: [openTroupe] } = await client.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'T') RETURNING id", [opened.id, category.id]);
-  // La apertura exige que cada jornada tenga comparsas programadas (migración 079).
+  // La apertura exige que cada jornada tenga comparsas programadas (migraciÃ³n 079).
   await client.query("INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)", [opened.id, openNight.id, openTroupe.id]);
   const { rows: [openSpecialty] } = await client.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'S','S',1) RETURNING id", [opened.id]);
   const { rows: [openRubric] } = await client.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'R','R','TROUPE') RETURNING id", [opened.id]);

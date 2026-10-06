@@ -653,8 +653,11 @@ export async function getBallot({ ballotId, userId }) {
             tn.subject_type AS "participantType",
              bs.rubric_id AS "rubricId", bs.night_schedule_id AS "nightScheduleId",
              nts.presentation_order AS "presentationOrder",
+             et.id AS "troupeId",
              et.name AS "troupeName",
              et.brand_color AS "brandColor",
+             (et.logo_data IS NOT NULL) AS "hasLogo",
+             et.logo_sha256 AS "logoSha256",
              bs.score, bs.evaluation_state AS "evaluationState",
             bs.status, bs.locked_at AS "lockedAt"
        FROM ballot_score bs
@@ -701,8 +704,11 @@ export async function getBallot({ ballotId, userId }) {
       rubricId: s.rubricId,
        nightScheduleId: s.nightScheduleId,
        presentationOrder: s.presentationOrder,
+        troupeId: s.troupeId,
         troupeName: s.troupeName,
         brandColor: s.brandColor || null,
+        hasLogo: s.hasLogo === true,
+        logoSha256: s.logoSha256 || null,
         score: s.score,
        evaluationState: s.evaluationState,
       status: s.status,

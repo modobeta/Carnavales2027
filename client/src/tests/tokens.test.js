@@ -10,25 +10,27 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(css).toContain("--surface-base: var(--palette-page);");
     expect(css).toContain("--surface-card: var(--palette-card);");
     expect(css).toContain("--text-primary: #ffffff;");
-    expect(css).toContain("--text-secondary: #f4e9f8;");
-    expect(css).toContain("--border-subtle: rgba(255, 255, 255, 0.3);");
+    expect(css).toContain("--text-secondary: #eee4f2;");
+    expect(css).toContain("--border-subtle: rgba(255, 255, 255, 0.14);");
     expect(css).toContain("--touch-target-min: 48px;");
   });
 
   it("expone la paleta Carnaval como unica fuente de color", () => {
-    expect(css).toContain("--palette-page: #341244;");
-    expect(css).toContain("--palette-card: #691578;");
-    expect(css).toContain("--palette-highlight: #ffb300;");
+    expect(css).toContain("--palette-page: #24102b;");
+    expect(css).toContain("--palette-card: #351744;");
+    expect(css).toContain("--palette-panel: #452252;");
+    expect(css).toContain("--palette-input: #2a1534;");
+    expect(css).toContain("--palette-highlight: #e0b544;");
     expect(css).toContain("--palette-confirm: #34d22b;");
     expect(css).toContain("--palette-confirm-ink: #0b1f1c;");
     expect(css).toContain("--palette-cancel: #e30808;");
     expect(css).toContain("--palette-action: #3b82f6;");
     expect(css).toContain("--palette-action-fill: #2563eb;");
-    expect(css).toContain("--palette-modal: #00bfae;");
+    expect(css).toContain("--palette-modal: #56bfb4;");
     expect(css).toContain("--palette-modal-ink: #0b1f1c;");
     expect(css).toContain("--text-on-highlight: var(--palette-highlight-ink);");
-    expect(css).toContain("--text-on-modal: var(--palette-modal-ink);");
-    expect(css).toContain("--surface-modal: var(--palette-modal);");
+    expect(css).toContain("--text-on-modal: #ffffff;");
+    expect(css).toContain("--surface-modal: var(--palette-card);");
   });
 
   it("mantiene tinta oscura sobre los fondos claros de la paleta", () => {
@@ -48,8 +50,8 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   it.each([
     ["--surface-input", "var(--palette-input)"],
     ["--surface-login-input", "var(--palette-input)"],
-    ["--border-input", "rgba(255, 255, 255, 0.62)"],
-    ["--surface-hover-subtle", "rgba(255, 255, 255, 0.16)"],
+    ["--border-input", "rgba(255, 255, 255, 0.4)"],
+    ["--surface-hover-subtle", "rgba(255, 255, 255, 0.08)"],
     ["--text-on-primary", "#ffffff"],
     ["--text-on-accent", "#ffffff"],
   ])("define %s globalmente una sola vez con el valor existente", (name, value) => {
@@ -253,8 +255,8 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     const card = index.match(/\.judge-ballot-card\s*\{([^{}]*)\}/)?.[1] ?? "";
 
     expect(card).toMatch(/background:\s*var\(--surface-card\);/);
-    expect(card).toMatch(/border:\s*2px solid var\(--border-default\);/);
-    expect(card).toMatch(/border-radius:\s*var\(--radius-xl\);/);
+    expect(card).toMatch(/border:\s*1px solid var\(--border-default\);/);
+    expect(card).toMatch(/border-radius:\s*var\(--radius-lg\);/);
     expect(card).toMatch(/min-block-size:\s*auto;/);
     expect(card).not.toContain("#64748b");
     expect(card).not.toMatch(/min-block-size:\s*19rem/);
@@ -333,14 +335,14 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     const statusInvited = adminCss.match(/\.status-invited\s*\{([^{}]*)\}/)?.[1] ?? "";
     const eventHeader = adminCss.match(/\.event-header\s*\{([^{}]*)\}/)?.[1] ?? "";
 
-    expect(cards).toMatch(/background:\s*var\(--surface-card\);/);
+    expect(cards).toMatch(/background:\s*var\(--surface-raised\);/);
     expect(cards).toMatch(/border:\s*1px solid var\(--border-subtle\);/);
     expect(roster).toMatch(/background:\s*var\(--surface-raised\);/);
     expect(roster).toMatch(/color:\s*var\(--text-primary\);/);
     expect(matrixCell).toMatch(/border:\s*1px solid var\(--border-subtle\);/);
     expect(statusInvited).toMatch(/color:\s*var\(--warning-text\);/);
     expect(statusInvited).toMatch(/background:\s*var\(--warning-bg\);/);
-    expect(eventHeader).toMatch(/border-block-end:\s*4px solid var\(--accent-primary\);/);
+    expect(eventHeader).toMatch(/border-block-end:\s*1px solid var\(--border-subtle\);/);
   });
 
   it("garantiza la adopción de tokens semánticos en submódulos de votación y preparación de eventos (RF-176, RF-177)", () => {

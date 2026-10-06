@@ -105,6 +105,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "080_nomination_ballot_scores.sql"
           || filename === "081_rubric_types_nominative_random.sql"
           || filename === "082_event_open_requires_nominations.sql"
+          || filename === "083_rubric_icons_and_troupe_logos.sql"
   )));
 
   const status = await getMigrationStatus();

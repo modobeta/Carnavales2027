@@ -1,10 +1,10 @@
-import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
@@ -144,7 +144,8 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
       body: JSON.stringify({ nightId: thirdNight.id, troupeId: troupe.id }),
     });
     assert.equal(program2.status, 201);
-    await assignReadinessJury(pool, event.id);
+    await seedActiveJudge({ client: pool, eventId: event.id, nightId: busyNight.id, specialtyId: specialties[0].id });
+    await seedActiveJudge({ client: pool, eventId: event.id, nightId: thirdNight.id, specialtyId: specialties[0].id });
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",
       headers: { "x-test-session": "admin" },

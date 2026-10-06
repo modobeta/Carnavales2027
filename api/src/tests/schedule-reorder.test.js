@@ -1,10 +1,10 @@
-import { assignReadinessJury } from "./readiness-fixture.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
@@ -80,7 +80,6 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
 
   const configuring = await seedEvent(pool, "Reorden configuring");
   const opened = await seedEvent(pool, "Reorden abierto");
-  await assignReadinessJury(pool, opened.event.id);
 
   const app = createApp({ getSession: async ({ headers }) => headers.get("x-test-session") === "admin" ? { user: { id: adminId, twoFactorEnabled: true } } : null });
   const server = await withServer(app);
@@ -88,6 +87,7 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
   try {
     const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
 
+    await seedActiveJudge({ client: pool, eventId: opened.event.id, nightId: opened.night.id, specialtyId: opened.specialty.id, adminId });
     const openRes = await fetch(`${baseUrl}/api/v1/events/${opened.event.id}/open`, { method: "POST", headers });
     assert.equal(openRes.status, 200);
 

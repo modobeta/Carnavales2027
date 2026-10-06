@@ -6,6 +6,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { Button } from "../components/Button.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
 
@@ -1008,12 +1009,23 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         aria-hidden="true"
                       />
                     )}
-                    <p className="eyebrow">Salida {activeScore.presentationOrder} · {ballot.specialtyName}</p>
-                    <h2>{activeScore.troupeName}</h2>
-                    <p className="card-rubric-name">{activeScore.rubricName}</p>
+                    <div className="ballot-troupe-heading">
+                      <TroupeLogo
+                        troupeId={activeScore.troupeId}
+                        hasLogo={activeScore.hasLogo}
+                        sha256={activeScore.logoSha256}
+                        alt={`Logo de ${activeScore.troupeName}`}
+                        className="ballot-troupe-logo"
+                      />
+                      <div>
+                        <p className="eyebrow">Salida {activeScore.presentationOrder} · {ballot.specialtyName}</p>
+                        <h2>{activeScore.troupeName}</h2>
+                        <p className="card-rubric-name">{activeScore.rubricName}</p>
+                      </div>
+                    </div>
                   </div>
 
-                  {!readonly && !isCardScoreLocked && activeTroupePending > 0 && (
+                  {!readonly && !isCardScoreLocked && activeTroupePending > 0 && troupeResolved === 0 && (
                     <div className="troupe-absent-actions">
                       <button
                         type="button"

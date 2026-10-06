@@ -1,10 +1,10 @@
-import { assignReadinessJury } from "../../tests/readiness-fixture.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { openEvent } from "../../modules/events/event-readiness.service.js";
 import { createEvent, createNight } from "../../modules/events/event-service.js";
 import { migrate } from "../migrate.js";
 import { closePool, getPool } from "../pool.js";
+import { seedActiveJudge } from "../../tests/helpers/judge-fixture.js";
 
 test("criterios, nominaciones y programación quedan bloqueados al abrir", {
   skip: !process.env.TEST_DATABASE_URL,
@@ -67,7 +67,7 @@ test("criterios, nominaciones y programación quedan bloqueados al abrir", {
     );
     assert.equal(columns.some(({ column_name }) => column_name.includes("score")), false);
 
-    await assignReadinessJury(client, event.id);
+    await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: specialties[0].id });
     await openEvent({ client, eventId: event.id });
     await client.query("COMMIT");
 
