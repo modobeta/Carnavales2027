@@ -1,16 +1,20 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { auditEvent } from "../audit/audit-service.js";
 import { requireAdmin } from "../auth/require-admin.js";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { getPool } from "../db/pool.js";
-import { createEvent, createNight, deleteEvent, getEvent, listEvents, listNights, updateEvent, updateNight } from "../modules/events/event-service.js";
+import { createEvent, createNight, deleteEvent, deleteNight, getEvent, listEvents, listNights, updateEvent, updateNight } from "../modules/events/event-service.js";
 import {
   createCategory,
   createTroupe,
+  deleteTroupeLogo,
+  getTroupeLogo,
   listCategories,
   listTroupes,
+  setTroupeLogo,
   updateCategory,
   updateTroupe,
+  TROUPE_LOGO_MAX_BYTES,
 } from "../modules/troupes/category-service.js";
 import { createSpecialty, listSpecialties, updateSpecialty } from "../modules/specialties/specialty-service.js";
 import { listSchedule, reorderEventSchedule, reorderScheduleEntry, addTroupeToSchedule, removeScheduleEntry } from "../modules/schedule/schedule-service.js";
@@ -18,10 +22,13 @@ import {
   createCriterion,
   createItem,
   createRubric,
+  createRubricWithInitialItem,
   getOrphanedCriteria,
   getRubric,
   listCriteriaByItem,
   listRubrics,
+  createNomination,
+  setNominationActive,
   reorderCriterion,
   reorderItem,
   updateCriterion,
@@ -76,6 +83,7 @@ export function createEventsRouter({ requireSession }) {
     "/troupes",
     "/specialties",
     "/evaluation-items",
+    "/nominations",
     "/rubric-criteria",
     "/schedule",
   ]) {
@@ -125,6 +133,14 @@ export function createEventsRouter({ requireSession }) {
   });
   router.post("/events/:eventId/nights", createWriteHandler("NIGHT_CREATED", "night", (client, request) => createNight({ client, eventId: request.params.eventId, ...request.body })));
   router.patch("/nights/:nightId", createWriteHandler("NIGHT_UPDATED", "night", (client, request) => updateNight({ client, actorUserId: request.user.id, nightId: request.params.nightId, ...request.body })));
+  router.delete("/nights/:nightId", async (request, response, next) => {
+    try {
+      response.json(await deleteNight({ nightId: request.params.nightId, actorUserId: request.user.id }));
+    } catch (error) {
+      if (error.message === "NIGHT_NOT_FOUND") return response.status(404).json({ code: error.message });
+      if (!sendKnownError(response, error)) next(error);
+    }
+  });
 
   // ---- Categories ----
   router.get("/events/:eventId/categories", async (request, response, next) => {
@@ -141,6 +157,44 @@ export function createEventsRouter({ requireSession }) {
   router.get("/events/:eventId/troupes", async (request, response, next) => { try { return response.json(await listTroupes({ eventId: request.params.eventId })); } catch (error) { return next(error); } });
   router.post("/events/:eventId/troupes", createWriteHandler("TROUPE_CREATED", "event_troupe", (client, request) => createTroupe({ client, eventId: request.params.eventId, ...request.body })));
   router.patch("/troupes/:troupeId", createWriteHandler("TROUPE_UPDATED", "event_troupe", (client, request) => updateTroupe({ client, troupeId: request.params.troupeId, ...request.body })));
+
+  // Logo de comparsa. Se almacena como BYTEA (migración 083) y se sirve como
+  // binario: el listado sólo expone hasLogo/logoSha256, nunca los bytes.
+  // La escritura exige ADMIN; la lectura admite cualquier sesión operativa
+  // porque el jurado necesita identificar la comparsa durante la votación.
+  router.get("/troupes/:troupeId/logo", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const logo = await getTroupeLogo({ troupeId: request.params.troupeId });
+      if (!logo) return response.status(404).json({ code: "TROUPE_LOGO_NOT_FOUND" });
+      response.set("Content-Type", logo.logoMime);
+      response.set("X-Content-Type-Options", "nosniff");
+      // Un SVG servido desde el mismo origen queda aislado: no puede ejecutar
+      // script ni cargar recursos externos aunque se abra en una pestaña.
+      response.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+      response.set("ETag", `"${logo.logoSha256}"`);
+      response.set("Cache-Control", "private, max-age=86400");
+      if (request.headers["if-none-match"] === `"${logo.logoSha256}"`) return response.status(304).end();
+      return response.status(200).send(logo.logoData);
+    } catch (error) {
+      if (error.message === "TROUPE_NOT_FOUND") return response.status(404).json({ code: error.message });
+      return next(error);
+    }
+  });
+  router.put(
+    "/troupes/:troupeId/logo",
+    ...admin,
+    // El parser crudo acepta cualquier Content-Type: la autoridad es la firma
+    // de los bytes (validateTroupeLogo), no la cabecera declarada.
+    express.raw({ type: () => true, limit: TROUPE_LOGO_MAX_BYTES }),
+    createWriteHandler("TROUPE_LOGO_UPDATED", "event_troupe", (client, request) =>
+      setTroupeLogo({
+        client,
+        troupeId: request.params.troupeId,
+        data: Buffer.isBuffer(request.body) ? request.body : null,
+        mime: request.get("content-type") || null,
+      })),
+  );
+  router.delete("/troupes/:troupeId/logo", ...admin, createWriteHandler("TROUPE_LOGO_DELETED", "event_troupe", (client, request) => deleteTroupeLogo({ client, troupeId: request.params.troupeId })));
 
   // ---- Specialties ----
   router.get("/events/:eventId/specialties", async (request, response, next) => { try { return response.json(await listSpecialties({ eventId: request.params.eventId })); } catch (error) { return next(error); } });
@@ -166,6 +220,24 @@ export function createEventsRouter({ requireSession }) {
     return createRubric({ client, eventId: request.params.eventId, ...body });
   }));
   router.patch("/rubrics/:rubricId", createWriteHandler("RUBRIC_UPDATED", "rubric", (client, request) => updateRubric({ ...request.body, client, rubricId: request.params.rubricId })));
+
+  // Alta de rubro desde la tarjeta de especialidad: crea rubro + primer ítem en
+  // una sola transacción, para no dejar rubros sin ítems puntuables.
+  router.post("/events/:eventId/rubrics-with-item", createWriteHandler("RUBRIC_CREATED", "rubric", (client, request) => {
+    const body = { ...request.body };
+    const { initialItem, ...rubricInput } = body;
+    if (!rubricInput.code) rubricInput.code = generateCode(rubricInput.name || "");
+    return createRubricWithInitialItem({ client, eventId: request.params.eventId, rubric: rubricInput, initialItem: initialItem ?? {} });
+  }));
+
+  router.post("/rubrics/:rubricId/nominations", createWriteHandler("TROUPE_NOMINATION_CREATED", "troupe_nomination", (client, request) => {
+    const { eventTroupeId, displayName } = request.body ?? {};
+    return createNomination({ client, rubricId: request.params.rubricId, eventTroupeId, displayName });
+  }));
+  router.patch("/nominations/:nominationId", createWriteHandler("TROUPE_NOMINATION_UPDATED", "troupe_nomination", (client, request) => {
+    const { active } = request.body ?? {};
+    return setNominationActive({ client, nominationId: request.params.nominationId, active });
+  }));
 
   // ---- Evaluation Items ----
   router.get("/rubrics/:rubricId/items", async (request, response, next) => {

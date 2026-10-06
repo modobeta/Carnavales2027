@@ -17,6 +17,7 @@ export function printFullEventSummary(result, log = console.log) {
     log(`✓ ${night.code} (${night.date}): ${night.jurors} asignaciones / ${night.participations} posiciones`);
   }
   log(`✓ Participaciones y órdenes de pasada: ${result.participations}`);
+  log(`✓ Nominaciones de demo: ${result.nominations} placeholders ficticios; no son participantes oficiales`);
   log(`✓ Cobertura comparsa/rubro nominativo: ${result.coverage} (implícita)`);
   log(`✓ Planillas: ${result.ballots} iniciales; ${result.ballotsOnOpeningAllNights} al abrir las tres jornadas`);
   log(`✓ Votos emitidos: ${result.votes}`);

@@ -220,7 +220,7 @@ La impresión de un acta desde el navegador no agrega por sí misma una firma di
 | No aparecen planillas | Perfil registrado, roles, asignaciones y ventana abierta en esta implementación |
 | No aparecen resultados públicos | Deben estar liberados; no significa necesariamente que se hayan perdido datos |
 | Interfaz antigua tras un despliegue | Finalizar acciones pendientes, cerrar todas las pestañas/ventanas de la PWA y volver a abrir online |
-| La PWA abre «Página no encontrada» | Abrir `/#/login`; existe una discrepancia conocida entre el `start_url` del manifest y las rutas |
+| La PWA abre «Página no encontrada» | Confirmar que se instaló la versión más reciente de la aplicación y volver a abrir `/#/login` |
 | Falla la conexión a PostgreSQL | En desarrollo, servicio/host/puerto y base correcta; en piloto, URL Neon, TLS y credenciales. No ejecutar seed para «reparar» una conexión |
 
 Al reportar un problema, incluir fecha/hora, rol, pantalla, pasos, código de error y `requestId` si existe. Ocultar contraseñas, OTP, tokens, cookies, URLs de conexión y datos personales en capturas/logs.

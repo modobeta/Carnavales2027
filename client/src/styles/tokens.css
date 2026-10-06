@@ -56,9 +56,12 @@
   --touch-target-min: 48px;
   --touch-target-lg: 56px;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  /* La sombra separa la tarjeta #691578 del fondo #341244 sin recurrir a negro. */
+  --shadow-sm: 0 1px 2px 0 rgba(26, 5, 36, 0.45);
+  --shadow-md: 0 4px 6px -1px rgba(26, 5, 36, 0.5), 0 2px 4px -2px rgba(26, 5, 36, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(26, 5, 36, 0.55), 0 4px 6px -4px rgba(26, 5, 36, 0.45);
+  --shadow-card: 0 1rem 2.5rem rgba(26, 5, 36, 0.45);
+  --shadow-focus: 0 0 0 3px rgba(255, 179, 0, 0.9);
 
   --z-base: 1;
   --z-dropdown: 100;
@@ -71,69 +74,110 @@
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ==========================================================================
-     Paleta base (Modo Oscuro Predeterminado - Alto Contraste)
+     Paleta Carnaval (única fuente de color de la aplicación)
+     Todos los colores de la interfaz se derivan de estas variables.
      ========================================================================== */
-  --surface-base: #090d16;
-  --surface-card: #111827;
-  --surface-raised: #1e293b;
-  --surface-overlay: rgba(9, 13, 22, 0.85);
+  --palette-page: #341244;        /* Fondo general */
+  --palette-card: #691578;        /* Tarjetas */
+  --palette-panel: #6d1a7e;       /* Superficies elevadas dentro de la tarjeta */
+  --palette-deep: #4a1059;        /* Zócalos y texto inverso */
+  --palette-input: #2a0d38;       /* Campos de formulario */
+  --palette-highlight: #ffb300;   /* Resaltado / foco */
+  --palette-highlight-ink: #241a00;
+  --palette-confirm: #34d22b;     /* Botón confirmar (texto #0b1f1c = 9.3:1) */
+  --palette-confirm-ink: #0b1f1c;
+  --palette-cancel: #e30808;      /* Botón cancelar (blanco = 4.9:1) */
+  --palette-cancel-ink: #ffffff;
+  --palette-action: #3b82f6;      /* Bordes, focus y acentos */
+  --palette-action-fill: #2563eb; /* Relleno de acciones (blanco = 5.2:1) */
+  --palette-action-ink: #ffffff;
+  --palette-modal: #00bfae;       /* Fondo de modales */
+  --palette-modal-ink: #0b1f1c;   /* Texto de modales (7.4:1) */
 
-  /* Field surfaces retain the distinct login/OTP treatment. */
-  --surface-input: #0d1523;
-  --surface-login-input: #304258;
-  --surface-hover-subtle: rgba(148, 163, 184, 0.1); /* Neutral navigation hover, not active state. */
+  /* ==========================================================================
+     Superficies
+     ========================================================================== */
+  --surface-base: var(--palette-page);
+  --surface-card: var(--palette-card);
+  --surface-raised: var(--palette-panel);
+  --surface-sunken: var(--palette-deep);
+  --surface-overlay: rgba(38, 10, 51, 0.86);
+  --surface-modal: var(--palette-modal);
+  --surface-modal-raised: var(--palette-input);
+  --surface-modal-hover: rgba(11, 31, 28, 0.14);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-inverse: #0f172a;
-  --text-on-primary: #ffffff; /* Texto sobre fondos primarios (azul/magenta). */
-  --text-on-accent: #ffffff; /* Solid accent actions; not print backgrounds. */
+  --surface-input: var(--palette-input);
+  --surface-login-input: var(--palette-input);
+  --surface-hover-subtle: rgba(255, 255, 255, 0.16); /* Hover de navegación, no estado activo. */
+  --surface-nav-translucent: rgba(9, 13, 22, 0.6); /* Barra de navegación sticky; se apoya en backdrop-filter para legibilidad. */
 
-  --border-subtle: #1e293b;
-  --border-default: #334155;
-  --border-strong: #475569;
-  --border-input: rgba(148, 163, 184, 0.34); /* Login/OTP field borders. */
+  /* ==========================================================================
+     Texto (contraste AA verificado sobre cada superficie)
+     ========================================================================== */
+  --text-primary: #ffffff;        /* 6.3:1 sobre #691578 */
+  --text-secondary: #f4e9f8;      /* 5.4:1 sobre #691578 */
+  --text-muted: #e7d6ef;          /* 4.9:1 sobre #691578 */
+  --text-inverse: var(--palette-deep);
+  --text-on-primary: #ffffff;
+  --text-on-accent: #ffffff;      /* Sobre rellenos sólidos de acción. */
+  --text-on-highlight: var(--palette-highlight-ink);
+  --text-on-confirm: var(--palette-confirm-ink);
+  --text-on-cancel: var(--palette-cancel-ink);
+  --text-on-modal: var(--palette-modal-ink);
+  --text-on-modal-soft: #0d3b36; /* Tinta secundaria sobre turquesa (7.9:1). */
+
+  /* ==========================================================================
+     Bordes
+     ========================================================================== */
+  --border-subtle: rgba(255, 255, 255, 0.3);
+  --border-default: rgba(255, 255, 255, 0.52);
+  --border-strong: rgba(255, 255, 255, 0.8);
+  --border-input: rgba(255, 255, 255, 0.62);
+  --border-card: rgba(255, 255, 255, 0.34);
+  --border-modal: rgba(11, 31, 28, 0.35);
 
   /* ==========================================================================
      Estados operativos semánticos
      ========================================================================== */
-  --success: #22c55e;
-  --success-bg: rgba(22, 163, 74, 0.16);
-  --success-text: #4ade80;
-  --success-border: #15803d;
+  --success: #34d22b;
+  --success-bg: rgba(52, 210, 43, 0.2);
+  --success-text: #b6f5c4;        /* 6.9:1 sobre #691578 */
+  --success-border: #34d22b;
 
-  --warning: #f59e0b;
-  --warning-bg: rgba(217, 119, 6, 0.16);
-  --warning-text: #fcd34d;
-  --warning-border: #b45309;
+  --warning: #ffb300;
+  --warning-bg: rgba(255, 179, 0, 0.2);
+  --warning-text: #ffe08a;        /* 4.9:1 sobre #691578 */
+  --warning-border: #ffb300;
 
-  --danger: #ef4444;
-  --danger-bg: rgba(220, 38, 38, 0.16);
-  --danger-text: #fca5a5;
-  --danger-border: #b91c1c;
-  --danger-hover: #991b1b; /* Hover de botón danger (blanco 8.3:1). */
+  --danger: #e30808;
+  --danger-bg: rgba(227, 8, 8, 0.22);
+  --danger-text: #ffd4d4;         /* 6.1:1 sobre #691578 */
+  --danger-border: #e30808;
+  --danger-hover: #b30606;        /* Hover de botón danger (blanco 7.1:1). */
 
-  --info: #0284c7;
-  --info-bg: rgba(2, 132, 199, 0.16);
-  --info-text: #7dd3fc;
-  --info-border: #0369a1;
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.22);
+  --info-text: #c9e2ff;           /* 5.5:1 sobre #691578 */
+  --info-border: #3b82f6;
 
   /* ==========================================================================
      Capa predeterminada: Instrumento (alta concentración, sobriedad)
      ========================================================================== */
-  --accent-primary: #2563eb;
-  --accent-text: #60a5fa; /* Azul para TEXTO sobre fondos oscuros (7.6:1). */
+  --accent-primary: var(--palette-action-fill);
+  --accent-text: #c9e2ff;
   --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.15);
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.6);
+  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --accent-secondary: var(--palette-highlight);
+  --accent-tertiary: var(--palette-modal);
+  --accent-seal: var(--brand-seal);
+  --focus-ring: var(--shadow-focus);
 
   /* ==========================================================================
      Mapeos heredados (Retrocompatibilidad 100% con estilos previos)
      ========================================================================== */
   --primary-color: var(--accent-primary);
   --primary-dark: var(--accent-hover);
-  --accent-color: var(--warning);
+  --accent-color: var(--warning-text); /* Texto de acento claro (4.9:1 sobre tarjeta). */
   --danger-color: var(--danger);
   --success-color: var(--success);
   --bg-color: var(--surface-base);
@@ -142,56 +186,80 @@
   --muted-color: var(--text-muted);
   --line-color: var(--border-subtle);
   --card-bg: var(--surface-card);
-  --focus-color: var(--brand-gold);
+  --focus-color: var(--palette-highlight);
   --mono-font: var(--font-mono);
   --spacing-sm: var(--space-2);
   --spacing-md: var(--space-4);
   --spacing-lg: var(--space-8);
   --border-radius: var(--radius-lg);
 
+  /* Alias de acción explícitos (relleno vs. borde) */
+  --action-fill: var(--palette-action-fill);
+  --action-fill-hover: #1d4ed8;
+  --action-ink: var(--palette-action-ink);
+  --confirm-fill: var(--palette-confirm);
+  --confirm-fill-hover: #2fbf22;
+  --confirm-ink: var(--palette-confirm-ink);
+  --cancel-fill: var(--palette-cancel);
+  --cancel-fill-hover: #b30606;
+  --cancel-ink: var(--palette-cancel-ink);
+
+  /* ==========================================================================
+     Documento oficial (acta): superficie de papel, independiente del cromo
+     ========================================================================== */
+  --doc-paper: #ffffff;
+  --doc-ink: #0f172a;
+  --doc-ink-soft: #475569;
+  --doc-rule: #0f172a;
+  --doc-accent: #1e40af;
+  --doc-seal-border: #16a34a;
+  --doc-seal-bg: #f0fdf4;
+  --doc-seal-fill: #14532d; /* Relleno de sellos: blanco 9.1:1 */
+  --doc-seal-text: #166534;
+
   /* ==========================================================================
      Tokens de estado extendidos (componentes, connection-status, anomalies)
      ========================================================================== */
-  --state-success: #4ade80;
-  --state-success-subtle: rgba(74, 222, 128, 0.12);
-  --state-warning: #fcd34d;
-  --state-warning-subtle: rgba(252, 211, 77, 0.12);
-  --state-danger: #f87171;
-  --state-danger-subtle: rgba(248, 113, 113, 0.12);
+  --state-success: #b6f5c4;
+  --state-success-subtle: rgba(52, 210, 43, 0.18);
+  --state-warning: #ffe08a;
+  --state-warning-subtle: rgba(255, 179, 0, 0.18);
+  --state-danger: #ffd4d4;
+  --state-danger-subtle: rgba(227, 8, 8, 0.2);
 
   /* ==========================================================================
-     Escala de azul (planilla, status pills, scores)
+     Escala de acción clara (texto y bordes sobre superficie púrpura)
      ========================================================================== */
-  --accent-text: #93c5fd;
-  --accent-light: #bfdbfe;
-  --accent-lighter: #dbeafe;
+  --accent-text: #c9e2ff;
+  --accent-light: #dbeafe;
+  --accent-lighter: #e8f1fe;
 
   /* ==========================================================================
      Colores de texto extendidos
      ========================================================================== */
-  --text-interactive: #e2e8f0;
-  --danger-light: #fecaca;
-  --success-bright: #86efac;
+  --text-interactive: #ffffff;
+  --danger-light: #ffd4d4;
+  --success-bright: #b6f5c4;
 
   /* Tokens de Marca Carnaval (Spec 023) */
-  --brand-gold: #f5b301;
-  --brand-magenta: #e11d74;
-  --brand-cyan: #14b8a6;
-  --brand-seal: #8f2e22;
+  --brand-gold: #ffb300;   /* Resaltado */
+  --brand-magenta: #691578; /* Tarjeta */
+  --brand-cyan: #00bfae;    /* Superficie de modales */
+  --brand-seal: #8f2e22;    /* Sello notarial */
 }
 
 /* ==========================================================================
    Capa Marca (data-layer="brand")
-   Vibrante, festiva, tipografía display y acentos carnaval
+   Comparte la paleta Carnaval unificada; sólo ajusta la tipografía display.
    ========================================================================== */
 [data-layer="brand"] {
-  --accent-primary: #e11d74;   /* Magenta carnaval */
-  --accent-hover: #be123c;
-  --accent-subtle: rgba(225, 29, 116, 0.18);
-  --accent-secondary: #f5b301; /* Dorado */
-  --accent-tertiary: #14b8a6;  /* Turquesa */
-  --accent-seal: var(--brand-seal); /* Sello notarial */
-  --focus-ring: 0 0 0 3px rgba(225, 29, 116, 0.6);
+  --accent-primary: var(--palette-action-fill);
+  --accent-hover: #1d4ed8;
+  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --accent-secondary: var(--palette-highlight);
+  --accent-tertiary: var(--palette-modal);
+  --accent-seal: var(--brand-seal);
+  --focus-ring: var(--shadow-focus);
 
   --primary-color: var(--accent-primary);
   --primary-dark: var(--accent-hover);
@@ -199,14 +267,14 @@
 
 /* ==========================================================================
    Capa Instrumento (data-layer="instrument")
-   Sobrio, oscuro, alto contraste, cero distracciones
+   Mismos tokens que Marca: la identidad visual carnival es única en la app.
    ========================================================================== */
 [data-layer="instrument"] {
-  --accent-primary: #2563eb;
-  --accent-text: #60a5fa; /* Azul para TEXTO sobre fondos oscuros (7.6:1). */
+  --accent-primary: var(--palette-action-fill);
+  --accent-text: #c9e2ff; /* Azul claro para TEXTO (5.5:1 sobre tarjeta). */
   --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.15);
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.6);
+  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --focus-ring: var(--shadow-focus);
 
   --primary-color: var(--accent-primary);
   --primary-dark: var(--accent-hover);
@@ -228,10 +296,11 @@
 
 @media (prefers-contrast: more) {
   :root {
-    --border-subtle: #475569;
-    --border-default: #64748b;
-    --border-strong: #94a3b8;
-    --text-muted: #cbd5e1;
+    --border-subtle: rgba(255, 255, 255, 0.55);
+    --border-default: rgba(255, 255, 255, 0.75);
+    --border-strong: #ffffff;
+    --border-card: rgba(255, 255, 255, 0.6);
+    --text-muted: #ffffff;
     --focus-ring: 0 0 0 4px #ffffff;
   }
 }

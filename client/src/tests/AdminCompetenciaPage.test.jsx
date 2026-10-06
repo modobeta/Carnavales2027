@@ -93,6 +93,8 @@ describe("AdminCompetenciaPage", () => {
     expect(await screen.findByText(/Expresion/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: item.id } });
     fireEvent.click(screen.getByRole("button", { name: "Reasignar Expresion" }));
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/rubric-criteria/orphan-1", expect.anything());
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar reasignación" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/rubric-criteria/orphan-1",
@@ -144,6 +146,8 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: target } });
     if (subject) fireEvent.change(fields.getByLabelText("Tipo de sujeto"), { target: { value: subject } });
     fireEvent.submit(form);
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1", {
       method: "PATCH",
@@ -182,6 +186,7 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.change(editFields.getByLabelText("Nombre"), { target: { value: "Editado" } });
     fireEvent.click(editFields.getByLabelText("Activa"));
     fireEvent.submit(editForm);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     await waitFor(() => expect(write).toHaveBeenCalledWith(
       editPath,
       expect.objectContaining({ method: "PATCH" }),
@@ -199,6 +204,41 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Duplicado" } });
     fireEvent.submit(form);
     expect(await screen.findByText("Ese nombre u orden ya está en uso.")).toBeInTheDocument();
+  });
+
+  it.each([
+    [/Participantes/, "Eliminar tipo Comparsa", "Eliminar Comparsa", "/api/v1/categories/category-1", "Tipo Comparsa eliminado (desactivado en BD)."],
+    [/Jurados y especialidades/, "Eliminar especialidad Danza", "Eliminar Danza", "/api/v1/specialties/specialty-1", "Especialidad Danza eliminada (desactivada en BD)."],
+  ])("%s elimina con confirmacion previa", async (section, deleteLabel, dialogName, deletePath, message) => {
+    const write = vi.fn().mockImplementation(async (path, options) => ({ id: path.split("/").at(-1), ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: section }));
+    fireEvent.click(await screen.findByRole("button", { name: deleteLabel }));
+    expect(await screen.findByRole("dialog", { name: dialogName })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith(deletePath, {
+      method: "PATCH",
+      body: JSON.stringify({ active: false }),
+    }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("elimina (desactiva) rubro con confirmacion", async () => {
+    const write = vi.fn().mockImplementation(async (path, options) => ({ id: path.split("/").at(-1), ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar rubro Coreografia" }));
+    expect(await screen.findByRole("dialog", { name: "Eliminar Coreografia" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith(
+      "/api/v1/rubrics/rubric-1",
+      expect.objectContaining({ method: "PATCH" }),
+    ));
+    const [, options] = write.mock.calls.find(([path]) => path === "/api/v1/rubrics/rubric-1");
+    expect(JSON.parse(options.body).active).toBe(false);
+    expect(await screen.findByText("Rubro Coreografia eliminado (desactivado en BD).")).toBeInTheDocument();
   });
   it.each([
     [/Rubros, ítems y criterios/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
@@ -241,6 +281,10 @@ describe("AdminCompetenciaPage", () => {
     const expectedBody = Object.fromEntries(new FormData(form));
     // Both events in one batch exercise the synchronous guard, not only disabled buttons.
     act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+    if (action.startsWith("Guardar")) {
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+    }
     expect(write).toHaveBeenCalledTimes(1);
     expect(write.mock.calls[0][0]).toBe(path);
     expect(write.mock.calls[0][1].method).toBe(action.startsWith("Guardar") ? "PATCH" : "POST");
@@ -257,6 +301,7 @@ describe("AdminCompetenciaPage", () => {
     expect(button).toBeEnabled();
     expect(Object.fromEntries(new FormData(form))).toEqual(expectedBody);
     fireEvent.click(button);
+    if (action.startsWith("Guardar")) fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     await waitFor(() => expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "false"));
     expect(write).toHaveBeenCalledTimes(2);
     expect(write.mock.calls[1]).toEqual(write.mock.calls[0]);
@@ -277,6 +322,8 @@ describe("AdminCompetenciaPage", () => {
     const button = screen.getByRole("button", { name: "Reasignar Expresion" });
     fireEvent.change(select, { target: { value: item.id } });
     act(() => { fireEvent.submit(button.closest("form")); fireEvent.submit(button.closest("form")); });
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar reasignación" }));
     expect(write).toHaveBeenCalledTimes(1);
     expect(select).toBeDisabled();
     expect(button).toBeDisabled();
@@ -286,6 +333,7 @@ describe("AdminCompetenciaPage", () => {
     expect(select).toHaveValue(item.id);
     expect(select).toBeEnabled();
     fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar reasignación" }));
     await screen.findByText("Criterio reasignado.");
     expect(write).toHaveBeenCalledTimes(2);
     expect(write.mock.calls[1]).toEqual(["/api/v1/rubric-criteria/orphan-1", { method: "PATCH", body: JSON.stringify({ scoringItemId: item.id }) }]);
@@ -343,6 +391,8 @@ describe("AdminCompetenciaPage", () => {
     expect(screen.getByRole("button", { name: `Bajar ${kind} ${second}` })).toBeDisabled();
     const move = screen.getByRole("button", { name: `Bajar ${kind} ${first}` });
     act(() => { fireEvent.click(move); fireEvent.click(move); });
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     expect(write).toHaveBeenCalledExactlyOnceWith(`/api/v1/${resource}/${firstId}/reorder`, {
       method: "POST",
       body: JSON.stringify({ direction: "DOWN", neighborId: secondId, expectedOrder: 1, expectedNeighborOrder: lastOrder }),
@@ -357,6 +407,7 @@ describe("AdminCompetenciaPage", () => {
     expect(screen.getByRole("button", { name: `Subir ${kind} ${second}` }).compareDocumentPosition(screen.getByRole("button", { name: `Subir ${kind} ${first}` })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("Criterio ajeno")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: `Subir ${kind} ${first}` }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     expect(write.mock.calls[1]).toEqual([`/api/v1/${resource}/${firstId}/reorder`, {
       method: "POST", body: JSON.stringify({ direction: "UP", neighborId: secondId, expectedOrder: lastOrder, expectedNeighborOrder: 1 }),
     }]);
@@ -374,6 +425,7 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     fireEvent.click(screen.getByRole("button", { name: "Bajar item Interpretacion" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     expect(await screen.findByText(/La configuracion cambio/)).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/rubrics/rubric-1");
     expect(write).toHaveBeenCalledTimes(1);
@@ -391,6 +443,7 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     fireEvent.click(screen.getByRole("button", { name: "Bajar item Interpretacion" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     expect(await screen.findByText(/No se pudo cambiar el orden/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bajar item Interpretacion" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Subir item Interpretacion" })).toBeDisabled();
@@ -494,6 +547,8 @@ describe("AdminCompetenciaPage", () => {
       const fields = within(form);
       fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Estrella Editada" } });
       act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       expect(write).toHaveBeenCalledTimes(1);
       expect(write.mock.calls[0][0]).toBe("/api/v1/troupes/troupe-1");
       expect(write.mock.calls[0][1].method).toBe("PATCH");
@@ -501,6 +556,7 @@ describe("AdminCompetenciaPage", () => {
       expect(await screen.findByText("No se pudo guardar.")).toBeInTheDocument();
       expect(fields.getByLabelText("Nombre")).toHaveValue("Estrella Editada");
       fireEvent.click(button);
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
       expect(await screen.findByText("Guardado.")).toBeInTheDocument();
     });
@@ -550,6 +606,8 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getByRole("button", { name: "Subir Estrella en Noche 1" })).toBeDisabled();
       expect(screen.getByRole("button", { name: "Bajar Apagada en Noche 1" })).toBeDisabled();
       fireEvent.click(screen.getByRole("button", { name: "Bajar Estrella en Noche 1" }));
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/schedule/s-1/reorder", {
         method: "POST",
         body: JSON.stringify({ direction: "DOWN", neighborId: "s-2", expectedOrder: 1, expectedNeighborOrder: 2 }),
@@ -563,6 +621,7 @@ describe("AdminCompetenciaPage", () => {
       await openTroupesTab();
       await screen.findByText("Orden de pasada");
       fireEvent.click(screen.getByRole("button", { name: "Bajar Estrella en Noche 1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       expect(await screen.findByText(/El orden cambio/)).toBeInTheDocument();
       expect(write).toHaveBeenCalledTimes(1);
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/event-1/schedule?nightId=night-1");
@@ -593,6 +652,8 @@ describe("AdminCompetenciaPage", () => {
         { target: { value: "troupe-1" } },
       );
       fireEvent.click(screen.getByRole("button", { name: "Programar comparsa" }));
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       expect(write).toHaveBeenCalledWith("/api/v1/events/event-1/schedule", {
         method: "POST",
         body: JSON.stringify({ nightId: "night-1", troupeId: "troupe-1" }),

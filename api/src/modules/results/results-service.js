@@ -49,8 +49,8 @@ export async function runTransaction(clientOrNull, operation) {
 }
 
 /**
- * Devuelve todos los puntajes confirmados e inmutables de un evento,
- * agregados por rubro y comparsa.
+ * Devuelve puntajes confirmados e inmutables agregados por rubro y unidad
+ * evaluada. Los nominados conservan identidad individual.
  *
  * RF-89: acumulación por rubro/comparsa sobre SCORED (1-10) y NOT_PRESENTED (0).
  * No muta votos ni planillas.
@@ -63,8 +63,12 @@ export async function fetchConsolidatedScores({ eventId, client = getPool() }) {
         r.name AS "rubricName",
         r.code AS "rubricCode",
         r.rubric_type AS "rubricKind",
+        r.evaluation_target AS "evaluationTarget",
         et.id AS "troupeId",
         et.name AS "troupeName",
+        tn.id AS "nominationId",
+        tn.display_name AS "participantName",
+        tn.subject_type AS "participantType",
         COALESCE(SUM(bs.score), 0)::INTEGER AS "totalScore",
         COUNT(bs.id)::INTEGER AS "scoreCount"
        FROM ballot_score bs
@@ -72,11 +76,13 @@ export async function fetchConsolidatedScores({ eventId, client = getPool() }) {
        JOIN rubric r ON r.id = bs.rubric_id
        JOIN night_troupe_schedule nts ON nts.id = bs.night_schedule_id
        JOIN event_troupe et ON et.id = nts.event_troupe_id
+       LEFT JOIN troupe_nomination tn ON tn.id = bs.nomination_id
       WHERE bs.event_id = $1
         AND bs.status = 'LOCKED'
         AND bs.evaluation_state IN ('SCORED', 'NOT_PRESENTED')
-      GROUP BY r.id, r.name, r.code, r.rubric_type, et.id, et.name
-      ORDER BY r.code, "totalScore" DESC, et.name`,
+      GROUP BY r.id, r.name, r.code, r.rubric_type, r.evaluation_target,
+               et.id, et.name, tn.id, tn.display_name, tn.subject_type
+      ORDER BY r.code, "totalScore" DESC, et.name, tn.display_name`,
     [id],
   );
   return rows;
@@ -95,41 +101,80 @@ export function computeRubricRankings(scores) {
         rubricName: score.rubricName,
         rubricCode: score.rubricCode,
         rubricKind: score.rubricKind,
-        troupes: [],
+        evaluationTarget: score.evaluationTarget ?? "TROUPE",
+        competitorsById: new Map(),
       });
     }
-    byRubric.get(score.rubricId).troupes.push({
+    const rubric = byRubric.get(score.rubricId);
+    const nominationTarget = rubric.evaluationTarget === "NOMINATION" && score.nominationId;
+    const competitorId = nominationTarget ? `nomination:${score.nominationId}` : `troupe:${score.troupeId}`;
+    const competitor = rubric.competitorsById.get(competitorId) ?? {
+      competitorId,
+      nominationId: nominationTarget ? score.nominationId : null,
+      participantName: nominationTarget ? score.participantName : null,
+      participantType: nominationTarget ? score.participantType : null,
       troupeId: score.troupeId,
       troupeName: score.troupeName,
-      totalScore: score.totalScore,
-      scoreCount: score.scoreCount,
-    });
+      totalScore: 0,
+      scoreCount: 0,
+    };
+    competitor.totalScore += Number(score.totalScore ?? 0);
+    competitor.scoreCount += Number(score.scoreCount ?? 0);
+    rubric.competitorsById.set(competitorId, competitor);
   }
 
   const rankings = [];
-  for (const rubric of byRubric.values()) {
-    rubric.troupes.sort((a, b) => {
+  for (const source of byRubric.values()) {
+    const competitors = Array.from(source.competitorsById.values());
+    competitors.sort((a, b) => {
       if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-      return a.troupeName.localeCompare(b.troupeName);
+      return (a.participantName ?? a.troupeName).localeCompare(b.participantName ?? b.troupeName);
     });
-
     let rank = 1;
     let previousScore = null;
-    rubric.troupes.forEach((troupe, index) => {
-      if (previousScore !== null && troupe.totalScore < previousScore) {
+    competitors.forEach((competitor, index) => {
+      if (previousScore !== null && competitor.totalScore < previousScore) {
         rank = index + 1;
       }
-      troupe.rank = rank;
-      previousScore = troupe.totalScore;
+      competitor.rank = rank;
+      previousScore = competitor.totalScore;
     });
 
-    const maxScore = rubric.troupes.length > 0 ? rubric.troupes[0].totalScore : null;
-    const winners = rubric.troupes.filter((t) => t.totalScore === maxScore && maxScore !== null);
+    const maxScore = competitors.length > 0 ? competitors[0].totalScore : null;
+    const winners = competitors.filter((competitor) => competitor.totalScore === maxScore && maxScore !== null);
+
+    // El ranking por rubro conserva cada nominado. Esta vista por comparsa
+    // usa el mejor nominado de cada comparsa para desempates y cómputo general.
+    const bestByTroupe = new Map();
+    for (const competitor of competitors) {
+      const previous = bestByTroupe.get(competitor.troupeId);
+      if (!previous || competitor.totalScore > previous.totalScore) bestByTroupe.set(competitor.troupeId, competitor);
+    }
+    const troupes = Array.from(bestByTroupe.values()).map((competitor) => ({ ...competitor }));
+    troupes.sort((a, b) => b.totalScore - a.totalScore || a.troupeName.localeCompare(b.troupeName));
+    let troupeRank = 1;
+    let previousTroupeScore = null;
+    troupes.forEach((troupe, index) => {
+      if (previousTroupeScore !== null && troupe.totalScore < previousTroupeScore) troupeRank = index + 1;
+      troupe.rank = troupeRank;
+      previousTroupeScore = troupe.totalScore;
+    });
+
+    const winnerTroupeIds = Array.from(new Set(winners.map((winner) => winner.troupeId)));
 
     rankings.push({
-      ...rubric,
-      winnerTroupeIds: winners.map((w) => w.troupeId),
-      winners: winners.map((w) => ({ troupeId: w.troupeId, troupeName: w.troupeName, totalScore: w.totalScore })),
+      rubricId: source.rubricId,
+      rubricName: source.rubricName,
+      rubricCode: source.rubricCode,
+      rubricKind: source.rubricKind,
+      evaluationTarget: source.evaluationTarget,
+      winnerTroupeIds,
+      winnerNominationIds: winners.map((winner) => winner.nominationId).filter(Boolean),
+      winners: winners.map(({ nominationId, participantName, participantType, troupeId, troupeName, totalScore }) => ({
+        nominationId, participantName, participantType, troupeId, troupeName, totalScore,
+      })),
+      competitors: competitors.map(({ competitorId, ...competitor }) => competitor),
+      troupes,
     });
   }
 
@@ -189,9 +234,19 @@ function extractTroupePenalties(penaltiesInput, troupeId) {
  * RF-91, RF-92, RF-93, RF-117, RF-118, RF-119.
  */
 export function computeOverallRanking(scores, penalties = null) {
-  const byTroupe = new Map();
+  const rubricByTroupe = new Map();
   for (const score of scores) {
     if (score.rubricKind !== "NOMINATIVE") continue;
+    const rubricKey = `${score.rubricId}:${score.troupeId}`;
+    const existing = rubricByTroupe.get(rubricKey);
+    const points = Number(score.totalScore ?? 0);
+    if (!existing || score.evaluationTarget === "NOMINATION" && points > existing.totalScore) {
+      rubricByTroupe.set(rubricKey, { ...score, totalScore: points });
+    }
+  }
+
+  const byTroupe = new Map();
+  for (const score of rubricByTroupe.values()) {
     if (!byTroupe.has(score.troupeId)) {
       byTroupe.set(score.troupeId, {
         troupeId: score.troupeId,
@@ -271,9 +326,9 @@ function findBatteryWinner(rubricRankings) {
     (r) => r.rubricKind === "NOMINATIVE" && r.rubricCode.toUpperCase() === "BATERIA",
   );
   if (!batteryRubric) return null;
-  const winners = batteryRubric.winners;
-  if (winners.length !== 1) return null;
-  return winners[0].troupeId;
+  const winnerTroupeIds = Array.from(new Set(batteryRubric.winners.map((winner) => winner.troupeId)));
+  if (winnerTroupeIds.length !== 1) return null;
+  return winnerTroupeIds[0];
 }
 
 /**

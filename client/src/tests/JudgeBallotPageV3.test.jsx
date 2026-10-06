@@ -176,7 +176,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
 
     // Click "No se presentó"
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
 
     // Modal dialog appears
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
@@ -371,5 +371,29 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     expect(within(banner).queryByRole("button")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
     expect(await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" })).toBeInTheDocument();
+  });
+
+  it("marca la comparsa completa como no presentada en una sola acción", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (!options) return Promise.resolve(ballotV3);
+      if (path.endsWith("/troupes/schedule-1/mark-absent")) {
+        return Promise.resolve({ revision: 2, updatedScoreIds: ["score-1", "score-2"] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<JudgeBallotPage ballotId="ballot-v3" />);
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+
+    fireEvent.click(screen.getByRole("button", { name: /Comparsa completa no se presentó/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
+    expect(within(dialog).getByText(/2 ítems pendientes/)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar" }));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/judge/ballots/ballot-v3/troupes/schedule-1/mark-absent",
+      expect.objectContaining({ method: "POST" }),
+    ));
   });
 });

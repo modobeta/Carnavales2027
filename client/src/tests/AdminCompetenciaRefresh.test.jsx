@@ -57,7 +57,17 @@ it("no pierde una comparsa programada por una lectura inicial tardía", async ()
   const selector = await screen.findByRole("combobox", { name: "Comparsa para programar en la jornada" });
   fireEvent.change(selector, { target: { value: "t1" } });
   fireEvent.click(screen.getByRole("button", { name: "Programar comparsa" }));
+  expect(apiRequest).not.toHaveBeenCalledWith(
+    "/api/v1/events/e1/schedule",
+    expect.objectContaining({ method: "POST" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Confirmar programación" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar y guardar" }));
   await screen.findByRole("button", { name: "Quitar Estrella de Noche 1" });
+  expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1/schedule", {
+    method: "POST",
+    body: JSON.stringify({ nightId: "n1", troupeId: "t1" }),
+  });
   await release();
   expect(screen.getByRole("button", { name: "Quitar Estrella de Noche 1" })).toBeInTheDocument();
 });

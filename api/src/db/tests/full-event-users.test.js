@@ -46,6 +46,7 @@ test("seed completo en BD vacía: cuentas, login OTP e idempotencia", {
     assert.ok(first.users.auxiliaries.every((entry) => entry.created));
     assert.equal(first.rubrics, 36);
     assert.equal(first.troupes, 7);
+    assert.equal(first.nominations, 77);
     assert.equal(first.coverage, 175);
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM night")).rows[0].n, 3);
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM "user"')).rows[0].n, 12);

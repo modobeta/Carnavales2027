@@ -111,7 +111,7 @@ Todos se ejecutan desde `api/`.
 
 - `src/db/migrate.js` ordena los archivos SQL, usa advisory lock, aplica cada migración en una transacción y registra versión/checksum SHA-256 en `schema_migrations`.
 - **No editar migraciones aplicadas:** el runner rechaza cambios con `MIGRATION_CHECKSUM_MISMATCH`. Agregá una nueva migración incremental.
-- El árbol contiene versiones desde `001` hasta `076`, sin archivo `071`: son 75 archivos SQL, no 76. No renumerarlos para eliminar el salto.
+- El árbol contiene versiones desde `001` hasta `082`, sin archivo `071`: son 81 archivos SQL, no 82. No renumerarlos para eliminar el salto.
 - Las tablas incluyen roles, eventos/jornadas, catálogos de competencia, perfiles e invitaciones, asignaciones, planillas/puntajes, ventanas de votación, penalizaciones, liberaciones, snapshots y actas.
 - Triggers y restricciones protegen historia, pertenencia al evento, cambios de estado e inmutabilidad. No son validaciones opcionales que pueda reemplazar el cliente.
 - `src/db/transaction.js` centraliza transacciones con reintentos limitados para deadlock `40P01` y difusión de eventos después del commit. Los módulos también contienen wrappers transaccionales propios: seguí el patrón del flujo afectado.
@@ -124,7 +124,7 @@ Después de las migraciones, configurá `NODE_ENV=development` o `test`, las var
 npm run seed:event:full
 ```
 
-`src/db/seeds/full-event.*` define datos ficticios: tres jornadas competitivas, siete comparsas, tres especialidades, 36 rubros (25 nominativos y 11 aleatorios), nueve jurados y cuentas ADMIN/ESCRIBANO/VEEDOR. El evento queda activo, `CONFIGURING`, con readiness válido y sin votación abierta, votos, resultados ni penalizaciones. Las planillas se crean al abrir las jornadas, no durante el seed.
+`src/db/seeds/full-event.*` define datos ficticios: tres jornadas competitivas, siete comparsas, tres especialidades, 36 rubros (25 nominativos y 11 aleatorios), 77 nominaciones con nombres marcados `DEMO PLACEHOLDER`, nueve jurados y cuentas ADMIN/ESCRIBANO/VEEDOR. Esas nominaciones existen solo para que el seed sintético cumpla readiness; no representan integrantes ni participantes oficiales. El evento queda activo, `CONFIGURING`, sin votación abierta, votos, resultados ni penalizaciones. Las planillas se crean al abrir las jornadas, no durante el seed.
 
 La programación usa fechas y orden simulados; conserva timestamp completo y zona `America/Argentina/Cordoba`, incluso al pasar la medianoche. No reutilizar estos datos como calendario oficial.
 
@@ -181,6 +181,8 @@ La fuente exacta de métodos y payloads es `src/routes/*.routes.js`; la tabla ag
 Los errores usan códigos de dominio traducidos por `http-errors.js`; los inesperados devuelven `INTERNAL_ERROR`. Las rutas privadas no deben cachearse. Las respuestas públicas de resultados son una excepción explícita: usan caché corta y ETag; el stream usa `no-cache`.
 
 Los contratos actuales no tienen un único envoltorio universal: hay objetos, listas y errores `{ code, ... }` según la ruta. Consultar el handler y sus tests antes de implementar consumidores; no suponer `{ data }` o `{ error }` para todos los endpoints.
+
+El tipo reglamentario de un rubro es `NOMINATIVE` (Nominativo) o `RANDOM` (Aleatorio). Los rubros con `evaluationTarget: "NOMINATION"` requieren nominados antes de abrir el evento. ADMIN puede gestionarlos mientras el evento está en configuración con `POST /api/v1/rubrics/:rubricId/nominations` (`eventTroupeId`, `displayName`) y `PATCH /api/v1/nominations/:nominationId` (`active`). Para rubros `RANDOM` se permiten hasta tres nominados activos por comparsa; los nombres activos no se pueden duplicar dentro del mismo rubro y comparsa. Cada nominado genera decisiones independientes en las planillas. Los votos de resultados se acumulan por nominado para el ranking del rubro; solo los rubros `NOMINATIVE` aportan al total de Comparsa Ganadora y, si tienen varios nominados, se toma el puntaje más alto de esa comparsa para ese rubro. Los rubros `RANDOM` quedan fuera de ese total.
 
 Las escrituras de `/api/v1` verifican `Origin` contra `FRONTEND_URL`; en producción rechazan ausencia de cualquiera. No hay configuración CORS general para operar el cliente arbitrariamente desde otro origen.
 
@@ -268,6 +270,8 @@ Las sesiones usan cookies de Better Auth, no un JWT administrado manualmente por
 El cierre de una jornada de competencia requiere que su ventana de votación ya esté cerrada. Al cerrar la última jornada, el evento pasa a `CLOSED` y queda inmutable. Las jornadas de premiación también deben cerrarse para completar el evento.
 
 La apertura del evento valida en `/api/v1/events/:eventId/readiness` que cada jornada de competencia tenga al menos una comparsa programada en el orden de pasada. La respuesta incluye `missing: ["INCOMPLETE_SCHEDULES"]` e `incompleteSchedules` con las jornadas sin programación; PostgreSQL repite la misma validación al cambiar el evento a `OPEN`. Cada entrada tiene un puesto único y positivo por las restricciones de base de datos. Una vez abierto, el reorden requiere motivo y auditoría. La comparsa actualmente en pista y las comparsas con decisiones de voto registradas conservan su posición; solo se puede ordenar el tramo restante.
+
+Para rubros activos cuyo `evaluationTarget` es `NOMINATION`, readiness también comprueba que cada comparsa activa programada tenga al menos una nominación activa. Informa `missing: ["INCOMPLETE_NOMINATIONS"]` y los pares pendientes en `incompleteNominations`; una validación PostgreSQL equivalente impide saltarse el control al abrir el evento directamente en la base. Al generar planillas se crea una puntuación separada por cada nominación activa.
 
 | Control | Configuración actual |
 | --- | --- |

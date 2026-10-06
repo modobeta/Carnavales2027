@@ -28,15 +28,18 @@
 
 /* ==========================================================================
    Dialog (<dialog>)
+   Superficie de modal: turquesa de la paleta con tinta oscura (7.4:1).
    ========================================================================== */
 .app-dialog {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-modal);
   border-radius: var(--radius-lg);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  background: var(--surface-modal);
+  color: var(--text-on-modal);
   padding: 0;
   max-inline-size: min(90vw, 540px);
   inline-size: 100%;
+  max-block-size: calc(100vh - 2rem);
+  max-block-size: calc(100dvh - 2rem);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -51,6 +54,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-block-size: calc(100vh - 2rem);
+  max-block-size: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .app-dialog-header {
@@ -58,7 +65,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  border-block-end: 1px solid var(--border-subtle);
+  border-block-end: 1px solid var(--border-modal);
   padding-block-end: var(--space-3);
 }
 
@@ -66,13 +73,14 @@
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-on-modal);
+  overflow-wrap: anywhere;
 }
 
 .app-dialog-close-btn {
   background: transparent;
   border: 0;
-  color: var(--text-muted);
+  color: var(--text-on-modal);
   cursor: pointer;
   font-size: var(--text-lg);
   padding: var(--space-2);
@@ -82,24 +90,27 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
 }
 
 .app-dialog-close-btn:hover {
-  color: var(--text-primary);
-  background: var(--surface-raised);
+  color: var(--text-on-modal);
+  background: var(--surface-modal-hover);
 }
 
 .app-dialog-description {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-on-modal-soft);
   font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .app-dialog-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-block-size: 0;
 }
 
 /* ==========================================================================
@@ -130,12 +141,19 @@
   min-block-size: var(--touch-target-min); /* 48px */
   padding: 0 var(--space-4);
   font-size: var(--text-base);
+  /* Las etiquetas largas nunca deben recortarse ni desbordar el botón. */
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .app-button-lg {
   min-block-size: var(--touch-target-lg); /* 56px */
   padding: 0 var(--space-6);
   font-size: var(--text-lg);
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .app-button-primary {
@@ -145,6 +163,26 @@
 
 .app-button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+/* Acción afirmativa: verde con tinta oscura (9.3:1). */
+.app-button-confirm {
+  background: var(--confirm-fill);
+  color: var(--confirm-ink);
+}
+
+.app-button-confirm:hover:not(:disabled) {
+  background: var(--confirm-fill-hover);
+}
+
+/* Acción de cancelación: rojo con blanco (4.9:1). */
+.app-button-cancel {
+  background: var(--cancel-fill);
+  color: var(--cancel-ink);
+}
+
+.app-button-cancel:hover:not(:disabled) {
+  background: var(--cancel-fill-hover);
 }
 
 .app-button-secondary {
@@ -571,6 +609,30 @@
 
 .not-presented-btn:hover:not(:disabled) {
   background: rgba(245, 158, 11, 0.4);
+}
+
+.troupe-absent-actions {
+  margin-block-start: var(--space-3);
+  padding-inline: var(--space-4);
+}
+
+.troupe-absent-btn {
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(220, 38, 38, 0.14);
+  border: 1px solid var(--danger-border);
+  border-inline-start: 5px solid var(--danger-border);
+  color: var(--danger-light);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.troupe-absent-btn:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.28);
 }
 
 .item-status-error {
@@ -1354,9 +1416,9 @@
   height: 80px;
   border-radius: 50%;
   background: var(--brand-gold);
-  color: var(--surface-card);
+  color: var(--text-on-highlight);
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 16px rgba(26, 5, 36, 0.35);
 }
 
 .champion-info {
@@ -2208,4 +2270,27 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
   line-height: 1.3;
+}
+
+.standby-assignment-flow {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+  padding: var(--space-3);
+  border-inline-start: 3px solid var(--primary-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.standby-assignment-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+@media (max-width: 36rem) {
+  .assignment-type-group {
+    flex-direction: column;
+  }
 }

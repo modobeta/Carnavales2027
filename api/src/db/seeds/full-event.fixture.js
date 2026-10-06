@@ -11,8 +11,8 @@ export const FULL_EVENT = {
   intervalMinutes: 90,
   orderSource: "TEST_SIMULATED_DRAW",
   metadata: {
-    seed: true, fixture: "FULL_EVENT", fixtureVersion: "2027.2", officialData: false,
-    orderType: "SIMULATED_DRAW", description: "Fixture integral para pruebas funcionales de Carnavales 2027",
+    seed: true, fixture: "FULL_EVENT", fixtureVersion: "2027.3", officialData: false,
+    orderType: "SIMULATED_DRAW", description: "Fixture integral de pruebas; las nominaciones son placeholders ficticios, no participantes oficiales",
   },
 };
 export const FULL_NIGHTS = [
@@ -56,6 +56,10 @@ export const FULL_RUBRICS = [
   ...NOMINATIVE_RUBRICS.map((entry) => ({ ...entry, type: "NOMINATIVE", target: "TROUPE" })),
   ...RANDOM_RUBRICS.map((entry) => ({ ...entry, type: "RANDOM", target: "NOMINATION" })),
 ];
+
+export function fullNominationPlaceholder(rubricCode, troupeCode) {
+  return `DEMO PLACEHOLDER — ${rubricCode} — ${troupeCode}`;
+}
 
 export function fullScheduleForNight(night) {
   const shift = (night.order - 1) % FULL_TROUPES.length;

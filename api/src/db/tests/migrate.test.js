@@ -102,6 +102,9 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "075_carnival_event_active.sql"
           || filename === "076_schedule_timestamps.sql" || filename === "077_allow_assignment_in_open_event.sql"
           || filename === "078_close_event_after_all_nights.sql" || filename === "079_event_schedule_readiness_and_live_reorder.sql"
+          || filename === "080_nomination_ballot_scores.sql"
+          || filename === "081_rubric_types_nominative_random.sql"
+          || filename === "082_event_open_requires_nominations.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -494,6 +497,21 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "079_event_schedule_readiness_and_live_reorder.sql",
       version: "079",
+      applied: true,
+    },
+    {
+      filename: "080_nomination_ballot_scores.sql",
+      version: "080",
+      applied: true,
+    },
+    {
+      filename: "081_rubric_types_nominative_random.sql",
+      version: "081",
+      applied: true,
+    },
+    {
+      filename: "082_event_open_requires_nominations.sql",
+      version: "082",
       applied: true,
     },
   ]);

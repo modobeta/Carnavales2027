@@ -89,7 +89,7 @@ describe("AdminAssignmentsPage", () => {
     expect(screen.getByText(/Falta cubrir el puesto de Vestuario/)).toBeInTheDocument();
   });
 
-  it("revela Suplente de solo al elegir suplente y crea la asignación", async () => {
+  it("auto-selecciona el único titular al elegir suplente y crea la asignación", async () => {
     apiRequest.mockImplementation((path, options) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }]);
       if (path === "/api/v1/judges") return Promise.resolve([
@@ -111,11 +111,11 @@ describe("AdminAssignmentsPage", () => {
     });
     render(<AdminAssignmentsPage />);
     fireEvent.click(await screen.findByRole("button", { name: "+ Asignar jurado" }));
-    expect(screen.queryByLabelText("Suplente de")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Suplente de:/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Suplente" }));
-    expect(screen.getByLabelText("Suplente de")).toBeInTheDocument();
+    expect(screen.getByText(/Suplente de:/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Suplente de")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Jurado"), { target: { value: "judge-2" } });
-    fireEvent.change(screen.getByLabelText("Suplente de"), { target: { value: "primary-1" } });
     fireEvent.click(screen.getByRole("button", { name: "Asignar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/judge-assignments",
@@ -130,5 +130,96 @@ describe("AdminAssignmentsPage", () => {
         }),
       },
     ));
+  });
+
+  it("muestra selector acotado cuando hay varios titulares en la misma especialidad", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }]);
+      if (path === "/api/v1/judges") return Promise.resolve([
+        { id: "judge-1", name: "Titular A", registrationStatus: "REGISTERED" },
+        { id: "judge-3", name: "Titular B", registrationStatus: "REGISTERED" },
+        { id: "judge-2", name: "Suplente", registrationStatus: "REGISTERED" },
+      ]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]);
+      if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
+      if (path.endsWith("/judge-assignments") && !options) {
+        return Promise.resolve({
+          quotas: [],
+          assignments: [
+            { id: "primary-1", judgeName: "Titular A", judgeProfileId: "judge-1", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
+            { id: "primary-2", judgeName: "Titular B", judgeProfileId: "judge-3", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
+          ],
+        });
+      }
+      if (path === "/api/v1/events/event-1/judge-assignments") return Promise.resolve({});
+      return Promise.resolve({});
+    });
+    render(<AdminAssignmentsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "+ Asignar jurado" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Suplente" }));
+    const standby = screen.getByLabelText("Suplente de");
+    expect(Array.from(standby.options).map((option) => option.value)).toEqual(["", "primary-1", "primary-2"]);
+    fireEvent.change(screen.getByLabelText("Jurado"), { target: { value: "judge-2" } });
+    fireEvent.change(standby, { target: { value: "primary-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Asignar" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/events/event-1/judge-assignments",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          nightId: "night-1",
+          specialtyId: "specialty-1",
+          judgeProfileId: "judge-2",
+          assignmentType: "SUBSTITUTE",
+          standbyForAssignmentId: "primary-2",
+        }),
+      },
+    ));
+  });
+
+  it("bloquea el alta de suplente cuando no hay titular asignado", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }]);
+      if (path === "/api/v1/judges") return Promise.resolve([{ id: "judge-2", name: "Suplente", registrationStatus: "REGISTERED" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]);
+      if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
+      if (path.endsWith("/judge-assignments") && !options) {
+        return Promise.resolve({ quotas: [], assignments: [] });
+      }
+      if (path === "/api/v1/events/event-1/judge-assignments") return Promise.resolve({});
+      return Promise.resolve({});
+    });
+    render(<AdminAssignmentsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "+ Asignar jurado" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Suplente" }));
+    expect(screen.getByText("No hay titular asignado para esta especialidad.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asignar" })).toBeDisabled();
+  });
+
+  it("no ofrece en el selector de jurado a quienes ya están asignados en esa noche", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }]);
+      if (path === "/api/v1/judges") return Promise.resolve([
+        { id: "judge-1", name: "Titular", registrationStatus: "REGISTERED" },
+        { id: "judge-2", name: "Suplente", registrationStatus: "REGISTERED" },
+        { id: "judge-3", name: "Libre", registrationStatus: "REGISTERED" },
+      ]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]);
+      if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
+      if (path.endsWith("/judge-assignments") && !options) {
+        return Promise.resolve({
+          quotas: [],
+          assignments: [
+            { id: "primary-1", judgeName: "Titular", judgeProfileId: "judge-1", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
+          ],
+        });
+      }
+      if (path === "/api/v1/events/event-1/judge-assignments") return Promise.resolve({});
+      return Promise.resolve({});
+    });
+    render(<AdminAssignmentsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "+ Asignar jurado" }));
+    const select = screen.getByLabelText("Jurado");
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(["", "judge-2", "judge-3"]);
   });
 });

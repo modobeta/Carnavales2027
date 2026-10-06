@@ -93,9 +93,18 @@ export function JudgeAssignmentPage({ session, onConfirmed }) {
   const firstName = session.user?.name?.split(" ")[0] ?? "Jurado";
   const specialtyName = assignments[0]?.specialtyName ?? "Especialidad";
   const nightName = assignments[0]?.nightName ?? "Noche";
-  const dateStr = assignments[0]?.eventDate
-    ? new Date(assignments[0].eventDate).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })
-    : "";
+  const dateStr = (() => {
+    const raw = assignments[0]?.eventDate;
+    if (!raw) return "";
+    if (typeof raw === "string") {
+      const match = raw.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (match) {
+        return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+          .toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+      }
+    }
+    return new Date(raw).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  })();
 
   const handleConfirm = () => {
     if (onConfirmed) onConfirmed();

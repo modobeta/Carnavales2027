@@ -551,7 +551,7 @@ button.button-link:disabled {
 }
 
 .locked-score.not-presented > span {
-  color: #451a03;
+  color: var(--text-on-highlight);
   background: var(--warning-text);
 }
 
@@ -793,7 +793,7 @@ button.button-link:disabled {
 }
 
 .judge-completion-message p {
-  color: #bbf7d0;
+  color: var(--success-bright);
   margin: 0.15rem 0 0;
   font-size: 0.88rem;
 }

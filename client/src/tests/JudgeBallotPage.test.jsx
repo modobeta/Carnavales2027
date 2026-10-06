@@ -81,7 +81,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
     expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuemax", "2");
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/scores/score-1",
@@ -113,7 +113,7 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/submit",
-      { method: "POST" },
+      expect.objectContaining({ method: "POST", headers: { "Idempotency-Key": expect.any(String) } }),
     ));
     expect(await screen.findByRole("region", { name: "Planilla confirmada" })).toBeInTheDocument();
     expect(screen.queryByText(/pendiente de sincronización/i)).not.toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toBeInTheDocument();
 
     // Botón de excepción con ícono de alerta.
-    const npBtn = screen.getAllByRole("button", { name: "No se presentó este rubro" })[0];
+    const npBtn = screen.getAllByRole("button", { name: "No se presentó este ítem" })[0];
     expect(within(npBtn).getByText("⚠")).toBeInTheDocument();
 
     // Modal con el valor en pastilla sólida.
@@ -148,7 +148,7 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
@@ -180,6 +180,36 @@ describe("JudgeBallotPage", () => {
     expect(await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" })).toBeInTheDocument();
   });
 
+  it("reutiliza la clave de idempotencia al reintentar el envío final tras un error de red", async () => {
+    const complete = { ...ballot, scores: ballot.scores.map((score) => ({ ...score, score: 8, evaluationState: "SCORED" })) };
+    let attempts = 0;
+    apiRequest.mockImplementation((path, options) => {
+      if (!options) return Promise.resolve(complete);
+      if (path.endsWith("/submit")) {
+        attempts += 1;
+        return attempts === 1
+          ? Promise.reject(new ApiError({ code: "NETWORK_ERROR" }))
+          : Promise.resolve({ status: "SUBMITTED", revision: 1 });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
+
+    await screen.findByText("No hay conexión. Volvé a intentarlo para confirmar la planilla.");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
+
+    await screen.findByRole("region", { name: "Planilla confirmada" });
+    const submitCalls = apiRequest.mock.calls.filter(([path]) => path.endsWith("/submit"));
+    expect(submitCalls).toHaveLength(2);
+    const firstKey = submitCalls[0][1].headers["Idempotency-Key"];
+    expect(firstKey).toEqual(expect.any(String));
+    expect(submitCalls[1][1].headers["Idempotency-Key"]).toBe(firstKey);
+  });
+
   it("bloquea acceso directo por URL a una comparsa en espera y redirige a la comparsa activa (RF-191)", async () => {
     apiRequest.mockResolvedValue(ballot);
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-2" />);
@@ -204,7 +234,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     const banner = await screen.findByRole("region", { name: "Pasada completada" });
@@ -228,7 +258,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 2 });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este rubro" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     const banner = await screen.findByRole("region", { name: "Pasada completada" });
@@ -269,7 +299,7 @@ describe("JudgeBallotPage", () => {
 
     // Sin grilla 1–10 (ni siquiera deshabilitada) y sin navegación por ítems
     expect(screen.queryByRole("button", { name: /Votar \d/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "No se presentó este rubro" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "No se presentó este ítem" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Navegación de planilla" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Faltantes/ })).not.toBeInTheDocument();
   });

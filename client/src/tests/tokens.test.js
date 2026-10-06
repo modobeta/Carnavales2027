@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 
@@ -7,12 +7,34 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   const css = readFileSync(tokensPath, "utf8");
 
   it("define superficies, textos, bordes y acentos en :root", () => {
-    expect(css).toContain("--surface-base: #090d16;");
-    expect(css).toContain("--surface-card: #111827;");
-    expect(css).toContain("--text-primary: #f8fafc;");
-    expect(css).toContain("--text-secondary: #cbd5e1;");
-    expect(css).toContain("--border-subtle: #1e293b;");
+    expect(css).toContain("--surface-base: var(--palette-page);");
+    expect(css).toContain("--surface-card: var(--palette-card);");
+    expect(css).toContain("--text-primary: #ffffff;");
+    expect(css).toContain("--text-secondary: #f4e9f8;");
+    expect(css).toContain("--border-subtle: rgba(255, 255, 255, 0.3);");
     expect(css).toContain("--touch-target-min: 48px;");
+  });
+
+  it("expone la paleta Carnaval como unica fuente de color", () => {
+    expect(css).toContain("--palette-page: #341244;");
+    expect(css).toContain("--palette-card: #9c27b0;");
+    expect(css).toContain("--palette-highlight: #ffb300;");
+    expect(css).toContain("--palette-confirm: #34d22b;");
+    expect(css).toContain("--palette-confirm-ink: #0b1f1c;");
+    expect(css).toContain("--palette-cancel: #e30808;");
+    expect(css).toContain("--palette-action: #3b82f6;");
+    expect(css).toContain("--palette-action-fill: #2563eb;");
+    expect(css).toContain("--palette-modal: #00bfae;");
+    expect(css).toContain("--palette-modal-ink: #0b1f1c;");
+    expect(css).toContain("--text-on-highlight: var(--palette-highlight-ink);");
+    expect(css).toContain("--text-on-modal: var(--palette-modal-ink);");
+    expect(css).toContain("--surface-modal: var(--palette-modal);");
+  });
+
+  it("mantiene tinta oscura sobre los fondos claros de la paleta", () => {
+    expect(css).toContain("--palette-highlight-ink: #241a00;");
+    expect(css).toContain("--confirm-ink: var(--palette-confirm-ink);");
+    expect(css).toContain("--cancel-ink: var(--palette-cancel-ink);");
   });
 
   it("define estados operativos con fondo, borde y texto de alto contraste", () => {
@@ -24,10 +46,10 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   });
 
   it.each([
-    ["--surface-input", "#0d1523"],
-    ["--surface-login-input", "#304258"],
-    ["--border-input", "rgba(148, 163, 184, 0.34)"],
-    ["--surface-hover-subtle", "rgba(148, 163, 184, 0.1)"],
+    ["--surface-input", "var(--palette-input)"],
+    ["--surface-login-input", "var(--palette-input)"],
+    ["--border-input", "rgba(255, 255, 255, 0.62)"],
+    ["--surface-hover-subtle", "rgba(255, 255, 255, 0.16)"],
     ["--text-on-primary", "#ffffff"],
     ["--text-on-accent", "#ffffff"],
   ])("define %s globalmente una sola vez con el valor existente", (name, value) => {
@@ -39,12 +61,12 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
 
   it("soporta capas visuales data-layer='brand' e 'instrument'", () => {
     expect(css).toContain('[data-layer="brand"]');
-    expect(css).toContain("--accent-primary: #e11d74;"); // Magenta carnaval
-    expect(css).toContain("--accent-secondary: #f5b301;"); // Dorado
-    expect(css).toContain("--accent-tertiary: #14b8a6;"); // Turquesa
+    expect(css).toContain("--accent-primary: var(--palette-action-fill);");
+    expect(css).toContain("--accent-secondary: var(--palette-highlight);");
+    expect(css).toContain("--accent-tertiary: var(--palette-modal);");
 
     expect(css).toContain('[data-layer="instrument"]');
-    expect(css).toContain("--accent-primary: #2563eb;"); // Azul operativo
+    expect(css).toContain("--accent-primary: var(--palette-action-fill);");
   });
 
   it("incluye reglas para accesibilidad: prefers-reduced-motion y prefers-contrast", () => {
@@ -64,7 +86,7 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     // Legacy tokens are now mapped through semantic tokens in the main :root block.
     expect(css).toContain("--primary-color: var(--accent-primary);");
     expect(css).toContain("--primary-dark: var(--accent-hover);");
-    expect(css).toContain("--accent-color: var(--warning);");
+    expect(css).toContain("--accent-color: var(--warning-text);");
     expect(css).toContain("--danger-color: var(--danger);");
     expect(css).toContain("--success-color: var(--success);");
     expect(css).toContain("--bg-color: var(--surface-base);");
@@ -73,10 +95,10 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(css).toContain("--muted-color: var(--text-muted);");
     expect(css).toContain("--line-color: var(--border-subtle);");
     expect(css).toContain("--card-bg: var(--surface-card);");
-    expect(css).toContain("--focus-color: var(--brand-gold);");
+    expect(css).toContain("--focus-color: var(--palette-highlight);");
     expect(css).toContain("--mono-font: var(--font-mono);");
     expect(css).toContain("--border-radius: var(--radius-lg);");
-    expect(css).toContain("--text-inverse: #0f172a;");
+    expect(css).toContain("--text-inverse: var(--palette-deep);");
   });
 
   it("mantiene el orden de imports y evita overrides globales fuera de tokens", () => {
@@ -88,8 +110,9 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     const admin = readFileSync(resolve(__dirname, "../styles/admin.css"), "utf8");
     const competencia = readFileSync(resolve(__dirname, "../styles/competencia.css"), "utf8");
     const utilities = readFileSync(resolve(__dirname, "../styles/utilities.css"), "utf8");
+    const legibility = readFileSync(resolve(__dirname, "../styles/legibility.css"), "utf8");
     expect(index).toMatch(
-      /^@import "\.\/styles\/tokens\.css";\s*@import "\.\/styles\/components\.css";\s*@import "\.\/styles\/ceremony\.css";\s*@import "\.\/styles\/penalties\.css";\s*@import "\.\/styles\/scrutiny\.css";\s*@import "\.\/styles\/admin\.css";\s*@import "\.\/styles\/competencia\.css";\s*@import "\.\/styles\/utilities\.css";/
+      /^@import "\.\/styles\/tokens\.css";\s*@import "\.\/styles\/components\.css";\s*@import "\.\/styles\/ceremony\.css";\s*@import "\.\/styles\/penalties\.css";\s*@import "\.\/styles\/scrutiny\.css";\s*@import "\.\/styles\/admin\.css";\s*@import "\.\/styles\/competencia\.css";\s*@import "\.\/styles\/utilities\.css";\s*@import "\.\/styles\/legibility\.css";/
     );
     expect(/:root\s*\{/.test(index)).toBe(false);
     expect(/:root\s*\{/.test(components)).toBe(false);
@@ -99,7 +122,22 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(/:root\s*\{/.test(admin)).toBe(false);
     expect(/:root\s*\{/.test(competencia)).toBe(false);
     expect(/:root\s*\{/.test(utilities)).toBe(false);
+    expect(/:root\s*\{/.test(legibility)).toBe(false);
     expect(utilities).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(legibility).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it("mantiene tokens.css como unico archivo con colores literales", () => {
+    const stylesDir = resolve(__dirname, "../styles");
+    const offenders = readdirSync(stylesDir)
+      .filter((file) => file.endsWith(".css") && file !== "tokens.css")
+      .filter((file) => /#[0-9a-fA-F]{3,8}\b/.test(readFileSync(resolve(stylesDir, file), "utf8")));
+    const indexHasHex = /#[0-9a-fA-F]{3,8}\b/.test(
+      readFileSync(resolve(__dirname, "../index.css"), "utf8"),
+    );
+
+    expect(offenders).toEqual([]);
+    expect(indexHasHex).toBe(false);
   });
 
   it("centraliza .ballot-status-* en styles/judge.css sin duplicados en index.css (Spec 026/T03)", () => {
@@ -175,7 +213,7 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   });
 
   it.each([
-    ["navegación global", "../index.css", /\.app-navigation nav a:hover\s*\{([^{}]*color:\s*#e2e8f0[^{}]*)\}/],
+    ["navegación global", "../index.css", /\.app-navigation nav a:hover\s*\{([^{}]*color:\s*var\(--text-primary\)[^{}]*)\}/],
     ["navegación de competencia", "../styles/competencia.css", /\.competencia-nav button:hover:not\(:disabled\)\s*\{([^{}]*)\}/],
   ])("usa el token --surface-hover-subtle en hover de %s", (_name, file, rule) => {
     const source = readFileSync(resolve(__dirname, file), "utf8");

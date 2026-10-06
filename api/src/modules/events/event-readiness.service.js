@@ -8,11 +8,37 @@ const READINESS_MESSAGES = {
   ACTIVE_RUBRIC: { ok: "Rubros activos", fail: "No existe ningún rubro activo" },
   INCOMPLETE_TROUPES: { ok: "Comparsas con categoría válida", fail: "Existen comparsas sin categoría activa" },
   INCOMPLETE_RUBRICS: { ok: "Rubros con ítems válidos", fail: "Existen rubros sin ítems puntuables o con especialidades inactivas" },
+  INCOMPLETE_NOMINATIONS: { ok: "Participantes nominados cargados", fail: "Faltan participantes nominados en rubros o comparsas" },
   INCOMPLETE_SCHEDULES: { ok: "Orden de pasada completo", fail: "Una o más jornadas no tienen comparsas programadas en el orden de pasada" },
+  NIGHTS_WITHOUT_JURY: { ok: "Jurado asignado en todas las jornadas", fail: "Hay jornadas de competencia sin jurado asignado" },
 };
 
 function humanLabel(code) {
   return READINESS_MESSAGES[code]?.fail ?? code;
+}
+
+/**
+ * Noches de competencia sin ningún jurado activo.
+ *
+ * El alcance es kind='COMPETITION' porque `protect_judge_assignment` sólo admite
+ * asignaciones sobre noches de competencia; exigir jurado en noches AWARDS haría
+ * imposible abrir cualquier evento que las tenga. La misma condición está en el
+ * guard de base de datos (migración 083) para que un UPDATE directo de status no
+ * pueda esquivarla.
+ */
+async function findNightsWithoutJury(client, eventId) {
+  const { rows } = await client.query(
+    `SELECT n.id AS "nightId", n.name AS "nightName", n.display_order AS "displayOrder"
+       FROM night n
+      WHERE n.event_id = $1 AND n.kind = 'COMPETITION'
+        AND NOT EXISTS (
+          SELECT 1 FROM judge_assignment ja
+           WHERE ja.event_id = n.event_id AND ja.night_id = n.id AND ja.status = 'ACTIVE'
+        )
+      ORDER BY n.display_order, n.name`,
+    [eventId],
+  );
+  return rows;
 }
 
 export async function getReadiness({ client = getPool(), eventId }) {
@@ -22,6 +48,7 @@ export async function getReadiness({ client = getPool(), eventId }) {
   const incompleteTroupes = [];
   const incompleteRubrics = [];
   const incompleteSchedules = [];
+  const incompleteNominations = [];
   const scalar = async (sql) => Number((await client.query(sql, [eventId])).rows[0].count);
 
   if (!await scalar("SELECT COUNT(*) FROM night WHERE event_id=$1 AND kind='COMPETITION'")) missing.push("COMPETITION_NIGHT");
@@ -59,12 +86,36 @@ export async function getReadiness({ client = getPool(), eventId }) {
   for (const row of scheduleRows) incompleteSchedules.push({ nightId: row.nightId, nightName: row.nightName });
   if (incompleteSchedules.length) missing.push("INCOMPLETE_SCHEDULES");
 
+  const { rows: nominationRows } = await client.query(
+    `SELECT DISTINCT r.id AS "rubricId", r.name AS "rubricName",
+            et.id AS "troupeId", et.name AS "troupeName"
+       FROM rubric r
+       JOIN evaluation_item ei ON ei.rubric_id = r.id AND ei.active
+       JOIN night_troupe_schedule nts ON nts.event_id = r.event_id AND nts.status = 'SCHEDULED'
+       JOIN event_troupe et ON et.id = nts.event_troupe_id AND et.active
+      WHERE r.event_id = $1 AND r.active AND r.evaluation_target = 'NOMINATION'
+        AND NOT EXISTS (
+          SELECT 1 FROM troupe_nomination tn
+           WHERE tn.event_id = r.event_id AND tn.event_troupe_id = et.id
+             AND tn.rubric_id = r.id AND tn.active
+        )
+      ORDER BY r.name, et.name`,
+    [eventId],
+  );
+  incompleteNominations.push(...nominationRows);
+  if (incompleteNominations.length) missing.push("INCOMPLETE_NOMINATIONS");
+
+  const nightsWithoutJury = await findNightsWithoutJury(client, eventId);
+  if (nightsWithoutJury.length) missing.push("NIGHTS_WITHOUT_JURY");
+
   return {
-    ready: missing.length === 0 && incompleteTroupes.length === 0 && incompleteRubrics.length === 0,
+    ready: missing.length === 0 && incompleteTroupes.length === 0 && incompleteRubrics.length === 0 && incompleteNominations.length === 0,
     missing,
     incompleteTroupes,
     incompleteRubrics,
     incompleteSchedules,
+    incompleteNominations,
+    nightsWithoutJury,
     humanMessages: missing.map((code) => humanLabel(code)),
   };
 }

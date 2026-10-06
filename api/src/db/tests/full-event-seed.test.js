@@ -82,6 +82,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     assert.equal(first.jurors, 9);
     assert.equal(first.assignments, 9);
     assert.equal(first.participations, 21);
+    assert.equal(first.nominations, 77);
     assert.equal(first.coverage, 175);
     assert.equal(first.ballots, 0);
     assert.equal(first.votes, 0);
@@ -101,17 +102,18 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     const lines = [];
     printFullEventSummary(first, (line) => lines.push(line));
     assert.ok(lines.some((line) => line.includes("0 iniciales; 9")));
+    assert.ok(lines.some((line) => line.includes("77 placeholders ficticios")));
     assert.ok(!lines.join("\n").includes(password));
     const audit = (await pool.query("SELECT actor_user_id,after_data FROM audit_event WHERE action='EVENT_CONFIGURED_FROM_SEED' AND entity_id=$1", [eventId])).rows;
     assert.equal(audit.length, 1);
     assert.equal(audit[0].actor_user_id, null);
     assert.equal(audit[0].after_data.officialData, false);
-    assert.equal(audit[0].after_data.fixtureVersion, "2027.2");
+    assert.equal(audit[0].after_data.fixtureVersion, "2027.3");
   });
   await t.test("replay concurrente preserva UUIDs, configuración, auditoría y evento ajeno", async () => {
     const snapshot = async () => {
       const output = {};
-      for (const table of ["night", "event_troupe", "rubric", "evaluation_item", "judge_assignment", "night_troupe_schedule"]) {
+      for (const table of ["night", "event_troupe", "rubric", "evaluation_item", "judge_assignment", "night_troupe_schedule", "troupe_nomination"]) {
         output[table] = (await pool.query(`SELECT * FROM ${table} WHERE event_id=$1 ORDER BY id`, [eventId])).rows;
       }
       return output;

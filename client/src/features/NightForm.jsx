@@ -49,7 +49,13 @@ export function NightForm({
         id={`${idPrefix}-date`}
         name="eventDate"
         type="date"
-        defaultValue={initialValue.eventDate?.slice?.(0, 10) ?? ""}
+        defaultValue={
+          typeof initialValue.eventDate === "string"
+            ? initialValue.eventDate.slice(0, 10)
+            : initialValue.eventDate instanceof Date
+              ? initialValue.eventDate.toISOString().slice(0, 10)
+              : ""
+        }
       />
       <label htmlFor={`${idPrefix}-kind`}>Tipo de jornada</label>
       <select id={`${idPrefix}-kind`} name="kind" defaultValue={initialValue.kind ?? "COMPETITION"}>

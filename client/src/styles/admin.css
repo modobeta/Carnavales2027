@@ -731,7 +731,7 @@
 .event-status-banner-open {
   border-color: rgba(59, 130, 246, 0.4);
   background: rgba(30, 58, 138, 0.25);
-  color: #bfdbfe;
+  color: var(--accent-light);
 }
 
 .event-status-banner-closed {
@@ -1206,10 +1206,16 @@
 
 .admin-home-shell .admin-stats .overview-stat {
   min-block-size: 7rem;
+  min-inline-size: 0;
   padding: var(--space-3);
   color: var(--text-primary);
   text-decoration: none;
   transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.admin-home-shell .admin-stats .overview-stat > * {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-home-shell .admin-stats .overview-stat:hover {
@@ -1227,6 +1233,7 @@
 }
 
 .admin-home-shell .admin-stat-link {
+  justify-self: start;
   color: var(--accent-text);
   font-size: var(--text-xs);
 }
