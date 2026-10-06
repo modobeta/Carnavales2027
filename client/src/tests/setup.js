@@ -28,3 +28,10 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// jsdom no implementa object URLs; el formulario de comparsa los usa para la
+// vista previa local del logo seleccionado.
+if (typeof URL !== "undefined" && !URL.createObjectURL) {
+  URL.createObjectURL = () => "blob:mock-preview";
+  URL.revokeObjectURL = () => {};
+}

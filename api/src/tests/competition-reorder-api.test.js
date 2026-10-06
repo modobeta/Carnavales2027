@@ -7,6 +7,7 @@ import { migrate } from "../db/migrate.js";
 import { closePool, getPool } from "../db/pool.js";
 import { openEvent } from "../modules/events/event-readiness.service.js";
 import { createItem, createCriterion, reorderItem, reorderCriterion, updateItem, updateCriterion } from "../modules/rubrics/rubric-service.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const enabled = Boolean(process.env.TEST_DATABASE_URL);
 let pool, server, base, adminId;
@@ -65,7 +66,7 @@ async function fixture() {
     }
     await updateCriterion({ client, criterionId: criteria[2].id, active: false });
     await client.query("COMMIT");
-    return { event, rubric, specialty, items, criteria };
+    return { event, night, rubric, specialty, items, criteria };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -188,6 +189,7 @@ async function waitForBlocked(client) {
 test("opening and reorder serialize in both directions without changing OPEN rules", { skip: !enabled }, async () => {
   for (const opensFirst of [true, false]) {
     const f = await fixture();
+    await seedActiveJudge({ client: pool, eventId: f.event.id, nightId: f.night.id, specialtyId: f.specialty.id, adminId });
     const client = await pool.connect();
     let waiting;
     try {

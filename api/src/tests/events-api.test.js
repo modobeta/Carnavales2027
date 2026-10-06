@@ -4,6 +4,7 @@ import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 const originalDatabaseUrl = process.env.DATABASE_URL;
 
@@ -111,6 +112,7 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
       "INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)",
       [event.id, night.id, troupe.id],
     );
+    await seedActiveJudge({ client: pool, eventId: event.id, nightId: night.id, specialtyId: specialties[0].id });
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
       method: "POST",
       headers: { "x-test-session": "admin" },

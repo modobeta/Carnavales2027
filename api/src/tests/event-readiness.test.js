@@ -5,6 +5,7 @@ import { getReadiness, openEvent } from "../modules/events/event-readiness.servi
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
 import { createEvent, createNight } from "../modules/events/event-service.js";
+import { seedActiveJudge } from "./helpers/judge-fixture.js";
 
 test("readiness exige que todos los ítems activos usen especialidades activas antes de abrir", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -100,6 +101,7 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
        VALUES($1, $2, $3, 'PERSON', 'Participante')`,
       [event.id, troupe.id, nominationRubric.id],
     );
+    await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id });
     const ready = await getReadiness({ client, eventId: event.id });
     assert.equal(ready.ready, true);
     await client.query("SAVEPOINT direct_ready_open");

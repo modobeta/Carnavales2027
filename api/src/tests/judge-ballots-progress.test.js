@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import test from "node:test";
 import { createApp } from "../app.js";
 import { closePool, getPool } from "../db/pool.js";
@@ -130,6 +130,18 @@ test("API jurado: include=progress y brand_color de comparsa", {
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
 
+  // Spec 029: logo cargado durante la configuración. El trigger
+  // troupe_requires_configuring_event bloquea cambios con el evento abierto,
+  // así que se persiste antes de abrir la votación.
+  const logoBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const logoSha256 = createHash("sha256").update(logoBytes).digest("hex");
+  await pool.query(
+    `UPDATE event_troupe
+        SET logo_data = $2, logo_mime = 'image/png', logo_sha256 = $3, logo_updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1`,
+    [troupe1.id, logoBytes, logoSha256],
+  );
+
   const openClient = await pool.connect();
   try {
     await openClient.query("BEGIN");
@@ -209,6 +221,25 @@ test("API jurado: include=progress y brand_color de comparsa", {
     const blueScores = ballotData.scores.filter((s) => s.troupeName === "Comparsa Azul");
     assert.equal(blueScores.length, 2);
     assert.equal(blueScores[0].brandColor, "#3B82F6");
+
+    // Spec 029: el jurado lee el logo con su sesión y el ballot expone sus metadatos.
+    const logoRes = await fetch(`${baseUrl}/api/v1/troupes/${troupe1.id}/logo`, {
+      headers: { "x-test-session": "judge" },
+    });
+    assert.equal(logoRes.status, 200, "el jurado puede leer el logo");
+    assert.equal(logoRes.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await logoRes.arrayBuffer()), logoBytes);
+
+    const ballotWithLogo = await (await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}`, {
+      headers: judgeHeaders,
+    })).json();
+    const greenLogo = ballotWithLogo.scores.filter((s) => s.troupeName === "Comparsa Verde");
+    assert.equal(greenLogo[0].troupeId, troupe1.id);
+    assert.equal(greenLogo[0].hasLogo, true);
+    assert.equal(greenLogo[0].logoSha256, logoSha256);
+    const blueLogo = ballotWithLogo.scores.filter((s) => s.troupeName === "Comparsa Azul");
+    assert.equal(blueLogo[0].hasLogo, false);
+    assert.equal(blueLogo[0].logoSha256, null);
 
     // Attempting to score Comparsa Azul while Comparsa Verde has pending scores must fail with 409 TROUPE_PRECEDENCE_REQUIRED (RF-193)
     const outOfOrderRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${blueScores[0].id}`, {

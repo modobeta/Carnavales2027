@@ -57,6 +57,19 @@ describe("AdminCompetenciaPage", () => {
     expect(container.querySelector("main.admin-shell")).toHaveAttribute("data-layer", "instrument");
   });
 
+  it("agrupa las acciones del rubro para mantenerlas próximas entre sí", async () => {
+    mockCompetitionData();
+    const { container } = render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    await screen.findByRole("button", { name: "Expandir Coreografia" });
+
+    const actions = container.querySelector('[data-rubric-id="rubric-1"] .rubric-card-actions');
+    expect(actions).not.toBeNull();
+    expect(within(actions).getByRole("button", { name: "Expandir Coreografia" })).toBeInTheDocument();
+    expect(within(actions).getByRole("button", { name: "Eliminar rubro Coreografia" })).toBeInTheDocument();
+  });
+
   it("usa categorias existentes como tipos de participacion", async () => {
     mockCompetitionData();
     render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
@@ -467,8 +480,8 @@ describe("AdminCompetenciaPage", () => {
       { id: "s-1", nightId: "night-1", troupeId: "troupe-1", troupeName: "Estrella", troupeBrandColor: "#3B82F6", presentationOrder: 1, status: "SCHEDULED" },
       { id: "s-2", nightId: "night-1", troupeId: "troupe-2", troupeName: "Apagada", troupeBrandColor: null, presentationOrder: 2, status: "SCHEDULED" },
     ];
-    function mockTroupes({ write = vi.fn(), schedule = scheduleRows } = {}) {
-      const live = troupes.map((t) => ({ ...t }));
+    function mockTroupes({ write = vi.fn(), schedule = scheduleRows, rows = troupes } = {}) {
+      const live = rows.map((t) => ({ ...t }));
       apiRequest.mockImplementation(async (path, options) => {
         if (options?.method) {
           const result = await write(path, options);
@@ -500,8 +513,8 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getByText(/no son un cronograma oficial de la COC/)).toBeInTheDocument();
     });
 
-    it("crea comparsa con color y muestra preview Vista jurado", async () => {
-      const write = vi.fn().mockResolvedValue({ id: "troupe-3", name: "Nueva", categoryId: "category-1", categoryName: "Comparsa", brandColor: "#22C55E", active: true });
+    it("crea comparsa con color desde el selector y muestra preview Vista jurado", async () => {
+      const write = vi.fn().mockResolvedValue({ id: "troupe-3", name: "Nueva", categoryId: "category-1", categoryName: "Comparsa", brandColor: "#22c55e", active: true });
       mockTroupes({ write });
       await openTroupesTab();
       fireEvent.click(screen.getByRole("button", { name: "+ Nueva comparsa" }));
@@ -509,29 +522,136 @@ describe("AdminCompetenciaPage", () => {
       const fields = within(form);
       fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Nueva" } });
       fireEvent.change(fields.getByLabelText("Tipo de participación"), { target: { value: "category-1" } });
+      fireEvent.click(fields.getByLabelText("Usar color de identidad"));
       fireEvent.change(fields.getByLabelText("Color (opcional)"), { target: { value: "#22C55E" } });
       fireEvent.submit(form);
       await screen.findByText("Guardado.");
       expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/troupes", {
         method: "POST",
-        body: JSON.stringify({ name: "Nueva", categoryId: "category-1", brandColor: "#22C55E" }),
+        body: JSON.stringify({ name: "Nueva", categoryId: "category-1", brandColor: "#22c55e" }),
       });
-      expect(await screen.findByText("Vista jurado: Nueva (#22C55E)")).toBeInTheDocument();
+      expect(await screen.findByText("Vista jurado: Nueva (#22c55e)")).toBeInTheDocument();
     });
 
-    it("rechaza color invalido en cliente sin llamar a la API", async () => {
+    it("crea comparsa sin color cuando no se activa el selector", async () => {
+      const write = vi.fn().mockResolvedValue({ id: "troupe-3", name: "Nueva", categoryId: "category-1", categoryName: "Comparsa", brandColor: null, active: true });
+      mockTroupes({ write });
+      await openTroupesTab();
+      fireEvent.click(screen.getByRole("button", { name: "+ Nueva comparsa" }));
+      const form = screen.getByRole("button", { name: "Agregar comparsa" }).closest("form");
+      const fields = within(form);
+      fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Nueva" } });
+      fireEvent.change(fields.getByLabelText("Tipo de participación"), { target: { value: "category-1" } });
+      fireEvent.submit(form);
+      await screen.findByText("Guardado.");
+      expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/troupes", {
+        method: "POST",
+        body: JSON.stringify({ name: "Nueva", categoryId: "category-1", brandColor: null }),
+      });
+    });
+
+    it("quita el color de una comparsa existente al desactivar el selector", async () => {
+      const write = vi.fn(async (path, options) => {
+        if (path === "/api/v1/troupes/troupe-1" && options.method === "PATCH") return { id: "troupe-1", ...JSON.parse(options.body) };
+        throw new Error(`Solicitud inesperada: ${path}`);
+      });
+      mockTroupes({ write });
+      await openTroupesTab();
+      fireEvent.click(screen.getByRole("button", { name: "Editar comparsa Estrella" }));
+      const form = screen.getByRole("button", { name: "Guardar comparsa" }).closest("form");
+      const fields = within(form);
+      expect(fields.getByLabelText("Usar color de identidad")).toBeChecked();
+      fireEvent.click(fields.getByLabelText("Usar color de identidad"));
+      fireEvent.submit(form);
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+      await waitFor(() => expect(write).toHaveBeenCalledWith(
+        "/api/v1/troupes/troupe-1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ name: "Estrella", categoryId: "category-1", brandColor: null, active: true }),
+        }),
+      ));
+    });
+
+    it("muestra el logo de la comparsa en la tabla con URL versionada", async () => {
+      mockTroupes({
+        rows: [
+          { id: "troupe-1", name: "Estrella", categoryId: "category-1", categoryName: "Comparsa", brandColor: null, active: true, hasLogo: true, logoSha256: "hash-1" },
+        ],
+      });
+      await openTroupesTab();
+      expect(await screen.findByRole("img", { name: "Logo de Estrella" })).toHaveAttribute(
+        "src",
+        "/api/v1/troupes/troupe-1/logo?v=hash-1",
+      );
+    });
+
+    it("sube el logo de la comparsa después de crearla", async () => {
+      const write = vi.fn(async (path, options) => {
+        if (path === "/api/v1/events/event-1/troupes" && options.method === "POST") {
+          return { id: "troupe-3", name: "Nueva", categoryId: "category-1", categoryName: "Comparsa", brandColor: null, active: true };
+        }
+        if (path === "/api/v1/troupes/troupe-3/logo" && options.method === "PUT") {
+          return { id: "troupe-3", hasLogo: true, logoSha256: "hash-1" };
+        }
+        throw new Error(`Solicitud inesperada: ${path}`);
+      });
+      mockTroupes({ write });
+      await openTroupesTab();
+      fireEvent.click(screen.getByRole("button", { name: "+ Nueva comparsa" }));
+      const form = screen.getByRole("button", { name: "Agregar comparsa" }).closest("form");
+      const fields = within(form);
+      fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Nueva" } });
+      fireEvent.change(fields.getByLabelText("Tipo de participación"), { target: { value: "category-1" } });
+      const logo = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "logo.png", { type: "image/png" });
+      fireEvent.change(fields.getByLabelText("Logo (opcional)"), { target: { files: [logo] } });
+      fireEvent.submit(form);
+      await waitFor(() => expect(write).toHaveBeenCalledWith(
+        "/api/v1/troupes/troupe-3/logo",
+        expect.objectContaining({ method: "PUT", headers: { "content-type": "image/png" }, body: logo }),
+      ));
+      expect(await screen.findByText("Guardado. Logo actualizado.")).toBeInTheDocument();
+    });
+
+    it("quita el logo de una comparsa existente", async () => {
+      const write = vi.fn(async (path, options) => {
+        if (path === "/api/v1/troupes/troupe-1" && options.method === "PATCH") return { id: "troupe-1", ...JSON.parse(options.body) };
+        if (path === "/api/v1/troupes/troupe-1/logo" && options.method === "DELETE") return { id: "troupe-1", hasLogo: false };
+        throw new Error(`Solicitud inesperada: ${path}`);
+      });
+      mockTroupes({
+        write,
+        rows: [
+          { id: "troupe-1", name: "Estrella", categoryId: "category-1", categoryName: "Comparsa", brandColor: "#3B82F6", active: true, hasLogo: true, logoSha256: "hash-1" },
+        ],
+      });
+      await openTroupesTab();
+      fireEvent.click(screen.getByRole("button", { name: "Editar comparsa Estrella" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Quitar logo" }));
+      const form = screen.getByRole("button", { name: "Guardar comparsa" }).closest("form");
+      fireEvent.submit(form);
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+      await waitFor(() => expect(write).toHaveBeenCalledWith(
+        "/api/v1/troupes/troupe-1/logo",
+        expect.objectContaining({ method: "DELETE" }),
+      ));
+      expect(await screen.findByText("Guardado. Logo eliminado.")).toBeInTheDocument();
+    });
+
+    it("rechaza un archivo de logo inválido sin llamar a la API", async () => {
       const write = vi.fn();
       mockTroupes({ write });
       await openTroupesTab();
       fireEvent.click(screen.getByRole("button", { name: "+ Nueva comparsa" }));
       const form = screen.getByRole("button", { name: "Agregar comparsa" }).closest("form");
-      fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Mala" } });
-      fireEvent.change(within(form).getByLabelText("Tipo de participación"), { target: { value: "category-1" } });
-      fireEvent.change(within(form).getByLabelText("Color (opcional)"), { target: { value: "azul" } });
+      const fields = within(form);
+      fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Nueva" } });
+      fireEvent.change(fields.getByLabelText("Tipo de participación"), { target: { value: "category-1" } });
+      const bad = new File(["hello"], "logo.txt", { type: "text/plain" });
+      fireEvent.change(fields.getByLabelText("Logo (opcional)"), { target: { files: [bad] } });
+      expect(await screen.findByRole("alert")).toHaveTextContent(/PNG, JPG, WebP o SVG/);
       fireEvent.submit(form);
-      expect(await screen.findByRole("alert")).toHaveTextContent(/formato #RRGGBB/);
       expect(write).not.toHaveBeenCalled();
-      expect(within(form).getByLabelText("Nombre")).toHaveValue("Mala");
     });
 
     it("edita comparsa en drawer, bloquea doble envío y reintenta tras fallo", async () => {
