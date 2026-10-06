@@ -17,7 +17,7 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
 
   it("expone la paleta Carnaval como unica fuente de color", () => {
     expect(css).toContain("--palette-page: #341244;");
-    expect(css).toContain("--palette-card: #9c27b0;");
+    expect(css).toContain("--palette-card: #691578;");
     expect(css).toContain("--palette-highlight: #ffb300;");
     expect(css).toContain("--palette-confirm: #34d22b;");
     expect(css).toContain("--palette-confirm-ink: #0b1f1c;");

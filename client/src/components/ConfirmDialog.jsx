@@ -32,7 +32,7 @@ export function ConfirmDialog({
       focusReturnRef={focusReturnRef}
       className="confirm-dialog"
     >
-<DialogFooter>
+      <DialogFooter>
         <Button variant="cancel" onClick={onClose} disabled={confirming}>
           {cancelLabel}
         </Button>
@@ -40,6 +40,7 @@ export function ConfirmDialog({
           variant={danger ? "cancel" : "confirm"}
           onClick={onConfirm}
           disabled={confirming}
+          busy={confirming}
           busyText="Procesando…"
         >
           {confirmLabel}
