@@ -6,6 +6,7 @@ import { prepareDemoSeedTest } from "./demo-seed-test-environment.js";
 import { migrate } from "../migrate.js";
 import { verifyAuditChain } from "../../scripts/verify-audit-chain.js";
 import { auditEvent } from "../../audit/audit-service.js";
+import { createBallotsForNight } from "../../modules/ballots/ballot-service.js";
 
 // Reproduces the production migration boundary on a NEW evidence database.
 // Historical files are applied byte-for-byte; no existing database is reset.
@@ -68,7 +69,7 @@ async function setupTestData() {
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
 
-  return { event, night, specialty, rubric, item, troupe, schedule, judgeProfile, assignment };
+  return { event, night, specialty, rubric, item, troupe, schedule, judgeProfile, assignment, adminId };
 }
 
 
@@ -87,6 +88,10 @@ test("upgrade 076 to current preserves historical scores, ballots and audit", { 
   const { rows: [nominal] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target,expected_subject_type) VALUES($1,'Historical nominee','NOM','NOMINATION','PERSON') RETURNING id", [data.event.id]);
   const { rows: [nominalItem] } = await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'Nominee','NOM') RETURNING id", [data.event.id,nominal.id,data.specialty.id]);
   const { rows: [ballot] } = await pool.query("INSERT INTO ballot(event_id,night_id,judge_assignment_id,judge_profile_id,specialty_id) VALUES($1,$2,$3,$4,$5) RETURNING id", [data.event.id,data.night.id,data.assignment.id,data.judgeProfile.id,data.specialty.id]);
+  const { rows: [futureNight] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES($1,'Future competition',2,'COMPETITION','OPEN') RETURNING id", [data.event.id]);
+  await pool.query("INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES($1,$2,$3,1)", [data.event.id,futureNight.id,data.troupe.id]);
+  await pool.query("INSERT INTO judge_quota(event_id,night_id,specialty_id,max_assignments) VALUES($1,$2,$3,1)", [data.event.id,futureNight.id,data.specialty.id]);
+  await pool.query("INSERT INTO judge_assignment(event_id,night_id,specialty_id,judge_profile_id) VALUES($1,$2,$3,$4)", [data.event.id,futureNight.id,data.specialty.id,data.judgeProfile.id]);
   for (const [item,rubric] of [[data.item,data.rubric],[nominalItem,nominal]]) {
     await pool.query("INSERT INTO ballot_score(ballot_id,event_id,evaluation_item_id,rubric_id,night_schedule_id,score,evaluation_state) VALUES($1,$2,$3,$4,$5,8,'SCORED')", [ballot.id,data.event.id,item.id,rubric.id,data.schedule.id]);
   }
@@ -114,6 +119,17 @@ test("upgrade 076 to current preserves historical scores, ballots and audit", { 
   assert.equal((await verifyAuditChain({ pool })).status, "OK");
   assert.equal(Number((await pool.query("SELECT count(*) FROM ballot_score WHERE nomination_id IS NOT NULL")).rows[0].count), 0);
   assert.deepEqual((await migrate()).applied, []);
+  const { rows: legacy } = await pool.query("SELECT 1 FROM legacy_nomination_scope WHERE event_id=$1 AND rubric_id=$2 AND event_troupe_id=$3", [data.event.id,nominal.id,data.troupe.id]);
+  assert.equal(legacy.length, 1);
+  const voting = await pool.connect();
+  try {
+    await voting.query("BEGIN");
+    const opened = await createBallotsForNight(voting, { eventId:data.event.id, nightId:futureNight.id, actorUserId:data.adminId });
+    assert.equal(opened.length, 1);
+    const { rows: futureScores } = await voting.query("SELECT rubric_id,nomination_id FROM ballot_score WHERE ballot_id=$1", [opened[0].id]);
+    assert.equal(futureScores.length, 2);
+    assert.equal(futureScores.find((score) => score.rubric_id===nominal.id).nomination_id, null);
+  } finally { await voting.query("ROLLBACK"); voting.release(); }
   await assert.rejects(() => pool.query("UPDATE ballot_score SET score=9 WHERE ballot_id=$1", [ballot.id]), /IMMUTABLE|LOCKED/);
   await assert.rejects(() => pool.query("DELETE FROM ballot_score WHERE ballot_id=$1", [ballot.id]), /IMMUTABLE|DELETE|LOCKED/);
 });

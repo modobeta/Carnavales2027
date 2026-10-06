@@ -515,6 +515,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       applied: true,
     },
     { filename: "083_rubric_icons_and_troupe_logos.sql", version: "083", applied: true },
+    { filename: "084_legacy_nomination_scope.sql", version: "084", applied: true },
   ]);
 
   const secondRun = await migrate();
