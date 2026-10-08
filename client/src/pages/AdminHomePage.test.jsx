@@ -80,7 +80,7 @@ describe("AdminHomePage (Spec 027/B)", () => {
     expect(await screen.findAllByRole("link", { name: "Configurar comparsas" })).toHaveLength(2);
   });
 
-  it("muestra resumen con contadores y accesos directos", async () => {
+  it("muestra resumen con contadores", async () => {
     mockAll();
     render(<AdminHomePage />);
     expect(await screen.findByRole("heading", { name: "Resumen" })).toBeInTheDocument();
@@ -88,10 +88,6 @@ describe("AdminHomePage (Spec 027/B)", () => {
     expect(screen.getByRole("link", { name: /Jornadas: \d+\. Ver jornadas/ })).toHaveAttribute("href", "#/admin/events");
     expect(screen.getByRole("link", { name: /Jurados: 0\. Ver jurados/ })).toHaveAttribute("href", "#/admin/judges");
     expect(screen.getByRole("link", { name: /Rubros: 0\. Ver rubros/ })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: "Agregar comparsa" })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: "Registrar jurado" })).toHaveAttribute("href", "#/admin/judges");
-    expect(screen.getByRole("link", { name: "Crear asignación" })).toHaveAttribute("href", "#/admin/assignments");
-    expect(screen.getByRole("link", { name: "Revisar configuración" })).toHaveAttribute("href", "#/admin/events");
   });
 
   it("muestra estado completo cuando readiness está listo", async () => {
@@ -108,6 +104,6 @@ describe("AdminHomePage (Spec 027/B)", () => {
     render(<AdminEventProvider><AdminHomePage /></AdminEventProvider>);
 
     expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e1");
+    expect(screen.queryByRole("combobox", { name: "Evento activo" })).not.toBeInTheDocument();
   });
 });

@@ -38,6 +38,45 @@
   box-shadow: inset 0 -3px 0 var(--accent-secondary);
 }
 
+/* Pestañas Rubros / Ítems dentro del paso de evaluación */
+.competencia-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-block-end: 1rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line-color);
+  border-radius: var(--radius-md);
+  background: rgba(9, 13, 22, 0.5);
+}
+
+.competencia-tabs button {
+  min-block-size: 2.75rem;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  background: transparent;
+  box-shadow: none;
+}
+
+.competencia-tabs button:hover:not(:disabled) {
+  color: var(--text-interactive);
+  background: var(--surface-hover-subtle);
+}
+
+.competencia-tabs button.active {
+  color: var(--text-primary);
+  background: var(--primary-color);
+  box-shadow: inset 0 -3px 0 var(--accent-secondary);
+}
+
+.competencia-tabs button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .competencia-overview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));

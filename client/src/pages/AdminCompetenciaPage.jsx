@@ -34,6 +34,7 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
 
 export function AdminCompetenciaPage({ event, onBack }) {
   const [step, setStep] = useState("participantes");
+  const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -232,9 +233,40 @@ export function AdminCompetenciaPage({ event, onBack }) {
           {step === "rubros" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Rubros, ítems y criterios</h2>
-              <p className="step-intro">Creá cada rubro con sus ítems y criterios: al crearlo se abre solo para seguir cargando.</p>
+              <p className="step-intro">Creá cada rubro en la pestaña Rubros y definí sus ítems puntuables y criterios en la pestaña Ítems.</p>
               <StepSummary stepLabel="Rubros, ítems y criterios" recommendation={summaryByStep.rubros} />
-              <AdminRubricsSection key={`rubrics-${event.id}`} event={event} focusRubricId={focusRubricId} />
+              <div className="competencia-tabs" role="tablist" aria-label="Rubros e ítems">
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-rubros"
+                  aria-controls="competencia-rubros-panel"
+                  aria-selected={rubricTab === "rubros"}
+                  className={rubricTab === "rubros" ? "active" : "secondary"}
+                  onClick={() => setRubricTab("rubros")}
+                >
+                  Rubros
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-items"
+                  aria-controls="competencia-rubros-panel"
+                  aria-selected={rubricTab === "items"}
+                  className={rubricTab === "items" ? "active" : "secondary"}
+                  onClick={() => setRubricTab("items")}
+                >
+                  Ítems
+                </button>
+              </div>
+              <div
+                role="tabpanel"
+                id="competencia-rubros-panel"
+                aria-labelledby={`competencia-tab-${rubricTab}`}
+                tabIndex={0}
+              >
+                <AdminRubricsSection key={`rubrics-${event.id}`} event={event} focusRubricId={focusRubricId} tab={rubricTab} />
+              </div>
             </section>
           )}
           {step === "revision" && (
@@ -243,7 +275,7 @@ export function AdminCompetenciaPage({ event, onBack }) {
               <p className="step-intro">Verificá que no falte nada: el resumen, la matriz y los pendientes se generan solos desde lo cargado.</p>
               <StepSummary stepLabel="Revisión final" recommendation={summaryByStep.revision} />
               <CompetenciaOverview key={event.id} event={event} onGoStep={goStep} />
-              <MatrizPlanillasSection key={`matrix-${event.id}`} event={event} onResolveRubric={(rubricId) => { setFocusRubricId(rubricId); goStep("rubros"); }} />
+              <MatrizPlanillasSection key={`matrix-${event.id}`} event={event} onResolveRubric={(rubricId) => { setFocusRubricId(rubricId); setRubricTab("items"); goStep("rubros"); }} />
             </section>
           )}
         </fieldset>
@@ -1230,7 +1262,7 @@ function AdminSpecialtiesSection({ event }) {
   );
 }
 
-function AdminRubricsSection({ event, focusRubricId = null }) {
+function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
   const [troupes, setTroupes] = useState([]);
@@ -1519,13 +1551,17 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
 
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
+      {tab === "rubros" ? (
+        <div className="section-heading"><h2>Rubros</h2><p>Constructor jerarquico: nombre, objetivo, tipo y participantes. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
+      ) : (
+        <div className="section-heading"><h2>Ítems</h2><p>Items puntuables de cada rubro, su especialidad y los criterios descriptivos del jurado.</p></div>
+      )}
       <p className="feedback" role="status">{message}</p>
 
       <h3>Qué puntúa el jurado</h3>
       <RubricTree rubrics={rubrics} specialties={specialties} />
 
-      {!locked && (
+      {tab === "rubros" && !locked && (
         <SaveForm resetOnSuccess className="config-card" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/events/${event.id}/rubrics`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null }); }}>
           <h3>Nuevo rubro</h3>
           <label>Nombre<input name="name" required /></label>
@@ -1573,6 +1609,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
 
               {isExpanded && (
                 <div className="rubric-expanded">
+                  {tab === "rubros" && (
+                  <>
                   {!locked && (
                     editingRubricId === rubric.id ? (
                       <SaveForm className="rubric-edit-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del rubro", `Se actualizará la configuración de ${rubric.name}.`, async () => { const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, body, "PATCH"); if (ok) setEditingRubricId(null); }); return false; }}>
@@ -1646,7 +1684,11 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                       )}
                     </section>
                   )}
+                  </>
+                  )}
 
+                  {tab === "items" && (
+                  <>
                   <h4>Items puntuables</h4>
                   {orderedItems.map((item, itemIndex) => (
                     <article className={`subrecord${highlightItemId === item.id ? " is-target" : ""}`} key={item.id} data-item-id={item.id}>
@@ -1725,6 +1767,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                       </details>
                       <button type="submit" aria-label={`Agregar item a ${rubric.name}`}>Agregar item</button>
                     </SaveForm>
+                  )}
+                  </>
                   )}
                 </div>
               )}

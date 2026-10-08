@@ -885,13 +885,6 @@
   gap: 0.5rem;
 }
 
-@media (min-width: 64rem) {
-  .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
-    align-items: start;
-  }
-}
-
 /* Spec 027/B+G — Panel admin: layout dashboard, resumen y accesos directos */
 .admin-dashboard {
   display: grid;
@@ -966,13 +959,6 @@
   justify-content: center;
   min-block-size: var(--touch-target-min);
   padding: var(--space-2) var(--space-3);
-}
-
-@media (min-width: 64rem) {
-  .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) 22rem;
-    align-items: start;
-  }
 }
 
 @media (min-width: 40rem) and (max-width: 63.99rem) {
@@ -1302,12 +1288,6 @@
 
 @media (min-width: 64rem) {
   .admin-home-shell .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
-    gap: var(--space-4);
-  }
-
-  .admin-home-shell .admin-dashboard-main,
-  .admin-home-shell .admin-dashboard-side {
     gap: var(--space-4);
   }
 }

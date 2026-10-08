@@ -47,6 +47,7 @@ it("conserva el rubro nuevo cuando termina una lectura anterior vacía", async (
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   await screen.findByRole("button", { name: "Agregar item a Vestuario" });
   await release();
   expect(screen.getByRole("button", { name: "Agregar item a Vestuario" })).toBeInTheDocument();
@@ -106,6 +107,7 @@ it("muestra un rubro y su ítem recién creados sin recargar y conserva el resum
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   const add = await screen.findByRole("button", { name: "Agregar item a Vestuario" });
   fireEvent.change(screen.getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Colorido" } });
   fireEvent.change(screen.getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "sp1" } });

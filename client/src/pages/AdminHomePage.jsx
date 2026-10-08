@@ -19,27 +19,6 @@ function countActive(items) {
   return (items ?? []).filter((item) => item.active !== false).length;
 }
 
-const OPERATIONAL_LINKS = {
-  CONFIGURING: [
-    { label: "Agregar comparsa", href: "#/admin/competencia" },
-    { label: "Registrar jurado", href: "#/admin/judges" },
-    { label: "Crear asignación", href: "#/admin/assignments" },
-    { label: "Revisar configuración", href: "#/admin/events" },
-  ],
-  OPEN: [
-    { label: "Ver votación", href: "#/admin/voting" },
-    { label: "Ver personas", href: "#/admin/judges" },
-    { label: "Ver competencia", href: "#/admin/competencia" },
-    { label: "Revisar jornadas", href: "#/admin/events" },
-  ],
-  CLOSED: [
-    { label: "Ver escrutinio", href: "#/admin/results" },
-    { label: "Ver acta oficial", href: "#/admin/record" },
-    { label: "Ver personas", href: "#/admin/judges" },
-    { label: "Revisar evento", href: "#/admin/events" },
-  ],
-};
-
 const NEXT_STEP_COPY = {
   nights: {
     title: "Configurar jornadas",
@@ -231,7 +210,6 @@ export function AdminHomePage() {
     return items;
   }, [readiness]);
 
-  const quickLinks = OPERATIONAL_LINKS[selected?.status] ?? OPERATIONAL_LINKS.CONFIGURING;
   const stats = [
     { key: "troupes", value: counts.troupes, label: "Comparsas", href: "#/admin/competencia" },
     { key: "nights", value: counts.nights, label: "Jornadas", href: "#/admin/events" },
@@ -247,25 +225,6 @@ export function AdminHomePage() {
         eyebrow="Panel de administración"
         title={selected?.name ?? "Administración"}
         status={selected?.status}
-        actions={
-        <label className="event-picker">
-            Evento
-            <select
-              value={eventId}
-              onChange={(event) => {
-                if (adminEvent) adminEvent.setActiveEventId(event.target.value);
-                else setLocalEventId(event.target.value);
-              }}
-              aria-label="Evento activo"
-            >
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        }
       />
       {selected && <EventStatusBanner status={selected.status} />}
       <p className="feedback" role="status" aria-live="polite">
@@ -277,94 +236,77 @@ export function AdminHomePage() {
         <p className="empty-state">Todavía no hay eventos. Creá el primero desde Evento.</p>
       ) : (
         <div className="admin-dashboard">
-          <div className="admin-dashboard-main">
-            <section className="config-section" aria-label="Progreso de configuración">
-              <div className="section-heading">
-                <h2>Camino de configuración</h2>
-                <p>Completá los pasos en orden para preparar la competencia.</p>
-              </div>
-              <ConfigurationProgress steps={steps} value={progress} label="Preparación del evento" />
-              {nextStep ? (
-                <div className="admin-next-step-card">
-                  <div>
-                    <span className="eyebrow">Siguiente paso</span>
-                    <strong>{nextStepCopy?.title ?? nextStep.label}</strong>
-                    <span>{nextStepCopy?.description ?? nextStep.detail}</span>
-                  </div>
-                  <a className="button-link" href={nextStep.href}>
-                    {nextStepCopy?.action ?? `Configurar ${nextStep.label.toLowerCase()}`}
-                  </a>
+          <section className="config-section" aria-label="Resumen">
+            <div className="section-heading">
+              <h2>Resumen</h2>
+            </div>
+            <div className="competencia-overview-grid admin-stats">
+              {stats.map((stat) => (
+                <a className="overview-stat" key={stat.key} href={stat.href} aria-label={`${stat.label}: ${stat.value}. Ver ${stat.label.toLowerCase()}`}>
+                  <span className="overview-number">{stat.value}</span>
+                  <span className="overview-label">{stat.label}</span>
+                  <span className="admin-stat-link">Ver {stat.label.toLowerCase()}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          <section className="config-section" aria-label="Camino de configuración">
+            <div className="section-heading">
+              <h2>Camino de configuración</h2>
+              <p>Completá los pasos en orden para preparar la competencia.</p>
+            </div>
+            <ConfigurationProgress steps={steps} value={progress} label="Preparación del evento" />
+            {nextStep ? (
+              <div className="admin-next-step-card">
+                <div>
+                  <span className="eyebrow">Siguiente paso</span>
+                  <strong>{nextStepCopy?.title ?? nextStep.label}</strong>
+                  <span>{nextStepCopy?.description ?? nextStep.detail}</span>
                 </div>
-              ) : (
-                <div className="admin-next-step-card is-complete">
-                  <div>
-                    <span className="eyebrow">Listo</span>
-                    <strong>Configuración completa</strong>
-                    <span>El evento está preparado para abrir o ya está en competencia.</span>
-                  </div>
-                  <a className="button-link secondary" href="#/admin/voting">
-                    Abrir votación
-                  </a>
+                <a className="button-link" href={nextStep.href}>
+                  {nextStepCopy?.action ?? `Configurar ${nextStep.label.toLowerCase()}`}
+                </a>
+              </div>
+            ) : (
+              <div className="admin-next-step-card is-complete">
+                <div>
+                  <span className="eyebrow">Listo</span>
+                  <strong>Configuración completa</strong>
+                  <span>El evento está preparado para abrir o ya está en competencia.</span>
                 </div>
-              )}
-            </section>
-          </div>
-
-          <aside className="admin-dashboard-side" aria-label="Resumen del evento">
-            <section className="config-section">
-              <div className="section-heading">
-                <h2>Resumen</h2>
+                <a className="button-link secondary" href="#/admin/voting">
+                  Abrir votación
+                </a>
               </div>
-              <div className="competencia-overview-grid admin-stats">
-                {stats.map((stat) => (
-                  <a className="overview-stat" key={stat.key} href={stat.href} aria-label={`${stat.label}: ${stat.value}. Ver ${stat.label.toLowerCase()}`}>
-                    <span className="overview-number">{stat.value}</span>
-                    <span className="overview-label">{stat.label}</span>
-                    <span className="admin-stat-link">Ver {stat.label.toLowerCase()}</span>
-                  </a>
+            )}
+          </section>
+
+          <section className="config-section admin-attention-section" aria-label="Requiere atención">
+            <div className="section-heading">
+              <h2>Requiere atención</h2>
+              <p>Resolvé estos puntos antes de abrir la competencia.</p>
+            </div>
+            {problems.length === 0 ? (
+              <p className="readiness-ok">
+                <span className="readiness-icon" aria-hidden="true">✓</span>
+                No hay problemas pendientes.
+              </p>
+            ) : (
+              <ul className="readiness-checklist admin-problem-list">
+                {problems.map((problem) => (
+                  <li key={problem.key} className="readiness-fail">
+                    <span className="readiness-icon" aria-hidden="true">!</span>
+                    <span className="admin-problem-copy">
+                      <strong>{problem.title}</strong>
+                      <span>{problem.description}</span>
+                    </span>
+                    <a href={problem.href}>{problem.action}</a>
+                  </li>
                 ))}
-              </div>
-            </section>
-
-            <section className="config-section admin-attention-section" aria-label="Requiere atención">
-              <div className="section-heading">
-                <h2>Requiere atención</h2>
-                <p>Resolvé estos puntos antes de abrir la competencia.</p>
-              </div>
-              {problems.length === 0 ? (
-                <p className="readiness-ok">
-                  <span className="readiness-icon" aria-hidden="true">✓</span>
-                  No hay problemas pendientes.
-                </p>
-              ) : (
-                <ul className="readiness-checklist admin-problem-list">
-                  {problems.map((problem) => (
-                    <li key={problem.key} className="readiness-fail">
-                      <span className="readiness-icon" aria-hidden="true">!</span>
-                      <span className="admin-problem-copy">
-                        <strong>{problem.title}</strong>
-                        <span>{problem.description}</span>
-                      </span>
-                      <a href={problem.href}>{problem.action}</a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="config-section" aria-label="Acciones rápidas">
-              <div className="section-heading">
-                <h2>Acciones rápidas</h2>
-              </div>
-              <div className="admin-quick-links">
-                {quickLinks.map((link) => (
-                  <a key={link.href} className="button-link secondary" href={link.href}>
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </section>
-          </aside>
+              </ul>
+            )}
+          </section>
         </div>
       )}
     </PageShell>

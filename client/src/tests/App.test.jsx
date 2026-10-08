@@ -17,7 +17,7 @@ describe("App", () => {
   it("muestra login como ruta pública inicial", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Carnavales Goya 2027" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ingresar" })).toBeInTheDocument();
