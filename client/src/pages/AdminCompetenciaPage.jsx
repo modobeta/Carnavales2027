@@ -1275,7 +1275,12 @@ function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
   const [nominationCreateTarget, setNominationCreateTarget] = useState(null);
   const [nominationStatusTarget, setNominationStatusTarget] = useState(null);
   const [mutationConfirmTarget, setMutationConfirmTarget] = useState(null);
+  const [itemCreateTarget, setItemCreateTarget] = useState(null);
   const rubricDeleteTriggerRef = useRef(null);
+  const itemCreateTriggerRef = useRef(null);
+  const lastItemCreateTargetRef = useRef(null);
+  if (itemCreateTarget) lastItemCreateTargetRef.current = itemCreateTarget;
+  const closingItemCreateTarget = itemCreateTarget ?? lastItemCreateTargetRef.current;
   const [message, setMessage] = useState("");
   const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
 
@@ -1554,7 +1559,7 @@ function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
       {tab === "rubros" ? (
         <div className="section-heading"><h2>Rubros</h2><p>Constructor jerarquico: nombre, objetivo, tipo y participantes. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
       ) : (
-        <div className="section-heading"><h2>Ítems</h2><p>Items puntuables de cada rubro, su especialidad y los criterios descriptivos del jurado.</p></div>
+        <div className="section-heading"><h2>Ítems</h2><p>Seleccioná la tarjeta de un rubro para crear sus ítems puntuables; en cada uno ves la especialidad y los criterios descriptivos del jurado.</p></div>
       )}
       <p className="feedback" role="status">{message}</p>
 
@@ -1593,18 +1598,25 @@ function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                   <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
                 </div>
-                <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
-                  {isExpanded ? "Contraer" : "Expandir"}
-                </button>
-                {!locked && (rubric.active !== false ? (
-                  <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
-                    Eliminar
+                <div className="rubric-card-actions">
+                  {tab === "items" && !locked && rubric.active !== false && (
+                    <button type="button" aria-label={`Crear ítem en ${rubric.name}`} onClick={(event) => { itemCreateTriggerRef.current = event.currentTarget; setItemCreateTarget(rubric); }}>
+                      Crear ítem
+                    </button>
+                  )}
+                  <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
+                    {isExpanded ? "Contraer" : "Expandir"}
                   </button>
-                ) : (
-                  <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
-                    Reactivar
-                  </button>
-                ))}
+                  {!locked && (rubric.active !== false ? (
+                    <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
+                      Eliminar
+                    </button>
+                  ) : (
+                    <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
+                      Reactivar
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {isExpanded && (
@@ -1756,17 +1768,8 @@ function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
                     </article>
                   ))}
 
-                  {!locked && (
-                    <SaveForm resetOnSuccess className="inline-item-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveItem(rubric.id, { name: fd.get("name"), specialtyId: fd.get("specialtyId"), required: fd.get("required") === "on", allowNotPresented: fd.get("allowNotPresented") === "on" }); }}>
-                      <input name="name" aria-label={`Nuevo item puntuable para ${rubric.name}`} placeholder="Nuevo item puntuable" required />
-                      <select name="specialtyId" aria-label={`Especialidad del nuevo item para ${rubric.name}`} required><option value="">Especialidad</option>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                      <details className="advanced-options">
-                        <summary>Opciones avanzadas</summary>
-                        <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
-                        <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
-                      </details>
-                      <button type="submit" aria-label={`Agregar item a ${rubric.name}`}>Agregar item</button>
-                    </SaveForm>
+                  {!locked && orderedItems.length === 0 && (
+                    <p className="field-hint">Este rubro todavía no tiene ítems puntuables: seleccioná "Crear ítem" en su tarjeta para agregar el primero.</p>
                   )}
                   </>
                   )}
@@ -1776,6 +1779,48 @@ function AdminRubricsSection({ event, focusRubricId = null, tab = "rubros" }) {
           );
         })}
       </div>
+      {closingItemCreateTarget && (
+        <Dialog
+          isOpen={itemCreateTarget !== null && !locked}
+          onClose={() => setItemCreateTarget(null)}
+          title={`Crear ítem en ${closingItemCreateTarget.name}`}
+          description={`Elegí la especialidad que puntúa este ítem dentro del rubro seleccionado. Las opciones avanzadas definen si es obligatorio y si admite "No se presentó".`}
+          focusReturnRef={itemCreateTriggerRef}
+        >
+          {itemCreateTarget && (
+            <SaveForm
+              className="item-create-form"
+              onSubmit={async (e) => {
+                const fd = new FormData(e.currentTarget);
+                const rubricId = itemCreateTarget.id;
+                const ok = await saveItem(rubricId, {
+                  name: fd.get("name"),
+                  specialtyId: fd.get("specialtyId"),
+                  required: fd.get("required") === "on",
+                  allowNotPresented: fd.get("allowNotPresented") === "on",
+                });
+                if (ok) {
+                  setExpanded(rubricId);
+                  setItemCreateTarget(null);
+                }
+                return ok;
+              }}
+            >
+              <label>Nombre<input name="name" aria-label={`Nuevo item puntuable para ${itemCreateTarget.name}`} placeholder="Nuevo item puntuable" required /></label>
+              <label>Especialidad<select name="specialtyId" aria-label={`Especialidad del nuevo item para ${itemCreateTarget.name}`} required defaultValue=""><option value="">Especialidad</option>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <details className="advanced-options">
+                <summary>Opciones avanzadas</summary>
+                <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
+                <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
+              </details>
+              <DialogFooter>
+                <button type="button" className="secondary" onClick={() => setItemCreateTarget(null)}>Cancelar</button>
+                <button type="submit" aria-label={`Agregar item a ${itemCreateTarget.name}`}>Agregar item</button>
+              </DialogFooter>
+            </SaveForm>
+          )}
+        </Dialog>
+      )}
       <Dialog
         isOpen={mutationConfirmTarget !== null && !locked}
         onClose={() => setMutationConfirmTarget(null)}

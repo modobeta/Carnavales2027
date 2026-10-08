@@ -244,7 +244,7 @@ describe("AdminCompetenciaPage", () => {
   it.each([
     [/Rubros, ítems y criterios/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
     [/Rubros, ítems y criterios/, "Guardar rubro", "Expandir Coreografia", "/api/v1/rubrics/rubric-1"],
-    [/Rubros, ítems y criterios/, "Agregar item a Coreografia", "Expandir Coreografia", "/api/v1/rubrics/rubric-1/items"],
+    [/Rubros, ítems y criterios/, "Agregar item a Coreografia", "Crear ítem en Coreografia", "/api/v1/rubrics/rubric-1/items"],
     [/Rubros, ítems y criterios/, "Guardar item", "Editar item Interpretacion", "/api/v1/evaluation-items/item-1"],
     [/Rubros, ítems y criterios/, "Agregar criterio a Interpretacion", "Expandir Coreografia", "/api/v1/rubrics/rubric-1/criteria"],
     [/Rubros, ítems y criterios/, "Guardar criterio Precision", "Editar criterio Precision", "/api/v1/rubric-criteria/criterion-1"],
@@ -310,7 +310,9 @@ describe("AdminCompetenciaPage", () => {
     expect(write).toHaveBeenCalledTimes(2);
     expect(write.mock.calls[1]).toEqual(write.mock.calls[0]);
     expect(screen.queryByText("No se pudo guardar.")).not.toBeInTheDocument();
-    if (!action.startsWith("Guardar")) expect(text).toHaveValue("");
+    if (action === "Agregar item a Coreografia") {
+      expect(screen.queryByRole("button", { name: "Agregar item a Coreografia" })).not.toBeInTheDocument();
+    } else if (!action.startsWith("Guardar")) expect(text).toHaveValue("");
     else if (action === "Guardar rubro") expect(text).toHaveValue("Entrada conservada");
     else expect(button).not.toBeInTheDocument();
   });
@@ -350,8 +352,11 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
     fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
     expect(screen.getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Crear ítem en Coreografia" })).getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("textbox", { name: "Nuevo item puntuable para Coreografia" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Orden del nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar criterio a Interpretacion" })).toBeInTheDocument();
@@ -758,6 +763,7 @@ describe("AdminCompetenciaPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Crear rubro" }));
       expect(await screen.findByRole("button", { name: "Contraer Nuevo Rubro" })).toBeInTheDocument();
       fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Nuevo Rubro" }));
       expect(screen.getByRole("textbox", { name: "Nuevo item puntuable para Nuevo Rubro" })).toBeInTheDocument();
     });
   });
