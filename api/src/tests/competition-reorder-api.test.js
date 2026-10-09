@@ -37,7 +37,10 @@ after(async () => {
 
 async function request(path, body, { session = "admin", method = "POST" } = {}) {
   const response = await fetch(`${base}${path}`, {
-    method, headers: { "content-type": "application/json", "x-test-session": session },
+    method, headers: {
+      "content-type": "application/json", "x-test-session": session,
+      ...(path.endsWith("/open") ? { "Idempotency-Key": randomUUID() } : {}),
+    },
     body: JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };

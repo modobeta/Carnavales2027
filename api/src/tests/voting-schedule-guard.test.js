@@ -91,7 +91,7 @@ test("API eventos: bloquea la apertura sin cronograma y no habilita planillas", 
   await withServer(app, async (baseUrl) => {
     const adminHeaders = { "content-type": "application/json", "x-test-session": "admin" };
     const openRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
-      method: "POST", headers: adminHeaders,
+      method: "POST", headers: { ...adminHeaders, "Idempotency-Key": randomUUID() },
     });
     assert.equal(openRes.status, 409);
     const openBody = await openRes.json();

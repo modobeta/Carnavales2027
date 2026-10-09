@@ -46,8 +46,18 @@ export async function createEvent({ client = getPool(), name }) {
   const { rows } = await client.query("INSERT INTO carnival_event (name) VALUES ($1) RETURNING id, name, status, active", [requireText(name, "name")]);
   return rows[0];
 }
-export async function listEvents({ client = getPool() } = {}) {
-  const { rows } = await client.query("SELECT id, name, status, active FROM carnival_event ORDER BY created_at");
+export async function listEvents({ client = getPool(), userId = null } = {}) {
+  const query = userId === null
+    ? ["SELECT id, name, status, active FROM carnival_event ORDER BY created_at", []]
+    : [
+      `SELECT event.id, event.name, event.status, event.active
+         FROM carnival_event AS event
+         JOIN admin_event_assignment AS assignment ON assignment.event_id = event.id
+        WHERE assignment.user_id = $1 AND assignment.is_active = TRUE
+        ORDER BY event.created_at`,
+      [userId],
+    ];
+  const { rows } = await client.query(...query);
   return rows;
 }
 export async function getEvent({ client = getPool(), eventId }) {

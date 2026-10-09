@@ -187,7 +187,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
   await t.test("ADMIN abre solo jornada 1 por el flujo HTTP; otras jornadas quedan bloqueadas", async () => {
     const firstNight = first.nights[0];
     assert.equal((await request(`${root}/open`, { method: "POST", body: {}, headers: { "x-no-2fa": "true" } })).status, 403);
-    assert.equal((await request(`${root}/open`, { method: "POST", body: {} })).status, 200);
+    assert.equal((await request(`${root}/open`, { method: "POST", body: {}, headers: { "Idempotency-Key": randomUUID() } })).status, 200);
     assert.equal((await request(`/api/v1/nights/${firstNight.id}`, { method: "PATCH", body: {
       name: firstNight.name, displayOrder: 1, kind: "COMPETITION", eventDate: firstNight.date, status: "OPEN",
     } })).status, 200);

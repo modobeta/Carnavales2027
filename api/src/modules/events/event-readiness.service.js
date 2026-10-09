@@ -166,3 +166,162 @@ export async function openEvent({ client = null, eventId, actorUserId = null }) 
     if (owned) db.release();
   }
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function assertOperationId(operationId) {
+  if (typeof operationId !== "string" || !UUID_PATTERN.test(operationId)) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+}
+
+async function claimOpenOperation({ operationId, eventId, actorUserId }) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: inserted } = await client.query(
+      `INSERT INTO event_open_operation_claim(operation_id,event_id,intent,actor_user_id)
+       SELECT $1,$2,'OPEN_EVENT',$3
+        WHERE EXISTS (SELECT 1 FROM carnival_event WHERE id=$2)
+       ON CONFLICT (operation_id) DO NOTHING
+       RETURNING operation_id`,
+      [operationId, eventId, actorUserId],
+    );
+    const { rows } = await client.query(
+      "SELECT event_id AS \"eventId\", intent FROM event_open_operation_claim WHERE operation_id=$1",
+      [operationId],
+    );
+    if (!rows[0]) throw new Error("EVENT_NOT_FOUND");
+    if (rows[0].eventId !== eventId || rows[0].intent !== "OPEN_EVENT") {
+      throw new Error("IDEMPOTENCY_CONFLICT");
+    }
+    await client.query("COMMIT");
+    return { created: inserted.length > 0 };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function mapReceipt(row, operationId, eventId, replayed = false) {
+  if (!row) return null;
+  if (row.status === "APPLIED") {
+    return {
+      httpStatus: 200,
+      event: row.eventResult,
+      operation: { operationId, eventId, intent: "OPEN_EVENT", status: "applied", replayed },
+    };
+  }
+  return {
+    httpStatus: 409,
+    error: {
+      code: row.code,
+      ...(row.details ? { details: row.details } : {}),
+      operation: { operationId, eventId, intent: "OPEN_EVENT", status: "rejected", replayed },
+    },
+  };
+}
+
+async function getReceipt(client, operationId) {
+  const { rows } = await client.query(
+    `SELECT status,code,details,event_result AS "eventResult"
+       FROM event_open_operation_receipt WHERE operation_id=$1`,
+    [operationId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function openEventOperation({ eventId, operationId, actorUserId = null }) {
+  assertOperationId(operationId);
+  await claimOpenOperation({ operationId, eventId, actorUserId });
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: claims } = await client.query(
+      `SELECT event_id AS "eventId",intent FROM event_open_operation_claim
+        WHERE operation_id=$1 FOR UPDATE`,
+      [operationId],
+    );
+    const claim = claims[0];
+    if (!claim || claim.eventId !== eventId || claim.intent !== "OPEN_EVENT") {
+      throw new Error("IDEMPOTENCY_CONFLICT");
+    }
+    const existing = mapReceipt(await getReceipt(client, operationId), operationId, eventId, true);
+    if (existing) {
+      await client.query("COMMIT");
+      return existing;
+    }
+
+    let terminal;
+    try {
+      const event = await openEvent({ client, eventId, actorUserId });
+      await auditEvent(client, {
+        actorUserId,
+        action: "EVENT_OPEN_OPERATION_APPLIED",
+        entityType: "carnival_event_open_operation",
+        entityId: operationId,
+        after: { eventId, intent: "OPEN_EVENT", status: "APPLIED" },
+      });
+      terminal = { status: "APPLIED", eventResult: event };
+    } catch (error) {
+      if (!["EVENT_CONFIGURATION_INCOMPLETE", "EVENT_LOCKED"].includes(error.message)) throw error;
+      terminal = {
+        status: "REJECTED",
+        code: error.message,
+        details: error.readiness ?? null,
+      };
+      await auditEvent(client, {
+        actorUserId,
+        action: "EVENT_OPEN_OPERATION_REJECTED",
+        entityType: "carnival_event_open_operation",
+        entityId: operationId,
+        after: { eventId, intent: "OPEN_EVENT", status: "REJECTED", code: error.message },
+      });
+    }
+
+    await client.query(
+      `INSERT INTO event_open_operation_receipt(operation_id,status,code,details,event_result)
+       VALUES($1,$2,$3,$4::jsonb,$5::jsonb)`,
+      [operationId, terminal.status, terminal.code ?? null,
+        terminal.details ? JSON.stringify(terminal.details) : null,
+        terminal.eventResult ? JSON.stringify(terminal.eventResult) : null],
+    );
+    await client.query("COMMIT");
+    return mapReceipt(terminal, operationId, eventId, false);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getOpenEventOperation({ eventId, operationId }) {
+  assertOperationId(operationId);
+  const client = await getPool().connect();
+  try {
+    const { rows: claims } = await client.query(
+      `SELECT event_id AS "eventId",intent FROM event_open_operation_claim
+        WHERE operation_id=$1`,
+      [operationId],
+    );
+    if (!claims[0]) throw new Error("OPEN_OPERATION_NOT_FOUND");
+    if (claims[0].eventId !== eventId || claims[0].intent !== "OPEN_EVENT") {
+      throw new Error("IDEMPOTENCY_CONFLICT");
+    }
+    const receipt = await getReceipt(client, operationId);
+    if (!receipt) return { operationId, eventId, intent: "OPEN_EVENT", status: "pending" };
+    if (receipt.status === "APPLIED") {
+      return { operationId, eventId, intent: "OPEN_EVENT", status: "applied", result: { event: receipt.eventResult } };
+    }
+    return {
+      operationId, eventId, intent: "OPEN_EVENT", status: "rejected",
+      code: receipt.code,
+      ...(receipt.details ? { details: receipt.details } : {}),
+    };
+  } finally {
+    client.release();
+  }
+}

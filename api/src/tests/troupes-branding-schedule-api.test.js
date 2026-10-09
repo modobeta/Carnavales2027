@@ -144,7 +144,7 @@ test("Spec 017 T09a/T09b: brandColor de comparsa y orden de pasada por jornada",
     const rubricItem = await post(`/api/v1/rubrics/${rubric.id}/items`, { name: "Interpretacion", code: "INTERP", specialtyId: specialty.id });
     assert.equal(rubricItem.status, 201);
     await seedActiveJudge({ client: pool, eventId: event.id, nightId: night.id, specialtyId: specialty.id });
-    const opened = await post(`/api/v1/events/${event.id}/open`, {});
+    const opened = await post(`/api/v1/events/${event.id}/open`, {}, { ...admin, "Idempotency-Key": randomUUID() });
     assert.equal(opened.status, 200);
     const locked = await post(`/api/v1/schedule/${last.id}/reorder`, {
       direction: "UP", neighborId: before.id, expectedOrder: 3, expectedNeighborOrder: 2,
