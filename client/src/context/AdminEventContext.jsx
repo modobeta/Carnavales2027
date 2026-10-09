@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { loadAvailableEvents } from "./available-events.js";
 
 const STORAGE_KEY = "carnavales.admin.activeEventId";
@@ -25,30 +25,39 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
   const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${judgeArea ? "judge" : "operational"}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
+  const activeEventIdRef = useRef(activeEventId);
+  const [activeNightId, setActiveNightIdState] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
 
   const refreshEvents = async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     try {
       const loaded = await loadAvailableEvents(session?.roles, judgeArea);
       const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
+      if (requestId !== requestSequence.current) return [];
       setEvents(items ?? []);
       setError("");
-      setActiveEventIdState((current) => {
-        const storedEvent = (items ?? []).find((event) => event.id === current && event.active !== false);
-        const nextId = storedEvent?.id ?? (items ?? []).find((event) => event.active !== false)?.id ?? "";
-        storeEventId(nextId, storageKey);
-        return nextId;
-      });
+      const currentId = activeEventIdRef.current;
+      const storedEvent = items.find((event) => event.id === currentId);
+      const nextId = storedEvent?.id ?? items[0]?.id ?? "";
+      if (nextId !== currentId) setActiveNightIdState("");
+      activeEventIdRef.current = nextId;
+      setActiveEventIdState(nextId);
+      storeEventId(nextId, storageKey);
       return items ?? [];
     } catch {
+      if (requestId !== requestSequence.current) return [];
       setEvents([]);
+      activeEventIdRef.current = "";
       setActiveEventIdState("");
+      setActiveNightIdState("");
       setError("No se pudieron cargar los eventos.");
       return [];
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   };
 
@@ -60,6 +69,8 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
     setActiveEventIdState(nextId);
+    activeEventIdRef.current = nextId;
+    setActiveNightIdState("");
     storeEventId(nextId, storageKey);
   };
 
@@ -70,8 +81,12 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
         : [...current, event]);
     }
     setActiveEventIdState(event?.id ?? "");
+    activeEventIdRef.current = event?.id ?? "";
+    setActiveNightIdState("");
     storeEventId(event?.id ?? "", storageKey);
   };
+
+  const setActiveNightId = (nightId) => setActiveNightIdState(nightId ?? "");
 
   const updateEvent = (event) => {
     if (!event?.id) return;
@@ -83,13 +98,15 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     events,
     activeEvent,
     activeEventId,
+    activeNightId,
     loading,
     error,
     refreshEvents,
     setActiveEvent,
     setActiveEventId,
+    setActiveNightId,
     updateEvent,
-  }), [events, activeEvent, activeEventId, loading, error]);
+  }), [events, activeEvent, activeEventId, activeNightId, loading, error]);
 
   return <AdminEventContext.Provider value={value}>{children}</AdminEventContext.Provider>;
 }

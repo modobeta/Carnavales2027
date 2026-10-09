@@ -17,6 +17,17 @@ function Probe() {
   );
 }
 
+function JourneyProbe() {
+  const context = useAdminEvent();
+  return (
+    <div>
+      <span>{context.activeNightId || "Sin jornada"}</span>
+      <button type="button" onClick={() => context.setActiveNightId("night-2")}>Elegir jornada</button>
+      <button type="button" onClick={() => context.setActiveEventId("e2")}>Cambiar evento</button>
+    </div>
+  );
+}
+
 describe("AdminEventContext", () => {
   afterEach(() => {
     cleanup();
@@ -41,5 +52,19 @@ describe("AdminEventContext", () => {
     expect(selector).toHaveValue("e2");
     expect(screen.getAllByText("Prueba 2027").length).toBeGreaterThan(0);
     expect(window.localStorage.getItem("carnavales.admin.activeEventId")).toBe("e2");
+  });
+
+  it("conserva la jornada elegida en el contexto de sesión y la limpia al cambiar evento", async () => {
+    apiRequest.mockResolvedValue([
+      { id: "e1", name: "Carnaval 2027", status: "CONFIGURING" },
+      { id: "e2", name: "Prueba 2027", status: "OPEN" },
+    ]);
+
+    render(<AdminEventProvider><JourneyProbe /></AdminEventProvider>);
+    await screen.findByText("Sin jornada");
+    fireEvent.click(screen.getByRole("button", { name: "Elegir jornada" }));
+    expect(screen.getByText("night-2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar evento" }));
+    expect(screen.getByText("Sin jornada")).toBeInTheDocument();
   });
 });

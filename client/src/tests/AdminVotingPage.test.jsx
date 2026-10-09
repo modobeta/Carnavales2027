@@ -27,6 +27,10 @@ describe("AdminVotingPage", () => {
     render(<AdminVotingPage />);
 
     expect(await screen.findByText("Jurado Uno")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Votación por jornada" })).toBeInTheDocument();
+    expect(screen.getByText("Evento:").parentElement).toHaveTextContent("Carnaval");
+    expect(screen.getByLabelText("Jornada competitiva")).toHaveValue("night-1");
+    expect(screen.getByText(/Estado de la jornada:/)).toHaveTextContent("Estado de la ventana de votación: Abierta");
     expect(screen.getByText("Confirmadas")).toBeInTheDocument();
     expect(screen.queryByText(/puntaje|ranking|total artístico/i)).not.toBeInTheDocument();
 

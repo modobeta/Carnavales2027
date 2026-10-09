@@ -16,9 +16,10 @@ export function AdminVotingPage() {
   const [ballots, setBallots] = useState([]);
   const [status, setStatus] = useState(null);
   const [localEventId, setLocalEventId] = useState("");
-  const [nightId, setNightId] = useState("");
+  const [localNightId, setLocalNightId] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [statusLoading, setStatusLoading] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const actionButtonRef = useRef(null);
   const [pendingCloseDialog, setPendingCloseDialog] = useState(null);
@@ -29,12 +30,15 @@ export function AdminVotingPage() {
   const closeButtonRef = useRef(null);
   const events = adminEvent?.events ?? localEvents;
   const eventId = adminEvent?.activeEventId ?? localEventId;
+  const nightId = adminEvent?.activeNightId ?? localNightId;
+  const chooseNight = adminEvent?.setActiveNightId ?? setLocalNightId;
   const contextRef = useRef("");
   contextRef.current = `${eventId}/${nightId}`;
 
   const refreshNight = async (selectedEventId = eventId, selectedNightId = nightId) => {
     if (!selectedEventId || !selectedNightId) return;
     const context = `${selectedEventId}/${selectedNightId}`;
+    setStatusLoading(true);
     try {
       const [nextStatus, nextBallots] = await Promise.all([
         apiRequest(`/api/v1/events/${selectedEventId}/nights/${selectedNightId}/voting/status`),
@@ -48,6 +52,8 @@ export function AdminVotingPage() {
       setStatus(null);
       setBallots([]);
       setMessage("No se pudo cargar el estado de votación.");
+    } finally {
+      if (contextRef.current === context) setStatusLoading(false);
     }
   };
 
@@ -61,9 +67,9 @@ export function AdminVotingPage() {
 
   useEffect(() => {
     setNights([]);
-    setNightId("");
     setStatus(null);
     setBallots([]);
+    setStatusLoading(false);
     setConfirmation(null);
     setMessage("");
     if (!eventId) return;
@@ -72,7 +78,10 @@ export function AdminVotingPage() {
       if (!active) return;
       const competitionNights = items.filter((night) => night.kind === "COMPETITION");
       setNights(competitionNights);
-      setNightId(competitionNights[0]?.id ?? "");
+      const preferredNightId = competitionNights.some((night) => night.id === adminEvent?.activeNightId)
+        ? adminEvent.activeNightId
+        : competitionNights[0]?.id ?? "";
+      chooseNight(preferredNightId);
       setStatus(null);
       setBallots([]);
     }).catch(() => { if (active) setMessage("No se pudieron cargar las noches del evento."); });
@@ -212,14 +221,16 @@ export function AdminVotingPage() {
 
   return <PageShell layer="instrument" className="admin-shell voting-page">
     <header className="event-header">
-      <div><p className="eyebrow">Mesa de control</p><h1>Votación por noche</h1></div>
+      <div><p className="eyebrow">Mesa de control</p><h1>Votación por jornada</h1><p>Evento: <strong>{selectedEvent?.name ?? "Sin evento seleccionado"}</strong></p></div>
       <div className="voting-pickers">
         {!adminEvent && <label>Evento<select disabled={Boolean(busy) || confirmation !== null} value={eventId} onChange={(event) => setLocalEventId(event.target.value)}>{events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}</select></label>}
-        <label>Noche<select disabled={Boolean(busy) || confirmation !== null} value={nightId} onChange={(event) => { setStatus(null); setBallots([]); setMessage(""); setNightId(event.target.value); }}>{nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}</select></label>
+        <label>Jornada competitiva<select disabled={Boolean(busy) || confirmation !== null} value={nightId} onChange={(event) => { setStatus(null); setBallots([]); setMessage(""); chooseNight(event.target.value); }}>{nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}</select></label>
       </div>
     </header>
     {selectedEvent && <EventStatusBanner status={selectedEvent.status} />}
     <p className="feedback" role="status" aria-live="polite">{message}</p>
+    {statusLoading && <p role="status">Consultando el estado de esta jornada…</p>}
+    {!statusLoading && !status && nightId && !message && <p role="status">El estado de esta jornada todavía no está disponible. Usá «Actualizar estado» para volver a consultar.</p>}
     {nightId && <>
       <section className="voting-summary" aria-label="Estado de planillas">
         <div><span>En carga</span><strong>{status?.counts.OPEN ?? 0}</strong></div>
@@ -229,7 +240,7 @@ export function AdminVotingPage() {
       </section>
       <section className="config-section">
         <div className="section-heading"><div><h2>Ventana de votación</h2><p>La apertura crea las planillas pendientes. El cierre exige que todas estén completas y confirma las que sigan en carga.</p></div></div>
-        <p>Jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
+        <p>Estado de la jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Estado de la ventana de votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
         {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. Revisá las <a href="#/admin/assignments">asignaciones de jurados</a> y luego habilitá las planillas pendientes.</p>}
         <div className="event-actions">
@@ -361,7 +372,7 @@ export function AdminVotingPage() {
         </section>
       )}
       <section className="assignment-grid" aria-label="Planillas de la noche">
-        {ballots.length === 0 && <p className="empty-state">Todavía no hay planillas para esta noche.</p>}
+        {status && ballots.length === 0 && <p className="empty-state">Todavía no hay planillas para esta jornada.</p>}
         {ballots.map((ballot) => <article className="assignment-card" key={ballot.id}>
           <div className="judge-card-heading"><div><p className="eyebrow">{ballot.specialtyName}</p><h2>{ballot.judgeName}</h2><p>{BALLOT_STATUS_LABELS[ballot.status] ?? ballot.status}</p></div><StatusPill status={ballot.status} label={BALLOT_STATUS_LABELS[ballot.status] ?? ballot.status} /></div>
         </article>)}

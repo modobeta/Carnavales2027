@@ -26,7 +26,10 @@ describe("VeedorMonitorPage", () => {
     apiRequest.mockResolvedValue(payload);
     render(<VeedorMonitorPage />);
 
-    expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Supervisión de la jornada" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Jornada competitiva")).toHaveValue("night-1");
+    expect(screen.getByText(/Estado de la jornada: Abierta · Ventana de votación: Abierta/)).toBeInTheDocument();
     expect(screen.getByText("Confirmadas").nextElementSibling).toHaveTextContent("3");
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.queryByText("score")).not.toBeInTheDocument();

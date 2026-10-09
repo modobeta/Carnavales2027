@@ -11,6 +11,7 @@ function setup(delayedResource) {
   let delaying = true;
   apiRequest.mockImplementation(async (path, options) => {
     const resource = path.split("/").at(-1).split("?")[0];
+    if (path.endsWith("/readiness")) return { ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] };
     if (options?.method) {
       const body = JSON.parse(options.body);
       const saved = { id: `${resource}-new`, active: true, items: [], criteria: [], presentationOrder: 1, ...body };
@@ -43,13 +44,15 @@ it("conserva el tipo creado y su opción en comparsas frente a lecturas anterior
 
 it("conserva el rubro nuevo cuando termina una lectura anterior vacía", async () => {
   const release = setup("rubrics");
-  fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-  fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Vestuario" } });
+  fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
-  await screen.findByRole("button", { name: "Agregar item a Vestuario" });
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+  await screen.findByRole("button", { name: "Crear ítem en Vestuario" });
   await release();
-  expect(screen.getByRole("button", { name: "Agregar item a Vestuario" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Crear ítem en Vestuario" })).toBeInTheDocument();
 });
 
 it("no pierde una comparsa programada por una lectura inicial tardía", async () => {
@@ -102,16 +105,22 @@ it("actualiza la comparsa y el selector de programación aunque termine una cons
 
 it("muestra un rubro y su ítem recién creados sin recargar y conserva el resumen actualizado", async () => {
   const release = setup("rubrics");
-  fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-  fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Vestuario" } });
+  fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
-  const add = await screen.findByRole("button", { name: "Agregar item a Vestuario" });
-  fireEvent.change(screen.getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Colorido" } });
-  fireEvent.change(screen.getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "sp1" } });
-  fireEvent.submit(add.closest("form"));
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
+  const itemDialog = screen.getByRole("dialog", { name: "Crear ítem en Vestuario" });
+  fireEvent.change(within(itemDialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Colorido" } });
+  fireEvent.change(within(itemDialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "sp1" } });
+  fireEvent.submit(itemDialog.querySelector("form"));
+  fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   await screen.findByText("Item guardado.");
   await release();
   expect(screen.getAllByText("Colorido").length).toBeGreaterThan(0);
-  expect(screen.getByText(/Todos los rubros tienen ítems puntuables/)).toBeInTheDocument();
+  const summary = screen.getByRole("region", { name: "Resumen de evaluación" });
+  expect(within(summary).getByText("Ítems activos").nextElementSibling).toHaveTextContent("1");
+  expect(within(summary).getByText("Readiness no informa pendientes de rubros o nominaciones.")).toBeInTheDocument();
 });

@@ -32,12 +32,10 @@ import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.j
 import { useEffect, useState } from "react";
 
 function ProtectedShell({ session, children }) {
-  const shell = <><AppNavigation session={session} />{children}</>;
-  const judgeArea = window.location.hash.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
-  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{shell}</AdminEventProvider>;
+  return <><AppNavigation session={session} />{children}</>;
 }
 
-function AdminCompetenciaPageWrapper() {
+function AdminCompetenciaPageWrapper({ initialStep = "participantes" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -64,7 +62,7 @@ function AdminCompetenciaPageWrapper() {
         </div>
       </main>
     );
-    return <AdminCompetenciaPage event={adminEvent.activeEvent} onBack={() => { window.location.hash = "#/admin/events"; }} />;
+    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} onBack={() => { window.location.hash = "#/admin/events"; }} />;
   }
 
   if (loading) return <main className="container"><p>Cargando eventos...</p></main>;
@@ -80,7 +78,7 @@ function AdminCompetenciaPageWrapper() {
     </main>
   );
 
-  return <AdminCompetenciaPage event={selectedEvent} onBack={() => setSelectedEvent(null)} />;
+  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} onBack={() => setSelectedEvent(null)} />;
 }
 
 function RoleArea({ session, role, admin = false, children }) {
@@ -149,7 +147,8 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminEventsPage /></RoleArea>;
   }
   if (route === "#/admin/competencia") {
-    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper /></RoleArea>;
+    const initialStep = new URLSearchParams(query).get("step") ?? "participantes";
+    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
@@ -193,9 +192,12 @@ export default function App({ session: providedSession }) {
     return <main id="main-content" className="container"><div className="card"><h1>Página no encontrada</h1><a href="#/login">Volver al inicio</a></div></main>;
   };
 
-  return (
+  const content = (
     <div className="app-shell" data-layer={currentLayer}>
       {renderContent()}
     </div>
   );
+  if (session.status !== "authenticated") return content;
+  const judgeArea = path.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{content}</AdminEventProvider>;
 }

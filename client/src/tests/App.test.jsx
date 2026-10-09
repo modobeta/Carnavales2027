@@ -13,11 +13,13 @@ describe("App", () => {
     expect(document.querySelector("#app-drawer")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
-  afterEach(() => { cleanup(); window.location.hash = ""; });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.location.hash = ""; });
   it("muestra login como ruta pública inicial", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Carnavales Goya 2027" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
+    expect(screen.queryByText("Acceso seguro")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sistema de jurados")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ingresar" })).toBeInTheDocument();
@@ -45,5 +47,29 @@ describe("App", () => {
     window.location.hash = "#/admin/penalties";
     render(<App session={{ status: "authenticated", roles: ["JUDGE"] }} />);
     expect(screen.getByText("No tenés permisos para acceder a esta sección.")).toBeInTheDocument();
+  });
+
+  it("abre directamente Rubros desde el acceso simplificado del menú", async () => {
+    const readiness = {
+      ready: true,
+      missing: [],
+      incompleteTroupes: [],
+      incompleteRubrics: [],
+      incompleteSchedules: [],
+      incompleteNominations: [],
+      nightsWithoutJury: [],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      const path = new URL(String(url), "http://localhost").pathname;
+      let data = [];
+      if (path === "/api/v1/events") data = [{ id: "event-1", name: "Carnaval", status: "CONFIGURING", active: true }];
+      else if (path === "/api/v1/public/events") data = { events: [] };
+      else if (path === "/api/v1/events/event-1/readiness") data = readiness;
+      return { ok: true, status: 200, json: async () => data };
+    }));
+    window.location.hash = "#/admin/competencia?step=rubros";
+    render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "admin-1", name: "Admin" } }} />);
+
+    expect(await screen.findByRole("heading", { name: "Configurar evaluación" })).toBeInTheDocument();
   });
 });
