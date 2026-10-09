@@ -1,12 +1,13 @@
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? "";
 
 export class ApiError extends Error {
-  constructor({ status, code, message, details }) {
+  constructor({ status, code, message, details, operation }) {
     super(message ?? code ?? `HTTP_${status}`);
     this.name = "ApiError";
     this.status = status;
     this.code = code ?? `HTTP_${status}`;
     this.details = details;
+    this.operation = operation;
   }
 }
 
@@ -32,6 +33,7 @@ export async function apiRequest(path, options = {}) {
       code: error.code,
       message: error.message,
       details: error.details ?? error,
+      operation: error.operation ?? payload?.operation,
     });
   }
   return response.status === 204 ? null : response.json();
