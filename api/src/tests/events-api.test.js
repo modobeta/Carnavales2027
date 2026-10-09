@@ -210,9 +210,6 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
     const delegatedRequests = [
       ["POST", `/events/${event.id}/open`, null, { "Idempotency-Key": deniedOpenOperationId }],
       ["GET", `/events/${event.id}/open-operations/${randomUUID()}`, null],
-      ["GET", `/events/${event.id}/categories`, null],
-      ["POST", `/events/${event.id}/categories`, { name: "Delegated category", code: "DELEGATED_CATEGORY" }],
-      ["PATCH", `/categories/${categories[0].id}`, { name: "No delegated update" }],
       ["PATCH", `/events/${event.id}/schedule/reorder`, { nightId: night.id, orderedIds: deniedReorderSchedules.rows.map((row) => row.id) }],
       ["DELETE", `/schedule/${secondSchedule.id}`, null],
     ];
