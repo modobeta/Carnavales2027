@@ -263,11 +263,20 @@ export async function createBallotsForNight(client, { eventId, nightId, actorUse
       list.push(nomination);
       nominationsByTroupeAndRubric.set(key, list);
     }
+    const { rows: legacyScopes } = await client.query(
+      `SELECT event_troupe_id AS "eventTroupeId", rubric_id AS "rubricId"
+         FROM legacy_nomination_scope WHERE event_id=$1`,
+      [eventId],
+    );
+    const legacyScopeKeys = new Set(
+      legacyScopes.map((scope) => `${scope.eventTroupeId}:${scope.rubricId}`),
+    );
 
     for (const schedule of schedules) {
       for (const item of items) {
+        const scopeKey = `${schedule.eventTroupeId}:${item.rubricId}`;
         const itemNominations = item.evaluationTarget === "NOMINATION"
-          ? nominationsByTroupeAndRubric.get(`${schedule.eventTroupeId}:${item.rubricId}`) ?? []
+          ? nominationsByTroupeAndRubric.get(scopeKey) ?? (legacyScopeKeys.has(scopeKey) ? [null] : [])
           : [null];
         if (item.evaluationTarget === "NOMINATION" && itemNominations.length === 0) {
           throw new Error("NOMINATION_CONFIGURATION_INCOMPLETE");

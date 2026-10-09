@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const source = (path) => readFileSync(resolve(__dirname, path), "utf8");
+const source = (path) => readFileSync(resolve(__dirname, path), "utf8").replace(/\r\n/g, "\n");
 
 describe("visual hierarchy system", () => {
   const tokens = source("../styles/tokens.css");

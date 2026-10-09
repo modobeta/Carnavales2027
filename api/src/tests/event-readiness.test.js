@@ -101,6 +101,15 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
        VALUES($1, $2, $3, 'PERSON', 'Participante')`,
       [event.id, troupe.id, nominationRubric.id],
     );
+    const withoutJury = await getReadiness({ client, eventId: event.id });
+    assert.deepEqual(withoutJury.missing, ["NIGHTS_WITHOUT_JURY"]);
+    await assert.rejects(() => openEvent({ client, eventId: event.id }), /EVENT_CONFIGURATION_INCOMPLETE/);
+    await client.query("SAVEPOINT missing_jury_guard");
+    await client.query("SELECT set_config('app.allow_event_open','true',true)");
+    await assert.rejects(() => client.query("UPDATE carnival_event SET status='OPEN' WHERE id=$1", [event.id]), /EVENT_CONFIGURATION_INCOMPLETE/);
+    await client.query("ROLLBACK TO SAVEPOINT missing_jury_guard");
+    // Awards nights cannot have assignments and must not prevent opening.
+    await client.query("INSERT INTO night(event_id,name,display_order,kind) VALUES($1,'Awards',99,'AWARDS')", [event.id]);
     await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id });
     const ready = await getReadiness({ client, eventId: event.id });
     assert.equal(ready.ready, true);

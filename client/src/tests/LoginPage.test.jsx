@@ -17,6 +17,17 @@ function fillOtp(code) {
 describe("LoginPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); window.location.hash = ""; });
 
+  it("enlaza información y privacidad sin requerir autenticación ni abrir otra pestaña", () => {
+    render(<LoginPage onAuthenticated={vi.fn()} />);
+    const about = screen.getByRole("link", { name: "Acerca de Carnavales2027" });
+    const privacy = screen.getByRole("link", { name: "Política de privacidad" });
+    expect(about).toHaveAttribute("href", "/acerca.html");
+    expect(privacy).toHaveAttribute("href", "/privacidad.html");
+    expect(about).not.toHaveAttribute("target");
+    expect(privacy).not.toHaveAttribute("target");
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
   it("inicia sesión, solicita OTP y verifica 2FA antes de entrar al panel", async () => {
     const onAuthenticated = vi.fn();
     apiRequest.mockResolvedValue({});

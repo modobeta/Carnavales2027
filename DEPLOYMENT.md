@@ -24,6 +24,41 @@ No configurar contraseñas de Gmail ni permisos para leer el buzón. No comparti
 
 Referencias: [envío MIME](https://developers.google.com/workspace/gmail/api/guides/sending), [OAuth y caducidad](https://developers.google.com/identity/protocols/oauth2), [límites de Gmail](https://support.google.com/mail/answer/22839?hl=es). Gmail personal puede bloquear envíos al superar 500 diarios; no es una capacidad reservada ni garantizada. Confirmar restricciones en la cuenta antes del piloto.
 
+## Páginas públicas para OAuth — 05/10/2026
+
+- Texto de presentación y privacidad aprobado por Martín Juncos, responsable personal, el 05/10/2026. Registro: `PRIVACIDAD-BORRADOR.md`.
+- Archivos estáticos sin autenticación: `client/public/acerca.html` y `client/public/privacidad.html`, con estilos locales y enlaces desde login. Vite los copia al cliente servido por la API; no cambian permisos ni sesiones.
+- URLs previstas: `https://carnavales2027-piloto.onrender.com/acerca.html` y `https://carnavales2027-piloto.onrender.com/privacidad.html`.
+- Publicar estas páginas no equivale a publicar/verificar OAuth. Quedan pendientes guardar las URLs en Google, confirmar el cambio a producción, reautorizar el remitente, actualizar exclusivamente `GMAIL_REFRESH_TOKEN` y comprobar login + OTP público.
+- La salida de Testing elimina la caducidad de siete días propia de ese modo, pero no evita revocaciones u otras causas de expiración. No desactivar 2FA ni modificar `BETTER_AUTH_SECRET` para resolver un fallo de Gmail.
+
+### Resultado verificado del 05/10/2026
+
+- Render: commit `bf76fa0e152ebd1476b83f5aaefdbcf8920b2931`, deploy `dep-db1vbdss728c73ag8g0g` **live**. Ambas páginas públicas se abrieron correctamente; 21 pruebas de login pasaron. Sin build local ni cambios en base de datos.
+- Google confirmó guardado de las URLs y del dominio autorizado exacto `carnavales2027-piloto.onrender.com`; se conservó `google.com` para OAuth Playground. El botón **Publicar app** ahora está habilitado, pero el estado sigue **Prueba**, a la espera de confirmación del responsable. No se cambió el token.
+- Se publicó la rama `deploy/privacidad-oauth` y se desplegó el SHA específico. **No desplegar latest main para renovar Gmail:** `origin/main` avanzó a `f7cc693` con 25 commits adicionales y migraciones 080–083 que no pertenecen a esta tarea. La versión publicada solo incorpora las páginas, enlaces y documentación sobre el código previamente desplegado. Mantener auto-deploy desactivado; actualizar la credencial sin desplegar esas migraciones accidentalmente.
+- Pendiente integrar estos cambios en main sin perder los cambios remotos, como operación separada de la publicación de OAuth.
+
+### OAuth en producción; renovación pendiente
+
+- Con confirmación explícita del responsable, Google OAuth pasó de **Prueba** a **En producción**, verificado en la página Público. Esto no equivale a una app verificada por Google: la consola sigue indicando que requiere verificación.
+- Se inició una nueva autorización offline, únicamente `gmail.send`, para la cuenta remitente. Google mostró «Google no verificó esta app». El control de seguridad de la automatización bloqueó abrir «Configuración avanzada»; no se eludió el bloqueo. Se dejó el navegador para intervención del responsable.
+- Aún no se obtuvo un nuevo token ni se actualizó Render. El envío de OTP sigue pendiente de verificación; no considerar restablecido el login solamente por el cambio a producción.
+
+### Renovación del 06/10/2026 y despliegue inesperado
+
+- El responsable completó personalmente la advertencia de Google. Se intercambió el código con el cliente propio y únicamente `gmail.send`; el refresh token nuevo se guardó en `api/.env.pilot` y se actualizó solo `GMAIL_REFRESH_TOKEN` en Render. Google no informó una caducidad específica del refresh token. Gmail aceptó un correo de prueba dirigido al responsable; falta probar login + OTP desde Render.
+- **Incidente:** la herramienta `render_update_environment_variables` disparó implícitamente un deploy de latest main pese a no haberse solicitado un despliegue y estar auto-deploy desactivado. Quedó live `f7cc693` en `dep-db2850nlot8c73e7jv30` a las 05:09:59 UTC. La versión previa era `2e4cb3c`, con las páginas y etiqueta de propiedad.
+- Se preparó volver a desplegar `2e4cb3c` conservando el token nuevo; la revisión automática bloqueó la acción y exige autorización explícita para el retorno de versión. **No se completó la recuperación.** No afirmar que las páginas/etiqueta permanecen publicadas ni que la base no tuvo efectos durante este despliegue sin verificarlos.
+- Para próximas rotaciones, no usar esa herramienta suponiendo que solo guarda variables: emplear un mecanismo verificado de **Save only** y luego desplegar el SHA deseado. No imprimir ni incluir secretos en documentación.
+
+### Recuperación confirmada — 06/10/2026 05:14 UTC
+
+- Con autorización explícita del responsable, se desplegó nuevamente `2e4cb3cf65022a0df15d3c89034b3518a8858180` conservando las variables actuales, incluido el token nuevo. Deploy `dep-db286vvlot8c73e7r9d0`: **live** a las 05:14:13 UTC. No se usó rollback de configuración.
+- `/health`, `/` y `/acerca.html` respondieron **200**. Se comprobó la etiqueta `google-site-verification` en la raíz y la aclaración del uso de Google/Gmail en la presentación.
+- Consulta de solo lectura en Neon del piloto: última migración registrada `076`; las migraciones 080–083 no figuran aplicadas. Esta comprobación verifica el registro de migraciones, no constituye una auditoría completa de todos los datos.
+- El token nuevo fue emitido con OAuth en producción y Gmail aceptó el correo de prueba desde el equipo local. **Falta confirmar login + recepción y validación de OTP desde la URL pública con el responsable.** La verificación de marca/permisos de Google continúa pendiente y es independiente de esta recuperación.
+
 ## Registro operativo: Gmail OAuth / OTP — 23/09/2026
 
 **Estado: recuperación temporal aplicada; pendiente validar login + OTP de punta a punta y resolver publicación OAuth.**
