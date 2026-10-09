@@ -106,6 +106,9 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "081_rubric_types_nominative_random.sql"
           || filename === "082_event_open_requires_nominations.sql"
           || filename === "083_rubric_icons_and_troupe_logos.sql"
+          || filename === "084_event_open_operation_evidence.sql"
+          || filename === "085_event_open_operation_truncate_guard.sql"
+          || filename === "086_admin_event_assignments.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -518,6 +521,21 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "083_rubric_icons_and_troupe_logos.sql",
       version: "083",
+      applied: true,
+    },
+    {
+      filename: "084_event_open_operation_evidence.sql",
+      version: "084",
+      applied: true,
+    },
+    {
+      filename: "085_event_open_operation_truncate_guard.sql",
+      version: "085",
+      applied: true,
+    },
+    {
+      filename: "086_admin_event_assignments.sql",
+      version: "086",
       applied: true,
     },
   ]);

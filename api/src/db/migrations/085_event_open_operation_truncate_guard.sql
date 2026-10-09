@@ -1,0 +1,7 @@
+CREATE TRIGGER event_open_operation_claim_truncate_immutable
+BEFORE TRUNCATE ON event_open_operation_claim
+FOR EACH STATEMENT EXECUTE FUNCTION reject_event_open_operation_evidence_mutation();
+
+CREATE TRIGGER event_open_operation_receipt_truncate_immutable
+BEFORE TRUNCATE ON event_open_operation_receipt
+FOR EACH STATEMENT EXECUTE FUNCTION reject_event_open_operation_evidence_mutation();
