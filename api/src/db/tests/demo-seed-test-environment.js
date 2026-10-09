@@ -44,7 +44,7 @@ export async function prepareDemoSeedTest(t) {
   const password = randomCompliantPassword();
   process.env.SEED_DEMO_PASSWORD = password;
   delete process.env.SEED_ADMIN_PASSWORD;
-  const { auth, createAuth } = await import("../../auth/auth.js");
-  await (await getMigrations(auth.options)).runMigrations();
+  const { createAuth } = await import("../../auth/auth.js");
+  await (await getMigrations(createAuth().options)).runMigrations();
   return { pool: getPool(), password, createAuth };
 }
