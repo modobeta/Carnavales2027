@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { removeTroupeLogo, uploadTroupeLogo } from "../api/troupes.js";
@@ -7,11 +7,12 @@ import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
-import { ProgressBar } from "../components/ProgressBar.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
-import { RubricTree } from "../features/RubricTree.jsx";
+import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
+import { uxStatusLabel } from "../components/admin-ux-labels.js";
+import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 
 const WriteContext = createContext(null);
 
@@ -34,14 +35,42 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
-export function AdminCompetenciaPage({ event, onBack }) {
-  const [step, setStep] = useState("participantes");
+export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
+  const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
+  const [step, setStep] = useState(validInitialStep);
+  const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
+  const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
+  const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
   const writing = useRef(false);
   const progressRequest = useRef(0);
+
+  useEffect(() => {
+    setStep(validInitialStep);
+    const targetTab = initialTab || getTabFromHash();
+    if (targetTab === "asignaciones") {
+      setJuryTab("asignaciones");
+    } else if (targetTab === "especialidades") {
+      setJuryTab("especialidades");
+    }
+  }, [validInitialStep, initialTab]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const targetTab = getTabFromHash();
+      if (targetTab === "asignaciones") {
+        setJuryTab("asignaciones");
+      } else if (targetTab === "especialidades") {
+        setJuryTab("especialidades");
+      }
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   // Conteo liviano para el progreso del asistente (solo lectura; el detalle
   // y las mutaciones siguen en cada sección). Guía sin bloquear (T05 intacta).
@@ -61,51 +90,23 @@ export function AdminCompetenciaPage({ event, onBack }) {
 
   useEffect(reloadProgress, [event.id]);
 
-  const troupesActive = (progress?.troupes ?? []).filter((t) => t.active !== false);
-  const categoriesActive = (progress?.categories ?? []).filter((c) => c.active !== false);
+  useEffect(() => {
+    let active = true;
+    setReadinessState({ eventId: event.id, status: "unqueried", data: null });
+    apiRequest(`/api/v1/events/${event.id}/readiness`).then((readiness) => {
+      if (active) setReadinessState({ eventId: event.id, status: isInterpretableReadiness(readiness) ? "available" : "unavailable", data: isInterpretableReadiness(readiness) ? readiness : null });
+    }).catch(() => {
+      if (active) setReadinessState({ eventId: event.id, status: "unavailable", data: null });
+    });
+    return () => { active = false; };
+  }, [event.id, dataRevision]);
+
   const specialtiesActive = (progress?.specialties ?? []).filter((s) => s.active !== false);
-  const rubricsActive = (progress?.rubrics ?? []).filter((r) => r.active !== false);
-  const rubricsComplete = rubricsActive.filter((r) => (r.items ?? []).some((i) => i.active !== false));
-  const uncoveredSpecialties = specialtiesActive.filter(
-    (s) => !rubricsActive.some((r) => (r.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id)),
-  );
-  const orphanedCount = (progress?.orphaned ?? []).length;
-
-  const stepCompletion = {
-    participantes: categoriesActive.length > 0 && troupesActive.length > 0,
-    jurados: specialtiesActive.length > 0,
-    rubros: rubricsActive.length > 0 && rubricsComplete.length === rubricsActive.length,
-    revision: false,
-  };
-  stepCompletion.revision = stepCompletion.participantes && stepCompletion.jurados && stepCompletion.rubros
-    && uncoveredSpecialties.length === 0 && orphanedCount === 0;
-  const stepAttention = {
-    participantes: !stepCompletion.participantes && (categoriesActive.length > 0 || troupesActive.length > 0),
-    jurados: false,
-    rubros: !stepCompletion.rubros && rubricsActive.length > 0,
-    revision: !stepCompletion.revision && (stepCompletion.participantes || stepCompletion.jurados || stepCompletion.rubros || orphanedCount > 0),
-  };
-
-  const steps = [
-    { key: "participantes", label: "Participantes", detail: "Tipos, comparsas y orden de pasada" },
-    { key: "jurados", label: "Jurados y especialidades", detail: "Especialidades por jurado" },
-    { key: "rubros", label: "Rubros, ítems y criterios", detail: "Qué se puntúa" },
-    { key: "revision", label: "Revisión final", detail: "Resumen y pendientes" },
-  ];
-  const stepStateLabels = {
-    done: "Completo",
-    current: "Paso actual",
-    pending: "Pendiente",
-    attention: "Requiere atención",
-  };
-  const stepState = (key) => {
-    if (!progress) return "pending";
-    if (stepCompletion[key]) return "done";
-    if (step === key) return "current";
-    return stepAttention[key] ? "attention" : "pending";
-  };
-  const doneCount = steps.filter((item) => stepCompletion[item.key]).length;
-  const pct = Math.round((doneCount / steps.length) * 100);
+  const currentReadiness = readinessState.eventId === event.id ? readinessState.data : null;
+  const currentReadinessStatus = readinessState.eventId === event.id ? readinessState.status : "unqueried";
+  const stepStatuses = readinessStepStates(currentReadiness, currentReadinessStatus);
+  const steps = PREPARATION_STEPS.map((item) => ({ ...item, label: item.key === "rubros" ? "Evaluación" : item.label }));
+  const officialIssues = readinessIssues(currentReadiness);
   const activeIndex = Math.max(0, steps.findIndex((item) => item.key === step));
 
   // Accesibilidad: al cambiar de paso, el foco va al título del paso (no en el montaje inicial).
@@ -120,38 +121,30 @@ export function AdminCompetenciaPage({ event, onBack }) {
     setStep(key);
   };
 
-  const pendingRubrics = rubricsActive.length - rubricsComplete.length;
-  const revisionPendings = (uncoveredSpecialties.length > 0 ? uncoveredSpecialties.length : 0)
-    + (orphanedCount > 0 ? 1 : 0)
-    + (pendingRubrics > 0 ? pendingRubrics : 0);
-  const summaryByStep = {
-    participantes: !progress
-      ? "Cargando el resumen del paso…"
-      : categoriesActive.length === 0
-        ? "Todavía no hay tipos de participación: creá al menos uno para poder dar de alta comparsas."
-        : troupesActive.length === 0
-          ? `Tenés ${categoriesActive.length} tipo(s) cargados y ninguna comparsa: agregá la primera comparsa.`
-          : `Tenés ${troupesActive.length} comparsa(s) activa(s) en ${categoriesActive.length} tipo(s): programá el orden de pasada en el último bloque.`,
-    jurados: !progress
-      ? "Cargando el resumen del paso…"
-      : specialtiesActive.length === 0
-        ? "Todavía no hay especialidades: creá al menos una, porque cada ítem del paso 3 pertenece a una especialidad activa."
-        : `Tenés ${specialtiesActive.length} especialidad(es) activa(s): los jurados que evalúan cada una se asignan en la pantalla de Jurados.`,
-    rubros: !progress
-      ? "Cargando el resumen del paso…"
-      : rubricsActive.length === 0
-        ? "Todavía no hay rubros: creá el primero y agregale ítems con su especialidad."
-        : pendingRubrics > 0
-          ? `${pendingRubrics} rubro(s) sin ítems puntuables: expandilos para completar la carga.`
-          : uncoveredSpecialties.length > 0
-            ? `La especialidad ${uncoveredSpecialties[0].name} todavía no evalúa ningún rubro: agregá un ítem con esa especialidad.`
-            : "Todos los rubros tienen ítems puntuables: revisá la matriz en el paso final.",
-    revision: !progress
-      ? "Cargando el resumen del paso…"
-      : stepCompletion.revision
-        ? "Sin pendientes: la configuración está completa y lista para abrir la votación."
-        : `Te faltan ${revisionPendings} punto(s) por resolver antes de abrir la votación: revisá el resumen y la matriz.`,
+  const selectJuryTab = (newTab) => {
+    setJuryTab(newTab);
+    const search = window.location.hash.split("?")[1] ?? "";
+    const params = new URLSearchParams(search);
+    params.set("step", "jurados");
+    if (newTab === "asignaciones") {
+      params.set("tab", "asignaciones");
+    } else {
+      params.delete("tab");
+    }
+    const newHash = `#/admin/competencia?${params.toString()}`;
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, "", newHash);
+    }
   };
+
+  const statusSummary = (key) => {
+    const status = stepStatuses[key];
+    if (status === "complete") return `${READINESS_STATE_LABELS[status]} según readiness de la API.`;
+    if (status === "incomplete") return "Readiness informa uno o más bloqueos oficiales para este paso.";
+    if (status === "unqueried") return "Readiness no consultado todavía.";
+    return "Readiness no disponible; no se puede confirmar el estado de este paso.";
+  };
+  const eventStatusLabel = uxStatusLabel(event.status, "No disponible");
 
   return (
     <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1) }}>
@@ -161,7 +154,8 @@ export function AdminCompetenciaPage({ event, onBack }) {
             <div>
               <p className="eyebrow">Competencia</p>
               <h1>{event.name ?? "Evento"}</h1>
-              <p className="competencia-step-meta">Paso {activeIndex + 1} de {steps.length} · {pct}% completado</p>
+              <p className="competencia-event-status">Estado del evento: {eventStatusLabel}</p>
+              <p className="competencia-step-meta">Paso {activeIndex + 1} de {steps.length}</p>
             </div>
             <div className="event-actions">
               {onBack && <button className="secondary" type="button" onClick={onBack}>Volver</button>}
@@ -170,23 +164,24 @@ export function AdminCompetenciaPage({ event, onBack }) {
           <nav className="competencia-nav competencia-stepper" aria-label="Pasos de configuración de competencia">
             <ol>
               {steps.map((item, index) => {
-                const state = stepState(item.key);
+                const state = stepStatuses[item.key];
                 const isCurrent = step === item.key;
+                const stateLabel = READINESS_STATE_LABELS[state];
                 return (
                   <li key={item.key}>
                     <button
                       type="button"
                       className={isCurrent ? "active" : "secondary"}
                       aria-current={isCurrent ? "step" : undefined}
-                      aria-label={`Paso ${index + 1} de ${steps.length}: ${item.label}. ${stepStateLabels[state]}.`}
+                      aria-label={`Paso ${index + 1} de ${steps.length}: ${item.label}. ${stateLabel}.${isCurrent ? " Paso actual." : ""}`}
                       onClick={() => goStep(item.key)}
                     >
                       <span className="competencia-step-badge" aria-hidden="true">
-                        {state === "done" ? "✓" : index + 1}
+                        {!isCurrent && state === "complete" ? "✓" : index + 1}
                       </span>
                       <span className="competencia-step-copy">
                         <span className="competencia-step-label">{item.label}</span>
-                        <span className="competencia-step-state">{stepStateLabels[state]}</span>
+                        <span className="competencia-step-state">{stateLabel}</span>
                       </span>
                     </button>
                   </li>
@@ -194,12 +189,11 @@ export function AdminCompetenciaPage({ event, onBack }) {
               })}
             </ol>
           </nav>
-          <ProgressBar value={doneCount} max={steps.length} label="Progreso de configuración" sublabel={`${doneCount} de ${steps.length} pasos completados`} className="competencia-progress" />
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
               <p className="step-intro">Cargá quiénes participan: primero los tipos, después las comparsas y por último el orden de pasada de cada jornada.</p>
-              <StepSummary stepLabel="Participantes" recommendation={summaryByStep.participantes} />
+              <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
               <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación">
                 <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
               </section>
@@ -215,37 +209,88 @@ export function AdminCompetenciaPage({ event, onBack }) {
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
               <p className="step-intro">Primero creá al menos una especialidad activa. Después vas a poder asignar jurados a cada especialidad. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
-              <StepSummary stepLabel="Jurados y especialidades" recommendation={summaryByStep.jurados} />
-              <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
-              <p className="step-intro">
-                {specialtiesActive.length > 0 ? (
-                  <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
-                    Asignar jurados a la competencia
-                  </a>
+              <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
+              <div className="competencia-tabs" role="tablist" aria-label="Especialidades y asignaciones">
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-especialidades"
+                  aria-controls="competencia-jurados-panel"
+                  aria-selected={juryTab === "especialidades"}
+                  className={juryTab === "especialidades" ? "active" : "secondary"}
+                  onClick={() => selectJuryTab("especialidades")}
+                >
+                  Especialidades
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-asignaciones"
+                  aria-controls="competencia-jurados-panel"
+                  aria-selected={juryTab === "asignaciones"}
+                  className={juryTab === "asignaciones" ? "active" : "secondary"}
+                  onClick={() => selectJuryTab("asignaciones")}
+                >
+                  Asignar jurados
+                </button>
+              </div>
+              <div role="tabpanel" id="competencia-jurados-panel" aria-labelledby={`competencia-tab-${juryTab}`} tabIndex={0}>
+                {juryTab === "especialidades" ? (
+                  <>
+                    <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+                    {specialtiesActive.length === 0 && <p className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</p>}
+                  </>
                 ) : (
-                  <button className="button-link" type="button" disabled aria-disabled="true">
-                    Asignar jurados a la competencia
-                  </button>
+                  <AdminAssignmentsPage initialEventId={event.id} embedded={true} />
                 )}
-                {specialtiesActive.length === 0 && <span className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</span>}
-              </p>
+              </div>
             </section>
           )}
           {step === "rubros" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Rubros, ítems y criterios</h2>
-              <p className="step-intro">Creá cada rubro con sus ítems y criterios: al crearlo se abre solo para seguir cargando.</p>
-              <StepSummary stepLabel="Rubros, ítems y criterios" recommendation={summaryByStep.rubros} />
-              <AdminRubricsSection key={`rubrics-${event.id}`} event={event} focusRubricId={focusRubricId} />
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Configurar evaluación</h2>
+              <p className="step-intro">Definí qué va a evaluar cada jurado y cómo se registrará su evaluación.</p>
+              <div className="competencia-tabs" role="tablist" aria-label="Rubros e ítems">
+                <button type="button" role="tab" id="competencia-tab-rubros" aria-controls="competencia-rubros-panel"
+                  aria-selected={rubricTab === "rubros"} className={rubricTab === "rubros" ? "active" : "secondary"}
+                  onClick={() => setRubricTab("rubros")}>Rubros</button>
+                <button type="button" role="tab" id="competencia-tab-items" aria-controls="competencia-rubros-panel"
+                  aria-selected={rubricTab === "items"} className={rubricTab === "items" ? "active" : "secondary"}
+                  onClick={() => setRubricTab("items")}>Ítems</button>
+              </div>
+              <div role="tabpanel" id="competencia-rubros-panel" aria-labelledby={`competencia-tab-${rubricTab}`} tabIndex={0}>
+              <AdminRubricsSection
+                key={`rubrics-${event.id}`}
+                event={event}
+                focusRubricId={focusRubricId}
+                readiness={currentReadiness}
+                readinessStatus={currentReadinessStatus}
+                onBack={() => goStep("jurados")}
+                onContinue={() => goStep("revision")}
+                tab={rubricTab}
+              />
+              </div>
+              <CompetenciaOverview key={`overview-${event.id}`} event={event} />
+              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} onBack={() => goStep("jurados")} onContinue={() => goStep("revision")} />
             </section>
           )}
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
-              <p className="step-intro">Verificá que no falte nada: el resumen, la matriz y los pendientes se generan solos desde lo cargado.</p>
-              <StepSummary stepLabel="Revisión final" recommendation={summaryByStep.revision} />
-              <CompetenciaOverview key={event.id} event={event} onGoStep={goStep} />
-              <MatrizPlanillasSection key={`matrix-${event.id}`} event={event} onResolveRubric={(rubricId) => { setFocusRubricId(rubricId); goStep("rubros"); }} />
+              <p className="step-intro">Revisá únicamente los bloqueos oficiales de apertura informados por la API.</p>
+              <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
+              {currentReadinessStatus === "available" ? currentReadiness.ready ? (
+                <p className="readiness-ok">La API confirma que no hay bloqueos oficiales de apertura.</p>
+              ) : (
+                <ul className="readiness-checklist" aria-label="Bloqueos oficiales de readiness">
+                  {officialIssues.map((issue) => <li key={issue.key} className="readiness-fail">
+                    <span className="readiness-icon" aria-hidden="true">!</span>
+                    <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
+                    <a href={issue.href}>{issue.action}</a>
+                  </li>)}
+                </ul>
+              ) : <p role="status">{currentReadinessStatus === "unqueried" ? "Readiness no consultado." : "No se pudo consultar readiness; revisá Eventos para volver a consultar."}</p>}
+              {currentReadinessStatus === "unavailable" && <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>}
             </section>
           )}
         </fieldset>
@@ -264,7 +309,7 @@ function StepSummary({ stepLabel, recommendation }) {
   );
 }
 
-function CompetenciaOverview({ event, onGoStep }) {
+function CompetenciaOverview({ event }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState("");
   const [criterionConfirmTarget, setCriterionConfirmTarget] = useState(null);
@@ -275,13 +320,11 @@ function CompetenciaOverview({ event, onGoStep }) {
   useEffect(() => {
     let active = true;
     Promise.all([
-      apiRequest(`/api/v1/events/${event.id}/troupes`),
-      apiRequest(`/api/v1/events/${event.id}/specialties`),
       apiRequest(`/api/v1/events/${event.id}/rubrics`),
       apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`),
-    ]).then(([troupes, specialties, rubrics, orphaned]) => {
+    ]).then(([rubrics, orphaned]) => {
       if (!active) return;
-      setData({ troupes, specialties, rubrics, orphaned });
+      setData({ rubrics, orphaned });
     }).catch(() => { if (active) setMessage("No se pudo cargar el resumen."); });
     return () => { active = false; };
   }, [event.id, dataRevision]);
@@ -316,57 +359,36 @@ function CompetenciaOverview({ event, onGoStep }) {
 
   if (message && !data) return <p role="status">{message}</p>;
   if (!data) return <p>Cargando resumen...</p>;
+  if (data.orphaned.length === 0) return null;
 
   return (
-    <section className="config-section">
+    <section className="config-section evaluation-review-items">
       <div className="section-heading">
-        <h2>Resumen de competencia</h2>
+        <h3>Otros elementos por revisar</h3>
+        <p>Estos criterios todavía no están vinculados a un ítem.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
-      <div className="competencia-overview-grid">
-        <article className="overview-stat">
-          <span className="overview-number">{data.troupes.filter((t) => t.active).length}</span>
-          <span className="overview-label">Comparsas activas</span>
-          {onGoStep && <button type="button" className="link" onClick={() => onGoStep("participantes")}>Ir al paso 1 →</button>}
-        </article>
-        <article className="overview-stat">
-          <span className="overview-number">{data.specialties.filter((s) => s.active).length}</span>
-          <span className="overview-label">Especialidades activas</span>
-          {onGoStep && <button type="button" className="link" onClick={() => onGoStep("jurados")}>Ir al paso 2 →</button>}
-        </article>
-        <article className="overview-stat">
-          <span className="overview-number">{data.rubrics.filter((r) => r.active).length}</span>
-          <span className="overview-label">Rubros activos</span>
-          {onGoStep && <button type="button" className="link" onClick={() => onGoStep("rubros")}>Ir al paso 3 →</button>}
-        </article>
-        <article className="overview-stat">
-          <span className="overview-number">{data.rubrics.reduce((sum, r) => sum + (r.items?.length ?? 0), 0)}</span>
-          <span className="overview-label">Items puntuables</span>
-        </article>
-        {data.orphaned.length > 0 && (
-          <article className="overview-alert">
-            <strong>{data.orphaned.length} criterio(s) pendiente(s) de asignar</strong>
-            <p>Cada criterio debe vincularse a un item puntuable antes de publicar la configuracion.</p>
-            {data.orphaned.map((criterion) => {
-              const items = (data.rubrics.find((rubric) => rubric.id === criterion.rubricId)?.items ?? [])
-                .filter((item) => item.active !== false);
-              return (
-                <SaveForm key={criterion.id} onSubmit={(e) => {
-                  const scoringItemId = new FormData(e.currentTarget).get("scoringItemId");
-                  setCriterionConfirmTarget({ criterion, scoringItemId });
-                  return false;
-                }}>
-                  <span>{criterion.rubricName}: {criterion.description}</span>
-                  <select name="scoringItemId" aria-label={`Item para ${criterion.rubricName}: ${criterion.description}`} required disabled={locked || items.length === 0}>
-                    <option value="">Seleccionar item</option>
-                    {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
-                  <button type="submit" aria-label={`Reasignar ${criterion.description}`} disabled={locked || items.length === 0}>Reasignar</button>
-                </SaveForm>
-              );
-            })}
-          </article>
-        )}
+      <div className="overview-alert">
+        <strong>{data.orphaned.length} criterio(s) pendiente(s) de vincular</strong>
+        <p>Elegí el ítem al que corresponde cada criterio para que el jurado pueda consultarlo.</p>
+        {data.orphaned.map((criterion) => {
+          const items = (data.rubrics.find((rubric) => rubric.id === criterion.rubricId)?.items ?? [])
+            .filter((item) => item.active !== false);
+          return (
+            <SaveForm key={criterion.id} onSubmit={(e) => {
+              const scoringItemId = new FormData(e.currentTarget).get("scoringItemId");
+              setCriterionConfirmTarget({ criterion, scoringItemId });
+              return false;
+            }}>
+              <span>{criterion.rubricName}: {criterion.description}</span>
+              <select name="scoringItemId" aria-label={`Item para ${criterion.rubricName}: ${criterion.description}`} required disabled={locked || items.length === 0}>
+                <option value="">Seleccionar ítem</option>
+                {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <button type="submit" aria-label={`Reasignar ${criterion.description}`} disabled={locked || items.length === 0}>Vincular</button>
+            </SaveForm>
+          );
+        })}
       </div>
       <Dialog
         isOpen={criterionConfirmTarget !== null && !locked}
@@ -383,6 +405,45 @@ function CompetenciaOverview({ event, onGoStep }) {
           }}>Confirmar reasignación</Button>
         </DialogFooter>
       </Dialog>
+    </section>
+  );
+}
+
+function EvaluationStepSummary({ progress, readiness, readinessStatus, onBack, onContinue }) {
+  const specialties = (progress?.specialties ?? []).filter((specialty) => specialty.active !== false);
+  const rubrics = (progress?.rubrics ?? []).filter((rubric) => rubric.active !== false);
+  const items = rubrics.flatMap((rubric) => (rubric.items ?? []).filter((item) => item.active !== false));
+  const coveredSpecialtyIds = new Set(items.map((item) => item.specialtyId));
+  const pendingRubrics = readiness?.incompleteRubrics ?? [];
+  const pendingNominations = readiness?.incompleteNominations ?? [];
+  const missingActiveRubrics = readiness?.missing?.includes("ACTIVE_RUBRIC");
+  const pendingCriteria = progress?.orphaned?.length ?? 0;
+
+  return (
+    <section className="evaluation-step-summary" aria-labelledby="evaluation-summary-title">
+      <h3 id="evaluation-summary-title">Resumen de evaluación</h3>
+      {progress ? <dl className="evaluation-summary-stats">
+        <div><dt>Especialidades con rubros</dt><dd>{specialties.filter((specialty) => coveredSpecialtyIds.has(specialty.id)).length} de {specialties.length}</dd></div>
+        <div><dt>Rubros activos</dt><dd>{rubrics.length}</dd></div>
+        <div><dt>Ítems activos</dt><dd>{items.length}</dd></div>
+      </dl> : <p role="status">Cargando el resumen de evaluación…</p>}
+      {readinessStatus === "available" ? (
+        pendingRubrics.length || missingActiveRubrics || pendingNominations.length || pendingCriteria ? (
+          <div className="evaluation-summary-pending" role="status">
+            <strong>Hay puntos de evaluación para revisar.</strong>
+            <ul>
+              {missingActiveRubrics && <li>No hay rubros activos.</li>}
+              {pendingRubrics.length > 0 && <li>{pendingRubrics.length} rubro(s) necesitan ítems activos y especialidades disponibles.</li>}
+              {pendingNominations.length > 0 && <li>Faltan participantes nominados en {pendingNominations.length} combinación(es) de rubro y comparsa.</li>}
+              {pendingCriteria > 0 && <li>{pendingCriteria} criterio(s) todavía deben vincularse a un ítem.</li>}
+            </ul>
+          </div>
+        ) : <p className="evaluation-summary-status" role="status">Readiness no informa pendientes de rubros o nominaciones.</p>
+      ) : <p className="evaluation-summary-status" role="status">No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.</p>}
+      <nav className="evaluation-step-actions" aria-label="Navegación de evaluación">
+        <button type="button" className="secondary" onClick={onBack}>Volver</button>
+        <button type="button" onClick={onContinue}>Continuar a revisión</button>
+      </nav>
     </section>
   );
 }
@@ -1252,10 +1313,14 @@ function AdminSpecialtiesSection({ event }) {
   );
 }
 
-function AdminRubricsSection({ event, focusRubricId = null }) {
+function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, onBack, onContinue, tab = "rubros" }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
   const [troupes, setTroupes] = useState([]);
+  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newRubricTarget, setNewRubricTarget] = useState("TROUPE");
+  const [editingRubricTarget, setEditingRubricTarget] = useState("TROUPE");
   const [expanded, setExpanded] = useState(null);
   const [editingRubricId, setEditingRubricId] = useState(null);
   const [highlightItemId, setHighlightItemId] = useState(null);
@@ -1265,7 +1330,9 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   const [nominationCreateTarget, setNominationCreateTarget] = useState(null);
   const [nominationStatusTarget, setNominationStatusTarget] = useState(null);
   const [mutationConfirmTarget, setMutationConfirmTarget] = useState(null);
+  const [itemCreateTarget, setItemCreateTarget] = useState(null);
   const rubricDeleteTriggerRef = useRef(null);
+  const itemCreateTriggerRef = useRef(null);
   const [message, setMessage] = useState("");
   const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
 
@@ -1278,13 +1345,20 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   useEffect(() => {
     let active = true;
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => {
+      if (!active) return;
+      setSpecialties(loaded);
+      setSelectedSpecialtyId((current) => current && loaded.some((specialty) => specialty.id === current && specialty.active !== false)
+        ? current
+        : loaded.find((specialty) => specialty.active !== false)?.id ?? null);
+    }).catch(() => {});
     apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
     return () => { active = false; };
   }, [event.id, dataRevision]);
 
   useEffect(() => {
     if (focusRubricId) {
+      setRubricTab("items");
       setExpanded(focusRubricId);
       setHighlightItemId(null);
       scrollToSelector(`[data-rubric-id="${focusRubricId}"]`);
@@ -1294,6 +1368,18 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
   const locked = event.status === "OPEN";
   const activeSpecialties = specialties.filter((s) => s.active !== false);
   const activeTroupes = troupes.filter((troupe) => troupe.active !== false).sort((a, b) => a.name.localeCompare(b.name));
+  const selectedSpecialty = activeSpecialties.find((specialty) => specialty.id === selectedSpecialtyId) ?? null;
+  const rubricHasSpecialty = (rubric, specialtyId) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialtyId);
+  const specialtyRubrics = selectedSpecialty
+    ? rubrics.filter((rubric) => rubricHasSpecialty(rubric, selectedSpecialty.id))
+    : [];
+  const unassignedRubrics = rubrics.filter((rubric) => !activeSpecialties.some((specialty) => rubricHasSpecialty(rubric, specialty.id)));
+  const visibleRubrics = [...specialtyRubrics, ...unassignedRubrics.filter((rubric) => !specialtyRubrics.some((entry) => entry.id === rubric.id))];
+  const activeRubrics = rubrics.filter((rubric) => rubric.active !== false);
+  const activeItemCount = activeRubrics.reduce((total, rubric) => total + (rubric.items ?? []).filter((item) => item.active !== false).length, 0);
+  const coveredSpecialtyIds = new Set(activeRubrics.flatMap((rubric) =>
+    (rubric.items ?? []).filter((item) => item.active !== false).map((item) => item.specialtyId)));
+  const incompleteRubricIds = new Set((readiness?.incompleteRubrics ?? []).map((rubric) => rubric.id));
 
   const RUBRIC_TYPES = [
     { value: "NOMINATIVE", label: "Nominativo" },
@@ -1328,6 +1414,10 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
       if (fresh) setRubrics(fresh);
       else setRubrics((prev) => method === "POST" ? [...prev, { ...saved, items: [], criteria: [], specialties: [] }] : prev.map((r) => r.id === saved.id ? { ...r, ...saved } : r));
       setMessage("Rubro guardado.");
+      if (method === "POST") {
+        setShowCreateForm(false);
+        setNewRubricTarget("TROUPE");
+      }
       if (incRevision) incRevision();
       reloadProgress?.();
       if (method === "POST" && saved?.id) {
@@ -1521,11 +1611,11 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
       const fresh = await apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => null);
       if (fresh) setRubrics(fresh);
       else setRubrics((prev) => prev.map((r) => r.id === rubric.id ? { ...r, active } : r));
-      setMessage(active ? `Rubro ${rubric.name} reactivado.` : `Rubro ${rubric.name} eliminado (desactivado en BD).`);
+      setMessage(active ? `Rubro ${rubric.name} reactivado.` : `Rubro ${rubric.name} desactivado.`);
       if (incRevision) incRevision();
       reloadProgress?.();
     } catch {
-      setMessage(active ? "No se pudo reactivar el rubro." : "No se pudo eliminar el rubro.");
+      setMessage(active ? "No se pudo reactivar el rubro." : "No se pudo desactivar el rubro.");
     } finally {
       writing.current = false;
       setPending(false);
@@ -1541,51 +1631,93 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
 
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Rubros y planillas</h2><p>Constructor jerarquico: rubro, items puntuables y criterios descriptivos. Eliminar oculta el rubro y lo conserva desactivado en BD.</p></div>
-      <p className="feedback" role="status">{message}</p>
-
-      <h3>Qué puntúa el jurado</h3>
-      <RubricTree rubrics={rubrics} specialties={specialties} />
-
-      {!locked && (
-        <SaveForm resetOnSuccess className="config-card" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/events/${event.id}/rubrics`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null }); }}>
-          <h3>Nuevo rubro</h3>
-          <label>Nombre<input name="name" required /></label>
-          <label>A quién se evalúa<select name="evaluationTarget"><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
-          <label>Tipo de rubro<select name="rubricType">{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-          <label>Detalle (opcional)<input name="evaluationObjective" placeholder="Ej: Figura / participante" /></label>
-          <details className="advanced-options">
-            <summary>Opciones avanzadas</summary>
-            <label>Tipo de sujeto<select name="expectedSubjectType" title="El tipo de sujeto solo aplica al objetivo Nominacion; para Comparsa se guarda sin tipo de sujeto.">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-            <label>Metodo de resolucion<select name="resolutionMethod" title="El metodo de resolucion es metadata futura: no ejecuta formulas ni decisiones automaticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
-          </details>
-          <button type="submit">Crear rubro</button>
-        </SaveForm>
+      <div className="evaluation-section-heading">
+        <div>
+          <h3>Especialidades</h3>
+          <p>Seleccioná una especialidad para ver qué rubros evalúa.</p>
+        </div>
+        {!locked && <button type="button" onClick={() => setShowCreateForm((visible) => !visible)} aria-expanded={showCreateForm} aria-controls="new-rubric-form">
+          {showCreateForm ? "Cancelar" : "+ Agregar rubro"}
+        </button>}
+      </div>
+      {activeSpecialties.length > 0 ? (
+        <div className="specialty-selector" role="group" aria-label="Especialidades de la competencia">
+          {activeSpecialties.map((specialty) => {
+            const count = activeRubrics.filter((rubric) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialty.id)).length;
+            const selected = selectedSpecialtyId === specialty.id;
+            return <button key={specialty.id} type="button" className={selected ? "specialty-option is-selected" : "specialty-option"}
+              aria-pressed={selected} onClick={() => setSelectedSpecialtyId(specialty.id)}>
+              <span>{specialty.name}</span><span className="specialty-option-count">{count} {count === 1 ? "rubro" : "rubros"}</span>
+            </button>;
+          })}
+        </div>
+      ) : (
+        <div className="evaluation-empty-state">
+          <strong>Todavía no hay especialidades activas</strong>
+          <p>Los rubros se organizan según la especialidad que evalúa cada jurado. Primero agregá una especialidad.</p>
+          <button className="secondary" type="button" onClick={onBack}>Volver a Jurados y especialidades</button>
+        </div>
       )}
 
+      {selectedSpecialty && <div className="evaluation-list-heading">
+        <h3>Rubros de {selectedSpecialty.name}</h3>
+      </div>}
+      <p className="feedback" role="status">{message}</p>
+
+      {!locked && showCreateForm && <SaveForm id="new-rubric-form" resetOnSuccess className="config-card rubric-create-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/events/${event.id}/rubrics`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null }); }}>
+        <h3>Agregar rubro</h3>
+        <label>Nombre del rubro<input name="name" autoFocus required /></label>
+        <label>A quién se evalúa<select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominación</option></select></label>
+        <label>Tipo de evaluación<select name="rubricType">{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+        {newRubricTarget === "NOMINATION" && <label>Qué tipo de participante<select name="expectedSubjectType" defaultValue="PERSON">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>}
+        <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
+        <details className="advanced-options">
+          <summary>Opciones avanzadas</summary>
+          <label>Método de resolución<select name="resolutionMethod" title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
+        </details>
+        <div className="form-actions"><button type="submit">Crear rubro</button><button type="button" className="secondary" onClick={() => setShowCreateForm(false)}>Cancelar</button></div>
+      </SaveForm>}
+
+      {activeSpecialties.length > 0 && specialtyRubrics.length === 0 && <div className="evaluation-empty-state">
+        <strong>Todavía no hay rubros asociados a {selectedSpecialty?.name ?? "esta especialidad"}</strong>
+        <p>Los rubros indican qué evaluará el jurado. Podés agregar uno o vincular un ítem de un rubro existente a esta especialidad.</p>
+        {!locked && <button type="button" className="secondary" onClick={() => setShowCreateForm(true)}>+ Agregar rubro</button>}
+      </div>}
+
       <div className="rubric-list">
-        {rubrics.map((rubric) => {
+        {visibleRubrics.map((rubric, rubricIndex) => {
+          const isUnassigned = unassignedRubrics.some((entry) => entry.id === rubric.id);
           const orderedItems = [...(rubric.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
           const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id));
           const isExpanded = expanded === rubric.id;
           const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? rubric.rubricType;
-          const resolutionLabel = RESOLUTION_METHODS.find((m) => m.value === rubric.resolutionMethod)?.label ?? rubric.resolutionMethod;
+          const rubricStatus = rubric.active === false ? "Inactivo" : readinessStatus !== "available" ? "Estado por comprobar" : incompleteRubricIds.has(rubric.id) ? "Necesita configuración" : "Listo";
           return (
-            <article className="rubric-card" key={rubric.id} data-rubric-id={rubric.id}>
+            <Fragment key={rubric.id}>
+            {isUnassigned && rubricIndex === visibleRubrics.findIndex((entry) => unassignedRubrics.some((candidate) => candidate.id === entry.id)) && <h3 className="rubric-group-heading">Otros rubros por revisar</h3>}
+            <article className={`rubric-card${isUnassigned ? " rubric-card-unassigned" : ""}`} data-rubric-id={rubric.id}>
               <div className="rubric-card-header">
                 <div>
                   <h3>{rubric.name}{rubric.active === false && <small> · Inactivo</small>}</h3>
-                  <span className="rubric-meta">{rubricTypeLabel} &middot; {resolutionLabel}</span>
+                  <span className="rubric-meta">{rubric.evaluationTarget === "NOMINATION" ? "Evalúa participantes nominados" : "Evalúa comparsas"} · {rubricTypeLabel}</span>
+                  <span className="rubric-meta">{orderedItems.filter((item) => item.active !== false).length} ítems · {rubricStatus}</span>
                   {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
-                  <span className="rubric-meta">{derived.map((s) => s.name).join(", ") || "Sin items activos"}</span>
+                  {derived.length > 1 && <span className="rubric-shared-note">Este rubro se comparte entre {derived.map((specialty) => specialty.name).join(" y ")}.</span>}
+                  {isUnassigned && <span className="rubric-shared-note">No tiene ítems asociados a una especialidad activa.</span>}
                 </div>
                 <div className="rubric-card-actions">
+                  {tab === "items" && !locked && rubric.active !== false && (
+                    <button type="button" aria-label={`Crear ítem en ${rubric.name}`} disabled={activeSpecialties.length === 0}
+                      onClick={(event) => { itemCreateTriggerRef.current = event.currentTarget; setItemCreateTarget(rubric); }}>
+                      Crear ítem
+                    </button>
+                  )}
                   <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
                     {isExpanded ? "Contraer" : "Expandir"}
                   </button>
                   {!locked && (rubric.active !== false ? (
-                    <button className="secondary danger-action" type="button" aria-label={`Eliminar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
-                      Eliminar
+                    <button className="secondary danger-action" type="button" aria-label={`Desactivar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
+                      Desactivar
                     </button>
                   ) : (
                     <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
@@ -1597,11 +1729,12 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
 
               {isExpanded && (
                 <div className="rubric-expanded">
+                  {tab === "rubros" && <>
                   {!locked && (
                     editingRubricId === rubric.id ? (
                       <SaveForm className="rubric-edit-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del rubro", `Se actualizará la configuración de ${rubric.name}.`, async () => { const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, body, "PATCH"); if (ok) setEditingRubricId(null); }); return false; }}>
                         <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
-                        <label>A quién se evalúa<select name="evaluationTarget" defaultValue={rubric.evaluationTarget}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominacion</option></select></label>
+                        <label>A quién se evalúa<select name="evaluationTarget" value={editingRubricTarget} onChange={(e) => setEditingRubricTarget(e.target.value)}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominación</option></select></label>
                         <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>
                           {!RUBRIC_TYPES.some((type) => type.value === rubric.rubricType) && <option value={rubric.rubricType}>{LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? `${rubric.rubricType} (histórico)`}</option>}
                           {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -1609,8 +1742,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                         <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
                         <details className="advanced-options">
                           <summary>Opciones avanzadas</summary>
-                          <label>Tipo de sujeto<select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"} title="El tipo de sujeto solo aplica al objetivo Nominacion; para Comparsa se guarda sin tipo de sujeto.">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-                          <label>Resolucion<select name="resolutionMethod" defaultValue={rubric.resolutionMethod} title="El metodo de resolucion es metadata futura: no ejecuta formulas ni decisiones automaticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
+                          {editingRubricTarget === "NOMINATION" && <label>Qué tipo de participante<select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"}>{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>}
+                          <label>Método de resolución<select name="resolutionMethod" defaultValue={rubric.resolutionMethod} title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
                         </details>
                         <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
                         <div className="form-actions">
@@ -1619,8 +1752,8 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                         </div>
                       </SaveForm>
                     ) : (
-                      <div className="rubric-edit-actions" style={{ marginBottom: '1rem' }}>
-                        <button className="secondary" type="button" onClick={() => setEditingRubricId(rubric.id)}>Editar configuración del rubro</button>
+                      <div className="rubric-edit-actions">
+                        <button className="secondary" type="button" onClick={() => { setEditingRubricId(rubric.id); setEditingRubricTarget(rubric.evaluationTarget); }}>Editar rubro</button>
                       </div>
                     )
                   )}
@@ -1671,6 +1804,9 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                     </section>
                   )}
 
+                  </>}
+
+                  {tab === "items" && <>
                   <h4>Items puntuables</h4>
                   {orderedItems.map((item, itemIndex) => (
                     <article className={`subrecord${highlightItemId === item.id ? " is-target" : ""}`} key={item.id} data-item-id={item.id}>
@@ -1738,24 +1874,60 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
                     </article>
                   ))}
 
-                  {!locked && (
-                    <SaveForm resetOnSuccess className="inline-item-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveItem(rubric.id, { name: fd.get("name"), specialtyId: fd.get("specialtyId"), required: fd.get("required") === "on", allowNotPresented: fd.get("allowNotPresented") === "on" }); }}>
-                      <input name="name" aria-label={`Nuevo item puntuable para ${rubric.name}`} placeholder="Nuevo item puntuable" required />
-                      <select name="specialtyId" aria-label={`Especialidad del nuevo item para ${rubric.name}`} required><option value="">Especialidad</option>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                      <details className="advanced-options">
-                        <summary>Opciones avanzadas</summary>
-                        <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
-                        <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
-                      </details>
-                      <button type="submit" aria-label={`Agregar item a ${rubric.name}`}>Agregar item</button>
-                    </SaveForm>
-                  )}
+                  {!locked && orderedItems.length === 0 && <p className="field-hint">Este rubro todavía no tiene ítems puntuables; agregá el primero desde su tarjeta.</p>}
+                  </>}
                 </div>
               )}
             </article>
+            </Fragment>
           );
         })}
       </div>
+      <Dialog
+        isOpen={itemCreateTarget !== null && !locked}
+        onClose={() => setItemCreateTarget(null)}
+        title={itemCreateTarget ? `Crear ítem en ${itemCreateTarget.name}` : "Crear ítem"}
+        description="Definí el nombre, la especialidad y las opciones de puntuación del ítem."
+        focusReturnRef={itemCreateTriggerRef}
+      >
+        {itemCreateTarget && <SaveForm className="item-create-form" onSubmit={(event) => {
+          const formData = new FormData(event.currentTarget);
+          const target = itemCreateTarget;
+          const body = {
+            name: formData.get("name"),
+            specialtyId: formData.get("specialtyId"),
+            required: formData.get("required") === "on",
+            allowNotPresented: formData.get("allowNotPresented") === "on",
+          };
+          setMutationConfirmTarget({
+            title: "Confirmar creación del ítem",
+            description: `Se agregará ${body.name} a ${target.name}.`,
+            commit: async () => {
+              const saved = await saveItem(target.id, body);
+              if (saved) {
+                setExpanded(target.id);
+                setItemCreateTarget(null);
+              }
+            },
+          });
+          return false;
+        }}>
+          <label>Nombre<input name="name" aria-label={`Nuevo item puntuable para ${itemCreateTarget.name}`} placeholder="Nuevo item puntuable" required /></label>
+          <label>Especialidad<select name="specialtyId" aria-label={`Especialidad del nuevo item para ${itemCreateTarget.name}`} required defaultValue="">
+            <option value="">Elegí una especialidad</option>
+            {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
+          </select></label>
+          <details className="advanced-options">
+            <summary>Opciones avanzadas</summary>
+            <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
+            <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
+          </details>
+          <DialogFooter>
+            <Button variant="secondary" type="button" onClick={() => setItemCreateTarget(null)}>Cancelar</Button>
+            <Button variant="primary" type="submit">Agregar ítem</Button>
+          </DialogFooter>
+        </SaveForm>}
+      </Dialog>
       <Dialog
         isOpen={mutationConfirmTarget !== null && !locked}
         onClose={() => setMutationConfirmTarget(null)}
@@ -1770,13 +1942,13 @@ function AdminRubricsSection({ event, focusRubricId = null }) {
       <Dialog
         isOpen={rubricDeleteTarget !== null && !locked}
         onClose={() => setRubricDeleteTarget(null)}
-        title={rubricDeleteTarget ? `Eliminar ${rubricDeleteTarget.name}` : "Eliminar rubro"}
-        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        title={rubricDeleteTarget ? `Desactivar ${rubricDeleteTarget.name}` : "Desactivar rubro"}
+        description="El rubro dejará de formar parte de la configuración activa. El registro y sus datos se conservarán; no se borrarán sus antecedentes."
         focusReturnRef={rubricDeleteTriggerRef}
       >
         <div className="dialog-actions">
           <button type="button" className="secondary" onClick={() => setRubricDeleteTarget(null)}>Cancelar</button>
-          <button type="button" className="danger-action" onClick={confirmDeleteRubric}>Eliminar (desactivar)</button>
+          <button type="button" className="danger-action" onClick={confirmDeleteRubric}>Desactivar</button>
         </div>
       </Dialog>
       <Dialog

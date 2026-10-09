@@ -6,6 +6,48 @@ import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 
+function NavigationIcon({ name }) {
+  const paths = {
+    home: <><path d="m3 10 9-7 9 7" /><path d="M5.5 9v11h13V9M9.5 20v-6h5v6" /></>,
+    calendar: <><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M8 3v4m8-4v4M4 10h16M8 14h2m4 0h2m-8 3h2" /></>,
+    people: <><circle cx="9" cy="8" r="3" /><path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1zM16 5.5a3 3 0 0 1 0 5.8m1 3.2a5 5 0 0 1 3.5 4.8V20h-4" /></>,
+    checklist: <><path d="m4 7 1.5 1.5L8 6M11 7h9M4 13l1.5 1.5L8 12m3 1h9M4 19l1.5 1.5L8 18m3 1h9" /></>,
+    ballot: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 9h8M8 13h3m-3 4h8M6 3v4m12-4v4" /></>,
+    support: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="m5.6 5.6 3 3m6.8 6.8 3 3m0-13.2-3 3m-6.8 6.8-3 3" /></>,
+    shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+    userPlus: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></>,
+    userCheck: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="16 11 18 13 22 9" /></>,
+    record: <><path d="M6 3h8l5 5v13H6z" /><path d="M14 3v6h5M9 13h7m-7 3h7m-7 3h4" /></>,
+  };
+
+  return (
+    <svg className="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      {paths[name]}
+    </svg>
+  );
+}
+
+function isCurrentNavItem(currentLocation, href) {
+  const [currentRoute, currentSearch = ""] = currentLocation.split("?");
+  const [hrefRoute, hrefSearch = ""] = href.split("?");
+
+  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/competencia") {
+    const hrefStep = new URLSearchParams(hrefSearch).get("step");
+    if (hrefStep === "jurados") return true;
+  }
+
+  if (currentRoute !== hrefRoute) return false;
+
+  const currentParams = new URLSearchParams(currentSearch);
+  const hrefParams = new URLSearchParams(hrefSearch);
+
+  const currentStep = currentParams.get("step");
+  const hrefStep = hrefParams.get("step");
+
+  if (currentStep || hrefStep) return (currentStep ?? "participantes") === (hrefStep ?? "participantes");
+  return true;
+}
+
 export function AppNavigation({ session }) {
   const adminEvent = useAdminEvent();
   const [closing, setClosing] = useState(false);
@@ -16,7 +58,8 @@ export function AppNavigation({ session }) {
       ? window.matchMedia("(min-width: 64rem)").matches
       : false,
   );
-  const [currentRoute, setCurrentRoute] = useState(() => window.location.hash.split("?")[0]);
+  const [currentLocation, setCurrentLocation] = useState(() => window.location.hash || "#/");
+  const currentRoute = currentLocation.split("?")[0];
   const toggleRef = useRef(null);
   const drawerRef = useRef(null);
   const drawerOpen = isDesktop || open;
@@ -34,7 +77,7 @@ export function AppNavigation({ session }) {
 
   useEffect(() => {
     const updateRoute = () => {
-      setCurrentRoute(window.location.hash.split("?")[0]);
+      setCurrentLocation(window.location.hash || "#/");
       setOpen(false);
     };
     window.addEventListener("hashchange", updateRoute);
@@ -81,6 +124,12 @@ export function AppNavigation({ session }) {
     setOpen(false);
     toggleRef.current?.focus();
   };
+
+  const navLink = (href, label) => (
+    <a href={href} aria-current={isCurrentNavItem(currentLocation, href) ? "page" : undefined}>
+      {label}
+    </a>
+  );
 
   const signOut = async () => {
     setClosing(true);
@@ -158,7 +207,7 @@ export function AppNavigation({ session }) {
       aria-hidden={!drawerOpen}
     >
       <div className="app-drawer-header">
-        <span className="app-drawer-title">Menu</span>
+          <span className="app-drawer-title">Menú</span>
         <button
           className="secondary app-drawer-close"
           type="button"
@@ -171,20 +220,63 @@ export function AppNavigation({ session }) {
       </div>
         {session.roles?.includes("ADMIN") && (
           <>
-            <span className="nav-section-label">Operación</span>
-            <a href="#/admin/home" aria-current={currentRoute === "#/admin/home" ? "page" : undefined}>Panel</a>
-            <span className="nav-section-label">Configuración</span>
-            <a href="#/admin/events" aria-current={currentRoute === "#/admin/events" ? "page" : undefined}>Eventos</a>
-            <a href="#/admin/competencia" aria-current={currentRoute === "#/admin/competencia" ? "page" : undefined}>Competencia</a>
-            <a href="#/admin/judges" aria-current={currentRoute === "#/admin/judges" ? "page" : undefined}>Personas</a>
-            <a href="#/admin/assignments" aria-current={currentRoute === "#/admin/assignments" ? "page" : undefined}>Asignaciones</a>
-            <a href="#/admin/voting" aria-current={currentRoute === "#/admin/voting" ? "page" : undefined}>Votación</a>
-            <a href="#/veedor" aria-current={currentRoute === "#/veedor" ? "page" : undefined}>Supervisión</a>
-            <a href="#/admin/penalties" aria-current={currentRoute === "#/admin/penalties" ? "page" : undefined}>Penalizaciones</a>
-            <span className="nav-section-label">Cierre</span>
-            <a href="#/admin/results" aria-current={currentRoute === "#/admin/results" ? "page" : undefined}>Escrutinio</a>
-            <a href="#/admin/record" aria-current={currentRoute === "#/admin/record" ? "page" : undefined}>Acta Oficial</a>
-            <PublicResultsLink currentRoute={currentRoute} />
+            <span className="nav-section-label">Inicio</span>
+            <a className="nav-primary-link" href="#/admin/home" aria-current={isCurrentNavItem(currentLocation, "#/admin/home") ? "page" : undefined}>
+              <NavigationIcon name="home" />
+              <span>Inicio</span>
+            </a>
+            <span className="nav-section-label">Preparación</span>
+            <a className="nav-primary-link" href="#/admin/events" aria-current={isCurrentNavItem(currentLocation, "#/admin/events") ? "page" : undefined}>
+              <NavigationIcon name="calendar" />
+              <span>Evento y jornadas</span>
+            </a>
+            <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
+              <summary className="nav-group-summary">
+                <NavigationIcon name="people" />
+                <span>Comparsas y jurados</span>
+              </summary>
+              <div className="nav-group-links">
+                {navLink("#/admin/competencia?step=participantes", "Comparsas")}
+                {navLink("#/admin/competencia?step=jurados", "Jurados y especialidades")}
+                {navLink("#/admin/competencia?step=rubros", "Evaluación")}
+              </div>
+            </details>
+            <span className="nav-section-label">En vivo</span>
+            <a className="nav-primary-link" href="#/admin/voting" aria-current={isCurrentNavItem(currentLocation, "#/admin/voting") ? "page" : undefined}>
+              <NavigationIcon name="ballot" />
+              <span>Control de votación</span>
+            </a>
+            <details className="nav-group" open={["#/veedor", "#/admin/penalties"].includes(currentRoute)}>
+              <summary className="nav-group-summary">
+                <NavigationIcon name="shield" />
+                <span>Supervisión y penalizaciones</span>
+              </summary>
+              <div className="nav-group-links">
+                {navLink("#/veedor", "Supervisión")}
+                {navLink("#/admin/penalties", "Penalizaciones")}
+              </div>
+            </details>
+            <span className="nav-section-label">Finalización</span>
+            <details className="nav-group" open={["#/admin/results", "#/admin/record", "#/resultados"].includes(currentRoute)}>
+              <summary className="nav-group-summary">
+                <NavigationIcon name="record" />
+                <span>Resultados y actas</span>
+              </summary>
+              <div className="nav-group-links">
+                {navLink("#/admin/results", "Escrutinio")}
+                {navLink("#/admin/record", "Acta oficial")}
+                <PublicResultsLink currentRoute={currentRoute} />
+              </div>
+            </details>
+            <span className="nav-section-label">Usuarios</span>
+            <a className="nav-primary-link" href="#/admin/judges" aria-current={isCurrentNavItem(currentLocation, "#/admin/judges") ? "page" : undefined}>
+              <NavigationIcon name="userPlus" />
+              <span>Crear Usuario</span>
+            </a>
+            <a className="nav-primary-link" href="#/admin/users" aria-current={isCurrentNavItem(currentLocation, "#/admin/users") ? "page" : undefined}>
+              <NavigationIcon name="userCheck" />
+              <span>Administradores</span>
+            </a>
           </>
         )}
         {session.roles?.includes("COMISARIO") && !session.roles?.includes("ADMIN") && (

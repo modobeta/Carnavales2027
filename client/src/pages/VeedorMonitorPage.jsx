@@ -26,7 +26,9 @@ export function VeedorMonitorPage() {
   const [events, setEvents] = useState([]);
   const [localEventId, setEventId] = useState("");
   const eventId = eventContext?.activeEventId ?? localEventId;
-  const [nightId, setNightId] = useState("");
+  const [localNightId, setLocalNightId] = useState("");
+  const nightId = eventContext?.activeNightId ?? localNightId;
+  const chooseNight = eventContext?.setActiveNightId ?? setLocalNightId;
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -42,23 +44,30 @@ export function VeedorMonitorPage() {
 
   const eventSourceRef = useRef(null);
   const mountedRef = useRef(true);
+  const requestSequenceRef = useRef(0);
+  const activeEventIdRef = useRef(eventId);
+  const eventContextRef = useRef(Boolean(eventContext));
+  activeEventIdRef.current = eventId;
+  eventContextRef.current = Boolean(eventContext);
 
   const refresh = useCallback(async () => {
     if (document.visibilityState === "hidden") return;
+    const requestedEventId = activeEventIdRef.current;
+    const requestId = ++requestSequenceRef.current;
     try {
       const nextEvents = await apiRequest("/api/v1/monitor/events");
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== requestSequenceRef.current || requestedEventId !== activeEventIdRef.current) return;
       setEvents(nextEvents);
       setMessage("");
       setLastUpdated(new Date());
-      setEventId((current) =>
+      if (!eventContextRef.current) setEventId((current) =>
         nextEvents.some((event) => event.id === current) ? current : nextEvents[0]?.id ?? "",
       );
     } catch {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== requestSequenceRef.current || requestedEventId !== activeEventIdRef.current) return;
       setMessage("No se pudo cargar la supervisión. Intentá actualizar nuevamente.");
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current && requestId === requestSequenceRef.current) setLoading(false);
     }
   }, []);
 
@@ -162,7 +171,7 @@ export function VeedorMonitorPage() {
 
   useEffect(() => {
     if (selectedEvent && !nights.some((night) => night.id === nightId)) {
-      setNightId(nights[0]?.id ?? "");
+      chooseNight(nights[0]?.id ?? "");
     }
   }, [eventId, nightId, nights, selectedEvent]);
 
@@ -175,7 +184,7 @@ export function VeedorMonitorPage() {
       <header className="monitor-header">
         <div>
           <p className="eyebrow">Supervisión operativa</p>
-          <h1>Estado de la votación</h1>
+          <h1>Supervisión de la jornada</h1>
           <p>Conteos agregados por noche, sin puntajes ni datos de jurados.</p>
         </div>
         <div className="monitor-header-actions">
@@ -274,10 +283,10 @@ export function VeedorMonitorPage() {
               </select>
             </label>}
             <label>
-              Noche competitiva
+              Jornada competitiva
               <select
                 value={selectedNight?.id ?? ""}
-                onChange={(event) => setNightId(event.target.value)}
+                onChange={(event) => chooseNight(event.target.value)}
               >
                 {nights.map((night) => (
                   <option key={night.id} value={night.id}>
@@ -294,6 +303,7 @@ export function VeedorMonitorPage() {
                 <div>
                   <p className="eyebrow">{selectedEvent.name}</p>
                   <h2>{selectedNight.name}</h2>
+                  <p>Estado de la jornada: {selectedNight.status === "OPEN" ? "Abierta" : selectedNight.status === "CLOSED" ? "Cerrada" : selectedNight.status ?? "Sin información"} · Ventana de votación: {votingStatusLabel(selectedNight.votingStatus)}</p>
                 </div>
                 <span
                   className={`monitor-status monitor-status-${selectedNight.votingStatus.toLowerCase()}`}

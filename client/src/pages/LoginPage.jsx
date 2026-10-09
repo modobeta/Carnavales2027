@@ -278,9 +278,7 @@ export function LoginPage({ onAuthenticated }) {
       <div className="login-orbit login-orbit-right" aria-hidden="true" />
       <div className="card login-card">
         <div className="login-emblem" aria-hidden="true" />
-        <p className="login-kicker">Acceso seguro</p>
-        <h1>Carnavales Goya <span>2027</span></h1>
-        <p className="login-subtitle">Sistema de jurados</p>
+        <h1>Carnavales</h1>
         {sessionExpiredNotice && step === "credentials" && (
           <div className="login-expired-notice" role="status">
             <p>Tu sesión ya no está activa. Iniciá sesión nuevamente para continuar.</p>

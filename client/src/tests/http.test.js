@@ -18,6 +18,21 @@ describe("apiRequest", () => {
     expect(ApiError).toBeTypeOf("function");
   });
 
+  it("preserva el recibo terminal de operación cuando viene junto a details", async () => {
+    const operation = { operationId: "op-1", eventId: "e1", intent: "OPEN_EVENT", status: "rejected" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: "EVENT_CONFIGURATION_INCOMPLETE",
+      details: { ready: false, missing: ["ACTIVE_RUBRIC"] },
+      operation,
+    }), { status: 409, headers: { "content-type": "application/json" } })));
+
+    await expect(apiRequest("/api/v1/events/e1/open")).rejects.toEqual(expect.objectContaining({
+      code: "EVENT_CONFIGURATION_INCOMPLETE",
+      details: { ready: false, missing: ["ACTIVE_RUBRIC"] },
+      operation,
+    }));
+  });
+
   it("normaliza fallos de red y conserva headers personalizados", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
     vi.stubGlobal("fetch", fetchMock);

@@ -1,5 +1,6 @@
 import express, { Router } from "express";
 import { auditEvent } from "../audit/audit-service.js";
+import { hasEventAdminAccess } from "../auth/event-admin-access.js";
 import { requireAdmin } from "../auth/require-admin.js";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { getPool } from "../db/pool.js";
@@ -35,7 +36,7 @@ import {
   updateItem,
   updateRubric,
 } from "../modules/rubrics/rubric-service.js";
-import { getReadiness, openEvent } from "../modules/events/event-readiness.service.js";
+import { getReadiness, getOpenEventOperation, openEvent, openEventOperation } from "../modules/events/event-readiness.service.js";
 import { sendKnownError } from "./http-errors.js";
 
 function generateCode(name) {
@@ -47,12 +48,17 @@ function generateCode(name) {
     .slice(0, 64);
 }
 
-function createWriteHandler(action, entityType, operation) {
+function createWriteHandler(action, entityType, operation, authorize = null) {
   return async (request, response, next) => {
     const client = await getPool().connect();
     try {
       await client.query("BEGIN");
-      const result = await operation(client, request);
+      const authorization = authorize ? await authorize(client, request) : null;
+      if (authorize && !authorization) {
+        await client.query("ROLLBACK");
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      const result = await operation(client, request, authorization);
       await auditEvent(client, {
         actorUserId: request.user.id,
         action,
@@ -76,10 +82,212 @@ export function createEventsRouter({ requireSession }) {
   const router = Router();
   const admin = [requireSession, requireTwoFactor, requireAdmin];
 
-  // Logo de comparsa — lectura operativa, escritura ADMIN (Spec 029).
+  router.get("/events/:eventId/nights", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { eventId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+        return response.status(400).json({ code: "VALIDATION_ERROR" });
+      }
+      const { rows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      request.roles = rows.map((row) => row.role_code);
+      if (!request.roles.includes("ADMIN") && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      const nights = await listNights({ eventId });
+      return response.json(nights);
+    } catch (error) {
+      if (error.message === "EVENT_NOT_FOUND") return response.status(404).json({ code: error.message });
+      return next(error);
+    }
+  });
+
+  router.patch("/events/:eventId", requireSession, requireTwoFactor, (request, response, next) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.eventId)) {
+      return response.status(400).json({ code: "VALIDATION_ERROR" });
+    }
+    return next();
+  }, createWriteHandler(
+    "EVENT_UPDATED",
+    "carnival_event",
+    (client, request, role) => updateEvent({
+      client,
+      eventId: request.params.eventId,
+      ...(role === "ADMIN_EVENT" ? { name: request.body?.name } : request.body),
+    }),
+    async (client, request) => {
+      const eventId = request.params.eventId;
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      const roles = roleRows.map((row) => row.role_code);
+      request.roles = roles;
+      if (roles.includes("ADMIN")) return "ADMIN";
+      if (Object.prototype.hasOwnProperty.call(request.body ?? {}, "active")) return false;
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.post("/events/:eventId/nights", requireSession, requireTwoFactor, (request, response, next) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.eventId)) {
+      return response.status(400).json({ code: "VALIDATION_ERROR" });
+    }
+    return next();
+  }, createWriteHandler(
+    "NIGHT_CREATED",
+    "night",
+    (client, request) => createNight({ client, eventId: request.params.eventId, ...request.body }),
+    async (client, request) => {
+      const eventId = request.params.eventId;
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      const roles = roleRows.map((row) => row.role_code);
+      request.roles = roles;
+      if (roles.includes("ADMIN")) return "ADMIN";
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.patch("/nights/:nightId", requireSession, requireTwoFactor, (request, response, next) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.nightId)) {
+      return response.status(400).json({ code: "VALIDATION_ERROR" });
+    }
+    return next();
+  }, createWriteHandler(
+    "NIGHT_UPDATED",
+    "night",
+    (client, request) => updateNight({
+      client,
+      ...request.body,
+      actorUserId: request.user.id,
+      nightId: request.params.nightId,
+    }),
+    async (client, request) => {
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      const roles = roleRows.map((row) => row.role_code);
+      request.roles = roles;
+      if (roles.includes("ADMIN")) return "ADMIN";
+      const { rowCount } = await client.query(
+        `SELECT night.id
+           FROM night
+           JOIN carnival_event AS event ON event.id = night.event_id
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE night.id = $1 AND event.active = TRUE
+          FOR UPDATE OF night, event, assignment`,
+        [request.params.nightId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.delete("/nights/:nightId", requireSession, requireTwoFactor, async (request, response, next) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.params.nightId)) {
+      return response.status(400).json({ code: "VALIDATION_ERROR" });
+    }
+
+    const client = await getPool().connect();
+    let transactionOpen = false;
+    try {
+      await client.query("BEGIN");
+      transactionOpen = true;
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      const roles = roleRows.map((row) => row.role_code);
+      request.roles = roles;
+
+      if (!roles.includes("ADMIN")) {
+        const { rows: owners } = await client.query(
+          `SELECT night.id, night.event_id AS "eventId", event.active AS "eventActive"
+             FROM night
+             JOIN carnival_event AS event ON event.id = night.event_id
+            WHERE night.id = $1
+            FOR UPDATE OF night, event`,
+          [request.params.nightId],
+        );
+        if (!owners[0]) {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return response.status(404).json({ code: "NIGHT_NOT_FOUND" });
+        }
+        if (!owners[0].eventActive) {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return response.status(403).json({ code: "ADMIN_REQUIRED" });
+        }
+        const { rowCount } = await client.query(
+          `SELECT 1 FROM admin_event_assignment
+            WHERE user_id = $1 AND event_id = $2 AND is_active = TRUE
+            FOR UPDATE`,
+          [request.user.id, owners[0].eventId],
+        );
+        if (rowCount !== 1) {
+          await client.query("ROLLBACK");
+          transactionOpen = false;
+          return response.status(403).json({ code: "ADMIN_REQUIRED" });
+        }
+      }
+
+      const deleted = await deleteNight({
+        client,
+        nightId: request.params.nightId,
+        actorUserId: request.user.id,
+      });
+      await client.query("COMMIT");
+      transactionOpen = false;
+      return response.json(deleted);
+    } catch (error) {
+      if (transactionOpen) {
+        await client.query("ROLLBACK").catch(() => {});
+        transactionOpen = false;
+      }
+      if (error.message === "NIGHT_NOT_FOUND") return response.status(404).json({ code: error.message });
+      if (!sendKnownError(response, error)) return next(error);
+    } finally {
+      client.release();
+    }
+  });
+
+  // Logo de comparsa — lectura operativa (Spec 029).
   // Se registra antes del bloque admin de /troupes para que el jurado pueda
   // identificar la comparsa durante la votación. La lectura sigue exigiendo
-  // sesión y 2FA; la escritura (PUT/DELETE) queda abajo bajo `...admin`.
+  // sesión y 2FA; PUT y DELETE se autorizan por propietario.
   router.get("/troupes/:troupeId/logo", requireSession, requireTwoFactor, async (request, response, next) => {
     try {
       const logo = await getTroupeLogo({ troupeId: request.params.troupeId });
@@ -99,6 +307,310 @@ export function createEventsRouter({ requireSession }) {
     }
   });
 
+  router.get("/events", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { rows: roleRows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) {
+        return response.json(await listEvents());
+      }
+
+      const events = await listEvents({ userId: request.user.id });
+      if (events.length === 0) return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      return response.json(events);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/events/:eventId", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { eventId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+        return response.status(400).json({ code: "VALIDATION_ERROR" });
+      }
+      const { rows: roleRows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (!roleRows.some((row) => row.role_code === "ADMIN")
+          && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      const event = await getEvent({ eventId });
+      if (!event) return response.status(404).json({ code: "EVENT_NOT_FOUND" });
+      return response.json(event);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/events/:eventId/readiness", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { eventId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+        return response.status(400).json({ code: "VALIDATION_ERROR" });
+      }
+      const { rows: roleRows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (!roleRows.some((row) => row.role_code === "ADMIN")
+          && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      return response.json(await getReadiness({ eventId }));
+    } catch (error) {
+      if (error.message === "EVENT_NOT_FOUND") return response.status(404).json({ code: error.message });
+      return next(error);
+    }
+  });
+
+  router.get("/events/:eventId/categories", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { rows: roleRows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      const roles = roleRows.map((row) => row.role_code);
+      if (!roles.includes("ADMIN")
+          && !await hasEventAdminAccess({ userId: request.user.id, eventId: request.params.eventId, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      return response.json(await listCategories({
+        eventId: request.params.eventId,
+        eligible: request.query.eligible === "true",
+      }));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post("/events/:eventId/categories", requireSession, requireTwoFactor, createWriteHandler(
+    "CATEGORY_CREATED",
+    "event_category",
+    (client, request) => {
+      const body = { ...request.body };
+      if (!body.code) body.code = generateCode(body.name || "");
+      return createCategory({ ...body, client, eventId: request.params.eventId });
+    },
+    async (client, request) => {
+      const eventId = request.params.eventId;
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.patch("/categories/:categoryId", requireSession, requireTwoFactor, createWriteHandler(
+    "CATEGORY_UPDATED",
+    "event_category",
+    (client, request) => updateCategory({ ...request.body, client, categoryId: request.params.categoryId }),
+    async (client, request) => {
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+      const { categoryId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) return false;
+      // Keep the persisted owner stable until the update and its audit commit.
+      const { rows: owners } = await client.query(
+        'SELECT event_id AS "eventId" FROM event_category WHERE id = $1 FOR UPDATE',
+        [categoryId],
+      );
+      if (!owners[0]) return false;
+      const { eventId } = owners[0];
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.get("/events/:eventId/troupes", requireSession, requireTwoFactor, async (request, response, next) => {
+    try {
+      const { rows: roleRows } = await getPool().query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (!roleRows.some((row) => row.role_code === "ADMIN")
+          && !await hasEventAdminAccess({ userId: request.user.id, eventId: request.params.eventId, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
+      }
+      return response.json(await listTroupes({ eventId: request.params.eventId }));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post("/events/:eventId/troupes", requireSession, requireTwoFactor, createWriteHandler(
+    "TROUPE_CREATED",
+    "event_troupe",
+    (client, request) => createTroupe({ ...request.body, client, eventId: request.params.eventId }),
+    async (client, request) => {
+      const eventId = request.params.eventId;
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.patch("/troupes/:troupeId", requireSession, requireTwoFactor, createWriteHandler(
+    "TROUPE_UPDATED",
+    "event_troupe",
+    (client, request) => updateTroupe({ ...request.body, client, troupeId: request.params.troupeId }),
+    async (client, request) => {
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+      const { troupeId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
+      // Keep the persisted owner stable until the update and its audit commit.
+      const { rows: owners } = await client.query(
+        'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
+        [troupeId],
+      );
+      if (!owners[0]) return false;
+      const { eventId } = owners[0];
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
+  router.put(
+    "/troupes/:troupeId/logo",
+    requireSession,
+    requireTwoFactor,
+    // El parser crudo acepta cualquier Content-Type: la autoridad es la firma
+    // de los bytes (validateTroupeLogo), no la cabecera declarada.
+    express.raw({ type: () => true, limit: TROUPE_LOGO_MAX_BYTES }),
+    createWriteHandler("TROUPE_LOGO_UPDATED", "event_troupe", (client, request) =>
+      setTroupeLogo({
+        client,
+        troupeId: request.params.troupeId,
+        data: Buffer.isBuffer(request.body) ? request.body : null,
+        mime: request.get("content-type") || null,
+      }), async (client, request) => {
+        const { rows: roleRows } = await client.query(
+          "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+          [request.user.id],
+        );
+        if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+        const { troupeId } = request.params;
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
+        // Keep the persisted owner stable until the logo and its audit commit.
+        const { rows: owners } = await client.query(
+          'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
+          [troupeId],
+        );
+        if (!owners[0]) return false;
+        const { eventId } = owners[0];
+        if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+        const { rowCount } = await client.query(
+          `SELECT event.id
+             FROM carnival_event AS event
+             JOIN admin_event_assignment AS assignment
+               ON assignment.event_id = event.id
+              AND assignment.user_id = $2
+              AND assignment.is_active = TRUE
+            WHERE event.id = $1 AND event.active = TRUE
+            FOR UPDATE OF event, assignment`,
+          [eventId, request.user.id],
+        );
+        return rowCount === 1 ? "ADMIN_EVENT" : false;
+      }),
+  );
+
+  router.delete("/troupes/:troupeId/logo", requireSession, requireTwoFactor, createWriteHandler(
+    "TROUPE_LOGO_DELETED",
+    "event_troupe",
+    (client, request) => deleteTroupeLogo({ client, troupeId: request.params.troupeId }),
+    async (client, request) => {
+      const { rows: roleRows } = await client.query(
+        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+        [request.user.id],
+      );
+      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
+      const { troupeId } = request.params;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
+      // Keep the persisted owner stable until the deletion and its audit commit.
+      const { rows: owners } = await client.query(
+        'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
+        [troupeId],
+      );
+      if (!owners[0]) return false;
+      const { eventId } = owners[0];
+      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
+      const { rowCount } = await client.query(
+        `SELECT event.id
+           FROM carnival_event AS event
+           JOIN admin_event_assignment AS assignment
+             ON assignment.event_id = event.id
+            AND assignment.user_id = $2
+            AND assignment.is_active = TRUE
+          WHERE event.id = $1 AND event.active = TRUE
+          FOR UPDATE OF event, assignment`,
+        [eventId, request.user.id],
+      );
+      return rowCount === 1 ? "ADMIN_EVENT" : false;
+    },
+  ));
+
   for (const prefix of [
     "/events",
     "/rubrics",
@@ -115,35 +627,40 @@ export function createEventsRouter({ requireSession }) {
   }
 
   // ---- Events ----
-  router.get("/events", async (_request, response, next) => {
-    try { response.json(await listEvents()); } catch (error) { next(error); }
-  });
-  router.get("/events/:eventId/readiness", async (request, response, next) => {
-    try { return response.json(await getReadiness({ eventId: request.params.eventId })); } catch (error) {
-      if (error.message === "EVENT_NOT_FOUND") return response.status(404).json({ code: error.message });
+  router.get("/events/:eventId/open-operations/:operationId", async (request, response, next) => {
+    try {
+      return response.json(await getOpenEventOperation({
+        eventId: request.params.eventId,
+        operationId: request.params.operationId,
+      }));
+    } catch (error) {
+      if (error.message === "OPEN_OPERATION_NOT_FOUND") return response.status(404).json({ code: error.message });
+      if (error.message === "IDEMPOTENCY_CONFLICT") return response.status(409).json({ code: error.message });
+      if (error.message === "IDEMPOTENCY_KEY_REQUIRED") return response.status(400).json({ code: "VALIDATION_ERROR" });
       return next(error);
     }
   });
   router.post("/events/:eventId/open", async (request, response, next) => {
     try {
-      const event = await openEvent({ eventId: request.params.eventId, actorUserId: request.user.id });
-      return response.json(event);
+      const operationId = request.get("Idempotency-Key");
+      if (!operationId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(operationId)) {
+        return response.status(400).json({ code: "IDEMPOTENCY_KEY_REQUIRED" });
+      }
+      const result = await openEventOperation({
+        eventId: request.params.eventId,
+        operationId,
+        actorUserId: request.user.id,
+      });
+      if (result.error) return response.status(result.httpStatus).json(result.error);
+      return response.status(result.httpStatus).json({ ...result.event, operation: result.operation });
     } catch (error) {
+      if (error.message === "IDEMPOTENCY_KEY_REQUIRED") return response.status(400).json({ code: error.message });
+      if (error.message === "IDEMPOTENCY_CONFLICT") return response.status(409).json({ code: error.message });
       if (error.message === "EVENT_CONFIGURATION_INCOMPLETE") return response.status(409).json({ code: error.message, details: error.readiness });
       if (error.message === "EVENT_LOCKED") return response.status(409).json({ code: error.message });
       if (error.message === "EVENT_NOT_FOUND") return response.status(404).json({ code: error.message });
       return next(error);
     }
-  });
-  router.get("/events/:eventId", async (request, response, next) => {
-    try {
-      const event = await getEvent({ eventId: request.params.eventId });
-      if (!event) return response.status(404).json({ code: "EVENT_NOT_FOUND" });
-      return response.json(event);
-    } catch (error) { return next(error); }
-  });
-  router.get("/events/:eventId/nights", async (request, response, next) => {
-    try { return response.json(await listNights({ eventId: request.params.eventId })); } catch (error) { return next(error); }
   });
   router.post("/events", createWriteHandler("EVENT_CREATED", "carnival_event", (client, request) => createEvent({ client, ...request.body })));
   router.patch("/events/:eventId", createWriteHandler("EVENT_UPDATED", "carnival_event", (client, request) => updateEvent({ client, eventId: request.params.eventId, ...request.body })));
@@ -157,51 +674,6 @@ export function createEventsRouter({ requireSession }) {
   });
   router.post("/events/:eventId/nights", createWriteHandler("NIGHT_CREATED", "night", (client, request) => createNight({ client, eventId: request.params.eventId, ...request.body })));
   router.patch("/nights/:nightId", createWriteHandler("NIGHT_UPDATED", "night", (client, request) => updateNight({ client, actorUserId: request.user.id, nightId: request.params.nightId, ...request.body })));
-  router.delete("/nights/:nightId", async (request, response, next) => {
-    try {
-      response.json(await deleteNight({ nightId: request.params.nightId, actorUserId: request.user.id }));
-    } catch (error) {
-      if (error.message === "NIGHT_NOT_FOUND") return response.status(404).json({ code: error.message });
-      if (!sendKnownError(response, error)) next(error);
-    }
-  });
-
-  // ---- Categories ----
-  router.get("/events/:eventId/categories", async (request, response, next) => {
-    try { return response.json(await listCategories({ eventId: request.params.eventId, eligible: request.query.eligible === "true" })); } catch (error) { return next(error); }
-  });
-  router.post("/events/:eventId/categories", createWriteHandler("CATEGORY_CREATED", "event_category", (client, request) => {
-    const body = { ...request.body };
-    if (!body.code) body.code = generateCode(body.name || "");
-    return createCategory({ client, eventId: request.params.eventId, ...body });
-  }));
-  router.patch("/categories/:categoryId", createWriteHandler("CATEGORY_UPDATED", "event_category", (client, request) => updateCategory({ client, categoryId: request.params.categoryId, ...request.body })));
-
-  // ---- Troupes ----
-  router.get("/events/:eventId/troupes", async (request, response, next) => { try { return response.json(await listTroupes({ eventId: request.params.eventId })); } catch (error) { return next(error); } });
-  router.post("/events/:eventId/troupes", createWriteHandler("TROUPE_CREATED", "event_troupe", (client, request) => createTroupe({ client, eventId: request.params.eventId, ...request.body })));
-  router.patch("/troupes/:troupeId", createWriteHandler("TROUPE_UPDATED", "event_troupe", (client, request) => updateTroupe({ client, troupeId: request.params.troupeId, ...request.body })));
-
-  // Logo de comparsa. Se almacena como BYTEA (migración 083) y se sirve como
-  // binario: el listado sólo expone hasLogo/logoSha256, nunca los bytes.
-  // La lectura vive más arriba (antes del bloque admin) para que el jurado
-  // pueda identificarlo; la escritura exige ADMIN.
-  router.put(
-    "/troupes/:troupeId/logo",
-    ...admin,
-    // El parser crudo acepta cualquier Content-Type: la autoridad es la firma
-    // de los bytes (validateTroupeLogo), no la cabecera declarada.
-    express.raw({ type: () => true, limit: TROUPE_LOGO_MAX_BYTES }),
-    createWriteHandler("TROUPE_LOGO_UPDATED", "event_troupe", (client, request) =>
-      setTroupeLogo({
-        client,
-        troupeId: request.params.troupeId,
-        data: Buffer.isBuffer(request.body) ? request.body : null,
-        mime: request.get("content-type") || null,
-      })),
-  );
-  router.delete("/troupes/:troupeId/logo", ...admin, createWriteHandler("TROUPE_LOGO_DELETED", "event_troupe", (client, request) => deleteTroupeLogo({ client, troupeId: request.params.troupeId })));
-
   // ---- Specialties ----
   router.get("/events/:eventId/specialties", async (request, response, next) => { try { return response.json(await listSpecialties({ eventId: request.params.eventId })); } catch (error) { return next(error); } });
   router.post("/events/:eventId/specialties", createWriteHandler("SPECIALTY_CREATED", "event_specialty", (client, request) => {

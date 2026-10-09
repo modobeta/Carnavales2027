@@ -31,7 +31,8 @@ El sistema debe priorizar:
 carnavales2027/
 ├── api/            # Backend y acceso a PostgreSQL
 ├── client/         # Frontend React / PWA
-├── docs/           # Documentación funcional y técnica
+├── docs/           # Documentación funcional/técnica (actualmente no existe en el repo)
+├── specs/          # Especificaciones por iniciativa; no sustituyen el reglamento general
 ├── AGENTS.md
 └── README.md
 ```
@@ -47,22 +48,19 @@ Las reglas definidas en un `AGENTS.md` más específico prevalecen para los arch
 
 ---
 
-# 1. Fuentes de verdad
+# 1. Fuentes de verdad y documentación disponible
 
-Antes de modificar comportamiento funcional, consultar la documentación del proyecto.
+Antes de modificar comportamiento funcional, consultar las fuentes existentes y aplicables:
 
-Documentos principales:
+1. Este `AGENTS.md`: reglas generales del dominio, seguridad e integridad.
+2. `api/AGENTS.md`: responsabilidades, contrato/error API, autenticación, persistencia y testing backend.
+3. `client/AGENTS.md`: comportamiento del cliente, PWA, conectividad, UX y testing frontend.
+4. `specs/*/spec.md` y aclaraciones asociadas: requisitos aprobados solo para la iniciativa nombrada en esa spec. No extrapolar una spec a todo el producto.
+5. `README.md`, `api/README.md` y `client/README.md`: descripción de la implementación y operación. El README raíz enumera diferencias pendientes; esas advertencias describen deuda/discrepancias, no aprueban cambios de reglas.
 
-1. Especificación de Requisitos Funcionales.
-2. Reglas de Negocio y Reglamento de Votación.
-3. Arquitectura Técnica.
-4. Modelo de Datos / ERD.
-5. Especificación de API.
-6. Matriz de Roles y Permisos.
-7. Especificación de Offline y Sincronización.
-8. Seguridad y Auditoría.
+**Brecha documental conocida:** este repositorio actualmente no contiene `docs/`. Por lo tanto, no están disponibles como documentos independientes la especificación funcional general, reglamento completo, arquitectura general, ERD, especificación completa de API, matriz de roles/permisos ni especificación independiente de offline/seguridad/auditoría. Las reglas confirmadas que sí están aquí son las de los `AGENTS.md` y las specs aprobadas dentro de su alcance. La spec `029-piloto-produccion` describe únicamente el piloto de producción y explícitamente excluye reglas de votación.
 
-No inventar reglas de negocio que estén marcadas como pendientes.
+No cites documentos inexistentes ni presentes como aprobada una decisión deducida. Si un cambio depende de una regla ausente, ambigua o pendiente, detente y señala el documento/regla que falta; pregunta al usuario o deja el bloqueo identificado. No inventar reglas de negocio que estén marcadas como pendientes.
 
 Especialmente, no asumir reglas para:
 

@@ -27,7 +27,7 @@ const rubric = {
   criteria: [{ id: "criterion-1", rubricId: "rubric-1", scoringItemId: item.id, description: "Precision", displayOrder: 1, active: true }],
 };
 
-function mockCompetitionData({ orphaned = [], rubrics = [rubric], write = vi.fn().mockRejectedValue(new Error("Escritura inesperada")) } = {}) {
+function mockCompetitionData({ orphaned = [], rubrics = [rubric], specialties = [{ id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true }], readiness = { ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] }, write = vi.fn().mockRejectedValue(new Error("Escritura inesperada")) } = {}) {
   const liveRubrics = rubrics.map((entry) => ({ ...entry }));
   apiRequest.mockImplementation(async (path, options) => {
     if (options?.method) {
@@ -35,9 +35,13 @@ function mockCompetitionData({ orphaned = [], rubrics = [rubric], write = vi.fn(
       if (options.method === "POST" && path.endsWith("/rubrics") && result?.id) liveRubrics.push({ ...result, items: [], criteria: [], specialties: [] });
       return result;
     }
+    if (path.endsWith("/readiness")) {
+      if (readiness instanceof Error) throw readiness;
+      return readiness;
+    }
     if (path.endsWith("/troupes")) return [{ id: "troupe-1", name: "Estrella", categoryId: "category-1", active: true }];
     if (path.endsWith("/categories")) return [{ id: "category-1", name: "Comparsa", code: "COMPARSA", displayOrder: 1, active: true }];
-    if (path.endsWith("/specialties")) return [{ id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true }];
+    if (path.endsWith("/specialties")) return specialties;
     if (path.endsWith("/rubrics")) return liveRubrics.map((entry) => ({ ...entry }));
     if (path.startsWith("/api/v1/rubrics/")) return rubrics.find((entry) => path.endsWith(`/${entry.id}`));
     if (path.endsWith("/orphaned-criteria")) return orphaned;
@@ -51,6 +55,97 @@ describe("AdminCompetenciaPage", () => {
     vi.resetAllMocks();
   });
 
+  it("clasifica las cuatro etapas con los checks oficiales y limita la revisión a bloqueos readiness", async () => {
+    mockCompetitionData({ readiness: {
+      ready: false,
+      missing: ["ACTIVE_TROUPE", "NIGHTS_WITHOUT_JURY"],
+      incompleteTroupes: [{ id: "t-1", name: "Estrella" }],
+      incompleteRubrics: [],
+      incompleteSchedules: [],
+      incompleteNominations: [],
+      nightsWithoutJury: [{ nightId: "n-1", nightName: "Noche 1" }],
+    } });
+    render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
+
+    expect(await screen.findAllByText("Incompleto", { selector: ".competencia-step-state" })).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
+    expect(await screen.findByText(/Estrella/)).toBeInTheDocument();
+    expect(screen.getByText("Asigná jurado activo a esta jornada de competencia.")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Bloqueos oficiales de readiness" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revisar asignaciones" })).toHaveAttribute("href", "#/admin/assignments");
+  });
+
+  it("mantiene el estado no disponible si readiness no pudo consultarse", async () => {
+    mockCompetitionData({ readiness: new Error("offline") });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+
+    expect(await screen.findAllByText("No disponible")).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    expect(await screen.findByText("No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.")).toBeInTheDocument();
+    expect(screen.queryByText(/configuración está completa y lista/)).not.toBeInTheDocument();
+  });
+
+  it("muestra el estado legible del evento activo en la cabecera", () => {
+    mockCompetitionData();
+    render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
+
+    expect(screen.getByText("Estado del evento: En configuración")).toBeInTheDocument();
+  });
+
+  it("indica que el estado no está disponible cuando el evento no lo informa", () => {
+    mockCompetitionData();
+    render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval" }} />);
+
+    expect(screen.getByText("Estado del evento: No disponible")).toBeInTheDocument();
+  });
+
+  it("abre el paso indicado por el enlace del panel lateral", async () => {
+    mockCompetitionData();
+    render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} initialStep="rubros" />);
+
+    expect(await screen.findByRole("heading", { name: "Configurar evaluación" })).toBeInTheDocument();
+    expect(screen.getByText("Definí qué va a evaluar cada jurado y cómo se registrará su evaluación.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Paso 3 de 4: Evaluación/ })).toHaveAttribute("aria-current", "step");
+  });
+
+  it("oculta el formulario de rubro hasta que se solicite y adapta el sujeto al objetivo", async () => {
+    mockCompetitionData();
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="rubros" />);
+
+    expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+    const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
+    const target = within(form).getByLabelText("A quién se evalúa");
+    expect(within(form).queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
+
+    fireEvent.change(target, { target: { value: "NOMINATION" } });
+    expect(within(form).getByLabelText("Qué tipo de participante")).toBeInTheDocument();
+    fireEvent.change(target, { target: { value: "TROUPE" } });
+    expect(within(form).queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
+  });
+
+  it("filtra por especialidad usando los ítems existentes y mantiene visible el rubro compartido", async () => {
+    const vestidoItem = { ...item, id: "item-vestido", specialtyId: "specialty-2", specialtyName: "Vestido", name: "Terminación" };
+    const shared = { ...rubric, items: [item, vestidoItem] };
+    const vestidoOnly = { ...rubric, id: "rubric-vestido", name: "Vestuario", items: [{ ...vestidoItem, id: "item-vestuario", rubricId: "rubric-vestido" }] };
+    mockCompetitionData({
+      rubrics: [shared, vestidoOnly],
+      specialties: [
+        { id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true },
+        { id: "specialty-2", name: "Vestido", code: "VESTIDO", displayOrder: 2, active: true },
+      ],
+    });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="rubros" />);
+
+    expect(await screen.findByRole("heading", { name: "Rubros de Danza" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Coreografia" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Vestido/ }));
+    expect(await screen.findByRole("heading", { name: "Rubros de Vestido" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Coreografia" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Vestuario" })).toBeInTheDocument();
+    expect(screen.getByText(/Este rubro se comparte entre Danza y Vestido/)).toBeInTheDocument();
+  });
+
   it("renderiza bajo la capa de instrumento data-layer='instrument' (RF-177)", () => {
     mockCompetitionData();
     const { container } = render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
@@ -61,13 +156,13 @@ describe("AdminCompetenciaPage", () => {
     mockCompetitionData();
     const { container } = render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
     await screen.findByRole("button", { name: "Expandir Coreografia" });
 
     const actions = container.querySelector('[data-rubric-id="rubric-1"] .rubric-card-actions');
     expect(actions).not.toBeNull();
     expect(within(actions).getByRole("button", { name: "Expandir Coreografia" })).toBeInTheDocument();
-    expect(within(actions).getByRole("button", { name: "Eliminar rubro Coreografia" })).toBeInTheDocument();
+    expect(within(actions).getByRole("button", { name: "Desactivar rubro Coreografia" })).toBeInTheDocument();
   });
 
   it("usa categorias existentes como tipos de participacion", async () => {
@@ -82,17 +177,14 @@ describe("AdminCompetenciaPage", () => {
 
   it("muestra criterios dentro de su item y deriva la matriz", async () => {
     mockCompetitionData();
-    render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
+    const { container } = render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
-    expect(screen.getAllByText("Interpretacion").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("Precision").length).toBeGreaterThanOrEqual(2);
-
-    fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
-    const rubricButton = await screen.findByRole("button", { name: "Coreografia" });
-    fireEvent.click(rubricButton);
-    expect(screen.getByText("Precision")).toBeInTheDocument();
+    const rubricCard = container.querySelector('[data-rubric-id="rubric-1"]');
+    expect(within(rubricCard).getByText("Interpretacion")).toBeInTheDocument();
+    expect(within(rubricCard).getByText("Precision")).toBeInTheDocument();
   });
 
   it("reasigna un criterio historico al item seleccionado", async () => {
@@ -102,9 +194,10 @@ describe("AdminCompetenciaPage", () => {
     });
     render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     expect(await screen.findByText(/Expresion/)).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: item.id } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Item para Coreografia: Expresion" }), { target: { value: item.id } });
     fireEvent.click(screen.getByRole("button", { name: "Reasignar Expresion" }));
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/rubric-criteria/orphan-1", expect.anything());
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar reasignación" }));
@@ -120,25 +213,25 @@ describe("AdminCompetenciaPage", () => {
     const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
     await screen.findByRole("button", { name: "Expandir Coreografia" });
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
-    expect(Array.from(fields.getByLabelText("Tipo de sujeto").options, (option) => option.value))
-      .toEqual(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "OTHER"]);
-    fireEvent.change(fields.getByLabelText("Nombre"), { target: { value: "Figura destacada" } });
     fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
-    fireEvent.change(fields.getByLabelText("Tipo de sujeto"), { target: { value: subjectType } });
-    fireEvent.change(fields.getByLabelText("Metodo de resolucion"), { target: { value: "COMMITTEE" } });
-    fireEvent.change(fields.getByLabelText("Detalle (opcional)"), { target: { value: "Participante" } });
+    expect(Array.from(fields.getByLabelText("Qué tipo de participante").options, (option) => option.value))
+      .toEqual(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "OTHER"]);
+    fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Figura destacada" } });
+    fireEvent.change(fields.getByLabelText("Qué tipo de participante"), { target: { value: subjectType } });
+    fireEvent.change(fields.getByLabelText("Método de resolución"), { target: { value: "COMMITTEE" } });
+    fireEvent.change(fields.getByLabelText("Detalle adicional (opcional)"), { target: { value: "Participante" } });
     fireEvent.submit(form);
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/rubrics", {
       method: "POST",
       body: JSON.stringify({ name: "Figura destacada", evaluationTarget: "NOMINATION", rubricType: "NOMINATIVE", resolutionMethod: "COMMITTEE", evaluationObjective: "Participante", expectedSubjectType: subjectType }),
     });
-    expect(fields.getByLabelText("Nombre")).toHaveValue("");
-    expect(fields.getByLabelText("A quién se evalúa")).toHaveValue("TROUPE");
+    expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
   });
 
   it.each([
@@ -150,14 +243,15 @@ describe("AdminCompetenciaPage", () => {
     const write = vi.fn().mockImplementation(async (_path, options) => ({ id: rubric.id, ...JSON.parse(options.body) }));
     mockCompetitionData({ write, rubrics: [{ ...rubric, evaluationTarget: initialTarget, expectedSubjectType: initialSubject }] });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Editar configuración del rubro" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Editar rubro" }));
     const form = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
     const fields = within(form);
-    expect(fields.getByLabelText("Tipo de sujeto")).toHaveValue(initialSubject ?? "PERSON");
+    if (initialTarget === "NOMINATION") expect(fields.getByLabelText("Qué tipo de participante")).toHaveValue(initialSubject ?? "PERSON");
+    else expect(fields.queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
     fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: target } });
-    if (subject) fireEvent.change(fields.getByLabelText("Tipo de sujeto"), { target: { value: subject } });
+    if (subject) fireEvent.change(fields.getByLabelText("Qué tipo de participante"), { target: { value: subject } });
     fireEvent.submit(form);
     expect(write).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
@@ -237,29 +331,29 @@ describe("AdminCompetenciaPage", () => {
     expect(await screen.findByText(message)).toBeInTheDocument();
   });
 
-  it("elimina (desactiva) rubro con confirmacion", async () => {
+  it("desactiva rubro con confirmacion", async () => {
     const write = vi.fn().mockImplementation(async (path, options) => ({ id: path.split("/").at(-1), ...JSON.parse(options.body) }));
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Eliminar rubro Coreografia" }));
-    expect(await screen.findByRole("dialog", { name: "Eliminar Coreografia" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Desactivar rubro Coreografia" }));
+    expect(await screen.findByRole("dialog", { name: "Desactivar Coreografia" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Desactivar" }));
     await waitFor(() => expect(write).toHaveBeenCalledWith(
       "/api/v1/rubrics/rubric-1",
       expect.objectContaining({ method: "PATCH" }),
     ));
     const [, options] = write.mock.calls.find(([path]) => path === "/api/v1/rubrics/rubric-1");
     expect(JSON.parse(options.body).active).toBe(false);
-    expect(await screen.findByText("Rubro Coreografia eliminado (desactivado en BD).")).toBeInTheDocument();
+    expect(await screen.findByText("Rubro Coreografia desactivado.")).toBeInTheDocument();
   });
   it.each([
-    [/Rubros, ítems y criterios/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
-    [/Rubros, ítems y criterios/, "Guardar rubro", "Expandir Coreografia", "/api/v1/rubrics/rubric-1"],
-    [/Rubros, ítems y criterios/, "Agregar item a Coreografia", "Expandir Coreografia", "/api/v1/rubrics/rubric-1/items"],
-    [/Rubros, ítems y criterios/, "Guardar item", "Editar item Interpretacion", "/api/v1/evaluation-items/item-1"],
-    [/Rubros, ítems y criterios/, "Agregar criterio a Interpretacion", "Expandir Coreografia", "/api/v1/rubrics/rubric-1/criteria"],
-    [/Rubros, ítems y criterios/, "Guardar criterio Precision", "Editar criterio Precision", "/api/v1/rubric-criteria/criterion-1"],
+      [/Evaluación/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
+    [/Evaluación/, "Guardar rubro", "Expandir Coreografia", "/api/v1/rubrics/rubric-1"],
+    [/Evaluación/, "Crear ítem en Coreografia", null, "/api/v1/rubrics/rubric-1/items"],
+    [/Evaluación/, "Guardar item", "Editar item Interpretacion", "/api/v1/evaluation-items/item-1"],
+    [/Evaluación/, "Agregar criterio a Interpretacion", "Expandir Coreografia", "/api/v1/rubrics/rubric-1/criteria"],
+    [/Evaluación/, "Guardar criterio Precision", "Editar criterio Precision", "/api/v1/rubric-criteria/criterion-1"],
   ])("%s: %s conserva entradas, bloquea duplicados y permite reintentar", async (section, action, edit, path) => {
     let rejectWrite;
     const write = vi.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectWrite = reject; }))
@@ -269,18 +363,26 @@ describe("AdminCompetenciaPage", () => {
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: section }));
-    if (String(section) === String(/Rubros, ítems y criterios/)) {
+    if (String(section) === String(/Evaluación/)) {
+      const itemAction = ["Crear ítem en Coreografia", "Guardar item", "Agregar criterio a Interpretacion", "Guardar criterio Precision"].includes(action);
+      if (itemAction) fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      if (action === "Crear rubro") fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+      if (action === "Crear ítem en Coreografia") fireEvent.click(await screen.findByRole("button", { name: action }));
       const expand = await screen.findByRole("button", { name: "Expandir Coreografia" });
       if (edit) fireEvent.click(expand);
       if (action === "Guardar rubro") {
-        fireEvent.click(await screen.findByRole("button", { name: "Editar configuración del rubro" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Editar rubro" }));
       }
     } else {
       await screen.findByRole("button", { name: /^Editar / });
     }
     if (edit && edit !== "Expandir Coreografia") fireEvent.click(screen.getByRole("button", { name: edit }));
-    const button = screen.getByRole("button", { name: action });
-    const form = button.closest("form");
+    const button = action === "Crear ítem en Coreografia"
+      ? screen.getByRole("button", { name: "Agregar ítem" })
+      : screen.getByRole("button", { name: action });
+    const form = action === "Crear ítem en Coreografia"
+      ? screen.getByRole("dialog", { name: "Crear ítem en Coreografia" }).querySelector("form")
+      : button.closest("form");
     const fields = within(form);
     const text = fields.getByRole("textbox", { name: /Nombre|Nuevo item|Nuevo criterio|Descripcion/ });
     fireEvent.change(text, { target: { value: "Entrada conservada" } });
@@ -294,7 +396,10 @@ describe("AdminCompetenciaPage", () => {
     const expectedBody = Object.fromEntries(new FormData(form));
     // Both events in one batch exercise the synchronous guard, not only disabled buttons.
     act(() => { fireEvent.submit(form); fireEvent.submit(form); });
-    if (action.startsWith("Guardar")) {
+    if (action === "Crear ítem en Coreografia") {
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+    } else if (action.startsWith("Guardar")) {
       expect(write).not.toHaveBeenCalled();
       fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     }
@@ -314,12 +419,14 @@ describe("AdminCompetenciaPage", () => {
     expect(button).toBeEnabled();
     expect(Object.fromEntries(new FormData(form))).toEqual(expectedBody);
     fireEvent.click(button);
-    if (action.startsWith("Guardar")) fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+    if (action.startsWith("Guardar") || action === "Crear ítem en Coreografia") fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
     await waitFor(() => expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "false"));
     expect(write).toHaveBeenCalledTimes(2);
     expect(write.mock.calls[1]).toEqual(write.mock.calls[0]);
     expect(screen.queryByText("No se pudo guardar.")).not.toBeInTheDocument();
-    if (!action.startsWith("Guardar")) expect(text).toHaveValue("");
+    if (action === "Crear ítem en Coreografia") {
+      expect(screen.queryByRole("dialog", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
+    } else if (!action.startsWith("Guardar")) expect(text).toHaveValue("");
     else if (action === "Guardar rubro") expect(text).toHaveValue("Entrada conservada");
     else expect(button).not.toBeInTheDocument();
   });
@@ -330,7 +437,7 @@ describe("AdminCompetenciaPage", () => {
       .mockResolvedValueOnce({ id: "orphan-1", rubricId: rubric.id, scoringItemId: item.id });
     mockCompetitionData({ write, orphaned: [{ id: "orphan-1", rubricId: rubric.id, rubricName: rubric.name, description: "Expresion" }] });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
     const select = await screen.findByRole("combobox", { name: "Item para Coreografia: Expresion" });
     const button = screen.getByRole("button", { name: "Reasignar Expresion" });
     fireEvent.change(select, { target: { value: item.id } });
@@ -340,7 +447,7 @@ describe("AdminCompetenciaPage", () => {
     expect(write).toHaveBeenCalledTimes(1);
     expect(select).toBeDisabled();
     expect(button).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Rubros, ítems y criterios/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Evaluación/ })).toBeDisabled();
     await act(async () => { rejectWrite(new Error("Fallo de red")); });
     expect(await screen.findByText("No se pudo reasignar el criterio.")).toBeInTheDocument();
     expect(select).toHaveValue(item.id);
@@ -356,10 +463,13 @@ describe("AdminCompetenciaPage", () => {
   it("explica metadata sin cambiar reglas y da nombre a controles inline", async () => {
     mockCompetitionData();
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
-    expect(screen.getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
+    const itemDialog = screen.getByRole("dialog", { name: "Crear ítem en Coreografia" });
+    expect(within(itemDialog).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" })).toBeInTheDocument();
+    expect(within(itemDialog).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Orden del nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar criterio a Interpretacion" })).toBeInTheDocument();
@@ -371,10 +481,15 @@ describe("AdminCompetenciaPage", () => {
     for (const control of screen.getAllByRole("checkbox", { name: /Permite No presentado/ })) {
       expect(control).toHaveAccessibleDescription(/Admite calificación 'No se presentó'./);
     }
-    for (const control of screen.getAllByRole("combobox", { name: /resolucion/ })) {
-      expect(control).toHaveAccessibleDescription(/metadata futura: no ejecuta formulas ni decisiones automaticas/);
+    for (const advancedOptions of screen.getAllByText("Opciones avanzadas")) fireEvent.click(advancedOptions);
+    fireEvent.click(within(itemDialog).getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Rubros" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
+    for (const advancedOptions of screen.getAllByText("Opciones avanzadas")) fireEvent.click(advancedOptions);
+    for (const control of screen.getAllByRole("combobox", { name: /Método de resolución/ })) {
+      expect(control).toHaveAccessibleDescription(/describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas/);
     }
-    for (const role of ["textbox", "combobox", "spinbutton", "checkbox", "button"]) {
+    for (const role of ["textbox", "combobox", "button"]) {
       for (const control of screen.getAllByRole(role)) expect(control).toHaveAccessibleName();
     }
     expect(apiRequest.mock.calls.every(([, options]) => !options?.method)).toBe(true);
@@ -398,7 +513,8 @@ describe("AdminCompetenciaPage", () => {
     const write = vi.fn(() => new Promise((resolve) => { resolveWrite = resolve; }));
     mockCompetitionData({ rubrics: [reorderedRubric], write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     expect(screen.getByRole("button", { name: `Subir ${kind} ${first}` })).toBeDisabled();
     expect(screen.getByRole("button", { name: `Bajar ${kind} ${second}` })).toBeDisabled();
@@ -435,7 +551,8 @@ describe("AdminCompetenciaPage", () => {
     });
     mockCompetitionData({ rubrics, write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     fireEvent.click(screen.getByRole("button", { name: "Bajar item Interpretacion" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
@@ -443,17 +560,20 @@ describe("AdminCompetenciaPage", () => {
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/rubrics/rubric-1");
     expect(write).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Guardar rubro" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Rubros" }));
     fireEvent.click(screen.getByRole("button", { name: "Expandir Coreografia" }));
-    fireEvent.click(screen.getByRole("button", { name: "Editar configuración del rubro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
     const editor = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
     expect(within(editor).getByLabelText("Tipo")).toHaveValue("SPECIAL");
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     expect(screen.getByRole("button", { name: "Bajar item Interpretacion" })).toBeDisabled();
   });
 
   it("no modifica orden local ante fallo de red", async () => {
     mockCompetitionData({ rubrics: [reorderedRubric] });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     fireEvent.click(screen.getByRole("button", { name: "Bajar item Interpretacion" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
@@ -465,7 +585,8 @@ describe("AdminCompetenciaPage", () => {
   it("no ofrece reordenamiento con evento OPEN", async () => {
     mockCompetitionData({ rubrics: [reorderedRubric] });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "OPEN" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
     expect(screen.queryByRole("button", { name: /Subir|Bajar/ })).not.toBeInTheDocument();
     expect(apiRequest.mock.calls.every(([, options]) => !options?.method)).toBe(true);
@@ -791,6 +912,7 @@ describe("AdminCompetenciaPage", () => {
       const rubrics = customRubrics ?? [rubric];
       apiRequest.mockImplementation(async (path, options) => {
         if (options?.method) throw new Error("Escritura inesperada");
+        if (path.endsWith("/readiness")) return { ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] };
         if (path.endsWith("/troupes")) return [];
         if (path.endsWith("/categories")) return [];
         if (path.endsWith("/specialties")) {
@@ -802,32 +924,63 @@ describe("AdminCompetenciaPage", () => {
       });
     }
 
-    it("muestra el árbol Especialidad → Rubro → Ítem → Criterio y colapsa metadata futura", async () => {
+    it("muestra rubros agrupados por especialidad y criterios junto al ítem", async () => {
       mockRubrics();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
-      expect(await screen.findByText("Qué puntúa el jurado")).toBeInTheDocument();
-      const tree = screen.getByLabelText("Árbol de evaluación por especialidad");
-      expect(within(tree).getByText("Danza")).toBeInTheDocument();
-      expect(within(tree).getByText("Coreografia")).toBeInTheDocument();
-      expect(within(tree).getByText("Interpretacion")).toBeInTheDocument();
-      expect(within(tree).getByText("Precision")).toBeInTheDocument();
-      const advanced = screen.getAllByText("Opciones avanzadas");
-      expect(advanced.length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+      fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      expect(await screen.findByRole("heading", { name: "Rubros de Danza" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Expandir Coreografia" }));
+      const rubricCard = document.querySelector('[data-rubric-id="rubric-1"]');
+      expect(within(rubricCard).getByText("Interpretacion")).toBeInTheDocument();
+      expect(within(rubricCard).getByText("Precision")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
+      expect(within(screen.getByRole("dialog", { name: "Crear ítem en Coreografia" })).getByText("Opciones avanzadas")).toBeInTheDocument();
     });
 
-    it("la matriz advierte faltantes y Resolver lleva al rubro expandido", async () => {
+  it("mantiene visibles los rubros sin asociación activa para poder resolverlos", async () => {
       mockRubrics({
         rubrics: [
-          { ...rubric, id: "rubric-empty", name: "Vacio", items: [], criteria: [] },
+          { ...rubric, id: "rubric-empty", name: "Vacio", items: [{ ...item, id: "inactive-item", active: false }], criteria: [] },
           rubric,
         ],
       });
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
-      expect(await screen.findByText(/Te faltan .* asignaciones/)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Resolver rubro Vacio" }));
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+      expect(await screen.findByRole("heading", { name: "Otros rubros por revisar" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Vacio" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Expandir Vacio" }));
       expect(await screen.findByRole("button", { name: "Contraer Vacio" })).toBeInTheDocument();
+    });
+
+    it("separa Rubros e Ítems y confirma el alta desde el diálogo de creación", async () => {
+      const write = vi.fn().mockResolvedValue({ id: "item-new", name: "Colorido", specialtyId: "specialty-1", required: true, allowNotPresented: true });
+      mockCompetitionData({ write });
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
+
+      expect(screen.getByRole("tab", { name: "Rubros" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("button", { name: "Editar rubro" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      expect(screen.getByRole("button", { name: "Crear ítem en Coreografia" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
+      const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Coreografia" });
+      const form = dialog.querySelector("form");
+      fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
+      fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" }), { target: { value: "specialty-1" } });
+      fireEvent.submit(form);
+
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+      await screen.findByText("Item guardado.");
+      expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1/items", {
+        method: "POST",
+        body: JSON.stringify({ name: "Colorido", specialtyId: "specialty-1", required: true, allowNotPresented: true }),
+      });
+      expect(screen.queryByRole("dialog", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
     });
   });
 
@@ -835,42 +988,48 @@ describe("AdminCompetenciaPage", () => {
     it("muestra 4 pasos en orden de dependencia con progreso no bloqueante", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      for (const step of [/Participantes/, /Jurados y especialidades/, /Rubros, ítems y criterios/, /Revisión final/]) {
+      expect(await screen.findByText("Completo según readiness de la API.")).toBeInTheDocument();
+      for (const step of [/Participantes/, /Jurados y especialidades/, /Evaluación/, /Revisión final/]) {
         expect(screen.getByRole("button", { name: step })).toBeInTheDocument();
       }
-      // Una sola línea de progreso: una progressbar, sin checklist ni región redundante.
-      expect(screen.getAllByRole("progressbar")).toHaveLength(1);
-      expect(screen.getByRole("progressbar", { name: "Progreso de configuración" })).toBeInTheDocument();
+      // Los estados desconocidos no se convierten en progreso ni porcentaje.
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+      expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(4);
       expect(screen.queryByRole("region", { name: "Configuración de la competencia" })).not.toBeInTheDocument();
       // Paso 1 por defecto: tipos y comparsas juntos, sin resumen suelto
       expect(screen.getByRole("heading", { name: "Tipos de participacion" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Comparsas" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Resumen de competencia" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
-      expect(await screen.findByRole("heading", { name: "Resumen de competencia" })).toBeInTheDocument();
+      expect(await screen.findByText("La API confirma que no hay bloqueos oficiales de apertura.")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Resumen de competencia" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Items puntuables/)).not.toBeInTheDocument();
     });
 
     it("auto-expande el rubro recién creado para seguir cargando ítems", async () => {
       const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "rubric-new", ...JSON.parse(options.body) }));
       mockCompetitionData({ write, rubrics: [] });
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
-      fireEvent.change(screen.getByRole("textbox", { name: "Nombre" }), { target: { value: "Nuevo Rubro" } });
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "Nombre del rubro" }), { target: { value: "Nuevo Rubro" } });
       fireEvent.click(screen.getByRole("button", { name: "Crear rubro" }));
       expect(await screen.findByRole("button", { name: "Contraer Nuevo Rubro" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Nuevo Rubro" }));
       expect(screen.getByRole("textbox", { name: "Nuevo item puntuable para Nuevo Rubro" })).toBeInTheDocument();
     });
   });
 
   describe("refinamiento UX sin cambios de lógica", () => {
-    it("muestra cabecera compacta con evento, paso actual, porcentaje y Volver", async () => {
+    it("muestra cabecera compacta con evento, paso actual y Volver, sin porcentaje inferido", async () => {
       mockCompetitionData();
       const onBack = vi.fn();
       render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} onBack={onBack} />);
       expect(screen.getByText("Competencia")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Carnaval", level: 1 })).toBeInTheDocument();
       expect(screen.getByText(/Paso 1 de 4/)).toBeInTheDocument();
-      expect(screen.getByText(/% completado/)).toBeInTheDocument();
+      expect(screen.queryByText(/% completado/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Volver" }));
       expect(onBack).toHaveBeenCalledTimes(1);
       fireEvent.click(screen.getByRole("button", { name: /Jurados y especialidades/ }));
@@ -889,7 +1048,7 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getByRole("button", { name: /Paso 4 de 4: Revisión final/ })).toHaveAttribute("aria-current", "step");
     });
 
-    it("el paso Participantes se organiza en 3 subbloques con resumen contextual", async () => {
+    it("el paso Participantes muestra el estado readiness sin resumir conteos locales", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
       expect(screen.getByRole("heading", { name: "Participantes" })).toBeInTheDocument();
@@ -898,25 +1057,24 @@ describe("AdminCompetenciaPage", () => {
       }
       const summary = screen.getByRole("region", { name: "Resumen del paso Participantes" });
       expect(within(summary).getByRole("heading", { name: "Resumen del paso" })).toBeInTheDocument();
-      // Datos reales del mock: 1 tipo y 1 comparsa activa.
-      expect(await within(summary).findByText(/1 comparsa\(s\) activa\(s\) en 1 tipo\(s\)/)).toBeInTheDocument();
+      expect(await within(summary).findByText(/Completo según readiness/)).toBeInTheDocument();
     });
 
-    it("el resumen del paso Jurados recomienda crear especialidades y enlaza a Jurados", async () => {
+    it("el resumen del paso Jurados refleja readiness y conserva acceso a Jurados", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
       fireEvent.click(screen.getByRole("button", { name: /Jurados y especialidades/ }));
       expect(await screen.findByRole("heading", { name: "Jurados y especialidades" })).toBeInTheDocument();
       const summary = screen.getByRole("region", { name: "Resumen del paso Jurados y especialidades" });
-      expect(within(summary).getByText(/1 especialidad\(es\) activa\(s\)/)).toBeInTheDocument();
+      expect(within(summary).getByText(/Completo según readiness/)).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Jurados" })).toHaveAttribute("href", "#/admin/judges");
     });
 
     it("mueve el foco al título del paso al navegar y no usa el copy anterior", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      fireEvent.click(screen.getByRole("button", { name: /Rubros, ítems y criterios/ }));
-      const title = await screen.findByRole("heading", { name: "Rubros, ítems y criterios" });
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+      const title = await screen.findByRole("heading", { name: "Configurar evaluación" });
       expect(title).toHaveFocus();
       expect(screen.queryByText(/Quiénes participan/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Quién evalúa/)).not.toBeInTheDocument();

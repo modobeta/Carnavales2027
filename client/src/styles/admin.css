@@ -941,10 +941,7 @@
 }
 
 @media (min-width: 64rem) {
-  .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
-    align-items: start;
-  }
+  .admin-dashboard { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Spec 027/B+G — Panel admin: layout dashboard, resumen y accesos directos */
@@ -1024,10 +1021,7 @@
 }
 
 @media (min-width: 64rem) {
-  .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) 22rem;
-    align-items: start;
-  }
+  .admin-dashboard { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (min-width: 40rem) and (max-width: 63.99rem) {
@@ -1357,12 +1351,7 @@
 
 @media (min-width: 64rem) {
   .admin-home-shell .admin-dashboard {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
-    gap: var(--space-4);
-  }
-
-  .admin-home-shell .admin-dashboard-main,
-  .admin-home-shell .admin-dashboard-side {
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
   }
 }
@@ -1580,7 +1569,8 @@
   margin-block-start: var(--space-2);
 }
 
-.admin-events-page > .user-admin {
+.admin-events-page > .user-admin,
+.admin-users-page > .user-admin {
   display: grid;
   gap: var(--space-3);
   margin-block-start: var(--space-4);
@@ -1609,7 +1599,8 @@
   font-size: var(--text-xs);
 }
 
-.admin-events-page > .user-admin > p {
+.admin-events-page > .user-admin > p,
+.admin-users-page > .user-admin > p {
   max-inline-size: 70ch;
   margin: 0;
   color: var(--text-muted);

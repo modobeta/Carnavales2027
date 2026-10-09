@@ -9,6 +9,7 @@ import { AdminEventsPage } from "./pages/AdminEventsPage.jsx";
 import { AdminHomePage } from "./pages/AdminHomePage.jsx";
 import { AdminCompetenciaPage } from "./pages/AdminCompetenciaPage.jsx";
 import { AdminJudgesPage } from "./pages/AdminJudgesPage.jsx";
+import { AdminUsersPage } from "./pages/AdminUsersPage.jsx";
 import { AdminAssignmentsPage } from "./pages/AdminAssignmentsPage.jsx";
 import { AdminVotingPage } from "./pages/AdminVotingPage.jsx";
 import { AdminPenaltiesPage } from "./pages/AdminPenaltiesPage.jsx";
@@ -32,12 +33,10 @@ import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.j
 import { useEffect, useState } from "react";
 
 function ProtectedShell({ session, children }) {
-  const shell = <><AppNavigation session={session} />{children}</>;
-  const judgeArea = window.location.hash.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
-  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{shell}</AdminEventProvider>;
+  return <><AppNavigation session={session} />{children}</>;
 }
 
-function AdminCompetenciaPageWrapper() {
+function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -64,7 +63,7 @@ function AdminCompetenciaPageWrapper() {
         </div>
       </main>
     );
-    return <AdminCompetenciaPage event={adminEvent.activeEvent} onBack={() => { window.location.hash = "#/admin/events"; }} />;
+    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => { window.location.hash = "#/admin/events"; }} />;
   }
 
   if (loading) return <main className="container"><p>Cargando eventos...</p></main>;
@@ -80,7 +79,7 @@ function AdminCompetenciaPageWrapper() {
     </main>
   );
 
-  return <AdminCompetenciaPage event={selectedEvent} onBack={() => setSelectedEvent(null)} />;
+  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => setSelectedEvent(null)} />;
 }
 
 function RoleArea({ session, role, admin = false, children }) {
@@ -149,10 +148,16 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminEventsPage /></RoleArea>;
   }
   if (route === "#/admin/competencia") {
-    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper /></RoleArea>;
+    const params = new URLSearchParams(query);
+    const initialStep = params.get("step") ?? "participantes";
+    const initialTab = params.get("tab") ?? "";
+    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
+  }
+  if (route === "#/admin/users") {
+    return <RoleArea session={session} admin><AdminUsersPage /></RoleArea>;
   }
   if (route === "#/admin/assignments") {
     return <RoleArea session={session} admin><AdminAssignmentsPage initialEventId={new URLSearchParams(query).get("eventId") ?? ""} /></RoleArea>;
@@ -193,9 +198,12 @@ export default function App({ session: providedSession }) {
     return <main id="main-content" className="container"><div className="card"><h1>Página no encontrada</h1><a href="#/login">Volver al inicio</a></div></main>;
   };
 
-  return (
+  const content = (
     <div className="app-shell" data-layer={currentLayer}>
       {renderContent()}
     </div>
   );
+  if (session.status !== "authenticated") return content;
+  const judgeArea = path.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{content}</AdminEventProvider>;
 }

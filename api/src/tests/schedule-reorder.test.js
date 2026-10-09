@@ -88,7 +88,7 @@ test("API schedule: reordena en CONFIGURING sin motivo y en OPEN con motivo audi
     const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
 
     await seedActiveJudge({ client: pool, eventId: opened.event.id, nightId: opened.night.id, specialtyId: opened.specialty.id, adminId });
-    const openRes = await fetch(`${baseUrl}/api/v1/events/${opened.event.id}/open`, { method: "POST", headers });
+    const openRes = await fetch(`${baseUrl}/api/v1/events/${opened.event.id}/open`, { method: "POST", headers: { ...headers, "Idempotency-Key": randomUUID() } });
     assert.equal(openRes.status, 200);
 
     const configuringRes = await fetch(`${baseUrl}/api/v1/events/${configuring.event.id}/schedule/reorder`, {
@@ -178,7 +178,7 @@ test("API schedule: en OPEN el reorden conserva el tramo ya iniciado y libera el
   const server = await withServer(app);
   try {
     const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
-    const openRes = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/open`, { method: "POST", headers });
+    const openRes = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/events/${seeded.event.id}/open`, { method: "POST", headers: { ...headers, "Idempotency-Key": randomUUID() } });
     assert.equal(openRes.status, 200);
 
     // Sin votos registrados el reorden sigue permitido, aunque el evento ya esté abierto.
