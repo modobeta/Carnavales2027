@@ -12,6 +12,7 @@ import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
+import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 
 const WriteContext = createContext(null);
 
@@ -34,9 +35,11 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
-export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes" }) {
+export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
   const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
+  const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
+  const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
   const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
@@ -48,7 +51,26 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
 
   useEffect(() => {
     setStep(validInitialStep);
-  }, [validInitialStep]);
+    const targetTab = initialTab || getTabFromHash();
+    if (targetTab === "asignaciones") {
+      setJuryTab("asignaciones");
+    } else if (targetTab === "especialidades") {
+      setJuryTab("especialidades");
+    }
+  }, [validInitialStep, initialTab]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const targetTab = getTabFromHash();
+      if (targetTab === "asignaciones") {
+        setJuryTab("asignaciones");
+      } else if (targetTab === "especialidades") {
+        setJuryTab("especialidades");
+      }
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   // Conteo liviano para el progreso del asistente (solo lectura; el detalle
   // y las mutaciones siguen en cada sección). Guía sin bloquear (T05 intacta).
@@ -97,6 +119,22 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
 
   const goStep = (key) => {
     setStep(key);
+  };
+
+  const selectJuryTab = (newTab) => {
+    setJuryTab(newTab);
+    const search = window.location.hash.split("?")[1] ?? "";
+    const params = new URLSearchParams(search);
+    params.set("step", "jurados");
+    if (newTab === "asignaciones") {
+      params.set("tab", "asignaciones");
+    } else {
+      params.delete("tab");
+    }
+    const newHash = `#/admin/competencia?${params.toString()}`;
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, "", newHash);
+    }
   };
 
   const statusSummary = (key) => {
@@ -172,19 +210,40 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
               <p className="step-intro">Primero creá al menos una especialidad activa. Después vas a poder asignar jurados a cada especialidad. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
-              <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
-              <p className="step-intro">
-                {specialtiesActive.length > 0 ? (
-                  <a className="button-link" href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}`}>
-                    Asignar jurados a la competencia
-                  </a>
+              <div className="competencia-tabs" role="tablist" aria-label="Especialidades y asignaciones">
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-especialidades"
+                  aria-controls="competencia-jurados-panel"
+                  aria-selected={juryTab === "especialidades"}
+                  className={juryTab === "especialidades" ? "active" : "secondary"}
+                  onClick={() => selectJuryTab("especialidades")}
+                >
+                  Especialidades
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="competencia-tab-asignaciones"
+                  aria-controls="competencia-jurados-panel"
+                  aria-selected={juryTab === "asignaciones"}
+                  className={juryTab === "asignaciones" ? "active" : "secondary"}
+                  onClick={() => selectJuryTab("asignaciones")}
+                >
+                  Asignar jurados
+                </button>
+              </div>
+              <div role="tabpanel" id="competencia-jurados-panel" aria-labelledby={`competencia-tab-${juryTab}`} tabIndex={0}>
+                {juryTab === "especialidades" ? (
+                  <>
+                    <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+                    {specialtiesActive.length === 0 && <p className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</p>}
+                  </>
                 ) : (
-                  <button className="button-link" type="button" disabled aria-disabled="true">
-                    Asignar jurados a la competencia
-                  </button>
+                  <AdminAssignmentsPage initialEventId={event.id} embedded={true} />
                 )}
-                {specialtiesActive.length === 0 && <span className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</span>}
-              </p>
+              </div>
             </section>
           )}
           {step === "rubros" && (

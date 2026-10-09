@@ -15,6 +15,8 @@ function NavigationIcon({ name }) {
     ballot: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 9h8M8 13h3m-3 4h8M6 3v4m12-4v4" /></>,
     support: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="m5.6 5.6 3 3m6.8 6.8 3 3m0-13.2-3 3m-6.8 6.8-3 3" /></>,
     shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+    userPlus: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></>,
+    userCheck: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="16 11 18 13 22 9" /></>,
     record: <><path d="M6 3h8l5 5v13H6z" /><path d="M14 3v6h5M9 13h7m-7 3h7m-7 3h4" /></>,
   };
 
@@ -28,10 +30,20 @@ function NavigationIcon({ name }) {
 function isCurrentNavItem(currentLocation, href) {
   const [currentRoute, currentSearch = ""] = currentLocation.split("?");
   const [hrefRoute, hrefSearch = ""] = href.split("?");
+
+  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/competencia") {
+    const hrefStep = new URLSearchParams(hrefSearch).get("step");
+    if (hrefStep === "jurados") return true;
+  }
+
   if (currentRoute !== hrefRoute) return false;
 
-  const currentStep = new URLSearchParams(currentSearch).get("step");
-  const hrefStep = new URLSearchParams(hrefSearch).get("step");
+  const currentParams = new URLSearchParams(currentSearch);
+  const hrefParams = new URLSearchParams(hrefSearch);
+
+  const currentStep = currentParams.get("step");
+  const hrefStep = hrefParams.get("step");
+
   if (currentStep || hrefStep) return (currentStep ?? "participantes") === (hrefStep ?? "participantes");
   return true;
 }
@@ -218,7 +230,7 @@ export function AppNavigation({ session }) {
               <NavigationIcon name="calendar" />
               <span>Evento y jornadas</span>
             </a>
-            <details className="nav-group" open={["#/admin/competencia", "#/admin/judges", "#/admin/assignments"].includes(currentRoute)}>
+            <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
               <summary className="nav-group-summary">
                 <NavigationIcon name="people" />
                 <span>Comparsas y jurados</span>
@@ -227,8 +239,6 @@ export function AppNavigation({ session }) {
                 {navLink("#/admin/competencia?step=participantes", "Comparsas")}
                 {navLink("#/admin/competencia?step=jurados", "Jurados y especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}
-                {navLink("#/admin/assignments", "Asignar Jurados")}
-                {navLink("#/admin/judges", "Crear Usuario")}
               </div>
             </details>
             <span className="nav-section-label">En vivo</span>
@@ -258,6 +268,15 @@ export function AppNavigation({ session }) {
                 <PublicResultsLink currentRoute={currentRoute} />
               </div>
             </details>
+            <span className="nav-section-label">Usuarios</span>
+            <a className="nav-primary-link" href="#/admin/judges" aria-current={isCurrentNavItem(currentLocation, "#/admin/judges") ? "page" : undefined}>
+              <NavigationIcon name="userPlus" />
+              <span>Crear Usuario</span>
+            </a>
+            <a className="nav-primary-link" href="#/admin/users" aria-current={isCurrentNavItem(currentLocation, "#/admin/users") ? "page" : undefined}>
+              <NavigationIcon name="userCheck" />
+              <span>Administradores</span>
+            </a>
           </>
         )}
         {session.roles?.includes("COMISARIO") && !session.roles?.includes("ADMIN") && (

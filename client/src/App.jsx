@@ -9,6 +9,7 @@ import { AdminEventsPage } from "./pages/AdminEventsPage.jsx";
 import { AdminHomePage } from "./pages/AdminHomePage.jsx";
 import { AdminCompetenciaPage } from "./pages/AdminCompetenciaPage.jsx";
 import { AdminJudgesPage } from "./pages/AdminJudgesPage.jsx";
+import { AdminUsersPage } from "./pages/AdminUsersPage.jsx";
 import { AdminAssignmentsPage } from "./pages/AdminAssignmentsPage.jsx";
 import { AdminVotingPage } from "./pages/AdminVotingPage.jsx";
 import { AdminPenaltiesPage } from "./pages/AdminPenaltiesPage.jsx";
@@ -35,7 +36,7 @@ function ProtectedShell({ session, children }) {
   return <><AppNavigation session={session} />{children}</>;
 }
 
-function AdminCompetenciaPageWrapper({ initialStep = "participantes" }) {
+function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -62,7 +63,7 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes" }) {
         </div>
       </main>
     );
-    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} onBack={() => { window.location.hash = "#/admin/events"; }} />;
+    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => { window.location.hash = "#/admin/events"; }} />;
   }
 
   if (loading) return <main className="container"><p>Cargando eventos...</p></main>;
@@ -78,7 +79,7 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes" }) {
     </main>
   );
 
-  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} onBack={() => setSelectedEvent(null)} />;
+  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => setSelectedEvent(null)} />;
 }
 
 function RoleArea({ session, role, admin = false, children }) {
@@ -147,11 +148,16 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminEventsPage /></RoleArea>;
   }
   if (route === "#/admin/competencia") {
-    const initialStep = new URLSearchParams(query).get("step") ?? "participantes";
-    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} /></RoleArea>;
+    const params = new URLSearchParams(query);
+    const initialStep = params.get("step") ?? "participantes";
+    const initialTab = params.get("tab") ?? "";
+    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
+  }
+  if (route === "#/admin/users") {
+    return <RoleArea session={session} admin><AdminUsersPage /></RoleArea>;
   }
   if (route === "#/admin/assignments") {
     return <RoleArea session={session} admin><AdminAssignmentsPage initialEventId={new URLSearchParams(query).get("eventId") ?? ""} /></RoleArea>;

@@ -10,7 +10,7 @@ describe("AdminEventsPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
   it("renderiza bajo la capa de instrumento data-layer='instrument' (RF-177)", async () => {
-    apiRequest.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    apiRequest.mockResolvedValueOnce([]);
     const { container } = render(<AdminEventsPage />);
     expect(container.querySelector("main.container")).toHaveAttribute("data-layer", "instrument");
   });
@@ -19,7 +19,6 @@ describe("AdminEventsPage", () => {
     const pending = [];
     apiRequest
       .mockResolvedValueOnce([{ id: "e1", name: "Goya", status: "CONFIGURING" }])
-      .mockResolvedValueOnce([])
       .mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
 
     render(<AdminEventsPage />);

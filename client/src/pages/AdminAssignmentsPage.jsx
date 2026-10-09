@@ -16,7 +16,7 @@ const typeLabels = { PRIMARY: "Titular", SUBSTITUTE: "Suplente" };
  * (revocar/reemplazar/activar) viven en [Acciones ▾] + dialog con motivo.
  * Contratos API y reglas intactos.
  */
-export function AdminAssignmentsPage({ initialEventId = "" }) {
+export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
   const [judges, setJudges] = useState([]);
@@ -218,19 +218,8 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
   const assignedJudgeIdSet = new Set(assignedJudgeIds);
   const assignableJudges = assignTarget ? judges.filter((judge) => !assignedJudgeIdSet.has(judge.id)) : judges;
 
-  return (
-    <PageShell layer="instrument" className="admin-shell assignment-page">
-      <PageHeader
-        eyebrow="Competencia"
-        title="Asignar jurados"
-        actions={<>
-          {eventId && <a className="button-link secondary" href="#/admin/competencia">Volver a Competencia</a>}
-          {!adminEvent && <label className="event-picker">Evento<select value={eventId} onChange={(event) => { setLocalEventId(event.target.value); setNightId(""); }}>
-            <option value="">Seleccionar evento</option>
-            {events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
-          </select></label>}
-        </>}
-      />
+  const boardContent = (
+    <>
       <p className="feedback" role="status" aria-live="polite">{message}</p>
       {eventId && <>
         {selectedEvent?.status === "OPEN" && (
@@ -403,6 +392,27 @@ export function AdminAssignmentsPage({ initialEventId = "" }) {
           </DialogFooter>
         </form>
       </Dialog>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="assignment-page-embedded assignment-page">{boardContent}</div>;
+  }
+
+  return (
+    <PageShell layer="instrument" className="admin-shell assignment-page">
+      <PageHeader
+        eyebrow="Competencia"
+        title="Asignar jurados"
+        actions={<>
+          {eventId && <a className="button-link secondary" href="#/admin/competencia">Volver a Competencia</a>}
+          {!adminEvent && <label className="event-picker">Evento<select value={eventId} onChange={(event) => { setLocalEventId(event.target.value); setNightId(""); }}>
+            <option value="">Seleccionar evento</option>
+            {events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
+          </select></label>}
+        </>}
+      />
+      {boardContent}
     </PageShell>
   );
 }

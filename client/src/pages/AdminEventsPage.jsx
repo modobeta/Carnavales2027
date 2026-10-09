@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
-import { useSession } from "../auth/session-context.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
@@ -44,10 +43,8 @@ function nextStepFor(event, summary) {
 }
 
 export function AdminEventsPage() {
-  const session = useSession();
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
-  const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [nights, setNights] = useState([]);
   const [configurationLoading, setConfigurationLoading] = useState(false);
@@ -55,13 +52,10 @@ export function AdminEventsPage() {
   const [message, setMessage] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [adminRoleTarget, setAdminRoleTarget] = useState(null);
-  const [roleBusy, setRoleBusy] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [summaries, setSummaries] = useState({});
   const createTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
-  const roleTriggerRef = useRef(null);
 
   const allEvents = adminEvent?.events ?? localEvents;
   const events = showDeleted ? allEvents : allEvents.filter((event) => event.active !== false);
@@ -82,14 +76,8 @@ export function AdminEventsPage() {
     }
   };
 
-  const refreshUsers = async () => {
-    try { setUsers(await apiRequest("/api/v1/users")); }
-    catch { setMessage("No se pudieron cargar los usuarios."); }
-  };
-
   useEffect(() => {
     if (!hasAdminEventContext) void refreshEvents();
-    void refreshUsers();
   }, [hasAdminEventContext]);
 
   const eventKey = events.map((event) => event.id).join("|");
@@ -173,23 +161,6 @@ export function AdminEventsPage() {
       form.reset();
     } catch (error) {
       setMessage(error.code === "RESOURCE_CONFLICT" ? "Ya existe un evento equivalente." : "No se pudo crear el evento.");
-    }
-  };
-
-  const changeAdminRole = async (user, grant) => {
-    if (!user || roleBusy) return;
-    setRoleBusy(true);
-    try {
-      await apiRequest(`/api/v1/users/${user.id}/roles/admin`, { method: grant ? "POST" : "DELETE" });
-      await refreshUsers();
-      setMessage(grant ? "Administrador promovido." : "Rol ADMIN revocado.");
-      setAdminRoleTarget(null);
-    } catch (error) {
-      setMessage(error.code === "LAST_ADMIN_REQUIRED"
-        ? "No se puede revocar al ultimo administrador."
-        : "No se pudo modificar el rol.");
-    } finally {
-      setRoleBusy(false);
     }
   };
 
@@ -342,37 +313,9 @@ export function AdminEventsPage() {
           })()}
         </>
       )}
-      <section className="card user-admin" aria-label="Usuarios y administradores">
-        <div className="user-admin-heading"><div><p className="eyebrow">Administración de acceso</p><h2>Usuarios y administradores</h2></div><span>Gestión de plataforma</span></div>
-        <p>Gestioná quién puede administrar la plataforma. El último administrador siempre queda protegido.</p>
-        <ul>{users.map((user) => {
-          const isAdmin = user.roles.includes("ADMIN");
-          const isCurrentUser = user.id === session.user?.id;
-          return <li key={user.id}>
-            <span><strong>{user.name}</strong> · {user.email}</span>
-            <button className="secondary" type="button" disabled={(isCurrentUser && isAdmin) || roleBusy} onClick={(event) => { roleTriggerRef.current = event.currentTarget; setAdminRoleTarget({ user, grant: !isAdmin }); }}>{isCurrentUser && isAdmin ? "Sesión actual" : isAdmin ? "Revocar administrador" : "Promover a administrador"}</button>
-          </li>;
-        })}</ul>
-      </section>
       <Dialog
-        isOpen={Boolean(adminRoleTarget)}
-        onClose={() => { if (!roleBusy) setAdminRoleTarget(null); }}
-        title={adminRoleTarget?.grant ? "Promover a administrador" : "Revocar administrador"}
-        description={adminRoleTarget?.grant
-          ? `¿Confirmás que ${adminRoleTarget.user.name} tendrá permisos de administración de la plataforma?`
-          : `¿Confirmás que ${adminRoleTarget?.user.name} dejará de tener permisos de administración?`}
-        focusReturnRef={roleTriggerRef}
-      >
-        <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={roleBusy} onClick={() => setAdminRoleTarget(null)}>Cancelar</button>
-          <button type="button" className={adminRoleTarget?.grant ? "" : "danger-action"} disabled={roleBusy} onClick={() => void changeAdminRole(adminRoleTarget?.user, adminRoleTarget?.grant)}>
-            {roleBusy ? "Guardando…" : adminRoleTarget?.grant ? "Confirmar promoción" : "Confirmar revocación"}
-          </button>
-        </div>
-      </Dialog>
-        <Dialog
-          isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
           title="Nuevo evento"
           description="Creá un evento para luego configurar sus jornadas y competencia."
           focusReturnRef={createTriggerRef}

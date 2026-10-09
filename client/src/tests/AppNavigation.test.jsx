@@ -48,8 +48,10 @@ describe("AppNavigation", () => {
     expect(screen.getByText("En vivo")).toBeInTheDocument();
     expect(screen.getByText("Finalización")).toBeInTheDocument();
     expect(screen.getByText("Resultados y actas")).toBeInTheDocument();
+    expect(screen.getByText("Usuarios")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("href", "#/admin/judges");
     expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("href", "#/admin/users");
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
@@ -59,6 +61,15 @@ describe("AppNavigation", () => {
     openMenu();
     expect(screen.getByRole("link", { name: "Evaluación" })).toHaveAttribute("href", "#/admin/competencia?step=rubros");
     expect(screen.getByRole("link", { name: "Evaluación" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marca activo el ítem Jurados y especialidades al navegar por step=jurados", () => {
+    window.location.hash = "#/admin/competencia?step=jurados";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    openMenu();
+    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("href", "#/admin/competencia?step=jurados");
+    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
@@ -73,13 +84,14 @@ describe("AppNavigation", () => {
     expect(screen.getByText("Comparsas y jurados")).toBeInTheDocument();
     expect(screen.getByText("Supervisión y penalizaciones")).toBeInTheDocument();
     expect(screen.getByText("Resultados y actas")).toBeInTheDocument();
+    expect(screen.getByText("Usuarios")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("href", "#/admin/judges");
+    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("href", "#/admin/users");
 
     fireEvent.click(screen.getByText("Comparsas y jurados"));
     expect(screen.getByRole("link", { name: "Comparsas" })).toHaveAttribute("href", "#/admin/competencia?step=participantes");
     expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("href", "#/admin/competencia?step=jurados");
     expect(screen.getByRole("link", { name: "Evaluación" })).toHaveAttribute("href", "#/admin/competencia?step=rubros");
-    expect(screen.getByRole("link", { name: "Asignar Jurados" })).toHaveAttribute("href", "#/admin/assignments");
-    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("href", "#/admin/judges");
 
     fireEvent.click(screen.getByText("Supervisión y penalizaciones"));
     expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("href", "#/veedor");
@@ -160,6 +172,7 @@ describe("AppNavigation", () => {
     expect(drawer).toHaveAttribute("aria-hidden", "false");
     expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Preparación")).toBeInTheDocument();
+    expect(screen.getByText("Usuarios")).toBeInTheDocument();
   });
 
   it("en movil el menu exige abrir la hamburguesa", () => {

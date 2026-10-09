@@ -1569,7 +1569,8 @@
   margin-block-start: var(--space-2);
 }
 
-.admin-events-page > .user-admin {
+.admin-events-page > .user-admin,
+.admin-users-page > .user-admin {
   display: grid;
   gap: var(--space-3);
   margin-block-start: var(--space-4);
@@ -1598,7 +1599,8 @@
   font-size: var(--text-xs);
 }
 
-.admin-events-page > .user-admin > p {
+.admin-events-page > .user-admin > p,
+.admin-users-page > .user-admin > p {
   max-inline-size: 70ch;
   margin: 0;
   color: var(--text-muted);
