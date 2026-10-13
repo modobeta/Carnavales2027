@@ -13,25 +13,39 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-muted);
+  padding: 0.25rem var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
+  min-block-size: 2.25rem;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.global-event-picker:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover-subtle);
 }
 
 .global-event-picker span {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 .global-event-picker select {
-  inline-size: min(13rem, 24vw);
-  min-block-size: 2.5rem;
-  border-color: var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-input);
+  border: 0;
+  background: transparent;
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  max-inline-size: 14rem;
+  text-overflow: ellipsis;
 }
 
 .event-header {
@@ -1805,12 +1819,29 @@
   font-weight: 500;
 }
 
+.header-breadcrumb a,
+.header-breadcrumb .breadcrumb-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.header-breadcrumb a:hover,
+.header-breadcrumb .breadcrumb-link:hover {
+  color: var(--accent-text);
+}
+
+.header-breadcrumb .breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .header-breadcrumb span:last-child {
   color: var(--text-muted);
 }
 
 @media (min-width: 64rem) {
-  .app-navigation.is-home .brand {
+  .app-navigation .brand {
     display: none;
   }
 }
@@ -1858,6 +1889,10 @@
 .session-identity .session-role {
   color: var(--text-muted);
   font-size: var(--text-xs);
+}
+
+.session-identity .session-event {
+  display: none;
 }
 
 .session-divider {
