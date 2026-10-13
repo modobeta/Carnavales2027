@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { UserManagementNavigation } from "../components/UserManagementNavigation.jsx";
 
 const statusLabels = {
   INVITED: "Invitado",
@@ -141,6 +142,8 @@ export function AdminJudgesPage() {
           <button type="button" className="secondary" onClick={() => void refresh()} disabled={loading || Boolean(busy)}>Actualizar</button>
         </div>
       </header>
+
+      <UserManagementNavigation current="create" />
 
       <section className="config-section">
         <div className="section-heading"><div><h2>Incorporar persona</h2><p>{creationType === "JUDGE" ? "Registrar no habilita votación. La especialidad se definirá en cada asignación." : "Se creará un perfil con nombre, DNI y el rol seleccionado."}</p></div></div>

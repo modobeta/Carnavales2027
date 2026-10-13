@@ -209,7 +209,7 @@ export function EventConfigurationPage({
         status={currentEvent.status}
         actions={<>
           {onCompetencia && <button type="button" onClick={onCompetencia}>Competencia</button>}
-          {onBack && <button className="secondary" type="button" onClick={onBack}>Volver a eventos</button>}
+          {onBack && <button className="secondary" type="button" onClick={onBack}>&larr; Mis eventos</button>}
         </>}
       />
       <EventStatusBanner status={currentEvent.status} />

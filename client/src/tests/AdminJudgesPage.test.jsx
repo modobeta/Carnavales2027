@@ -26,6 +26,18 @@ describe("AdminJudgesPage", () => {
     expect(container.querySelector("main.admin-shell")).toHaveAttribute("data-layer", "instrument");
   });
 
+  it("agrupa la creación y la gestión de administradores bajo Usuarios", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/operational-profiles" || path === "/api/v1/judges") return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    render(<AdminJudgesPage />);
+
+    expect(await screen.findByRole("navigation", { name: "Secciones de usuarios" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Crear e invitar" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("href", "#/admin/users");
+  });
+
   it("crea un perfil sin especialidad y actualiza el padrón", async () => {
     let judgeRequests = 0;
     apiRequest.mockImplementation((path, options) => {

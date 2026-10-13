@@ -32,15 +32,12 @@ describe("AdminEventsPage", () => {
   });
 
   it("muestra error cuando las noches no pueden cargarse", async () => {
-    let nightsCalls = 0;
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "e1", name: "Goya", status: "CONFIGURING" }]);
-      if (path === "/api/v1/users") return Promise.resolve([]);
-      if (path === "/api/v1/judges") return Promise.resolve([]);
+      if (path === "/api/v1/users" || path === "/api/v1/judges") return Promise.resolve([]);
       if (path === "/api/v1/events/e1/nights") {
         return Promise.reject(new Error("network"));
       }
-      if (path.endsWith("/troupes") || path.endsWith("/rubrics")) return Promise.resolve([]);
       return Promise.resolve([]);
     });
 
@@ -49,17 +46,13 @@ describe("AdminEventsPage", () => {
     expect(await screen.findByRole("heading", { name: "No se pudo cargar la configuracion" })).toBeInTheDocument();
   });
 
-  it("destaca el evento activo y muestra acciones según el estado", async () => {
+  it("muestra directamente la configuración de jornadas cuando hay un evento activo en el contexto", async () => {
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/events") return Promise.resolve([
         { id: "e1", name: "Carnaval 2027", status: "CONFIGURING" },
-        { id: "e2", name: "Competencia abierta", status: "OPEN" },
-        { id: "e3", name: "Carnaval cerrado", status: "CLOSED" },
       ]);
-      if (path === "/api/v1/users" || path === "/api/v1/judges") return Promise.resolve([]);
-      if (path.endsWith("/nights")) return Promise.resolve([{ id: "n1", kind: "COMPETITION" }]);
-      if (path.endsWith("/troupes")) return Promise.resolve([{ id: "t1", active: true }]);
-      if (path.endsWith("/rubrics")) return Promise.resolve([{ id: "r1", active: true }]);
+      if (path === "/api/v1/events/e1/nights") return Promise.resolve([{ id: "n1", name: "Noche 1", kind: "COMPETITION" }]);
+      if (path.endsWith("/troupes") || path.endsWith("/rubrics") || path.endsWith("/judges")) return Promise.resolve([]);
       return Promise.resolve([]);
     });
 
@@ -69,66 +62,15 @@ describe("AdminEventsPage", () => {
       </AdminEventProvider>,
     );
 
-    expect(await screen.findByText("✓ Evento activo")).toBeInTheDocument();
-    expect((await screen.findAllByText("1", { selector: ".event-summary-stats strong" })).length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByRole("button", { name: "Continuar preparación" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Usar este evento" }).length).toBe(2);
-    expect(screen.getByRole("link", { name: "Ir a supervisión" })).toHaveAttribute("href", "#/veedor");
-    expect(screen.getByRole("link", { name: "Ver resultados" })).toHaveAttribute("href", "#/admin/results");
+    expect(await screen.findByRole("heading", { name: "Carnaval 2027" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Jornadas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "← Mis eventos" })).toBeInTheDocument();
   });
 
-  it("abre el diálogo accesible para crear un evento", async () => {
-    apiRequest.mockResolvedValue([]);
+  it("muestra estado vacío amigable con enlace a Mis eventos cuando no hay evento activo", async () => {
+    apiRequest.mockResolvedValueOnce([]);
     render(<AdminEventsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "+ Nuevo evento" }));
-    expect(await screen.findByRole("dialog", { name: "Nuevo evento" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Nombre del evento" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
-  });
-
-  it("elimina un evento en preparación con confirmación crítica", async () => {
-    apiRequest.mockImplementation((path, options) => {
-      if (path === "/api/v1/events") return Promise.resolve([{ id: "e1", name: "Prueba", status: "CONFIGURING", active: true }]);
-      if (path === "/api/v1/events/e1" && options?.method === "DELETE") return Promise.resolve({ id: "e1", active: false });
-      return Promise.resolve([]);
-    });
-    render(<AdminEventsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Eliminar evento Prueba" }));
-    expect(await screen.findByRole("dialog", { name: "Eliminar Prueba" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
-    expect(await screen.findByText("Evento Prueba eliminado (desactivado en BD).")).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1", { method: "DELETE" });
-  });
-
-  it("oculta eventos eliminados por defecto y los muestra con el toggle", async () => {
-    apiRequest.mockImplementation((path) => {
-      if (path === "/api/v1/events") return Promise.resolve([
-        { id: "e1", name: "Visible", status: "CONFIGURING", active: true },
-        { id: "e2", name: "Eliminado", status: "CONFIGURING", active: false },
-      ]);
-      return Promise.resolve([]);
-    });
-    render(<AdminEventsPage />);
-    expect(await screen.findByText("Visible")).toBeInTheDocument();
-    expect(screen.queryByText("Eliminado")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar eliminados (inactivos en BD)" }));
-    expect(await screen.findByText("Eliminado")).toBeInTheDocument();
-  });
-
-  it("muestra mensaje humano cuando el evento no se puede eliminar", async () => {
-    apiRequest.mockImplementation((path, options) => {
-      if (path === "/api/v1/events") return Promise.resolve([{ id: "e1", name: "Prueba", status: "CONFIGURING" }]);
-      if (path === "/api/v1/events/e1" && options?.method === "DELETE") {
-        const error = new Error("EVENT_HAS_BALLOTS");
-        error.code = "EVENT_HAS_BALLOTS";
-        return Promise.reject(error);
-      }
-      return Promise.resolve([]);
-    });
-    render(<AdminEventsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Eliminar evento Prueba" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Eliminar (desactivar)" }));
-    expect(await screen.findByText("Solo se pueden eliminar eventos sin votación ni historial operativo.")).toBeInTheDocument();
+    expect(await screen.findByText("Primero seleccioná un evento")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a Mis eventos" })).toHaveAttribute("href", "#/admin/home");
   });
 });
