@@ -1,164 +1,233 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AdminHomePage } from "./AdminHomePage.jsx";
 import { apiRequest } from "../api/http.js";
-import { AdminEventProvider } from "../context/AdminEventContext.jsx";
+import { AdminHomePage } from "./AdminHomePage.jsx";
+import { AdminEventProvider, useAdminEvent } from "../context/AdminEventContext.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
+const MOCK_EVENTS = [
+  { id: "e1", name: "Test-Prueba-01", status: "CONFIGURING", active: true },
+  { id: "e2", name: "Carnavales Goyanos 2027 – Evento Integral TEST", status: "OPEN", active: true },
+  { id: "e3", name: "Carnaval cerrado", status: "CLOSED", active: true },
+];
 
-const readinessIncomplete = {
-  ready: false,
-  missing: ["ACTIVE_TROUPE"],
-  incompleteTroupes: [],
-  incompleteRubrics: [{ id: "r1", name: "Coreografía" }],
-  incompleteSchedules: [],
-  incompleteNominations: [],
-  nightsWithoutJury: [],
-};
-
-function mockAll({ readiness = readinessIncomplete, status = "CONFIGURING" } = {}) {
-  apiRequest.mockImplementation((path) => {
-    if (path === "/api/v1/events") return Promise.resolve([{ id: "e1", name: "Goya 2027", status }]);
-    if (path === "/api/v1/events/e1/readiness") return Promise.resolve(readiness);
-    if (path === "/api/v1/events/e1/nights") return Promise.resolve([{ id: "n1", kind: "COMPETITION" }]);
-    if (path === "/api/v1/events/e1/troupes") return Promise.resolve([]);
-    if (path === "/api/v1/events/e1/specialties") return Promise.resolve([{ id: "s1", active: true }]);
-    if (path === "/api/v1/events/e1/rubrics") return Promise.resolve([]);
-    if (path === "/api/v1/events/e1/judge-assignments") return Promise.resolve({ assignments: [] });
-    if (path === "/api/v1/judges") return Promise.resolve([]);
-    return Promise.reject(new Error(`unexpected ${path}`));
+function mockApi({ events = MOCK_EVENTS, onRequest } = {}) {
+  apiRequest.mockImplementation((path, options) => {
+    const custom = onRequest?.(path, options);
+    if (custom) return custom;
+    if (path === "/api/v1/events") return Promise.resolve(events);
+    if (path === "/api/v1/judges") return Promise.resolve([
+      { id: "j1", registrationStatus: "REGISTERED" },
+      { id: "j2", registrationStatus: "REGISTERED" },
+      { id: "j3", registrationStatus: "INVITED" },
+    ]);
+    if (path.endsWith("/nights")) return Promise.resolve([{ id: "n1", kind: "COMPETITION" }, { id: "n2", kind: "COMPETITION" }]);
+    if (path.endsWith("/troupes")) return Promise.resolve([{ id: "t1", active: true }, { id: "t2", active: true }, { id: "t3", active: true }]);
+    if (path.endsWith("/rubrics")) return Promise.resolve([{ id: "r1", active: true }]);
+    return Promise.resolve([]);
   });
 }
 
-function mockComplete({ status = "OPEN" } = {}) {
-  apiRequest.mockImplementation((path) => {
-    if (path === "/api/v1/events") return Promise.resolve([{ id: "e1", name: "Goya 2027", status }]);
-    if (path === "/api/v1/events/e1/readiness") return Promise.resolve({ ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] });
-    if (path === "/api/v1/events/e1/nights") return Promise.resolve([{ id: "n1", kind: "COMPETITION" }]);
-    if (path === "/api/v1/events/e1/troupes") return Promise.resolve([{ id: "t1", name: "Ara Berá", active: true }]);
-    if (path === "/api/v1/events/e1/specialties") return Promise.resolve([{ id: "s1", active: true }]);
-    if (path === "/api/v1/events/e1/rubrics") return Promise.resolve([{ id: "r1", name: "Coreografía", active: true }]);
-    if (path === "/api/v1/events/e1/judge-assignments") return Promise.resolve({ assignments: [{ id: "a1", status: "ACTIVE" }] });
-    if (path === "/api/v1/judges") return Promise.resolve([{ id: "j1", registrationStatus: "REGISTERED" }]);
-    return Promise.reject(new Error(`unexpected ${path}`));
-  });
+function ActiveEventProbe() {
+  const adminEvent = useAdminEvent();
+  return <output data-testid="active-event">{adminEvent?.activeEventId}</output>;
 }
 
-describe("AdminHomePage (Spec 027/B)", () => {
-  it("deriva los cuatro pasos y alertas solo de readiness vigente, con faltantes por jornada", async () => {
-    mockAll({ readiness: {
-      ready: false,
-      missing: ["INCOMPLETE_SCHEDULES", "NIGHTS_WITHOUT_JURY"],
-      incompleteTroupes: [],
-      incompleteRubrics: [],
-      incompleteSchedules: [{ nightId: "n1", nightName: "Primera noche" }],
-      incompleteNominations: [],
-      nightsWithoutJury: [{ nightId: "n1", nightName: "Primera noche" }],
-    } });
-    render(<AdminHomePage />);
+function renderWithProvider() {
+  return render(
+    <AdminEventProvider>
+      <AdminHomePage />
+      <ActiveEventProbe />
+    </AdminEventProvider>
+  );
+}
 
-    expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
-    expect((await screen.findAllByText("Incompleto", { selector: ".config-progress-state" })).length).toBeGreaterThan(0);
-    expect(screen.getByText("Primera noche no tiene comparsas programadas")).toBeInTheDocument();
-    expect(screen.getByText("Primera noche no tiene jurado asignado")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Configurar orden de pasada" })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: "Revisar asignaciones" })).toHaveAttribute("href", "#/admin/assignments");
-    expect(screen.queryByRole("progressbar", { name: "Preparación del evento" })).not.toBeInTheDocument();
+describe("AdminHomePage (Rediseño a Mis eventos)", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    window.location.hash = "";
   });
 
-  it("no declara pasos completos si readiness falla", async () => {
-    mockAll();
-    const request = apiRequest.getMockImplementation();
-    apiRequest.mockImplementation((path) => path.endsWith("/readiness")
-      ? Promise.reject(new Error("offline"))
-      : request(path));
+  it("renderiza breadcrumb, encabezado, filtros, botón Crear evento y tarjetas con métricas", async () => {
+    mockApi();
     render(<AdminHomePage />);
 
-    expect((await screen.findAllByText("No disponible", { selector: ".config-progress-state" })).length).toBeGreaterThan(0);
-    expect(screen.queryByText("Configuración completa")).not.toBeInTheDocument();
-    expect(screen.getByText(/No se pudo consultar la preparación/)).toBeInTheDocument();
+    expect(screen.getByText("Inicio")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Mis eventos" })).toBeInTheDocument();
+    expect(screen.getByText("Elegí el evento que querés administrar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Crear evento/ })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Buscar evento" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Filtrar por estado" })).toBeInTheDocument();
+
+    const firstCard = await screen.findByRole("article", { name: "Test-Prueba-01" });
+    expect(within(firstCard).getByText("En preparación")).toBeInTheDocument();
+    expect(await within(firstCard).findByText("2 jornadas")).toBeInTheDocument();
+    expect(within(firstCard).getByText("3 comparsas")).toBeInTheDocument();
+    expect(within(firstCard).getByText("2 jurados")).toBeInTheDocument();
+    expect(within(firstCard).getByText("1 rubro")).toBeInTheDocument();
+
+    const secondCard = screen.getByRole("article", { name: "Carnavales Goyanos 2027 – Evento Integral TEST" });
+    expect(within(secondCard).getByText("Competencia abierta")).toBeInTheDocument();
+    expect(within(firstCard).getByRole("button", { name: "Administrar evento Test-Prueba-01" })).toBeInTheDocument();
   });
 
-  it("responde estado, progreso, próximo paso y problemas con deep-link", async () => {
-    mockAll();
+  it("filtra eventos por texto (insensible a acentos y mayúsculas) y por estado", async () => {
+    mockApi();
     render(<AdminHomePage />);
-    expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
-    expect(screen.getAllByText("En configuración").length).toBeGreaterThan(0);
-    expect(await screen.findByRole("link", { name: "Participantes: Incompleto" })).toBeInTheDocument();
-    expect(await screen.findByText("Próxima acción")).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Corregir participantes" })).toHaveAttribute("href", "#/admin/competencia");
-    expect(await screen.findByText("No hay comparsas activas")).toBeInTheDocument();
-    const problemLinks = [...document.querySelectorAll(".admin-problem-list a")];
-    expect(problemLinks[0]).toHaveAttribute("href", "#/admin/competencia");
-    expect(problemLinks.length).toBe(2);
-    // Solo lectura: 1 lista de eventos + readiness + 6 lecturas, cero escrituras.
-    expect(apiRequest).toHaveBeenCalledTimes(8);
-    expect(vi.mocked(apiRequest).mock.calls.every(([path, options]) => !options?.method || options.method === "GET")).toBe(true);
+    await screen.findByRole("article", { name: "Test-Prueba-01" });
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar evento" }), { target: { value: "GOYANOS" } });
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByRole("article", { name: "Carnavales Goyanos 2027 – Evento Integral TEST" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar evento" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por estado" }), { target: { value: "CLOSED" } });
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByRole("article", { name: "Carnaval cerrado" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar evento" }), { target: { value: "inexistente" } });
+    expect(screen.getByText("Ningún evento coincide con la búsqueda.")).toBeInTheDocument();
   });
 
-  it("espera los datos del evento antes de mostrar el siguiente paso", async () => {
-    mockAll();
-    let finishNights;
-    const nights = new Promise((resolve) => { finishNights = resolve; });
-    const request = apiRequest.getMockImplementation();
-    apiRequest.mockImplementation((path) => path === "/api/v1/events/e1/nights" ? nights : request(path));
+  it("pulsar Administrar evento establece el evento activo y navega a #/admin/events", async () => {
+    mockApi();
+    renderWithProvider();
 
+    const button = await screen.findByRole("button", { name: "Administrar evento Carnavales Goyanos 2027 – Evento Integral TEST" });
+    fireEvent.click(button);
+
+    expect(screen.getByTestId("active-event")).toHaveTextContent("e2");
+    expect(window.location.hash).toBe("#/admin/events");
+  });
+
+  it("menú ... muestra opciones contextuales según el estado", async () => {
+    mockApi();
     render(<AdminHomePage />);
-    expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
-    expect(screen.getByText("Cargando panel…")).toBeInTheDocument();
-    expect(screen.queryByText("Próxima acción")).not.toBeInTheDocument();
+    await screen.findByRole("article", { name: "Test-Prueba-01" });
 
-    finishNights([{ id: "n1", kind: "COMPETITION" }]);
-    expect(await screen.findByRole("link", { name: "Corregir participantes" })).toBeInTheDocument();
+    // Tarjeta en CONFIGURING
+    fireEvent.click(screen.getByRole("button", { name: "Acciones de Test-Prueba-01" }));
+    let menu = screen.getByRole("menu", { name: "Acciones de Test-Prueba-01" });
+    expect(within(menu).getByRole("menuitem", { name: "Ver detalle / configuración" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Eliminar" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Ir a supervisión" })).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    // Tarjeta en OPEN
+    fireEvent.click(screen.getByRole("button", { name: "Acciones de Carnavales Goyanos 2027 – Evento Integral TEST" }));
+    menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Ir a supervisión" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Eliminar" })).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Ir a supervisión" }));
+    expect(window.location.hash).toBe("#/veedor");
+
+    // Tarjeta en CLOSED
+    fireEvent.click(screen.getByRole("button", { name: "Acciones de Carnaval cerrado" }));
+    menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Ver resultados" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Eliminar" })).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Ver resultados" }));
+    expect(window.location.hash).toBe("#/admin/results");
   });
 
-  it("muestra resumen con contadores y accesos directos", async () => {
-    mockAll();
+  it("eliminar evento requiere confirmación modal antes de llamar a la API", async () => {
+    mockApi({
+      onRequest: (path, options) => path === "/api/v1/events/e1" && options?.method === "DELETE"
+        ? Promise.resolve({ id: "e1", active: false })
+        : null,
+    });
     render(<AdminHomePage />);
-    expect(await screen.findByRole("heading", { name: "Resumen" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Comparsas: 0\. Ver comparsas/ })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: /Jornadas: \d+\. Ver jornadas/ })).toHaveAttribute("href", "#/admin/events");
-    expect(screen.getByRole("link", { name: /Jurados: 0\. Ver jurados/ })).toHaveAttribute("href", "#/admin/judges");
-    expect(screen.getByRole("link", { name: /Rubros: 0\. Ver rubros/ })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.queryByRole("link", { name: "Agregar comparsa" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Registrar jurado" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Crear asignación" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Revisar configuración" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Acciones de Test-Prueba-01" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+
+    expect(await screen.findByRole("dialog", { name: "Eliminar Test-Prueba-01" })).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/e1", { method: "DELETE" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar (desactivar)" }));
+    expect(await screen.findByText("Evento Test-Prueba-01 eliminado (desactivado en BD).")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1", { method: "DELETE" });
   });
 
-  it("ordena el panel como resumen, preparación y bloqueos, sin acciones redundantes", async () => {
-    mockAll();
+  it("cancelar modal de eliminación no invoca DELETE", async () => {
+    mockApi();
     render(<AdminHomePage />);
-
-    const summary = await screen.findByRole("heading", { name: "Resumen" });
-    const preparation = screen.getByRole("heading", { name: "Preparación del evento" });
-    const attention = screen.getByRole("heading", { name: "Requiere atención" });
-    expect(summary.compareDocumentPosition(preparation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(preparation.compareDocumentPosition(attention) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Acciones rápidas" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Acciones de Test-Prueba-01" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/e1", { method: "DELETE" });
   });
 
-  it("muestra estado completo cuando readiness está listo", async () => {
-    mockComplete();
+  it("muestra mensaje de error humano cuando la API rechaza la eliminación por historial", async () => {
+    mockApi({
+      onRequest: (path, options) => {
+        if (path === "/api/v1/events/e1" && options?.method === "DELETE") {
+          const error = new Error("EVENT_HAS_BALLOTS");
+          error.code = "EVENT_HAS_BALLOTS";
+          return Promise.reject(error);
+        }
+        return null;
+      },
+    });
     render(<AdminHomePage />);
-    const attention = await screen.findByRole("region", { name: "Requiere atención" });
-    expect(within(attention).queryByText("La API no informa bloqueos oficiales de apertura.")).not.toBeInTheDocument();
-    expect(screen.getByText("Próxima acción")).toBeInTheDocument();
-    expect(screen.getAllByText("Competencia abierta").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/Falta:/)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Supervisar la votación" })).toHaveAttribute("href", "#/veedor");
+    fireEvent.click(await screen.findByRole("button", { name: "Acciones de Test-Prueba-01" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar (desactivar)" }));
+    expect(await screen.findByText("Solo se pueden eliminar eventos sin votación ni historial operativo.")).toBeInTheDocument();
   });
 
-  it("consume el evento activo global del shell ADMIN", async () => {
-    mockAll();
-    render(<AdminEventProvider><AdminHomePage /></AdminEventProvider>);
+  it("permite ver eventos eliminados y reactivarlos", async () => {
+    mockApi({
+      events: [
+        { id: "e1", name: "Visible", status: "CONFIGURING", active: true },
+        { id: "e2", name: "Eliminado", status: "CONFIGURING", active: false },
+      ],
+      onRequest: (path, options) => path === "/api/v1/events/e2" && options?.method === "PATCH"
+        ? Promise.resolve({ id: "e2", active: true })
+        : null,
+    });
+    renderWithProvider();
+    expect(await screen.findByRole("article", { name: "Visible" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Eliminado" })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole("heading", { name: "Goya 2027" })).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Evento activo" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Ver eventos eliminados" }));
+    const deletedCard = await screen.findByRole("article", { name: "Eliminado" });
+    expect(within(deletedCard).getByText("Eliminado", { selector: ".status-pill" })).toBeInTheDocument();
+
+    fireEvent.click(within(deletedCard).getByRole("button", { name: "Acciones de Eliminado" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reactivar" }));
+    expect(await screen.findByRole("dialog", { name: "Reactivar Eliminado" })).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reactivar" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e2", {
+      method: "PATCH",
+      body: JSON.stringify({ active: true }),
+    }));
+    expect(await screen.findByText("Evento Eliminado reactivado.")).toBeInTheDocument();
+  });
+
+  it("crea un nuevo evento desde el modal accesible", async () => {
+    mockApi({
+      events: [],
+      onRequest: (path, options) => path === "/api/v1/events" && options?.method === "POST"
+        ? Promise.resolve({ id: "e99", name: "Carnaval Nuevo", status: "CONFIGURING" })
+        : null,
+    });
+    render(<AdminHomePage />);
+    expect(await screen.findByRole("heading", { name: "Todavía no hay eventos" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Crear primer evento" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nuevo evento" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Nombre del evento" }), { target: { value: "Carnaval Nuevo" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Crear evento" }));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/v1/events", {
+      method: "POST",
+      body: JSON.stringify({ name: "Carnaval Nuevo" }),
+    }));
+    expect(await screen.findByText("Evento Carnaval Nuevo creado.")).toBeInTheDocument();
   });
 });
