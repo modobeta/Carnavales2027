@@ -177,6 +177,42 @@ export async function addTroupeToSchedule({ client = null, eventId, nightId, tro
   return rows[0];
 }
 
+export async function addTroupeToExistingNights({ client = null, eventId, troupeId, actorUserId = null }) {
+  if (!client) {
+    return inTransaction((client) => addTroupeToExistingNights({ client, eventId, troupeId, actorUserId }));
+  }
+  const { rows: nights } = await client.query(
+    "SELECT id FROM night WHERE event_id=$1 ORDER BY display_order, id",
+    [text(eventId, "eventId")],
+  );
+  const scheduled = [];
+  for (const night of nights) {
+    const { rows: existing } = await client.query(
+      "SELECT id FROM night_troupe_schedule WHERE night_id=$1 AND event_troupe_id=$2",
+      [night.id, text(troupeId, "troupeId")],
+    );
+    if (existing[0]) continue;
+    scheduled.push(await addTroupeToSchedule({ client, eventId, nightId: night.id, troupeId, actorUserId }));
+  }
+  return scheduled;
+}
+
+export async function addActiveTroupesToNight({ client, eventId, nightId, actorUserId = null }) {
+  const { rows: troupes } = await client.query(
+    `SELECT id FROM event_troupe
+      WHERE event_id=$1 AND active=TRUE
+      ORDER BY created_at, id`,
+    [text(eventId, "eventId")],
+  );
+  const scheduled = [];
+  for (const troupe of troupes) {
+    scheduled.push(await addTroupeToSchedule({
+      client, eventId, nightId, troupeId: troupe.id, actorUserId,
+    }));
+  }
+  return scheduled;
+}
+
 export async function removeScheduleEntry({ client = null, scheduleId, actorUserId = null }) {
   if (!client) return inTransaction((client) => removeScheduleEntry({ client, scheduleId, actorUserId }));
   const { rows: current } = await client.query("SELECT * FROM night_troupe_schedule WHERE id=$1", [text(scheduleId, "scheduleId")]);

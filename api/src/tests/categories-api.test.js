@@ -533,7 +533,6 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
       await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES ($1,$2,$3,'Item','ITEM')", [eventId, rubric.id, specialty.id]);
-      await pool.query("INSERT INTO night_troupe_schedule(event_id,night_id,event_troupe_id,presentation_order) VALUES ($1,$2,$3,1)", [eventId, night.id, troupe.id]);
       await seedActiveJudge({ client: pool, eventId, nightId: night.id, specialtyId: specialty.id });
       const opened = await fetch(`${baseUrl}/api/v1/events/${eventId}/open`, {
         method: "POST", headers: { "x-test-session": "admin", "Idempotency-Key": randomUUID() },

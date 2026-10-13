@@ -144,12 +144,11 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
       "INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'Ítem','ITEM_DEL')",
       [event.id, rubrics[0].id, specialties[0].id],
     );
-    const program2 = await fetch(`${baseUrl}/api/v1/events/${event.id}/schedule`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ nightId: thirdNight.id, troupeId: troupe.id }),
-    });
-    assert.equal(program2.status, 201);
+    const { rows: autoProgram } = await pool.query(
+      "SELECT event_troupe_id FROM night_troupe_schedule WHERE night_id=$1",
+      [thirdNight.id],
+    );
+    assert.deepEqual(autoProgram, [{ event_troupe_id: troupe.id }]);
     await seedActiveJudge({ client: pool, eventId: event.id, nightId: busyNight.id, specialtyId: specialties[0].id });
     await seedActiveJudge({ client: pool, eventId: event.id, nightId: thirdNight.id, specialtyId: specialties[0].id });
     const openEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}/open`, {
