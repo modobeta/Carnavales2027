@@ -246,6 +246,43 @@
   --brand-magenta: var(--palette-card);
   --brand-cyan: var(--palette-modal);
   --brand-seal: #8f2e22;    /* Sello notarial */
+
+  /* ==========================================================================
+     Sistema unificado de modales (crear/editar, éxito, advertencia, peligro)
+     Violeta = encabezados de creación/edición y acciones habituales.
+     Verde   = éxito y operaciones completadas (tinta oscura sobre el verde).
+     Naranja = advertencias, cambios delicados y confirmaciones.
+     ========================================================================== */
+  --modal-violet: #a500b5;
+  --modal-violet-strong: #7d008a;
+  --modal-violet-ink: #ffffff;
+  --modal-violet-soft: rgba(165, 0, 181, 0.16);
+
+  --modal-success: #2bc100;
+  --modal-success-strong: #219900;
+  --modal-success-ink: #0b2600;
+  --modal-success-soft: rgba(43, 193, 0, 0.18);
+
+  --modal-warning: #ff6f00;
+  --modal-warning-strong: #cc5800;
+  --modal-warning-ink: #2a1200;
+  --modal-warning-soft: rgba(255, 111, 0, 0.18);
+
+  --modal-danger: var(--palette-cancel);
+  --modal-danger-strong: var(--danger-hover);
+  --modal-danger-ink: var(--palette-cancel-ink);
+  --modal-danger-soft: rgba(227, 8, 8, 0.18);
+
+  --modal-info: var(--palette-action-fill);
+  --modal-info-strong: var(--accent-hover);
+  --modal-info-ink: #ffffff;
+  --modal-info-soft: rgba(37, 99, 235, 0.18);
+
+  /* Tinta legible para mensajes de estado sobre tarjetas púrpura */
+  --modal-success-text: #b6f5c4;
+  --modal-warning-text: #ffd8ab;
+  --modal-danger-text: #ffd4d4;
+  --modal-info-text: #c9e2ff;
 }
 
 /* ==========================================================================

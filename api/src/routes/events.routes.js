@@ -18,7 +18,7 @@ import {
   TROUPE_LOGO_MAX_BYTES,
 } from "../modules/troupes/category-service.js";
 import { createSpecialty, listSpecialties, updateSpecialty } from "../modules/specialties/specialty-service.js";
-import { listSchedule, reorderEventSchedule, reorderScheduleEntry, addTroupeToSchedule, removeScheduleEntry } from "../modules/schedule/schedule-service.js";
+import { listSchedule, reorderEventSchedule, reorderScheduleEntry, addActiveTroupesToNight, addTroupeToSchedule, removeScheduleEntry } from "../modules/schedule/schedule-service.js";
 import {
   createCriterion,
   createItem,
@@ -151,7 +151,16 @@ export function createEventsRouter({ requireSession }) {
   }, createWriteHandler(
     "NIGHT_CREATED",
     "night",
-    (client, request) => createNight({ client, eventId: request.params.eventId, ...request.body }),
+    async (client, request) => {
+      const night = await createNight({ client, eventId: request.params.eventId, ...request.body });
+      await addActiveTroupesToNight({
+        client,
+        eventId: request.params.eventId,
+        nightId: night.id,
+        actorUserId: request.user.id,
+      });
+      return night;
+    },
     async (client, request) => {
       const eventId = request.params.eventId;
       const { rows: roleRows } = await client.query(
@@ -473,7 +482,12 @@ export function createEventsRouter({ requireSession }) {
   router.post("/events/:eventId/troupes", requireSession, requireTwoFactor, createWriteHandler(
     "TROUPE_CREATED",
     "event_troupe",
-    (client, request) => createTroupe({ ...request.body, client, eventId: request.params.eventId }),
+    (client, request) => createTroupe({
+      ...request.body,
+      client,
+      eventId: request.params.eventId,
+      actorUserId: request.user.id,
+    }),
     async (client, request) => {
       const eventId = request.params.eventId;
       const { rows: roleRows } = await client.query(

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { Dialog } from "../components/Dialog.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { useNotify } from "../components/Notifications.jsx";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
@@ -56,6 +58,7 @@ export function AdminEventsPage() {
   const [summaries, setSummaries] = useState({});
   const createTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
+  const { notify } = useNotify();
 
   const allEvents = adminEvent?.events ?? localEvents;
   const events = showDeleted ? allEvents : allEvents.filter((event) => event.active !== false);
@@ -159,8 +162,11 @@ export function AdminEventsPage() {
       await refreshEvents();
       setIsCreateOpen(false);
       form.reset();
+      notify({ message: `Evento ${created.name} creado.`, type: "success" });
     } catch (error) {
-      setMessage(error.code === "RESOURCE_CONFLICT" ? "Ya existe un evento equivalente." : "No se pudo crear el evento.");
+      const detail = error.code === "RESOURCE_CONFLICT" ? "Ya existe un evento equivalente." : "No se pudo crear el evento.";
+      setMessage(detail);
+      notify({ message: detail, type: "error" });
     }
   };
 
@@ -212,12 +218,15 @@ export function AdminEventsPage() {
                   if (target.id === activeEventId && adminEvent) adminEvent.setActiveEventId("");
                   await refreshEvents();
                   setMessage(`Evento ${target.name} eliminado (desactivado en BD).`);
+                  notify({ message: `Evento ${target.name} eliminado.`, type: "success" });
                 } catch (error) {
-                  setMessage(error.code && error.code.startsWith("EVENT_HAS_")
+                  const detail = error.code && error.code.startsWith("EVENT_HAS_")
                     ? "Solo se pueden eliminar eventos sin votación ni historial operativo."
                     : error.code === "EVENT_LOCKED"
                       ? "Solo se pueden eliminar eventos en preparación."
-                      : "No se pudo eliminar el evento.");
+                      : "No se pudo eliminar el evento.";
+                  setMessage(detail);
+                  notify({ message: detail, type: "error" });
                 }
               };
               const reactivate = async () => {
@@ -225,8 +234,10 @@ export function AdminEventsPage() {
                   await apiRequest(`/api/v1/events/${event.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
                   await refreshEvents();
                   setMessage(`Evento ${event.name} reactivado.`);
+                  notify({ message: `Evento ${event.name} reactivado.`, type: "success" });
                 } catch {
                   setMessage("No se pudo reactivar el evento.");
+                  notify({ message: "No se pudo reactivar el evento.", type: "error" });
                 }
               };
               const isDeleted = event.active === false;
@@ -262,18 +273,17 @@ export function AdminEventsPage() {
                     )
                   )}
                   {deleteTarget?.id === event.id && (
-                    <Dialog
+                    <ConfirmDialog
                       isOpen
                       onClose={() => setDeleteTarget(null)}
+                      onConfirm={() => void confirmDelete()}
                       title={`Eliminar ${event.name}`}
                       description="Se ocultara del catalogo y quedara desactivado en BD (active=false). Podras verlo con Mostrar eliminados y reactivarlo. No se borra el historial."
+                      confirmLabel="Eliminar (desactivar)"
+                      cancelLabel="Cancelar"
+                      tone="danger"
                       focusReturnRef={deleteTriggerRef}
-                    >
-                      <div className="dialog-actions">
-                        <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button>
-                        <button type="button" className="danger-action" onClick={confirmDelete}>Eliminar (desactivar)</button>
-                      </div>
-                    </Dialog>
+                    />
                   )}
                 </div>
               );
@@ -316,10 +326,11 @@ export function AdminEventsPage() {
       <Dialog
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-          title="Nuevo evento"
-          description="Creá un evento para luego configurar sus jornadas y competencia."
-          focusReturnRef={createTriggerRef}
-        >
+        title="Nuevo evento"
+        description="Creá un evento para luego configurar sus jornadas y competencia."
+        focusReturnRef={createTriggerRef}
+        tone="violet"
+      >
           <form className="config-card" onSubmit={create}>
             <label>Nombre del evento<input name="name" required autoFocus /></label>
             <div className="dialog-actions">

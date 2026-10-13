@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { getPool } from "../../db/pool.js";
 import { requireConfiguringEvent, requireEventExists } from "../events/event-service.js";
+import { addTroupeToExistingNights } from "../schedule/schedule-service.js";
 
 export const TROUPE_LOGO_MAX_BYTES = 1048576;
 export const TROUPE_LOGO_MIMES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
@@ -104,13 +105,14 @@ export async function updateCategory({ client = getPool(), categoryId, name, cod
   return rows[0];
 }
 
-export async function createTroupe({ client = getPool(), eventId, categoryId, name, brandColor = undefined }) {
+export async function createTroupe({ client = getPool(), eventId, categoryId, name, brandColor = undefined, actorUserId = null }) {
   await requireConfiguringEvent({ client, eventId });
   const { rows } = await client.query(
     `INSERT INTO event_troupe (event_id, category_id, name, brand_color) VALUES ($1, $2, $3, $4)
      RETURNING id`,
     [text(eventId, "eventId"), text(categoryId, "categoryId"), text(name, "name"), optionalBrandColor(brandColor)],
   );
+  await addTroupeToExistingNights({ client, eventId, troupeId: rows[0].id, actorUserId });
   const { rows: created } = await client.query(
     `SELECT t.id, t.event_id AS "eventId", t.category_id AS "categoryId", t.name, t.active,
             t.brand_color AS "brandColor",

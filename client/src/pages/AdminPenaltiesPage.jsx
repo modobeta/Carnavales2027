@@ -5,6 +5,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { useNotify } from "../components/Notifications.jsx";
 
 function getApiErrorMessage(error, defaultMsg = "Ocurrió un error inesperado.") {
   if (error?.code === "RESULTS_ALREADY_RELEASED") {
@@ -43,6 +44,7 @@ export function AdminPenaltiesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [revokingPenalty, setRevokingPenalty] = useState(null);
+  const { notify } = useNotify();
   const revokeTriggerRef = useRef(null);
   const events = adminEvent?.events ?? localEvents;
   const eventId = adminEvent?.activeEventId ?? localEventId;
@@ -199,9 +201,12 @@ export function AdminPenaltiesPage() {
       setReason("");
       setPenaltyPoints("");
       setMessage("Penalización registrada correctamente.");
+      notify({ message: "Penalización registrada.", type: "success" });
       await refreshPenalties();
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "No se pudo registrar la penalización."));
+      const detail = getApiErrorMessage(error, "No se pudo registrar la penalización.");
+      setMessage(detail);
+      notify({ message: detail, type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -214,6 +219,7 @@ export function AdminPenaltiesPage() {
 
   const handleRevokeSuccess = async () => {
     setMessage("Penalización revocada correctamente.");
+    notify({ message: "Penalización revocada.", type: "success" });
     await refreshPenalties();
   };
 

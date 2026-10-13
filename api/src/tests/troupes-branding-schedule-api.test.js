@@ -82,12 +82,6 @@ test("Spec 017 T09a/T09b: brandColor de comparsa y orden de pasada por jornada",
     assert.equal(third.status, 201);
 
     // ---- T09b: schedule ----
-    for (const [troupeId, presentationOrder] of [[colored.body.id, 1], [plain.body.id, 2], [third.body.id, 3]]) {
-      await pool.query(
-        "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order) VALUES($1,$2,$3,$4)",
-        [event.id, night.id, troupeId, presentationOrder],
-      );
-    }
     const scheduleResponse = await fetch(`${baseUrl}/api/v1/events/${event.id}/schedule?nightId=${night.id}`, { headers: admin });
     assert.equal(scheduleResponse.status, 200);
     const schedule = await scheduleResponse.json();

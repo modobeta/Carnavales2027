@@ -8,13 +8,14 @@ export function Toast({
   onAction,
   onDismiss,
   className = "",
+  role = "status",
 }) {
   if (!message) return null;
 
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={role}
+      aria-live={role === "alert" ? "assertive" : "polite"}
       className={`app-toast app-toast-${type} ${className}`.trim()}
     >
       <span className="app-toast-message">{message}</span>

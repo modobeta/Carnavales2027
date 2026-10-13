@@ -145,25 +145,93 @@ export function AppNavigation({ session }) {
     }
   };
 
+const ROUTE_LABELS = {
+  "#/admin/home": "Inicio",
+  "#/admin/events": "Evento y jornadas",
+  "#/admin/competencia": "Comparsas y jurados",
+  "#/admin/assignments": "Asignaciones",
+  "#/admin/voting": "Control de votación",
+  "#/veedor": "Supervisión",
+  "#/admin/penalties": "Penalizaciones",
+  "#/admin/results": "Escrutinio",
+  "#/admin/record": "Acta oficial",
+  "#/admin/judges": "Crear Usuario",
+  "#/admin/users": "Administradores",
+  "#/judge": "Mi panel",
+  "#/judge/assignment": "Selección de comparsa",
+  "#/judge/ballot": "Planilla de votación",
+  "#/resultados": "Resultados oficiales",
+};
+
+function getBreadcrumbData(location) {
+  const [route, query = ""] = location.split("?");
+  if (!route || route === "#/admin/home" || route === "#/login") {
+    return { isHome: true, label: "Inicio" };
+  }
+  let label = ROUTE_LABELS[route];
+  if (route === "#/admin/competencia") {
+    const params = new URLSearchParams(query);
+    const step = params.get("step");
+    if (step === "participantes") label = "Comparsas";
+    else if (step === "jurados") label = "Jurados y especialidades";
+    else if (step === "rubros") label = "Evaluación";
+  }
+  if (!label) {
+    const stripped = route.replace(/^#\/(admin\/)?/, "").replace(/-/g, " ");
+    label = stripped.charAt(0).toUpperCase() + stripped.slice(1);
+  }
+  return { isHome: false, label };
+}
+
+function getInitials(name) {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+  const isHomeRoute = currentRoute === "#/admin/home";
+  const hideEventPicker = currentRoute === "#/admin/home" || currentRoute === "#/admin/events";
+  const breadcrumb = getBreadcrumbData(currentLocation);
+
   return (
     <>
-    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""}`}>
-      {!isDesktop && (
-      <button
-        ref={toggleRef}
-        className="nav-toggle"
-        type="button"
-        aria-expanded={open}
-        aria-controls="app-drawer"
-        aria-label={open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-      </button>
-      )}
-      <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
+    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+      <div className="header-left">
+        {!isDesktop && (
+        <button
+          ref={toggleRef}
+          className="nav-toggle"
+          type="button"
+          aria-expanded={open}
+          aria-controls="app-drawer"
+          aria-label={open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+        </button>
+        )}
+        <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
+        {isDesktop && (
+          <nav className="header-breadcrumb" aria-label="Ruta de navegación">
+            {breadcrumb.isHome ? (
+              <>
+                <span>Inicio</span>
+                <span aria-hidden="true">&rsaquo;</span>
+              </>
+            ) : (
+              <>
+                <a href="#/admin/home" className="breadcrumb-link">Inicio</a>
+                <span aria-hidden="true">&rsaquo;</span>
+                <span className="breadcrumb-current" aria-current="page">{breadcrumb.label}</span>
+              </>
+            )}
+          </nav>
+        )}
+      </div>
       <div className="session-actions">
-        {adminEvent && (
+        {adminEvent && !hideEventPicker && (
           <label className="global-event-picker">
             <span>Evento activo</span>
             <select
@@ -181,12 +249,29 @@ export function AppNavigation({ session }) {
             </select>
           </label>
         )}
-        <div className="session-identity">
-          <strong>{session.user?.name}</strong>
-          <span className="session-role">{(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role).join(" · ") || "Sin rol asignado"}</span>
-          {adminEvent && <span className="session-event">{adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}</span>}
+        <div className="session-user">
+          <div className="session-avatar" aria-hidden="true">
+            {getInitials(session.user?.name)}
+          </div>
+          <div className="session-identity">
+            <strong>{session.user?.name}</strong>
+            <span className="session-role">{(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role).join(" · ") || "Sin rol asignado"}</span>
+            {adminEvent && (
+              <span className="session-event sr-only">
+                {adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}
+              </span>
+            )}
+          </div>
         </div>
-        <button className="secondary" type="button" disabled={closing} onClick={signOut}>Salir</button>
+        <span className="session-divider" aria-hidden="true" />
+        <button className="session-signout secondary" type="button" disabled={closing} onClick={signOut}>
+          <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Salir</span>
+        </button>
       </div>
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
       {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}

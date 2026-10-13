@@ -1172,6 +1172,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setPendingDialogOpen(false)}
         title="Faltantes anteriores"
         description="Ítems anteriores al actual que todavía no votaste. Seleccioná uno para volver a él."
+        tone="info"
       >
         <ul className="pending-dialog-list" aria-label="Ítems anteriores sin votar">
           {previousPendingScores.map((item) => (
@@ -1210,6 +1211,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setIncompleteDialog(null)}
         title="Faltan decisiones por resolver"
         description="Asigná una puntuación de 1 a 10 o marcá No se presentó en cada ítem antes de confirmar."
+        tone="warning"
       >
         <ul className="pending-dialog-list" aria-label="Ítems pendientes">
           {incompleteDialog?.map((item) => (
@@ -1243,6 +1245,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setScoreConfirm(null)}
         title="Confirmación de voto"
         description="Una vez confirmada, esta decisión no podrá modificarse."
+        tone="violet"
       >
         {scoreConfirm && (
           <div className="score-dialog-content">
@@ -1277,6 +1280,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setNotPresentedConfirm(null)}
         title="Confirmación de voto"
         description="Una vez confirmada, esta decisión no podrá modificarse."
+        tone="warning"
       >
         {notPresentedConfirm && (
           <div className="not-presented-dialog-content">
@@ -1311,6 +1315,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setTroupeAbsentConfirm(null)}
         title="Confirmación de voto"
         description="Una vez confirmada, esta decisión no podrá modificarse."
+        tone="warning"
       >
         {troupeAbsentConfirm && (
           <div className="not-presented-dialog-content">
@@ -1344,6 +1349,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         onClose={() => setSubmitConfirm(false)}
         title="Cierre definitivo de planilla"
         description="Una vez confirmada, esta planilla no podrá modificarse."
+        tone="danger"
       >
         <div className="submit-dialog-content">
           <p className="eyebrow">Confirmar votación · {ballot.specialtyName}</p>

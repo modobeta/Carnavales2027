@@ -277,14 +277,19 @@ test("readiness y apertura exponen contrato HTTP ADMIN", { skip: !process.env.TE
     const rubric = await (await post(`/api/v1/events/${event.id}/rubrics`, { name: "Coreografía", code: "COREO", evaluationTarget: "TROUPE" })).json();
     await post(`/api/v1/rubrics/${rubric.id}/items`, { name: "Ejecución", code: "EJECUCION", specialtyId: specialty.id });
     const night = await (await post(`/api/v1/events/${event.id}/nights`, { name: "Noche 1", displayOrder: 1, kind: "COMPETITION" })).json();
-    const unscheduled = await (await fetch(`${base}/api/v1/events/${event.id}/readiness`, { headers })).json();
+
+    const emptyEvent = await (await post("/api/v1/events", { name: "HTTP readiness sin comparsas" })).json();
+    await post(`/api/v1/events/${emptyEvent.id}/nights`, { name: "Noche sin programación", displayOrder: 1, kind: "COMPETITION" });
+    const unscheduled = await (await fetch(`${base}/api/v1/events/${emptyEvent.id}/readiness`, { headers })).json();
     assert.equal(unscheduled.ready, false);
     assert.ok(unscheduled.missing.includes("INCOMPLETE_SCHEDULES"));
-    const blockedScheduleOpen = await open(`/api/v1/events/${event.id}/open`);
+    const blockedScheduleOpen = await open(`/api/v1/events/${emptyEvent.id}/open`);
     assert.equal(blockedScheduleOpen.status, 409);
     assert.equal((await blockedScheduleOpen.json()).code, "EVENT_CONFIGURATION_INCOMPLETE");
-    const scheduled = await post(`/api/v1/events/${event.id}/schedule`, { nightId: night.id, troupeId: troupe.id });
-    assert.equal(scheduled.status, 201);
+    const { rows: automaticSchedule } = await pool.query(
+      "SELECT event_troupe_id FROM night_troupe_schedule WHERE night_id=$1", [night.id],
+    );
+    assert.deepEqual(automaticSchedule, [{ event_troupe_id: troupe.id }]);
     await seedActiveJudge({ client: pool, eventId: event.id, nightId: night.id, specialtyId: specialty.id });
     const complete = await (await fetch(`${base}/api/v1/events/${event.id}/readiness`, { headers })).json();
     assert.equal(complete.ready, true);

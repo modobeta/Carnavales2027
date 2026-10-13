@@ -204,3 +204,116 @@ test("API schedule: en OPEN el reorden conserva el tramo ya iniciado y libera el
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("API schedule: noches creadas automáticamente siguen reordenables en OPEN y protegen el prefijo iniciado", {
+  skip: !process.env.TEST_DATABASE_URL,
+}, async (context) => {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  await migrate();
+  const pool = getPool();
+  context.after(async () => {
+    process.env.DATABASE_URL = originalDatabaseUrl;
+    await closePool();
+  });
+
+  const adminId = randomUUID();
+  await pool.query(
+    `INSERT INTO "user"(id,name,email,"emailVerified") VALUES ($1,'Admin auto schedule',$2,true)`,
+    [adminId, `${adminId}@example.test`],
+  );
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')", [adminId]);
+  const { rows: [event] } = await pool.query("INSERT INTO carnival_event(name) VALUES('Auto reorder') RETURNING id");
+  const { rows: [category] } = await pool.query(
+    "INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'Cat','CAT',1) RETURNING id",
+    [event.id],
+  );
+  const troupes = [];
+  for (const name of ["Troupe A", "Troupe B", "Troupe C"]) {
+    const { rows: [troupe] } = await pool.query(
+      "INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,$3) RETURNING id",
+      [event.id, category.id, name],
+    );
+    troupes.push(troupe);
+  }
+  const { rows: [specialty] } = await pool.query(
+    "INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'Dance','DANCE',1) RETURNING id",
+    [event.id],
+  );
+  const { rows: [rubric] } = await pool.query(
+    "INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES($1,'Rubric','RUBRIC','TROUPE') RETURNING id",
+    [event.id],
+  );
+  const { rows: [item] } = await pool.query(
+    "INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES($1,$2,$3,'Item','ITEM') RETURNING id",
+    [event.id, rubric.id, specialty.id],
+  );
+
+  const app = createApp({ getSession: async ({ headers }) => headers.get("x-test-session") === "admin" ? { user: { id: adminId, twoFactorEnabled: true } } : null });
+  const server = await withServer(app);
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const headers = { "Content-Type": "application/json", "x-test-session": "admin" };
+    const createNight = async (displayOrder) => {
+      const response = await fetch(`${base}/api/v1/events/${event.id}/nights`, {
+        method: "POST", headers,
+        body: JSON.stringify({ name: `Auto ${displayOrder}`, displayOrder, kind: "COMPETITION" }),
+      });
+      assert.equal(response.status, 201);
+      return response.json();
+    };
+    const freeNight = await createNight(1);
+    const startedNight = await createNight(2);
+
+    const { rows: freeEntries } = await pool.query(
+      "SELECT id FROM night_troupe_schedule WHERE night_id=$1 ORDER BY presentation_order", [freeNight.id],
+    );
+    const { rows: startedEntries } = await pool.query(
+      "SELECT id FROM night_troupe_schedule WHERE night_id=$1 ORDER BY presentation_order", [startedNight.id],
+    );
+    assert.equal(freeEntries.length, troupes.length);
+    assert.equal(startedEntries.length, troupes.length);
+
+    await seedActiveJudge({ client: pool, eventId: event.id, nightId: freeNight.id, specialtyId: specialty.id, adminId });
+    const startedJudge = await seedActiveJudge({ client: pool, eventId: event.id, nightId: startedNight.id, specialtyId: specialty.id, adminId });
+    const { rows: [startedBallot] } = await pool.query(
+      `INSERT INTO ballot(event_id,night_id,judge_assignment_id,judge_profile_id,specialty_id,status)
+       VALUES($1,$2,$3,$4,$5,'OPEN') RETURNING id`,
+      [event.id, startedNight.id, startedJudge.assignmentId, startedJudge.profileId, specialty.id],
+    );
+    const opened = await fetch(`${base}/api/v1/events/${event.id}/open`, {
+      method: "POST", headers: { ...headers, "Idempotency-Key": randomUUID() },
+    });
+    assert.equal(opened.status, 200);
+
+    const allowedOrder = [freeEntries[0].id, freeEntries[2].id, freeEntries[1].id];
+    const allowed = await fetch(`${base}/api/v1/events/${event.id}/schedule/reorder`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ nightId: freeNight.id, orderedIds: allowedOrder, reason: "Ajuste de programación" }),
+    });
+    assert.equal(allowed.status, 200);
+    const { rows: savedFreeOrder } = await pool.query(
+      "SELECT id FROM night_troupe_schedule WHERE night_id=$1 ORDER BY presentation_order", [freeNight.id],
+    );
+    assert.deepEqual(savedFreeOrder.map(({ id }) => id), allowedOrder);
+
+    await pool.query(
+      "INSERT INTO ballot_score(ballot_id,event_id,evaluation_item_id,rubric_id,night_schedule_id) VALUES($1,$2,$3,$4,$5)",
+      [startedBallot.id, event.id, item.id, rubric.id, startedEntries[0].id],
+    );
+    const blocked = await fetch(`${base}/api/v1/events/${event.id}/schedule/reorder`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ nightId: startedNight.id, orderedIds: [startedEntries[1].id, startedEntries[0].id, startedEntries[2].id], reason: "Ajuste de programación" }),
+    });
+    assert.equal(blocked.status, 409);
+    assert.equal((await blocked.json()).code, "NIGHT_REORDER_STARTED_TROUPES");
+
+    const { rows: reorderAudit } = await pool.query(
+      "SELECT action, after_data AS after FROM audit_event WHERE action='NIGHT_TROUPE_SCHEDULE_REORDERED' AND after_data->>'nightId'=$1",
+      [freeNight.id],
+    );
+    assert.equal(reorderAudit.length, 1);
+    assert.equal(reorderAudit[0].after.reason, "Ajuste de programación");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

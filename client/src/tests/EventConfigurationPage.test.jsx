@@ -122,6 +122,24 @@ describe("EventConfigurationPage", () => {
     expect(await screen.findByText("Jornada Noche 1 eliminada.")).toBeInTheDocument();
   });
 
+  it("advierte sobre cambios sin guardar al intentar salir del drawer con datos", async () => {
+    apiRequest.mockResolvedValue({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
+    render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
+    fireEvent.change(screen.getByLabelText("Nombre de jornada"), { target: { value: "Noche 1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(await screen.findByRole("dialog", { name: "Cambios sin guardar" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Descartar cambios" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "+ Agregar jornada" })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("dialog", { name: "Cambios sin guardar" })).not.toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/event-1/nights", expect.anything());
+  });
+
   it("oculta eliminar jornada cuando el evento esta OPEN", () => {
     render(<EventConfigurationPage
       event={{ id: "event-1", status: "OPEN" }}

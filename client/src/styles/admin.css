@@ -13,25 +13,39 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-muted);
+  padding: 0.25rem var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
+  min-block-size: 2.25rem;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.global-event-picker:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover-subtle);
 }
 
 .global-event-picker span {
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 
 .global-event-picker select {
-  inline-size: min(13rem, 24vw);
-  min-block-size: 2.5rem;
-  border-color: var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-input);
+  border: 0;
+  background: transparent;
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  max-inline-size: 14rem;
+  text-overflow: ellipsis;
 }
 
 .event-header {
@@ -1779,5 +1793,406 @@
   .admin-page-header .event-actions,
   .admin-page-header .event-actions button {
     inline-size: 100%;
+  }
+}
+
+/* Rediseño de Inicio ("Mis eventos") */
+.my-events-page {
+  display: grid;
+  gap: var(--space-5);
+  max-inline-size: 1180px;
+}
+
+/* Rediseño del Header de Navegación */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.header-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.header-breadcrumb a,
+.header-breadcrumb .breadcrumb-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.header-breadcrumb a:hover,
+.header-breadcrumb .breadcrumb-link:hover {
+  color: var(--accent-text);
+}
+
+.header-breadcrumb .breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.header-breadcrumb span:last-child {
+  color: var(--text-muted);
+}
+
+@media (min-width: 64rem) {
+  .app-navigation .brand {
+    display: none;
+  }
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-inline-start: auto;
+}
+
+.session-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.session-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.session-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: var(--leading-tight);
+}
+
+.session-identity strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.session-identity .session-role {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.session-identity .session-event {
+  display: none;
+}
+
+.session-divider {
+  display: inline-block;
+  inline-size: 1px;
+  block-size: 1.5rem;
+  background: var(--border-subtle);
+  margin-inline: var(--space-1);
+}
+
+.session-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+  min-block-size: var(--touch-target-min);
+  transition: color 0.15s, background 0.15s;
+}
+
+.session-signout:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+  color: var(--text-primary);
+}
+
+.session-signout .icon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
+.my-events-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.my-events-header h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(var(--text-2xl), 4vw, var(--text-4xl));
+  letter-spacing: -0.03em;
+}
+
+.my-events-header p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+}
+
+.my-events-create {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-block-size: var(--touch-target-min);
+  white-space: nowrap;
+}
+
+.my-events-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.my-events-search {
+  position: relative;
+  flex: 1 1 20rem;
+  max-inline-size: 26rem;
+  margin: 0;
+}
+
+.my-events-search .icon {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--space-4);
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.my-events-search input {
+  inline-size: 100%;
+  min-block-size: var(--touch-target-min);
+  padding-inline-start: calc(var(--space-4) + 1.75rem);
+}
+
+.my-events-status-filter {
+  flex: 0 1 18rem;
+  margin: 0;
+}
+
+.my-events-status-filter select {
+  inline-size: 100%;
+  min-block-size: var(--touch-target-min);
+}
+
+.my-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-5);
+}
+
+.my-event-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.my-event-card.is-deleted {
+  opacity: 0.8;
+  border-style: dashed;
+}
+
+.my-event-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.my-event-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.my-event-card-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.my-event-card-divider {
+  border: 0;
+  border-block-start: 1px solid var(--border-subtle);
+  margin: 0;
+}
+
+.my-event-card-meta {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.my-event-card-meta p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.my-event-card-meta .icon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  color: var(--text-muted);
+}
+
+.my-event-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  margin-block-start: auto;
+  min-block-size: var(--touch-target-min);
+}
+
+.my-events-empty {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-6);
+}
+
+.my-events-empty h2,
+.my-events-empty p {
+  margin: 0;
+}
+
+.my-events-empty > button {
+  justify-self: start;
+  margin-block-start: var(--space-2);
+}
+
+.my-events-empty-filter {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.my-events-deleted-toggle {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--text-interactive);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+  min-block-size: var(--touch-target-min);
+  cursor: pointer;
+}
+
+.my-events-deleted-toggle:hover {
+  background: none;
+  color: var(--accent-text);
+}
+
+/* ActionMenu */
+.action-menu {
+  position: relative;
+}
+
+.action-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+  padding: 0;
+}
+
+.action-menu-trigger .icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.action-menu-list {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  z-index: var(--z-dropdown);
+  display: grid;
+  min-inline-size: 14rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+.action-menu-item {
+  justify-content: flex-start;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: start;
+  box-shadow: none;
+  min-block-size: var(--touch-target-min);
+}
+
+.action-menu-item:hover,
+.action-menu-item:focus-visible {
+  background: var(--surface-hover-subtle);
+}
+
+.action-menu-item.is-danger {
+  color: var(--danger-text);
+}
+
+@media (max-width: 44rem) {
+  .my-events-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .my-events-create {
+    inline-size: 100%;
+  }
+
+  .my-events-search,
+  .my-events-status-filter {
+    flex-basis: 100%;
+    max-inline-size: none;
+  }
+
+  .my-event-card {
+    padding: var(--space-4);
   }
 }

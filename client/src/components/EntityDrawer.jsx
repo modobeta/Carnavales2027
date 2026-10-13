@@ -14,6 +14,7 @@ export function EntityDrawer({
   children,
   focusReturnRef,
   className = "",
+  tone = "violet",
 }) {
   return (
     <Dialog
@@ -23,6 +24,7 @@ export function EntityDrawer({
       description={description}
       focusReturnRef={focusReturnRef}
       className={`entity-drawer ${className}`.trim()}
+      tone={tone}
     >
       {children}
     </Dialog>
