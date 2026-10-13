@@ -51,11 +51,10 @@ describe("AdminHomePage (Rediseño a Mis eventos)", () => {
     window.location.hash = "";
   });
 
-  it("renderiza breadcrumb, encabezado, filtros, botón Crear evento y tarjetas con métricas", async () => {
+  it("renderiza encabezado, filtros, botón Crear evento y tarjetas con métricas", async () => {
     mockApi();
     render(<AdminHomePage />);
 
-    expect(screen.getByText("Inicio")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Mis eventos" })).toBeInTheDocument();
     expect(screen.getByText("Elegí el evento que querés administrar.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Crear evento/ })).toBeInTheDocument();

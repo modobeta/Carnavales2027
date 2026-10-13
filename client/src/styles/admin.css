@@ -1789,12 +1789,110 @@
   max-inline-size: 1180px;
 }
 
-.my-events-breadcrumb {
+/* Rediseño del Header de Navegación */
+.header-left {
   display: flex;
   align-items: center;
+  gap: var(--space-4);
+}
+
+.header-breadcrumb {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+.header-breadcrumb span:last-child {
   color: var(--text-muted);
+}
+
+@media (min-width: 64rem) {
+  .app-navigation.is-home .brand {
+    display: none;
+  }
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-inline-start: auto;
+}
+
+.session-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.session-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-weight: 700;
   font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.session-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: var(--leading-tight);
+}
+
+.session-identity strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.session-identity .session-role {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.session-divider {
+  display: inline-block;
+  inline-size: 1px;
+  block-size: 1.5rem;
+  background: var(--border-subtle);
+  margin-inline: var(--space-1);
+}
+
+.session-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+  min-block-size: var(--touch-target-min);
+  transition: color 0.15s, background 0.15s;
+}
+
+.session-signout:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+  color: var(--text-primary);
+}
+
+.session-signout .icon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
 }
 
 .my-events-header {

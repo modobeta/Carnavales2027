@@ -184,11 +184,6 @@ export function AdminHomePage() {
 
   return (
     <PageShell layer="instrument" className="container my-events-page">
-      <nav className="my-events-breadcrumb" aria-label="Ruta de navegación">
-        <span>Inicio</span>
-        <span aria-hidden="true">&rsaquo;</span>
-      </nav>
-
       <header className="my-events-header">
         <div>
           <h1>{showDeleted ? "Eventos eliminados" : "Mis eventos"}</h1>
