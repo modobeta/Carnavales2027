@@ -8,8 +8,13 @@ import { DialogFooter } from "./DialogFooter.jsx";
  *
  * Reutiliza `Dialog` (foco, Escape, backdrop, retorno de foco).
  * Las consecuencias van en `description` (=> `aria-describedby`).
- * `danger` pinta la acción afirmativa en rojo de cancelar; en otro caso
- * la confirmación usa el verde de la paleta Carnaval.
+ *
+ * `tone` define el lenguaje visual y la acción afirmativa:
+ *   - "danger"  → acción destructiva (rojo).
+ *   - "warning" → advertencia / cambio delicado (naranja). Predeterminado.
+ *   - "success" → confirmación de algo que avanza un proceso (verde).
+ *   - "violet"  → acción habitual de creación/edición.
+ * Se conserva `danger` por retrocompatibilidad.
  */
 export function ConfirmDialog({
   isOpen,
@@ -21,8 +26,12 @@ export function ConfirmDialog({
   cancelLabel = "Cancelar",
   confirming = false,
   danger = false,
+  tone,
   focusReturnRef,
 }) {
+  const resolvedTone = tone ?? (danger ? "danger" : "warning");
+  const confirmVariant = resolvedTone === "default" ? "confirm" : resolvedTone;
+
   return (
     <Dialog
       isOpen={isOpen}
@@ -31,13 +40,14 @@ export function ConfirmDialog({
       description={description}
       focusReturnRef={focusReturnRef}
       className="confirm-dialog"
+      tone={resolvedTone}
     >
       <DialogFooter>
-        <Button variant="cancel" onClick={onClose} disabled={confirming}>
+        <Button variant="secondary" onClick={onClose} disabled={confirming}>
           {cancelLabel}
         </Button>
         <Button
-          variant={danger ? "cancel" : "confirm"}
+          variant={confirmVariant}
           onClick={onConfirm}
           disabled={confirming}
           busy={confirming}

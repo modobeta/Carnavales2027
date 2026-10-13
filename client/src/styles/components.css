@@ -120,6 +120,168 @@
 }
 
 /* ==========================================================================
+   Tonos del sistema de modales
+   - violeta: creación / edición y acciones habituales.
+   - success: resultado confirmado por el servidor.
+   - warning: advertencia / cambio delicado.
+   - danger:  acción destructiva o irreversible.
+   - info:    información general.
+   La banda superior y el icono refuerzan el tono; el texto del título y del
+   contenido siempre describe la acción (el color no es el único indicador).
+   ========================================================================== */
+.app-dialog-tone-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  margin-inline-end: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-modal-hover);
+  font-size: var(--text-base);
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.app-dialog--violet {
+  border-top: 6px solid var(--modal-violet);
+}
+.app-dialog--violet .app-dialog-header {
+  background: var(--modal-violet);
+  border-block-end-color: var(--modal-violet-strong);
+}
+.app-dialog--violet .app-dialog-title,
+.app-dialog--violet .app-dialog-close-btn {
+  color: var(--modal-violet-ink);
+}
+.app-dialog--violet .app-dialog-close-btn:hover {
+  background: var(--modal-info-soft);
+}
+.app-dialog--violet .app-dialog-tone-icon {
+  background: var(--modal-violet-ink);
+  color: var(--modal-violet);
+}
+
+.app-dialog--success {
+  border-top: 6px solid var(--modal-success);
+}
+.app-dialog--success .app-dialog-header {
+  background: var(--modal-success);
+  border-block-end-color: var(--modal-success-strong);
+}
+.app-dialog--success .app-dialog-title,
+.app-dialog--success .app-dialog-close-btn {
+  color: var(--modal-success-ink);
+}
+.app-dialog--success .app-dialog-close-btn:hover {
+  background: var(--modal-success-soft);
+}
+.app-dialog--success .app-dialog-tone-icon {
+  background: var(--modal-success-ink);
+  color: var(--modal-success);
+}
+
+.app-dialog--warning {
+  border-top: 6px solid var(--modal-warning);
+}
+.app-dialog--warning .app-dialog-header {
+  background: var(--modal-warning);
+  border-block-end-color: var(--modal-warning-strong);
+}
+.app-dialog--warning .app-dialog-title,
+.app-dialog--warning .app-dialog-close-btn {
+  color: var(--modal-warning-ink);
+}
+.app-dialog--warning .app-dialog-close-btn:hover {
+  background: var(--modal-warning-soft);
+}
+.app-dialog--warning .app-dialog-tone-icon {
+  background: var(--modal-warning-ink);
+  color: var(--modal-warning);
+}
+
+.app-dialog--danger {
+  border-top: 6px solid var(--modal-danger);
+}
+.app-dialog--danger .app-dialog-header {
+  background: var(--modal-danger);
+  border-block-end-color: var(--modal-danger-strong);
+}
+.app-dialog--danger .app-dialog-title,
+.app-dialog--danger .app-dialog-close-btn {
+  color: var(--modal-danger-ink);
+}
+.app-dialog--danger .app-dialog-close-btn:hover {
+  background: var(--modal-danger-soft);
+}
+.app-dialog--danger .app-dialog-tone-icon {
+  background: var(--modal-danger-ink);
+  color: var(--modal-danger);
+}
+
+.app-dialog--info {
+  border-top: 6px solid var(--modal-info);
+}
+.app-dialog--info .app-dialog-header {
+  background: var(--modal-info);
+  border-block-end-color: var(--modal-info-strong);
+}
+.app-dialog--info .app-dialog-title,
+.app-dialog--info .app-dialog-close-btn {
+  color: var(--modal-info-ink);
+}
+.app-dialog--info .app-dialog-tone-icon {
+  background: var(--modal-info-ink);
+  color: var(--modal-info);
+}
+
+/* Modal de resultado (NoticeDialog) */
+.notice-dialog-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.notice-dialog-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+}
+.notice-dialog-body--success .notice-dialog-icon {
+  background: var(--modal-success-soft);
+  color: var(--modal-success-strong);
+}
+.notice-dialog-body--warning .notice-dialog-icon {
+  background: var(--modal-warning-soft);
+  color: var(--modal-warning-strong);
+}
+.notice-dialog-body--error .notice-dialog-icon {
+  background: var(--modal-danger-soft);
+  color: var(--modal-danger-strong);
+}
+.notice-dialog-body--info .notice-dialog-icon {
+  background: var(--modal-info-soft);
+  color: var(--modal-info-strong);
+}
+.notice-dialog-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.notice-dialog-description {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-on-modal-soft);
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
    Button
    ========================================================================== */
 .app-button {
@@ -169,6 +331,36 @@
 
 .app-button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+/* Violeta: encabezados de creación/edición y acciones habituales. */
+.app-button-violet {
+  background: var(--modal-violet);
+  color: var(--modal-violet-ink);
+}
+
+.app-button-violet:hover:not(:disabled) {
+  background: var(--modal-violet-strong);
+}
+
+/* Verde: operaciones completadas. Tinta oscura sobre verde (nunca blanco). */
+.app-button-success {
+  background: var(--modal-success);
+  color: var(--modal-success-ink);
+}
+
+.app-button-success:hover:not(:disabled) {
+  background: var(--modal-success-strong);
+}
+
+/* Naranja: advertencias y confirmaciones de cambios delicados. */
+.app-button-warning {
+  background: var(--modal-warning);
+  color: var(--modal-warning-ink);
+}
+
+.app-button-warning:hover:not(:disabled) {
+  background: var(--modal-warning-strong);
 }
 
 /* Acción afirmativa: verde con tinta oscura (9.3:1). */
@@ -365,30 +557,60 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
   border: 1px solid var(--border-default);
   background: var(--surface-card);
   color: var(--text-primary);
+  max-inline-size: min(94vw, 26rem);
 }
 
 .app-toast-success {
-  border-color: var(--success-border);
-  background: rgba(22, 163, 74, 0.25);
-  color: var(--success-text);
+  border-color: var(--modal-success);
+  border-inline-start: 4px solid var(--modal-success);
+  color: var(--modal-success-text);
 }
 
 .app-toast-warning {
-  border-color: var(--warning-border);
-  background: rgba(217, 119, 6, 0.25);
-  color: var(--warning-text);
+  border-color: var(--modal-warning);
+  border-inline-start: 4px solid var(--modal-warning);
+  color: var(--modal-warning-text);
 }
 
 .app-toast-danger {
-  border-color: var(--danger-border);
-  background: rgba(220, 38, 38, 0.25);
-  color: var(--danger-text);
+  border-color: var(--modal-danger);
+  border-inline-start: 4px solid var(--modal-danger);
+  color: var(--modal-danger-text);
+}
+
+.app-toast-stack {
+  position: fixed;
+  z-index: var(--z-toast);
+  inset-block-end: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-inline-size: min(94vw, 26rem);
+  pointer-events: none;
+}
+
+.app-toast-stack > * {
+  pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+  .app-toast-stack {
+    inset-inline-start: var(--space-3);
+    inset-inline-end: var(--space-3);
+    align-items: stretch;
+  }
+
+  .app-toast {
+    inline-size: 100%;
+  }
 }
 
 .app-toast-action-btn {

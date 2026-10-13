@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
-import { Dialog } from "../components/Dialog.jsx";
 import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { UnsavedChangesDialog } from "../components/UnsavedChangesDialog.jsx";
+import { useNotify } from "../components/Notifications.jsx";
+import { useUnsavedChanges, useFormDirty } from "../hooks/useUnsavedChanges.js";
 import { apiRequest } from "../api/http.js";
 import { EventReadinessPanel } from "../features/EventReadinessPanel.jsx";
 import { NightForm, nightKindLabel } from "../features/NightForm.jsx";
@@ -55,6 +58,9 @@ export function EventConfigurationPage({
   const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
   const locked = currentEvent.status !== "CONFIGURING";
+  const { notify } = useNotify();
+  const { dirty, markDirty } = useFormDirty(drawerMode);
+  const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
 
   useEffect(() => setNights(initialNights), [initialNights]);
 
@@ -82,10 +88,13 @@ export function EventConfigurationPage({
       onEventChange?.(saved);
       setReadinessRevision((revision) => revision + 1);
       setMessage("Cambios guardados.");
+      notify({ message: "Cambios guardados.", type: "success" });
       if (reset) form?.reset();
       return saved;
     } catch (error) {
-      setMessage(errorMessages[error.code] ?? error.message ?? "No se pudo guardar.");
+      const detail = errorMessages[error.code] ?? error.message ?? "No se pudo guardar.";
+      setMessage(detail);
+      notify({ message: detail, type: "error" });
       return null;
     }
   };
@@ -111,6 +120,7 @@ export function EventConfigurationPage({
   };
 
   const closeDrawer = () => setDrawerMode(null);
+  const requestCloseDrawer = () => requestLeave(closeDrawer);
 
   const saveNight = async (body) => {
     setSavingNight(true);
@@ -145,13 +155,16 @@ export function EventConfigurationPage({
       setNights((current) => current.filter((item) => item.id !== night.id));
       setReadinessRevision((revision) => revision + 1);
       setMessage(`Jornada ${night.name} eliminada.`);
+      notify({ message: `Jornada ${night.name} eliminada.`, type: "success" });
       setDeleteNightTarget(null);
     } catch (error) {
-      setMessage(error.code === "NIGHT_HAS_HISTORY"
+      const detail = error.code === "NIGHT_HAS_HISTORY"
         ? "Solo se pueden eliminar jornadas sin programación ni historial operativo."
         : error.code === "EVENT_LOCKED"
           ? "El evento esta abierto y su configuracion ya no puede modificarse."
-          : "No se pudo eliminar la jornada.");
+          : "No se pudo eliminar la jornada.";
+      setMessage(detail);
+      notify({ message: detail, type: "error" });
     } finally {
       setDeletingNight(false);
     }
@@ -171,14 +184,18 @@ export function EventConfigurationPage({
       const updatedEvent = await apiRequest(`/api/v1/events/${currentEvent.id}`);
       setCurrentEvent(updatedEvent);
       onEventChange?.(updatedEvent);
-      setMessage(updatedEvent.status === "CLOSED"
+      const detail = updatedEvent.status === "CLOSED"
         ? "Última jornada cerrada. El evento finalizó y las sesiones de jurado se cerrarán."
-        : `Jornada ${night.name} finalizada.`);
+        : `Jornada ${night.name} finalizada.`;
+      setMessage(detail);
+      notify({ message: detail, type: "success" });
       setCloseNightTarget(null);
     } catch (error) {
-      setMessage(error.code === "VOTING_WINDOW_NOT_CLOSED"
+      const detail = error.code === "VOTING_WINDOW_NOT_CLOSED"
         ? "Cerrá primero la votación de esta jornada."
-        : "No se pudo finalizar la jornada.");
+        : "No se pudo finalizar la jornada.";
+      setMessage(detail);
+      notify({ message: detail, type: "error" });
     } finally {
       setClosingNight(false);
     }
@@ -261,48 +278,57 @@ export function EventConfigurationPage({
 
       <EntityDrawer
         isOpen={drawerMode !== null && !locked}
-        onClose={closeDrawer}
+        onClose={requestCloseDrawer}
         title={drawerMode?.mode === "edit" ? `Editar jornada${editingNight ? ` — ${editingNight.name}` : ""}` : "Nueva jornada"}
         description={drawerMode?.mode === "edit" ? "Modificá los datos de la jornada." : "Completá los datos de la jornada."}
         focusReturnRef={drawerTriggerRef}
+        tone="violet"
       >
-        <NightForm
-          key={drawerMode?.mode === "edit" ? `edit-${drawerMode.nightId}` : "create"}
-          initialValue={editingNight ?? {}}
-          defaultOrder={nextOrder}
-          submitting={savingNight}
-          submitLabel={drawerMode?.mode === "edit" ? "Guardar jornada" : "Agregar jornada"}
-          onSubmit={saveNight}
-        />
+        <div onChange={markDirty} onInput={markDirty}>
+          <NightForm
+            key={drawerMode?.mode === "edit" ? `edit-${drawerMode.nightId}` : "create"}
+            initialValue={editingNight ?? {}}
+            defaultOrder={nextOrder}
+            submitting={savingNight}
+            submitLabel={drawerMode?.mode === "edit" ? "Guardar jornada" : "Agregar jornada"}
+            onSubmit={saveNight}
+          />
+        </div>
         <DialogFooter>
-          <button type="button" className="secondary" onClick={closeDrawer}>Cancelar</button>
+          <button type="button" className="secondary" onClick={requestCloseDrawer}>Cancelar</button>
         </DialogFooter>
       </EntityDrawer>
 
-      <Dialog
+      <UnsavedChangesDialog
+        isOpen={promptOpen}
+        onKeepEditing={keepEditing}
+        onDiscard={discard}
+      />
+
+      <ConfirmDialog
         isOpen={deleteNightTarget !== null}
         onClose={() => { if (!deletingNight) setDeleteNightTarget(null); }}
+        onConfirm={() => void deleteNight()}
         title={`Eliminar ${deleteNightTarget?.name ?? "jornada"}`}
         description="La jornada se borra definitivamente. Solo es posible si no tiene comparsas programadas ni historial operativo (asignaciones, votos, penalizaciones o votación)."
+        confirmLabel="Eliminar jornada"
+        cancelLabel="Cancelar"
+        confirming={deletingNight}
+        tone="danger"
         focusReturnRef={deleteNightTriggerRef}
-      >
-        <DialogFooter>
-          <button type="button" className="secondary" disabled={deletingNight} onClick={() => setDeleteNightTarget(null)}>Cancelar</button>
-          <button type="button" className="danger-action" disabled={deletingNight} onClick={() => void deleteNight()}>{deletingNight ? "Eliminando…" : "Eliminar jornada"}</button>
-        </DialogFooter>
-      </Dialog>
+      />
 
-      <Dialog
+      <ConfirmDialog
         isOpen={closeNightTarget !== null}
         onClose={() => { if (!closingNight) setCloseNightTarget(null); }}
+        onConfirm={() => void closeNight()}
         title={`Finalizar ${closeNightTarget?.name ?? "jornada"}`}
-        description={`El cierre de una jornada es definitivo. Cuando todas las jornadas del evento estén cerradas, el evento finalizará y se cerrarán las sesiones de jurado.`}
-      >
-        <DialogFooter>
-          <button type="button" className="secondary" disabled={closingNight} onClick={() => setCloseNightTarget(null)}>Cancelar</button>
-          <button type="button" className="danger-action" disabled={closingNight} onClick={() => void closeNight()}>{closingNight ? "Finalizando…" : "Confirmar cierre"}</button>
-        </DialogFooter>
-      </Dialog>
+        description="El cierre de una jornada es definitivo. Cuando todas las jornadas del evento estén cerradas, el evento finalizará y se cerrarán las sesiones de jurado."
+        confirmLabel="Confirmar cierre"
+        cancelLabel="Cancelar"
+        confirming={closingNight}
+        tone="danger"
+      />
 
       <EventReadinessPanel
         event={currentEvent}

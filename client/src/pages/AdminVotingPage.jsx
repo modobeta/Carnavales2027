@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
+import { useNotify } from "../components/Notifications.jsx";
 import { apiRequest } from "../api/http.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
@@ -11,6 +13,7 @@ const BALLOT_STATUS_LABELS = { SUBMITTED: "Confirmada", REOPENED: "Reabierta", O
 
 export function AdminVotingPage() {
   const adminEvent = useAdminEvent();
+  const { notify } = useNotify();
   const [localEvents, setLocalEvents] = useState([]);
   const [nights, setNights] = useState([]);
   const [ballots, setBallots] = useState([]);
@@ -102,8 +105,10 @@ export function AdminVotingPage() {
     setMessage("");
     try {
       const result = await operation();
-      setMessage(success(result));
+      const nextMessage = success(result);
+      setMessage(nextMessage);
       await refreshNight();
+      notify({ message: nextMessage, type: "success" });
       return true;
     } catch (error) {
       if (error.code === "VOTING_CLOSE_INCOMPLETE_BALLOTS") {
@@ -126,7 +131,9 @@ export function AdminVotingPage() {
         EVENT_LOCKED: "El estado del evento o la jornada cambió. Actualizá el estado antes de reintentar.",
         NETWORK_ERROR: "No se recibió confirmación. Actualizá el estado antes de reintentar.",
       };
-      setMessage(messages[error.code] ?? "No se pudo completar la operación.");
+      const nextMessage = messages[error.code] ?? "No se pudo completar la operación.";
+      setMessage(nextMessage);
+      notify({ message: nextMessage, type: "error" });
       return false;
     } finally {
       setBusy("");
@@ -201,6 +208,7 @@ export function AdminVotingPage() {
       setReorderIds(null);
       setReorderReason("");
       setReorderMessage("Orden de pasada actualizado y auditado.");
+      notify({ message: "Orden de pasada actualizado y auditado.", type: "success" });
       await refreshNight();
     } catch (error) {
       const messages = {
@@ -214,6 +222,7 @@ export function AdminVotingPage() {
         try { await refreshNight(); } catch { /* mensaje ya fijado abajo */ }
       }
       setReorderMessage(messages[error.code] ?? "No se pudo cambiar el orden.");
+      notify({ message: messages[error.code] ?? "No se pudo cambiar el orden.", type: "error" });
     } finally {
       setReorderBusy(false);
     }
@@ -378,17 +387,23 @@ export function AdminVotingPage() {
         </article>)}
       </section>
     </>}
-    <Dialog isOpen={confirmation !== null} onClose={() => setConfirmation(null)}
+    <ConfirmDialog
+      isOpen={confirmation !== null}
+      onClose={() => setConfirmation(null)}
+      tone={confirmation === "open" ? "violet" : "danger"}
       title={confirmation === "open" ? "Confirmar apertura de votación" : "Confirmar cierre de votación"}
       description={`Jornada: ${selectedNight?.name ?? ""}. ${confirmation === "open" ? (nightStatus === "DRAFT" ? "Se abrirá la jornada y se habilitarán las planillas de los jurados asignados." : "Se habilitarán las planillas de los jurados asignados.") : "El cierre es definitivo y requiere planillas completas."}`}
-      focusReturnRef={actionButtonRef}>
-      <DialogFooter><button type="button" onClick={() => setConfirmation(null)}>Cancelar</button><button type="button" disabled={Boolean(busy)} onClick={() => void confirmAction()}>Confirmar</button></DialogFooter>
-    </Dialog>
+      confirmLabel="Confirmar"
+      focusReturnRef={actionButtonRef}
+      confirming={Boolean(busy)}
+      onConfirm={() => void confirmAction()}
+    />
     <Dialog
       isOpen={pendingCloseDialog !== null && pendingCloseDialog?.length > 0}
       onClose={() => setPendingCloseDialog(null)}
       title="Faltan votos por resolver"
       description="No se puede cerrar la votación hasta que los jurados resuelvan estos ítems."
+      tone="warning"
       focusReturnRef={closeButtonRef}
       className="pending-dialog"
     >
