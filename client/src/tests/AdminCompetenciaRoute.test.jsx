@@ -33,7 +33,7 @@ describe("ruta de Competencia con evento activo", () => {
 
     expect(await screen.findByRole("heading", { name: "Carnaval 2027" })).toBeInTheDocument();
     expect(screen.queryByText("Selecciona un evento para administrar su competencia.")).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e1");
+    expect(screen.getByRole("button", { name: "Evento actual" })).toHaveTextContent("Carnaval 2027");
   });
 
   it("muestra un empty state navegable cuando no hay evento activo", async () => {

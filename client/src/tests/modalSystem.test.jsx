@@ -94,8 +94,11 @@ describe("Sistema unificado de modales (Spec 027/RF-UX-03)", () => {
           description="La conexión falló. Reintentá manualmente."
         />,
       );
-      expect(screen.getByRole("dialog")).toHaveClass("app-dialog--danger");
-      expect(screen.getByText("La conexión falló. Reintentá manualmente.")).toBeInTheDocument();
+      const dialog = screen.getByRole("dialog");
+      const description = dialog.querySelector(".notice-dialog-description");
+      expect(dialog).toHaveClass("app-dialog--danger");
+      expect(description).toHaveTextContent("La conexión falló. Reintentá manualmente.");
+      expect(dialog).toHaveAttribute("aria-describedby", description.id);
       fireEvent.click(screen.getByRole("button", { name: "Entendido" }));
       expect(onClose).toHaveBeenCalledOnce();
     });

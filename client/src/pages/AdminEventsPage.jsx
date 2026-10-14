@@ -1,344 +1,122 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
-import { Dialog } from "../components/Dialog.jsx";
-import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
-import { StatusPill } from "../components/StatusPill.jsx";
-import { useNotify } from "../components/Notifications.jsx";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
-
-const EVENT_STATUS_LABELS = {
-  CONFIGURING: "En configuración",
-  OPEN: "Competencia abierta",
-  CLOSED: "Evento cerrado",
-};
-
-const EMPTY_SUMMARY = { nights: 0, troupes: 0, judges: 0, rubrics: 0, loading: true };
-
-function EventSummary({ summary }) {
-  const items = [
-    ["Jornadas", summary.nights],
-    ["Comparsas", summary.troupes],
-    ["Jurados", summary.judges],
-    ["Rubros", summary.rubrics],
-  ];
-  return (
-    <div className="event-summary-stats" aria-label="Resumen del evento">
-      {items.map(([label, value]) => (
-        <span key={label}>
-          <strong>{summary.loading ? "—" : value}</strong>
-          <small>{label}</small>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function nextStepFor(event, summary) {
-  if (event.status === "OPEN") return { label: "En curso: Supervisar la votación", href: "#/veedor" };
-  if (event.status === "CLOSED") return { label: "Finalizado: Revisar resultados", href: "#/admin/results" };
-  if (summary.troupes === 0) return { label: "Agregar comparsas", href: "#/admin/competencia" };
-  if (summary.rubrics === 0) return { label: "Configurar evaluación", href: "#/admin/competencia" };
-  if (summary.judges === 0) return { label: "Registrar jurados", href: "#/admin/judges" };
-  return { label: "Continuar preparación", href: "#/admin/events" };
-}
 
 export function AdminEventsPage() {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
-  const [selected, setSelected] = useState(null);
   const [nights, setNights] = useState([]);
   const [configurationLoading, setConfigurationLoading] = useState(false);
   const [configurationError, setConfigurationError] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [showDeleted, setShowDeleted] = useState(false);
-  const [summaries, setSummaries] = useState({});
-  const createTriggerRef = useRef(null);
-  const deleteTriggerRef = useRef(null);
-  const { notify } = useNotify();
+  const [selected, setSelected] = useState(null);
 
   const allEvents = adminEvent?.events ?? localEvents;
-  const events = showDeleted ? allEvents : allEvents.filter((event) => event.active !== false);
+  const events = allEvents.filter((event) => event.active !== false);
   const activeEventId = adminEvent?.activeEventId ?? "";
-  const hasAdminEventContext = Boolean(adminEvent);
+  const activeEvent = selected ?? adminEvent?.activeEvent ?? (activeEventId ? events.find((e) => e.id === activeEventId) : null);
 
-  const refreshEvents = async () => {
-    if (adminEvent) {
-      await adminEvent.refreshEvents();
+  useEffect(() => {
+    if (!adminEvent) {
+      void apiRequest("/api/v1/events")
+        .then((items) => setLocalEvents(Array.isArray(items) ? items : []))
+        .catch(() => setLocalEvents([]));
+    }
+  }, [adminEvent]);
+
+  useEffect(() => {
+    if (!activeEvent) {
+      setNights([]);
       return;
     }
-    try {
-      setLocalEvents(await apiRequest("/api/v1/events"));
-      setMessage("");
-    } catch {
-      setLocalEvents([]);
-      setMessage("No se pudieron cargar los eventos.");
-    }
-  };
-
-  useEffect(() => {
-    if (!hasAdminEventContext) void refreshEvents();
-  }, [hasAdminEventContext]);
-
-  const eventKey = events.map((event) => event.id).join("|");
-  useEffect(() => {
-    if (events.length === 0) {
-      setSummaries({});
-      return undefined;
-    }
-    let current = true;
-    const loadSummaries = async () => {
-      const judgesResult = await apiRequest("/api/v1/judges").catch(() => []);
-      const judges = Array.isArray(judgesResult)
-        ? judgesResult.filter((judge) => judge.registrationStatus === "REGISTERED").length
-        : 0;
-      const entries = await Promise.all(events.map(async (event) => {
-        const [nightsResult, troupesResult, rubricsResult] = await Promise.allSettled([
-          apiRequest(`/api/v1/events/${event.id}/nights`),
-          apiRequest(`/api/v1/events/${event.id}/troupes`),
-          apiRequest(`/api/v1/events/${event.id}/rubrics`),
-        ]);
-        return [event.id, {
-          nights: nightsResult.status === "fulfilled" ? nightsResult.value.filter((night) => night.kind === "COMPETITION").length : 0,
-          troupes: troupesResult.status === "fulfilled" ? troupesResult.value.filter((troupe) => troupe.active !== false).length : 0,
-          judges,
-          rubrics: rubricsResult.status === "fulfilled" ? rubricsResult.value.filter((rubric) => rubric.active !== false).length : 0,
-          loading: false,
-        }];
-      }));
-      if (current) setSummaries(Object.fromEntries(entries));
-    };
-    void loadSummaries();
-    return () => { current = false; };
-  }, [eventKey]);
-
-  useEffect(() => {
-    if (!selected) return;
     let current = true;
     setConfigurationError(false);
+    setConfigurationLoading(true);
     void Promise.all([
-      apiRequest(`/api/v1/events/${selected.id}/nights`),
+      apiRequest(`/api/v1/events/${activeEvent.id}/nights`),
     ]).then(([eventNights]) => {
       if (!current) return;
-      setNights(eventNights);
-      setMessage("");
+      setNights(Array.isArray(eventNights) ? eventNights : []);
     }).catch(() => {
       if (!current) return;
       setNights([]);
-      setMessage("No se pudo cargar la configuracion del evento.");
       setConfigurationError(true);
-    }).finally(() => { if (current) setConfigurationLoading(false); });
+    }).finally(() => {
+      if (current) setConfigurationLoading(false);
+    });
     return () => { current = false; };
-  }, [selected]);
+  }, [activeEvent?.id]);
 
-  useEffect(() => {
-    if (adminEvent?.activeEvent && selected && selected.id !== adminEvent.activeEvent.id) {
-      setConfigurationLoading(true);
-      setConfigurationError(false);
-      setSelected(adminEvent.activeEvent);
+  if (activeEvent) {
+    if (configurationLoading) {
+      return (
+        <PageShell layer="instrument" className="container">
+          <p>Cargando configuracion...</p>
+        </PageShell>
+      );
     }
-  }, [adminEvent?.activeEventId]);
-
-  const selectEvent = (event) => {
-    setConfigurationLoading(true);
-    setConfigurationError(false);
-    adminEvent?.setActiveEvent(event);
-    setSelected(event);
-  };
-
-  const create = async (formEvent) => {
-    formEvent.preventDefault();
-    const form = formEvent.currentTarget;
-    const data = new FormData(form);
-    try {
-      const created = await apiRequest("/api/v1/events", {
-        method: "POST",
-        body: JSON.stringify({ name: data.get("name") }),
-      });
-      selectEvent(created);
-      await refreshEvents();
-      setIsCreateOpen(false);
-      form.reset();
-      notify({ message: `Evento ${created.name} creado.`, type: "success" });
-    } catch (error) {
-      const detail = error.code === "RESOURCE_CONFLICT" ? "Ya existe un evento equivalente." : "No se pudo crear el evento.";
-      setMessage(detail);
-      notify({ message: detail, type: "error" });
+    if (configurationError) {
+      return (
+        <PageShell layer="instrument" className="container">
+          <div className="card">
+            <h1>No se pudo cargar la configuracion</h1>
+            <p>No se muestran formularios para evitar trabajar sobre datos incompletos.</p>
+            <button type="button" onClick={() => { setConfigurationLoading(true); setSelected({ ...activeEvent }); }}>
+              Reintentar
+            </button>{" "}
+            <button className="secondary" type="button" onClick={() => { window.location.hash = "#/admin/home"; }}>
+              Volver a eventos
+            </button>
+          </div>
+        </PageShell>
+      );
     }
-  };
-
-  if (selected) {
-    if (configurationLoading) return <PageShell layer="instrument" className="container"><p>Cargando configuracion...</p></PageShell>;
-    if (configurationError) return <PageShell layer="instrument" className="container"><div className="card"><h1>No se pudo cargar la configuracion</h1><p>No se muestran formularios para evitar trabajar sobre datos incompletos.</p><button type="button" onClick={() => { setConfigurationLoading(true); setSelected({ ...selected }); }}>Reintentar</button> <button className="secondary" type="button" onClick={() => setSelected(null)}>Volver a eventos</button></div></PageShell>;
     return (
       <EventConfigurationPage
-        key={selected.id}
-        event={selected}
+        key={activeEvent.id}
+        event={activeEvent}
         nights={nights}
-        onBack={async () => { setSelected(null); await refreshEvents(); }}
+        onBack={() => { window.location.hash = "#/admin/home"; }}
         onCompetencia={() => { window.location.hash = "#/admin/competencia"; }}
         onEventChange={adminEvent?.updateEvent}
       />
     );
   }
 
+  if (events.length > 0) {
+    return (
+      <PageShell layer="instrument" className="container admin-events-page">
+        <header className="admin-events-header">
+          <div>
+            <p className="eyebrow">Configuración operativa</p>
+            <h1>Jornadas</h1>
+            <p>Seleccioná el evento para configurar sus jornadas y apertura.</p>
+          </div>
+        </header>
+        <section className="event-catalog-section" aria-label="Seleccionar evento">
+          <div className="event-catalog-grid">
+            {events.map((event) => (
+              <article className="event-catalog-card" key={event.id}>
+                <h3>{event.name}</h3>
+                <button type="button" onClick={() => { setSelected(event); adminEvent?.setActiveEvent?.(event); }}>
+                  Usar este evento
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell layer="instrument" className="container admin-events-page">
-      <header className="admin-events-header">
-        <div>
-          <p className="eyebrow">Configuración operativa</p>
-          <h1>Administración de eventos</h1>
-          <p>Creá, seleccioná y prepará el evento sobre el que vas a trabajar.</p>
-        </div>
-        <button ref={createTriggerRef} type="button" onClick={() => setIsCreateOpen(true)}>+ Nuevo evento</button>
-      </header>
-      <p className="feedback" role="status" aria-live="polite">{message}</p>
-      <label className="check"><input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} /> Mostrar eliminados (inactivos en BD)</label>
-      {events.length === 0 ? (
-        <section className="admin-events-empty card" aria-label="Catálogo de eventos vacío">
-          <h2>Todavía no hay eventos</h2>
-          <p>Creá el primero para comenzar la configuración del carnaval.</p>
-          <button type="button" onClick={() => setIsCreateOpen(true)}>Crear primer evento</button>
-        </section>
-      ) : (
-        <>
-          {(() => {
-            const activeEvent = events.find((event) => event.id === activeEventId);
-            const otherEvents = events.filter((event) => event.id !== activeEventId);
-            const renderActions = (event, active) => {
-              const nextStep = nextStepFor(event, summaries[event.id] ?? EMPTY_SUMMARY);
-              const confirmDelete = async () => {
-                const target = deleteTarget;
-                setDeleteTarget(null);
-                try {
-                  await apiRequest(`/api/v1/events/${target.id}`, { method: "DELETE" });
-                  if (target.id === activeEventId && adminEvent) adminEvent.setActiveEventId("");
-                  await refreshEvents();
-                  setMessage(`Evento ${target.name} eliminado (desactivado en BD).`);
-                  notify({ message: `Evento ${target.name} eliminado.`, type: "success" });
-                } catch (error) {
-                  const detail = error.code && error.code.startsWith("EVENT_HAS_")
-                    ? "Solo se pueden eliminar eventos sin votación ni historial operativo."
-                    : error.code === "EVENT_LOCKED"
-                      ? "Solo se pueden eliminar eventos en preparación."
-                      : "No se pudo eliminar el evento.";
-                  setMessage(detail);
-                  notify({ message: detail, type: "error" });
-                }
-              };
-              const reactivate = async () => {
-                try {
-                  await apiRequest(`/api/v1/events/${event.id}`, { method: "PATCH", body: JSON.stringify({ active: true }) });
-                  await refreshEvents();
-                  setMessage(`Evento ${event.name} reactivado.`);
-                  notify({ message: `Evento ${event.name} reactivado.`, type: "success" });
-                } catch {
-                  setMessage("No se pudo reactivar el evento.");
-                  notify({ message: "No se pudo reactivar el evento.", type: "error" });
-                }
-              };
-              const isDeleted = event.active === false;
-              return (
-                <div className="event-catalog-actions">
-                  {active ? (
-                    <>
-                      <button type="button" onClick={() => selectEvent(event)}>Continuar preparación</button>
-                      <button type="button" className="secondary" onClick={() => selectEvent(event)}>Ver detalle</button>
-                    </>
-                  ) : (
-                    <>
-                      {!isDeleted && <button type="button" onClick={() => selectEvent(event)}>Usar este evento</button>}
-                      {event.status === "CONFIGURING" && !isDeleted && <button type="button" className="secondary" onClick={() => selectEvent(event)}>Ver detalle</button>}
-                      {event.status === "OPEN" && <a className="button-link secondary" href={nextStep.href}>Ir a supervisión</a>}
-                      {event.status === "CLOSED" && <a className="button-link secondary" href={nextStep.href}>Ver resultados</a>}
-                    </>
-                  )}
-                  {isDeleted ? (
-                    <button type="button" className="secondary" aria-label={`Reactivar evento ${event.name}`} onClick={reactivate}>
-                      Reactivar
-                    </button>
-                  ) : (
-                    event.status === "CONFIGURING" && (
-                      <button
-                        type="button"
-                        className="secondary danger-action"
-                        aria-label={`Eliminar evento ${event.name}`}
-                        onClick={(e) => { deleteTriggerRef.current = e.currentTarget; setDeleteTarget(event); }}
-                      >
-                        Eliminar
-                      </button>
-                    )
-                  )}
-                  {deleteTarget?.id === event.id && (
-                    <ConfirmDialog
-                      isOpen
-                      onClose={() => setDeleteTarget(null)}
-                      onConfirm={() => void confirmDelete()}
-                      title={`Eliminar ${event.name}`}
-                      description="Se ocultara del catalogo y quedara desactivado en BD (active=false). Podras verlo con Mostrar eliminados y reactivarlo. No se borra el historial."
-                      confirmLabel="Eliminar (desactivar)"
-                      cancelLabel="Cancelar"
-                      tone="danger"
-                      focusReturnRef={deleteTriggerRef}
-                    />
-                  )}
-                </div>
-              );
-            };
-            const renderCard = (event, active) => {
-              const summary = summaries[event.id] ?? EMPTY_SUMMARY;
-              const nextStep = nextStepFor(event, summary);
-              const isDeleted = event.active === false;
-              return (
-                <article className={`event-catalog-card${active ? " is-active" : ""}`} key={event.id}>
-                  <div className="event-catalog-card-heading">
-                    <div>
-                      <h3>{event.name}</h3>
-                      <StatusPill status={event.status} label={EVENT_STATUS_LABELS[event.status] ?? event.status} />
-                      {isDeleted && <StatusPill status="SUSPENDED" label="Eliminado (inactivo en BD)" />}
-                    </div>
-                    {active && <span className="event-active-label">✓ Evento activo</span>}
-                  </div>
-                  <EventSummary summary={summary} />
-                  <p className="event-next-step"><strong>{nextStep.label.startsWith("En curso") || nextStep.label.startsWith("Finalizado") ? "" : "Próximo paso: "}</strong>{nextStep.label}</p>
-                  {renderActions(event, active)}
-                </article>
-              );
-            };
-            return (
-              <>
-                <section className="event-catalog-section" aria-labelledby="active-event-title">
-                  <div className="section-heading"><div><p className="eyebrow">Contexto de trabajo</p><h2 id="active-event-title">Evento activo</h2></div></div>
-                  {activeEvent ? renderCard(activeEvent, true) : <div className="admin-events-empty card"><h3>Seleccioná un evento para comenzar</h3><p>Elegí un evento del catálogo para convertirlo en tu contexto de trabajo.</p></div>}
-                </section>
-                {otherEvents.length > 0 && <section className="event-catalog-section" aria-labelledby="other-events-title">
-                  <div className="section-heading"><div><p className="eyebrow">Catálogo</p><h2 id="other-events-title">Otros eventos</h2></div><span>{otherEvents.length} disponibles</span></div>
-                  <div className="event-catalog-grid">{otherEvents.map((event) => renderCard(event, false))}</div>
-                </section>}
-              </>
-            );
-          })()}
-        </>
-      )}
-      <Dialog
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Nuevo evento"
-        description="Creá un evento para luego configurar sus jornadas y competencia."
-        focusReturnRef={createTriggerRef}
-        tone="violet"
-      >
-          <form className="config-card" onSubmit={create}>
-            <label>Nombre del evento<input name="name" required autoFocus /></label>
-            <div className="dialog-actions">
-              <button type="button" className="secondary" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
-              <button type="submit">Crear evento</button>
-            </div>
-          </form>
-        </Dialog>
+      <section className="admin-events-empty card" aria-label="Sin evento activo">
+        <h2>Primero seleccioná un evento</h2>
+        <p>Elegí o creá un evento en Inicio para gestionar sus jornadas y apertura.</p>
+        <a className="button-link" href="#/admin/home">Ir a Mis eventos</a>
+      </section>
     </PageShell>
   );
 }

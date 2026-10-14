@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button } from "./Button.jsx";
 import { Dialog } from "./Dialog.jsx";
 import { DialogFooter } from "./DialogFooter.jsx";
@@ -52,12 +53,14 @@ export function NoticeDialog({
 }) {
   const resolvedTone = TONE_TO_DIALOG[tone] ?? "info";
   const icon = TONE_ICONS[tone] ?? "i";
+  const descriptionId = useId();
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      ariaDescribedBy={description ? descriptionId : undefined}
       focusReturnRef={focusReturnRef}
       className="notice-dialog"
       tone={resolvedTone}
@@ -66,7 +69,7 @@ export function NoticeDialog({
       <div className={`notice-dialog-body notice-dialog-body--${tone}`}>
         <span className="notice-dialog-icon" aria-hidden="true">{icon}</span>
         <div className="notice-dialog-text">
-          {description && <p className="notice-dialog-description">{description}</p>}
+          {description && <p id={descriptionId} className="notice-dialog-description">{description}</p>}
           {children}
         </div>
       </div>

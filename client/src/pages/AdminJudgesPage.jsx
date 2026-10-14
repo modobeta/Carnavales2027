@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { UserManagementNavigation } from "../components/UserManagementNavigation.jsx";
 
 const statusLabels = {
   INVITED: "Invitado",
@@ -142,6 +143,8 @@ export function AdminJudgesPage() {
         </div>
       </header>
 
+      <UserManagementNavigation current="create" />
+
       <section className="config-section">
         <div className="section-heading"><div><h2>Incorporar persona</h2><p>{creationType === "JUDGE" ? "Registrar no habilita votación. La especialidad se definirá en cada asignación." : "Se creará un perfil con nombre, DNI y el rol seleccionado."}</p></div></div>
         <form className="judge-create-form" onSubmit={create}>
@@ -182,7 +185,7 @@ export function AdminJudgesPage() {
             return (
               <article className="judge-card" key={judge.id}>
                 <div className="judge-card-heading">
-                  <div><p className="eyebrow">DNI {judge.documentNumber}</p><h2>{judge.name}</h2><p>{judge.email}</p></div>
+                  <div className="person-identity"><h2>{judge.name}</h2><p className="person-contact">{judge.email}</p><p className="eyebrow person-document">DNI {judge.documentNumber}</p></div>
                   <span className={`judge-status status-${judge.registrationStatus.toLowerCase()}`}>{statusLabels[judge.registrationStatus]}</span>
                 </div>
                 {invitation && <p className="invitation-state">Invitación: <strong>{statusLabels[invitation.status] ?? invitation.status}</strong></p>}
@@ -257,7 +260,7 @@ export function AdminJudgesPage() {
             return (
               <article className="judge-card operational-profile-card" key={profile.id}>
                 <div className="judge-card-heading">
-                  <div><p className="eyebrow">DNI {profile.documentNumber}</p><h2>{profile.name}</h2><p>{profile.email}</p></div>
+                  <div className="person-identity"><h2>{profile.name}</h2><p className="person-contact">{profile.email}</p><p className="eyebrow person-document">DNI {profile.documentNumber}</p></div>
                   <span className={`judge-status status-${profile.registrationStatus.toLowerCase()}`}>{statusLabels[profile.registrationStatus]}</span>
                 </div>
                 <p className="operational-roles">{profile.roles.join(", ")}</p>

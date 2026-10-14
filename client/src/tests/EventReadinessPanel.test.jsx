@@ -27,8 +27,8 @@ describe("EventReadinessPanel", () => {
       incompleteRubrics: [{ id: "r1", name: "Coreografia", code: "COREO" }],
     }));
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
-    await screen.findByText(/No hay especialidades activas configuradas/);
-    expect(screen.getByText(/No existe ningun rubro activo/)).toBeInTheDocument();
+    await screen.findByText(/Creá o activá al menos una especialidad/);
+    expect(screen.getByText(/Creá o activá al menos un rubro/)).toBeInTheDocument();
     expect(screen.getByText(/Comparsa incompleta/)).toBeInTheDocument();
     expect(screen.getByText(/Coreografia/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Abrir evento" })).toBeDisabled();
@@ -37,7 +37,7 @@ describe("EventReadinessPanel", () => {
   it("muestra ok cuando todo esta completo", async () => {
     apiRequest.mockResolvedValue(readiness());
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
-    expect(await screen.findByText(/Configuracion completa/)).toBeInTheDocument();
+    expect(await screen.findByText(/Se cumplen los requisitos.*listo para abrir/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Abrir evento" })).not.toBeDisabled();
   });
 
@@ -45,8 +45,8 @@ describe("EventReadinessPanel", () => {
     apiRequest.mockResolvedValue({ ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [] });
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
 
-    expect(await screen.findByText(/Readiness no disponible/)).toBeInTheDocument();
-    expect(screen.queryByText(/Configuracion completa/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo revisar la configuración/)).toBeInTheDocument();
+    expect(screen.queryByText(/listo para abrir/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Abrir evento" })).not.toBeInTheDocument();
     expect(apiRequest.mock.calls.some(([path]) => path.endsWith("/open"))).toBe(false);
   });
@@ -55,7 +55,7 @@ describe("EventReadinessPanel", () => {
     apiRequest.mockResolvedValue({ ...readiness(), incompleteSchedules: null });
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
 
-    expect(await screen.findByText(/Readiness no disponible/)).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo revisar la configuración/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Abrir evento" })).not.toBeInTheDocument();
     expect(apiRequest.mock.calls.some(([path]) => path.endsWith("/open"))).toBe(false);
   });
@@ -80,7 +80,7 @@ describe("EventReadinessPanel", () => {
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
     fireEvent.click(await screen.findByRole("button", { name: "Abrir evento" }));
     // El dialog de confirmación se abre pero no se confirma: solo el GET de readiness.
-    expect(await screen.findByText(/cambiará a OPEN/)).toBeInTheDocument();
+    expect(await screen.findByText(/estado cambiará a OPEN/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(apiRequest).toHaveBeenCalledTimes(1);
   });
@@ -96,10 +96,10 @@ describe("EventReadinessPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Abrir evento" }));
     const confirmButtons = await screen.findAllByRole("button", { name: "Abrir evento" });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]);
-    expect(await screen.findByText(/No hay especialidades activas configuradas/)).toBeInTheDocument();
+    expect(await screen.findByText(/Creá o activá al menos una especialidad/)).toBeInTheDocument();
   });
 
-  it("ofrece Ir al problema en cada faltante", async () => {
+  it("ofrece una acción específica para cada faltante", async () => {
     const onGoToNights = vi.fn();
     apiRequest.mockResolvedValue(readiness({
       ready: false,
@@ -109,9 +109,9 @@ describe("EventReadinessPanel", () => {
     }));
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} onGoToNights={onGoToNights} />);
     await screen.findByText(/Comparsa incompleta/);
-    const links = screen.getAllByRole("link", { name: "Ir al problema" });
-    expect(links.length).toBe(3);
-    expect(links[0]).toHaveAttribute("href", "#/admin/competencia");
+    expect(screen.getByRole("link", { name: "Ir al problema" })).toHaveAttribute("href", "#/admin/competencia");
+    expect(screen.getByRole("link", { name: "Corregir comparsa" })).toHaveAttribute("href", "#/admin/competencia");
+    expect(screen.getByRole("link", { name: "Corregir rubro" })).toHaveAttribute("href", "#/admin/competencia");
     fireEvent.click(screen.getByRole("button", { name: "Ir al problema" }));
     expect(onGoToNights).toHaveBeenCalledTimes(1);
   });
@@ -124,8 +124,8 @@ describe("EventReadinessPanel", () => {
     }));
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
 
-    expect(await screen.findByText(/Noche inaugural.*no tiene jurado activo asignado/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Revisar asignaciones" })).toHaveAttribute("href", "#/admin/assignments?eventId=e1&nightId=n1");
+    expect(await screen.findByText(/Asigná al menos un jurado activo a la jornada.*Noche inaugural/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Asignar jurado" })).toHaveAttribute("href", "#/admin/assignments?eventId=e1&nightId=n1");
   });
 
   it("confirma la apertura nombrando el evento y envía una sola operación identificada", async () => {
@@ -173,10 +173,10 @@ describe("EventReadinessPanel", () => {
       .mockResolvedValueOnce(readiness());
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
 
-    expect(await screen.findByText(/Readiness no disponible/)).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo revisar la configuración/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Abrir evento" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Volver a consultar readiness" }));
-    expect(await screen.findByText(/Configuracion completa/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Volver a revisar" }));
+    expect(await screen.findByText(/Se cumplen los requisitos.*listo para abrir/)).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledTimes(2);
     expect(apiRequest.mock.calls.every(([url]) => !url.endsWith("/open"))).toBe(true);
   });

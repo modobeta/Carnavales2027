@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
 import { EventConfigurationPage } from "../pages/EventConfigurationPage.jsx";
@@ -51,6 +51,25 @@ describe("EventConfigurationPage", () => {
     ));
   });
 
+  it("agrupa Cancelar y Agregar jornada en el pie del formulario", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
+
+    const form = screen.getByRole("button", { name: "Agregar jornada" }).closest("form");
+    const actions = form.querySelector(".dialog-footer-actions");
+
+    expect(actions).toBeInTheDocument();
+    expect(within(actions).getAllByRole("button").map((button) => button.textContent.trim()))
+      .toEqual(["Cancelar", "Agregar jornada"]);
+  });
+
+  it("mantiene el tipo de jornada como un selector etiquetado y personalizado visualmente", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
+
+    expect(screen.getByLabelText("Tipo de jornada")).toHaveClass("night-form__kind");
+  });
+
   it("presenta el orden como Orden de visualización con max+1", async () => {
     apiRequest.mockResolvedValue({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
     render(<EventConfigurationPage
@@ -99,7 +118,7 @@ describe("EventConfigurationPage", () => {
   it("muestra el panel de preparacion del evento", async () => {
     apiRequest.mockResolvedValue({ ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    await waitFor(() => expect(screen.getByText("Preparacion del evento")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Requisitos para abrir el evento")).toBeInTheDocument());
   });
 
   it("permite eliminar una jornada con confirmacion previa", async () => {

@@ -10,15 +10,15 @@ import {
 import { isInterpretableReadiness } from "./readiness-presentation.js";
 
 const READINESS_LABELS = {
-  COMPETITION_NIGHT: "No existe ninguna jornada de competencia configurada",
-  ACTIVE_TROUPE: "No hay comparsas activas registradas",
-  ACTIVE_SPECIALTY: "No hay especialidades activas configuradas",
-  ACTIVE_RUBRIC: "No existe ningun rubro activo",
-  INCOMPLETE_TROUPES: "Existen comparsas sin categoria activa",
-  INCOMPLETE_RUBRICS: "Existen rubros sin items puntuables o con especialidades inactivas",
-  INCOMPLETE_NOMINATIONS: "Faltan participantes nominados para rubros o comparsas programadas",
-  INCOMPLETE_SCHEDULES: "Una o mas jornadas no tienen comparsas programadas en el orden de pasada",
-  NIGHTS_WITHOUT_JURY: "Una o más jornadas de competencia no tienen jurado asignado",
+  COMPETITION_NIGHT: "Creá al menos una jornada de Competencia",
+  ACTIVE_TROUPE: "Creá o activá al menos una comparsa",
+  ACTIVE_SPECIALTY: "Creá o activá al menos una especialidad",
+  ACTIVE_RUBRIC: "Creá o activá al menos un rubro",
+  INCOMPLETE_TROUPES: "Asigná una categoría activa a cada comparsa activa",
+  INCOMPLETE_RUBRICS: "Agregá ítems puntuables y usá especialidades activas en cada rubro",
+  INCOMPLETE_NOMINATIONS: "Completá las nominaciones requeridas para las comparsas programadas",
+  INCOMPLETE_SCHEDULES: "Programá al menos una comparsa en cada jornada de Competencia",
+  NIGHTS_WITHOUT_JURY: "Asigná al menos un jurado activo a cada jornada de Competencia",
 };
 
 export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, refreshKey = 0 }) {
@@ -82,10 +82,10 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
         setReadinessUnavailable(true);
       }
       setMessage(result.code === "EVENT_CONFIGURATION_INCOMPLETE"
-        ? "El servidor rechazó la apertura porque la preparación cambió. Se muestran los bloqueos vigentes."
+        ? "No se pudo abrir el evento porque cambió la configuración. Estos son los requisitos que faltan ahora."
         : result.code === "EVENT_LOCKED"
-          ? "El servidor rechazó la apertura porque el evento ya no es elegible."
-          : "El servidor rechazó la apertura del evento.");
+          ? "El evento ya no está disponible para abrir. Revisá su estado."
+          : "No se pudo abrir el evento.");
       return true;
     }
     return false;
@@ -103,12 +103,12 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
       } else {
         setPendingOperation(readPendingEventOpenOperation(event.id));
         setMessage(result.status === "not_registered"
-          ? "La operación no aparece registrada; resultado no confirmado. Se conserva su identificador y la apertura sigue bloqueada."
+          ? "No encontramos el intento de apertura. Resultado no confirmado; consultalo antes de volver a intentarlo."
           : result.status === "pending"
-            ? "La operación sigue pendiente; resultado no confirmado. La apertura sigue bloqueada."
+            ? "El intento de apertura sigue pendiente. Resultado no confirmado; consultalo antes de volver a intentarlo."
             : result.status === "conflict"
-              ? "No se pudo verificar la operación original por un conflicto. Resultado no confirmado; apertura bloqueada."
-              : "No se pudo consultar la operación. Resultado no confirmado; apertura bloqueada.");
+              ? "No se pudo verificar el intento original. Resultado no confirmado; consultalo antes de continuar."
+              : "No se pudo consultar el resultado de apertura. Resultado no confirmado; consultalo antes de continuar.");
       }
     } finally {
       if (isCurrent()) setCheckingOperation(false);
@@ -121,7 +121,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
     setPendingOperation(storedOperation);
     setOpened(false);
     if (storedOperation) {
-      setMessage("Apertura pendiente: resultado no confirmado. Consultá la operación original antes de continuar.");
+      setMessage("Hay un intento de apertura con resultado no confirmado. Consultá su resultado antes de continuar.");
       void checkOperation({ isCurrent: () => current });
     }
     void load({ isCurrent: () => current });
@@ -137,7 +137,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
     requestRevision.current += 1;
     setConfirmOpen(false);
     setOpening(true);
-    setMessage("Enviando apertura del evento al servidor…");
+    setMessage("Abriendo el evento…");
     let operation;
     try {
       operation = createPendingEventOpenOperation(event.id);
@@ -154,7 +154,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
         finishOperation({ status: "applied", event: openedEvent }, operation);
         await load();
       } else {
-        setMessage("La respuesta no confirma la operación original. Resultado no confirmado; la apertura sigue bloqueada.");
+        setMessage("La respuesta no confirma si el evento se abrió. Resultado no confirmado; consultalo antes de volver a intentarlo.");
       }
     } catch (error) {
       const receipt = error?.details?.operation ?? error?.operation;
@@ -164,7 +164,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
         finishOperation({ status: "rejected", code: error.code ?? error.details?.code, details: error.details?.details ?? error.details }, operation);
       } else {
         setPendingOperation(readPendingEventOpenOperation(event.id) ?? operation);
-        setMessage("No se pudo confirmar la respuesta del servidor. Resultado no confirmado; la apertura sigue bloqueada.");
+        setMessage("No se pudo confirmar si el evento se abrió. Resultado no confirmado; consultalo antes de volver a intentarlo.");
       }
     } finally {
       openingRef.current = false;
@@ -179,15 +179,15 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
   return (
     <section className="config-section readiness-panel">
       <div className="section-heading">
-        <h2>Preparacion del evento</h2>
+        <h2>Requisitos para abrir el evento</h2>
       </div>
       {readiness && (
         <>
           <div className="readiness-summary">
             {readiness.ready ? (
-              <p className="readiness-ok">Configuracion completa. El evento esta listo para abrir.</p>
+              <p className="readiness-ok">Se cumplen los requisitos. El evento está listo para abrir.</p>
             ) : (
-              <p className="readiness-pending">{(readiness.missing ?? []).filter((code) => !["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS"].includes(code)).length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0) + (readiness.incompleteNominations?.length ?? 0)} problema(s) impiden abrir el evento.</p>
+              <p className="readiness-pending">Requisitos pendientes para abrir: {(readiness.missing ?? []).filter((code) => !["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY"].includes(code)).length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0) + (readiness.incompleteNominations?.length ?? 0) + (readiness.nightsWithoutJury?.length ?? 0)}.</p>
             )}
           </div>
           <ul className="readiness-checklist">
@@ -203,19 +203,19 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
               </li>
             ))}
             {(readiness.incompleteTroupes ?? []).map((troupe) => (
-              <li key={troupe.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La comparsa &ldquo;{troupe.name}&rdquo; no tiene categoria activa <a href="#/admin/competencia">Ir al problema</a></li>
+              <li key={troupe.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La comparsa &ldquo;{troupe.name}&rdquo; necesita una categoría activa. <a href="#/admin/competencia">Corregir comparsa</a></li>
             ))}
             {(readiness.incompleteRubrics ?? []).map((rubric) => (
-              <li key={rubric.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>El rubro &ldquo;{rubric.name}&rdquo; no tiene items puntuables validos <a href="#/admin/competencia">Ir al problema</a></li>
+              <li key={rubric.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>El rubro &ldquo;{rubric.name}&rdquo; necesita ítems puntuables y especialidades activas. <a href="#/admin/competencia">Corregir rubro</a></li>
             ))}
             {(readiness.incompleteSchedules ?? []).map((schedule) => (
-              <li key={schedule.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La jornada &ldquo;{schedule.nightName}&rdquo; no tiene comparsas programadas en el orden de pasada. <a href="#/admin/competencia">Configurar el orden</a></li>
+              <li key={schedule.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Programá al menos una comparsa en la jornada &ldquo;{schedule.nightName}&rdquo;. <a href="#/admin/competencia">Configurar el orden de salida</a></li>
             ))}
             {(readiness.incompleteNominations ?? []).map((item) => (
-              <li key={`${item.rubricId}-${item.troupeId}`} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>El rubro &ldquo;{item.rubricName}&rdquo; necesita al menos un participante para &ldquo;{item.troupeName}&rdquo;. <a href="#/admin/competencia">Cargar participante</a></li>
+              <li key={`${item.rubricId}-${item.troupeId}`} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Cargá al menos un participante para el rubro &ldquo;{item.rubricName}&rdquo; en &ldquo;{item.troupeName}&rdquo;. <a href="#/admin/competencia">Cargar participante</a></li>
             ))}
             {(readiness.nightsWithoutJury ?? []).map((night) => (
-              <li key={night.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La jornada &ldquo;{night.nightName}&rdquo; no tiene jurado activo asignado. <a href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}&nightId=${encodeURIComponent(night.nightId)}`}>Revisar asignaciones</a></li>
+              <li key={night.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Asigná al menos un jurado activo a la jornada &ldquo;{night.nightName}&rdquo;. <a href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}&nightId=${encodeURIComponent(night.nightId)}`}>Asignar jurado</a></li>
             ))}
             {readiness.ready && (
               <>
@@ -223,12 +223,12 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Comparsas activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Especialidades activas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Rubros activos con items validos</li>
-                <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Participantes nominados cargados</li>
+                <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Nominaciones requeridas completas</li>
                 <li className="readiness-ok-item"><span className="readiness-icon">&#x2713;</span> Orden de pasada configurado en las jornadas de competencia</li>
               </>
             )}
           </ul>
-          {!eligible && <p role="status">El evento no está en estado CONFIGURING y no es elegible para abrir.</p>}
+          {!eligible && <p role="status">El evento ya no está en preparación y no se puede abrir desde aquí.</p>}
           <button ref={openTriggerRef} className="danger-action" disabled={!canOpen} onClick={() => setConfirmOpen(true)}>
             {opening ? "Abriendo…" : "Abrir evento"}
           </button>
@@ -237,7 +237,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
             onClose={() => setConfirmOpen(false)}
             onConfirm={() => void open()}
             title="Abrir evento"
-            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no implica que toda su configuración quede bloqueada; se conservan las excepciones administrativas existentes. No abre la jornada ni la ventana de votación. ¿Querés continuar?`}
+            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no inicia una jornada ni habilita la votación. Después, las asignaciones de jurados que todavía no tengan una planilla confirmada podrán revocarse o reemplazarse. ¿Querés continuar?`}
             confirmLabel="Abrir evento"
             confirming={opening}
             danger
@@ -245,9 +245,9 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
           />
         </>
       )}
-      {loading && <p role="status">Consultando readiness oficial del evento…</p>}
-      {!loading && !readiness && readinessUnavailable && <p role="status">Readiness no disponible; la preparación no se puede confirmar.</p>}
-      {!loading && readinessUnavailable && <button type="button" className="secondary" onClick={() => void load()}>Volver a consultar readiness</button>}
+      {loading && <p role="status">Revisando los requisitos para abrir…</p>}
+      {!loading && !readiness && readinessUnavailable && <p role="status">No se pudo revisar la configuración. No podemos confirmar si el evento está listo.</p>}
+      {!loading && readinessUnavailable && <button type="button" className="secondary" onClick={() => void load()}>Volver a revisar</button>}
       <p role="status" aria-live="polite">{message}</p>
       {pendingOperation && (
         <button type="button" className="secondary" disabled={checkingOperation || opening} onClick={() => void checkOperation()}>

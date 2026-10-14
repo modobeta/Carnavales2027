@@ -40,7 +40,7 @@ describe("AppNavigation", () => {
   });
 
   it("agrupa las rutas existentes por etapa y marca la sección activa", () => {
-    window.location.hash = "#/admin/judges";
+    window.location.hash = "#/admin/competencia?step=participantes";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
     expect(screen.getByText("Inicio", { selector: ".nav-section-label" })).toBeInTheDocument();
@@ -48,10 +48,10 @@ describe("AppNavigation", () => {
     expect(screen.getByText("En vivo")).toBeInTheDocument();
     expect(screen.getByText("Finalización")).toBeInTheDocument();
     expect(screen.getByText("Resultados y actas")).toBeInTheDocument();
-    expect(screen.getByText("Usuarios")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("href", "#/admin/judges");
-    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("href", "#/admin/users");
+    expect(screen.getByText("Usuarios", { selector: ".nav-section-label" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Usuarios" })).toHaveAttribute("href", "#/admin/judges");
+    expect(screen.queryByRole("link", { name: "Crear Usuario" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Administradores" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
@@ -73,33 +73,46 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("simplifica el menú administrativo y conserva destinos agrupados", () => {
+  it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {
+    window.location.hash = "#/admin/home";
+    window.localStorage.setItem("carnavales.event.admin-user.operational", "e1");
+    apiRequest.mockResolvedValue([{ id: "e1", name: "Evento recordado", status: "CONFIGURING" }]);
+    render(
+      <AdminEventProvider session={{ user: { id: "admin-user" }, roles: ["ADMIN"] }}>
+        <AppNavigation session={{ user: { id: "admin-user", name: "Admin" }, roles: ["ADMIN"] }} />
+      </AdminEventProvider>,
+    );
+    openMenu();
+
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "#/admin/home");
+    expect(screen.getByRole("link", { name: "Usuarios" })).toHaveAttribute("href", "#/admin/judges");
+    expect(screen.queryByText("Preparación")).not.toBeInTheDocument();
+    expect(screen.queryByText("En vivo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Finalización")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Jornadas" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Evento actual" })).not.toBeInTheDocument();
+  });
+
+  it("muestra la navegación contextual con Jornadas activo en #/admin/events", () => {
     window.location.hash = "#/admin/events";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
 
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "#/admin/home");
-    expect(screen.getByRole("link", { name: "Evento y jornadas" })).toHaveAttribute("href", "#/admin/events");
+    expect(screen.getByRole("link", { name: "Usuarios" })).toHaveAttribute("href", "#/admin/judges");
+    expect(screen.getByRole("link", { name: "Jornadas" })).toHaveAttribute("href", "#/admin/events");
+    expect(screen.getByRole("link", { name: "Jornadas" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting");
-    expect(screen.getByText("Comparsas y jurados")).toBeInTheDocument();
-    expect(screen.getByText("Supervisión y penalizaciones")).toBeInTheDocument();
-    expect(screen.getByText("Resultados y actas")).toBeInTheDocument();
-    expect(screen.getByText("Usuarios")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("href", "#/admin/judges");
-    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("href", "#/admin/users");
+  });
 
-    fireEvent.click(screen.getByText("Comparsas y jurados"));
-    expect(screen.getByRole("link", { name: "Comparsas" })).toHaveAttribute("href", "#/admin/competencia?step=participantes");
-    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("href", "#/admin/competencia?step=jurados");
-    expect(screen.getByRole("link", { name: "Evaluación" })).toHaveAttribute("href", "#/admin/competencia?step=rubros");
+  it("muestra la navegación contextual una vez dentro de una función del evento", () => {
+    window.location.hash = "#/admin/voting";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    openMenu();
 
-    fireEvent.click(screen.getByText("Supervisión y penalizaciones"));
-    expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("href", "#/veedor");
-    expect(screen.getByRole("link", { name: "Penalizaciones" })).toHaveAttribute("href", "#/admin/penalties");
-
-    fireEvent.click(screen.getByText("Resultados y actas"));
-    expect(screen.getByRole("link", { name: "Escrutinio" })).toHaveAttribute("href", "#/admin/results");
-    expect(screen.getByRole("link", { name: "Acta oficial" })).toHaveAttribute("href", "#/admin/record");
+    expect(screen.getByRole("link", { name: "Jornadas" })).toHaveAttribute("href", "#/admin/events");
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting");
+    expect(screen.getByRole("link", { name: "Usuarios" })).toHaveAttribute("href", "#/admin/judges");
   });
 
   it("muestra el enlace de Penalizaciones para el rol COMISARIO", () => {
@@ -163,16 +176,16 @@ describe("AppNavigation", () => {
 
   it("en desktop muestra el menu lateral sin hamburguesa ni backdrop", () => {
     mockMatchMedia(true);
-    window.location.hash = "#/admin/judges";
+    window.location.hash = "#/admin/voting";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     expect(screen.queryByRole("button", { name: "Abrir menu de navegacion" })).not.toBeInTheDocument();
     expect(document.querySelector(".app-drawer-backdrop")).not.toBeInTheDocument();
     const drawer = screen.getByRole("navigation", { name: "Navegacion principal" });
     expect(drawer).toHaveClass("is-open");
     expect(drawer).toHaveAttribute("aria-hidden", "false");
-    expect(screen.getByRole("link", { name: "Crear Usuario" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Preparación")).toBeInTheDocument();
-    expect(screen.getByText("Usuarios")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
   });
 
   it("en movil el menu exige abrir la hamburguesa", () => {
@@ -193,9 +206,10 @@ describe("AppNavigation", () => {
       </AdminEventProvider>,
     );
 
-    const selector = await screen.findByRole("combobox", { name: "Evento activo" });
-    await waitFor(() => expect(selector).toHaveValue("e1"));
-    fireEvent.change(selector, { target: { value: "e2" } });
-    expect(selector).toHaveValue("e2");
+    const selector = await screen.findByRole("button", { name: "Evento actual" });
+    expect(selector).toHaveTextContent("Carnaval 2027");
+    fireEvent.click(selector);
+    fireEvent.click(await screen.findByRole("option", { name: "Prueba 2027" }));
+    await waitFor(() => expect(selector).toHaveTextContent("Prueba 2027"));
   });
 });

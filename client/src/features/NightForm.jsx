@@ -1,3 +1,5 @@
+import { DialogFooter } from "../components/DialogFooter.jsx";
+
 /**
  * NightForm — Alta/edición de jornada (Spec 027/C1, C1-clarificación).
  *
@@ -14,6 +16,7 @@ const KIND_OPTIONS = [
 export function NightForm({
   initialValue = {},
   defaultOrder = 1,
+  onCancel,
   onSubmit,
   submitting = false,
   submitLabel = "Guardar jornada",
@@ -21,6 +24,7 @@ export function NightForm({
 }) {
   return (
     <form
+      className="night-form"
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
@@ -43,7 +47,7 @@ export function NightForm({
         defaultValue={initialValue.displayOrder ?? defaultOrder}
         required
       />
-      <p className="help-text">Define el orden en listas y planillas. Se asigna por orden de creación.</p>
+      <p className="help-text">Define en qué orden aparece la jornada en las listas. No cambia el orden de salida de las comparsas.</p>
       <label htmlFor={`${idPrefix}-date`}>Fecha</label>
       <input
         id={`${idPrefix}-date`}
@@ -58,16 +62,24 @@ export function NightForm({
         }
       />
       <label htmlFor={`${idPrefix}-kind`}>Tipo de jornada</label>
-      <select id={`${idPrefix}-kind`} name="kind" defaultValue={initialValue.kind ?? "COMPETITION"}>
+      <select
+        id={`${idPrefix}-kind`}
+        className="night-form__kind"
+        name="kind"
+        defaultValue={initialValue.kind ?? "COMPETITION"}
+      >
         {KIND_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
-      <button type="submit" disabled={submitting}>
-        {submitting ? "Guardando…" : submitLabel}
-      </button>
+      <DialogFooter>
+        {onCancel && <button type="button" className="secondary" onClick={onCancel} disabled={submitting}>Cancelar</button>}
+        <button type="submit" disabled={submitting}>
+          {submitting ? "Guardando…" : submitLabel}
+        </button>
+      </DialogFooter>
     </form>
   );
 }

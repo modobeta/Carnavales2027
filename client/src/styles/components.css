@@ -31,15 +31,18 @@
    Superficie contenida; los acentos de marca quedan para acciones y estados.
    ========================================================================== */
 .app-dialog {
+  position: fixed;
+  inset-inline: 0;
+  inset-block: auto 0;
+  margin: auto 0 0;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface-modal);
   color: var(--text-on-modal);
   padding: 0;
-  max-inline-size: min(90vw, 540px);
+  max-inline-size: 100%;
   inline-size: 100%;
-  max-block-size: calc(100vh - 2rem);
-  max-block-size: calc(100dvh - 2rem);
+  max-block-size: min(90vh, 90dvh);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -56,31 +59,45 @@
 }
 
 .app-dialog-content {
-  padding: var(--space-6);
+  padding: var(--space-4);
+  padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-block-size: calc(100vh - 2rem);
-  max-block-size: calc(100dvh - 2rem);
+  max-block-size: min(90vh, 90dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .app-dialog-header {
+  position: sticky;
+  inset-block-start: calc(-1 * var(--space-4));
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) 0;
+  padding: var(--space-4) var(--space-4) var(--space-4);
   border-block-end: 1px solid var(--border-subtle);
-  padding-block-end: var(--space-3);
+  background: var(--surface-modal);
 }
 
 .app-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 700;
+  line-height: var(--leading-tight);
   color: var(--text-on-modal);
   overflow-wrap: anywhere;
+}
+
+.app-dialog-title .app-dialog-tone-icon {
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .app-dialog-close-btn {
@@ -105,11 +122,73 @@
   background: var(--surface-modal-hover);
 }
 
+.app-dialog-close-btn:active {
+  background: var(--surface-modal-hover);
+  transform: scale(0.96);
+  transition-duration: 100ms;
+}
+
 .app-dialog-description {
   margin: 0;
   color: var(--text-on-modal-soft);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
+}
+
+.night-form__kind {
+  appearance: none;
+  inline-size: 100%;
+  min-block-size: var(--touch-target-min);
+  padding: var(--space-3) 3rem var(--space-3) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-input);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23eee4f2' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  color: var(--text-on-modal);
+  cursor: pointer;
+}
+
+.night-form__kind:hover {
+  border-color: var(--text-on-modal-soft);
+}
+
+.night-form__kind:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.night-form__kind:active {
+  border-color: var(--modal-violet);
+  background-color: var(--surface-modal-raised);
+}
+
+.night-form__kind option {
+  background: var(--surface-modal);
+  color: var(--text-on-modal);
+}
+
+@media (min-width: 40rem) {
+  .app-dialog {
+    inset: 0;
+    margin: auto;
+    max-inline-size: min(90vw, 34rem);
+    max-block-size: min(90vh, calc(100dvh - 2rem));
+    border-radius: var(--radius-lg);
+  }
+
+  .app-dialog-content {
+    padding: var(--space-6);
+    max-block-size: min(90vh, calc(100dvh - 2rem));
+  }
+
+  .app-dialog-header {
+    inset-block-start: calc(-1 * var(--space-6));
+    margin-inline: calc(-1 * var(--space-6));
+    margin-block-start: calc(-1 * var(--space-6));
+    padding: var(--space-6) var(--space-6) var(--space-4);
+  }
 }
 
 .app-dialog-body {
@@ -144,95 +223,95 @@
 }
 
 .app-dialog--violet {
-  border-top: 6px solid var(--modal-violet);
+  border-block-start: 4px solid var(--modal-violet);
 }
 .app-dialog--violet .app-dialog-header {
-  background: var(--modal-violet);
-  border-block-end-color: var(--modal-violet-strong);
+  background: transparent;
+  border-block-end-color: var(--border-subtle);
 }
 .app-dialog--violet .app-dialog-title,
 .app-dialog--violet .app-dialog-close-btn {
-  color: var(--modal-violet-ink);
+  color: var(--text-on-modal);
 }
 .app-dialog--violet .app-dialog-close-btn:hover {
-  background: var(--modal-info-soft);
+  background: var(--surface-modal-hover);
 }
 .app-dialog--violet .app-dialog-tone-icon {
-  background: var(--modal-violet-ink);
-  color: var(--modal-violet);
+  background: var(--modal-violet-soft);
+  color: var(--modal-violet-ink);
 }
 
 .app-dialog--success {
-  border-top: 6px solid var(--modal-success);
+  border-block-start: 4px solid var(--modal-success);
 }
 .app-dialog--success .app-dialog-header {
-  background: var(--modal-success);
-  border-block-end-color: var(--modal-success-strong);
+  background: transparent;
+  border-block-end-color: var(--border-subtle);
 }
 .app-dialog--success .app-dialog-title,
 .app-dialog--success .app-dialog-close-btn {
-  color: var(--modal-success-ink);
+  color: var(--text-on-modal);
 }
 .app-dialog--success .app-dialog-close-btn:hover {
-  background: var(--modal-success-soft);
+  background: var(--surface-modal-hover);
 }
 .app-dialog--success .app-dialog-tone-icon {
-  background: var(--modal-success-ink);
-  color: var(--modal-success);
+  background: var(--modal-success-soft);
+  color: var(--modal-success-text);
 }
 
 .app-dialog--warning {
-  border-top: 6px solid var(--modal-warning);
+  border-block-start: 4px solid var(--modal-warning);
 }
 .app-dialog--warning .app-dialog-header {
-  background: var(--modal-warning);
-  border-block-end-color: var(--modal-warning-strong);
+  background: transparent;
+  border-block-end-color: var(--border-subtle);
 }
 .app-dialog--warning .app-dialog-title,
 .app-dialog--warning .app-dialog-close-btn {
-  color: var(--modal-warning-ink);
+  color: var(--text-on-modal);
 }
 .app-dialog--warning .app-dialog-close-btn:hover {
-  background: var(--modal-warning-soft);
+  background: var(--surface-modal-hover);
 }
 .app-dialog--warning .app-dialog-tone-icon {
-  background: var(--modal-warning-ink);
-  color: var(--modal-warning);
+  background: var(--modal-warning-soft);
+  color: var(--modal-warning-text);
 }
 
 .app-dialog--danger {
-  border-top: 6px solid var(--modal-danger);
+  border-block-start: 4px solid var(--modal-danger);
 }
 .app-dialog--danger .app-dialog-header {
-  background: var(--modal-danger);
-  border-block-end-color: var(--modal-danger-strong);
+  background: transparent;
+  border-block-end-color: var(--border-subtle);
 }
 .app-dialog--danger .app-dialog-title,
 .app-dialog--danger .app-dialog-close-btn {
-  color: var(--modal-danger-ink);
+  color: var(--text-on-modal);
 }
 .app-dialog--danger .app-dialog-close-btn:hover {
-  background: var(--modal-danger-soft);
+  background: var(--surface-modal-hover);
 }
 .app-dialog--danger .app-dialog-tone-icon {
-  background: var(--modal-danger-ink);
-  color: var(--modal-danger);
+  background: var(--modal-danger-soft);
+  color: var(--modal-danger-text);
 }
 
 .app-dialog--info {
-  border-top: 6px solid var(--modal-info);
+  border-block-start: 4px solid var(--modal-info);
 }
 .app-dialog--info .app-dialog-header {
-  background: var(--modal-info);
-  border-block-end-color: var(--modal-info-strong);
+  background: transparent;
+  border-block-end-color: var(--border-subtle);
 }
 .app-dialog--info .app-dialog-title,
 .app-dialog--info .app-dialog-close-btn {
-  color: var(--modal-info-ink);
+  color: var(--text-on-modal);
 }
 .app-dialog--info .app-dialog-tone-icon {
-  background: var(--modal-info-ink);
-  color: var(--modal-info);
+  background: var(--modal-info-soft);
+  color: var(--modal-info-text);
 }
 
 /* Modal de resultado (NoticeDialog) */
@@ -2414,9 +2493,26 @@
    ========================================================================== */
 .dialog-footer-actions {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-2);
   margin-block-start: var(--space-4);
+}
+
+.dialog-footer-actions > * {
+  inline-size: 100%;
+}
+
+@media (min-width: 40rem) {
+  .dialog-footer-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .dialog-footer-actions > * {
+    inline-size: auto;
+  }
 }
 
 .ballot-header-status {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TROUPE_LOGO_ACCEPT, validateTroupeLogoFile } from "../api/troupes.js";
+import { DialogFooter } from "../components/DialogFooter.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 
 /**
@@ -16,6 +17,7 @@ import { TroupeLogo } from "../components/TroupeLogo.jsx";
 export function TroupeForm({
   initialValue = {},
   categories = [],
+  onCancel,
   onSubmit,
   submitting = false,
   submitLabel = "Guardar comparsa",
@@ -168,9 +170,12 @@ export function TroupeForm({
           <input name="active" type="checkbox" defaultChecked={initialValue.active ?? true} /> Activa
         </label>
       )}
-      <button type="submit" disabled={submitting}>
-        {submitting ? "Guardando…" : submitLabel}
-      </button>
+      <DialogFooter>
+        {onCancel && <button type="button" className="secondary" onClick={onCancel} disabled={submitting}>Cancelar</button>}
+        <button type="submit" disabled={submitting}>
+          {submitting ? "Guardando…" : submitLabel}
+        </button>
+      </DialogFooter>
     </form>
   );
 }

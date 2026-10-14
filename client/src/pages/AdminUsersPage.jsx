@@ -3,6 +3,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 import { Dialog } from "../components/Dialog.jsx";
+import { UserManagementNavigation } from "../components/UserManagementNavigation.jsx";
 
 export function AdminUsersPage() {
   const session = useSession();
@@ -56,7 +57,7 @@ export function AdminUsersPage() {
       <header className="event-header">
         <div>
           <p className="eyebrow">Administración de acceso</p>
-          <h1>Usuarios y administradores</h1>
+          <h1>Administradores</h1>
         </div>
         <div className="event-actions">
           <button
@@ -69,6 +70,8 @@ export function AdminUsersPage() {
           </button>
         </div>
       </header>
+
+      <UserManagementNavigation current="admins" />
 
       {message && <p className="feedback" role="status" aria-live="polite">{message}</p>}
 

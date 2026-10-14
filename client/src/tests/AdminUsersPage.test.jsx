@@ -50,6 +50,9 @@ describe("AdminUsersPage", () => {
     apiRequest.mockResolvedValueOnce([]);
     const { container } = renderPage();
     expect(container.querySelector("main.container")).toHaveAttribute("data-layer", "instrument");
+    expect(screen.getByRole("navigation", { name: "Secciones de usuarios" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Administradores" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Crear e invitar" })).toHaveAttribute("href", "#/admin/judges");
   });
 
   it("lista los usuarios y distingue la sesión actual y roles", async () => {

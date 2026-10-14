@@ -615,8 +615,6 @@
 .evaluation-summary-status { margin: 0.8rem 0 0; color: var(--text-secondary); }
 .evaluation-summary-pending { margin-block-start: 0.75rem; }
 .evaluation-summary-pending ul { margin-block: 0.4rem 0; padding-inline-start: 1.25rem; }
-.evaluation-step-actions { display: flex; justify-content: space-between; gap: 0.75rem; margin-block-start: 1rem; }
-.evaluation-step-actions button { min-block-size: var(--touch-target-min); }
 .evaluation-review-items .section-heading { margin-block-end: 0.75rem; }
 .evaluation-review-items .section-heading h3 { margin: 0; }
 .evaluation-review-items .section-heading p { margin: 0.25rem 0 0; }
@@ -624,6 +622,1086 @@
 @media (max-width: 36rem) {
   .evaluation-section-heading { align-items: flex-start; }
   .specialty-option { flex: 1 1 8rem; }
-  .evaluation-step-actions { flex-direction: column-reverse; }
-  .evaluation-step-actions button { inline-size: 100%; }
+}
+
+/* ==========================================================================
+   Wizard Stepper & Navigation (Preparación del evento)
+   ========================================================================== */
+
+.competencia-stepper-header {
+  margin-block-end: 1.5rem;
+}
+
+.competencia-stepper-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.competencia-stepper-item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.competencia-stepper-item:last-child {
+  flex: 0 0 auto;
+}
+
+.competencia-stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: none;
+  padding: var(--space-2);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.competencia-stepper-btn:hover {
+  color: var(--text-primary);
+}
+
+.competencia-stepper-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 2px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.competencia-stepper-btn.is-active .competencia-stepper-circle {
+  background: var(--palette-action);
+  border-color: var(--palette-action);
+  color: var(--text-on-accent);
+}
+
+.competencia-stepper-btn.is-active {
+  color: var(--palette-action);
+  font-weight: 700;
+  border-block-end: 3px solid var(--palette-action);
+  border-radius: 0;
+  padding-block-end: var(--space-2);
+}
+
+.competencia-stepper-btn.is-complete .competencia-stepper-circle {
+  background: var(--surface-card);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.competencia-stepper-divider {
+  flex: 1;
+  block-size: 2px;
+  background: var(--border-subtle);
+  margin-inline: var(--space-3);
+  min-inline-size: 1.5rem;
+}
+
+/* Sub-pestañas: [Comparsas] [Orden de pasada] */
+.competencia-subtabs {
+  display: flex;
+  gap: var(--space-4);
+  border-block-end: 1px solid var(--border-default);
+  margin-block: 1rem 1.5rem;
+}
+
+.competencia-subtab-btn {
+  background: transparent;
+  border: none;
+  border-block-end: 3px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: var(--text-base);
+  cursor: pointer;
+  border-radius: 0;
+  transition: all 0.15s ease;
+}
+
+.competencia-subtab-btn:hover {
+  color: var(--text-primary);
+}
+
+.competencia-subtab-btn.is-active {
+  color: var(--text-primary);
+  border-block-end-color: var(--palette-action);
+}
+
+/* Card contenedor de la tabla de comparsas */
+.competencia-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+  margin-block-end: 1.5rem;
+}
+
+/* Toolbar de Comparsas */
+.competencia-card-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-block-end: 1px solid var(--border-default);
+}
+
+.competencia-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.competencia-toolbar-count {
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  margin-inline-end: var(--space-2);
+}
+
+.competencia-toolbar-search {
+  display: flex;
+  align-items: center;
+  min-inline-size: 12rem;
+  flex: 1;
+  max-inline-size: 20rem;
+}
+
+.competencia-toolbar-search input {
+  inline-size: 100%;
+}
+
+.competencia-toolbar-filter select {
+  min-inline-size: 10rem;
+}
+
+/* Pie de la tabla de comparsas */
+.competencia-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border-block-start: 1px solid var(--border-default);
+}
+
+.competencia-readiness-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.competencia-readiness-badge.is-ready {
+  color: var(--success);
+}
+
+/* Catálogos del paso Participantes: tipos primero, comparsas después. */
+.participants-types-block {
+  margin-block-end: 1rem;
+}
+
+.participants-troupes-block {
+  margin-block-end: 0;
+}
+
+.participants-catalog-section {
+  margin-block: 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.participants-catalog-section .section-heading {
+  margin-block-end: 1rem;
+}
+
+.participants-catalog-section .section-heading h2 {
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.participants-catalog-section .section-heading p {
+  max-inline-size: 68ch;
+  color: var(--text-secondary);
+}
+
+.participants-type-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.participants-type-heading > div {
+  min-inline-size: 0;
+}
+
+.participants-type-heading > button {
+  flex: 0 0 auto;
+  min-block-size: var(--touch-target-min);
+}
+
+.participants-types-table {
+  margin-block-start: 0.25rem;
+}
+
+.participants-types-table .data-table thead th {
+  font-size: 0.8rem;
+  letter-spacing: 0.015em;
+  text-transform: none;
+}
+
+.participants-types-table .data-table td {
+  padding-block: 0.8rem;
+}
+
+.participants-troupes-block .competencia-card-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.participants-troupes-block .competencia-toolbar-left {
+  display: grid;
+  grid-template-columns: auto minmax(9rem, 1.25fr) repeat(2, minmax(8rem, 0.75fr));
+  align-items: end;
+  gap: 0.75rem;
+  margin-block: 0;
+}
+
+.participants-troupes-block .competencia-toolbar-count {
+  align-self: center;
+  margin-inline-end: 0;
+  white-space: nowrap;
+}
+
+.participants-troupes-block .competencia-toolbar-search {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: none;
+}
+
+.participants-troupes-block .competencia-toolbar-search label,
+.participants-troupes-block .competencia-toolbar-filter label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.participants-troupes-block .competencia-toolbar-search input,
+.participants-troupes-block .competencia-toolbar-filter select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--touch-target-min);
+}
+
+.participants-troupes-block .competencia-toolbar-right {
+  display: flex;
+  align-items: end;
+}
+
+@media (max-width: 56rem) {
+  .participants-troupes-block .competencia-card-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-left {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .participants-troupes-block .competencia-toolbar-count {
+    grid-column: 1 / -1;
+  }
+
+  .participants-troupes-block .competencia-toolbar-right {
+    justify-content: end;
+  }
+}
+
+@media (max-width: 40rem) {
+  .participants-catalog-section .section-heading {
+    align-items: stretch;
+  }
+
+  .participants-type-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .participants-type-heading > button {
+    inline-size: 100%;
+  }
+
+  .participants-troupes-block .competencia-card-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-left {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-count {
+    grid-column: auto;
+  }
+
+  .participants-troupes-block .competencia-toolbar-right,
+  .participants-troupes-block .competencia-toolbar-right button {
+    inline-size: 100%;
+  }
+}
+
+/* Wizard Footer Navigation */
+.wizard-footer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-start: 2rem;
+  padding-block-start: 1.5rem;
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.competencia-tab-panel.is-hidden {
+  display: none;
+}
+
+/* ==========================================================================
+   Paso 2: Jurados por jornada (Asignaciones y Cobertura)
+   ========================================================================== */
+
+.competencia-step-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-block-end: 1.5rem;
+}
+
+.competencia-step-header-row h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.competencia-step-header-row p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+
+.competencia-night-select-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-end: 1.5rem;
+}
+
+.competencia-night-select-bar label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.competencia-night-select-bar select {
+  min-inline-size: 14rem;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-base);
+}
+
+/* Lista de Jurados asignados dentro de la celda de la tabla */
+.assigned-judges-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.assigned-judge-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.assigned-judge-item .judge-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.assigned-judge-item .judge-role-tag {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Píldoras de Cobertura */
+.coverage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.coverage-pill.is-complete {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
+}
+
+.coverage-pill.is-partial {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+}
+
+.coverage-pill.is-empty {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+/* Banner de Resumen de Cobertura */
+.competencia-callout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-block-start: 1.5rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.competencia-callout.is-success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
+}
+
+.competencia-callout.is-warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+}
+
+.competencia-callout .callout-icon {
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+/* Historial desplegable en card */
+.competencia-history-details {
+  border-block-start: 1px solid var(--border-default);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+}
+
+.competencia-history-details summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.competencia-history-details summary:hover {
+  color: var(--text-primary);
+}
+
+.competencia-history-details[open] summary {
+  margin-block-end: var(--space-3);
+}
+
+.competencia-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.competencia-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+
+/* Diálogo de Asignación de Jurados */
+.assignment-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.assignment-quota-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.assignment-current-judges {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assignment-judge-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+}
+
+/* ==========================================================================
+   Paso 3: Evaluación (Contenedor de 2 columnas, Especialidades y Rubros)
+   ========================================================================== */
+
+.evaluation-panel-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+  margin-block-end: 1.5rem;
+}
+
+.evaluation-panel-header {
+  padding: var(--space-4) var(--space-5);
+  border-block-end: 1px solid var(--border-default);
+}
+
+.evaluation-panel-header h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.evaluation-panel-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+
+.evaluation-panel-body {
+  display: flex;
+  align-items: stretch;
+  min-inline-size: 0;
+}
+
+/* Columna Izquierda: Selector de Especialidades */
+.evaluation-specialties-col {
+  inline-size: 15.5rem; /* ~248px */
+  min-inline-size: 13.75rem; /* 220px */
+  max-inline-size: 16.25rem; /* 260px */
+  flex-shrink: 0;
+  border-inline-end: 1px solid var(--border-default);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.evaluation-specialties-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.evaluation-specialty-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evaluation-specialty-btn {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: start;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.evaluation-specialty-btn:hover {
+  background: var(--surface-hover-subtle);
+  color: var(--text-primary);
+}
+
+.evaluation-specialty-btn.is-selected {
+  background: var(--surface-raised);
+  border-color: var(--border-subtle);
+  border-inline-start: 4px solid var(--palette-action);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.evaluation-specialty-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.evaluation-specialty-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.evaluation-specialty-count {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.evaluation-specialty-indicator {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--palette-action);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.evaluation-specialty-btn.is-selected .evaluation-specialty-indicator {
+  opacity: 1;
+}
+
+/* Columna Derecha: Rubros de la Especialidad */
+.evaluation-rubrics-col {
+  flex: 1;
+  min-inline-size: 0;
+  padding: var(--space-5);
+  background: var(--surface-card);
+}
+
+.evaluation-rubrics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.evaluation-rubrics-header h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Tarjeta / Fila de Rubro */
+.rubric-compact-row {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  margin-block-end: var(--space-3);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.rubric-compact-row:hover {
+  border-color: var(--border-subtle);
+}
+
+.rubric-compact-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+}
+
+.rubric-compact-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 10rem;
+}
+
+.rubric-compact-left h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rubric-compact-meta {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rubric-compact-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rubric-shared-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
+  white-space: nowrap;
+}
+
+.rubric-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Detalle desplegado de rubro */
+.rubric-compact-body {
+  border-block-start: 1px solid var(--border-default);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rubric-shared-explanation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.rubric-quick-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.rubric-quick-menu-dropdown {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 100%;
+  margin-block-start: var(--space-1);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: 10;
+  min-inline-size: 10rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rubric-quick-menu-dropdown button {
+  inline-size: 100%;
+  text-align: start;
+  justify-content: flex-start;
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 48rem) {
+  .evaluation-panel-body {
+    flex-direction: column;
+  }
+
+  .evaluation-specialties-col {
+    inline-size: 100%;
+    max-inline-size: none;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border-default);
+    padding: var(--space-3);
+  }
+
+  .evaluation-specialty-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .evaluation-specialty-btn {
+    inline-size: auto;
+    min-inline-size: 8.5rem;
+  }
+}
+
+.rubric-items-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.rubric-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rubric-items-header h4 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rubric-shared-footnote {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  margin-block-start: var(--space-4);
+  margin-block-end: 0;
+}
+
+/* ==========================================================================
+   Paso 4: Revisión final (Panel, Banners y Resumen)
+   ========================================================================== */
+
+.revision-panel-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+  margin-block-end: 1.5rem;
+}
+
+.revision-status-banner {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  margin-block-end: var(--space-5);
+  border: 1px solid var(--border-default);
+  background: var(--surface-raised);
+}
+
+.revision-status-banner.is-open {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.revision-status-banner.is-open h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--success-text);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.revision-status-banner.is-open p {
+  margin: 0 0 var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  max-inline-size: 50rem;
+}
+
+.revision-status-banner.is-ready {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.revision-status-banner.is-ready h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--success-text);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.revision-status-banner.is-ready .readiness-ok {
+  font-weight: 600;
+  color: var(--success-text);
+  margin: 0 0 var(--space-2);
+}
+
+.revision-status-banner.is-ready .revision-banner-subtext {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  max-inline-size: 45rem;
+}
+
+.revision-status-banner.is-blocked {
+  border-color: var(--border-default);
+  background: var(--surface-card);
+  flex-direction: column;
+}
+
+.revision-banner-icon {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.revision-banner-content {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.revision-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-block-start: var(--space-2);
+}
+
+.revision-summary-section {
+  margin-block-start: var(--space-4);
+}
+
+.revision-section-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.revision-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
+  gap: var(--space-4);
+}
+
+.revision-summary-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  transition: border-color 0.15s ease;
+}
+
+.revision-summary-card:hover {
+  border-color: var(--border-subtle);
+}
+
+.revision-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-end: var(--space-1);
+}
+
+.revision-card-badge {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--palette-action);
+  letter-spacing: 0.05em;
+}
+
+.revision-card-header h4 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.revision-card-value {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.revision-card-detail {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.revision-card-link {
+  margin-block-start: auto;
+  align-self: flex-start;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-3);
 }

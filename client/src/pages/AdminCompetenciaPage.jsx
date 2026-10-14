@@ -13,6 +13,9 @@ import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
+import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 
 const WriteContext = createContext(null);
 
@@ -35,19 +38,64 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
+function incompleteStepGuidance(stepKey, readiness) {
+  const missing = new Set(readiness?.missing ?? []);
+  const messages = [];
+
+  if (stepKey === "participantes") {
+    if (missing.has("ACTIVE_TROUPE")) messages.push("No hay comparsas activas. Creá una comparsa o activá una existente.");
+    for (const troupe of readiness?.incompleteTroupes ?? []) {
+      messages.push(`Elegí una categoría activa para ${troupe.name ?? "esta comparsa"}.`);
+    }
+    for (const nomination of readiness?.incompleteNominations ?? []) {
+      messages.push(`Cargá el participante que falta para ${nomination.rubricName ?? "el rubro"} en ${nomination.troupeName ?? "la comparsa"}.`);
+    }
+    if (messages.length === 0) messages.push("Revisá los participantes y completá los datos que faltan para continuar.");
+  }
+
+  if (stepKey === "jurados") {
+    if (missing.has("ACTIVE_SPECIALTY")) messages.push("No hay especialidades activas. Creá o activá una especialidad antes de asignar jurados.");
+    for (const night of readiness?.nightsWithoutJury ?? []) {
+      messages.push(`Asigná un jurado activo a ${night.nightName ?? "esta jornada"}.`);
+    }
+    if (missing.has("NIGHTS_WITHOUT_JURY") && messages.length === 0) messages.push("Revisá las asignaciones y asegurate de que cada jornada tenga un jurado activo.");
+    if (messages.length === 0) messages.push("Revisá las especialidades y las asignaciones de jurados para completar este paso.");
+  }
+
+  if (stepKey === "rubros") {
+    if (missing.has("ACTIVE_RUBRIC")) messages.push("No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.");
+    for (const rubric of readiness?.incompleteRubrics ?? []) {
+      messages.push(`${rubric.name ?? "Este rubro"}: agregá ítems puntuables y asigná cada uno a una especialidad activa.`);
+    }
+    if (messages.length === 0) messages.push("Revisá los rubros e ítems de evaluación y completá lo que falta.");
+  }
+
+  if (stepKey === "revision") return "Antes de abrir el evento, resolvé los bloqueos detallados más abajo.";
+  return messages.join(" ");
+}
+
 export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
   const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
+  const [troupeTab, setTroupeTab] = useState("comparsas");
   const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
+  const [currentEvent, setCurrentEvent] = useState(event);
+  const [openingEvent, setOpeningEvent] = useState(false);
+  const [confirmOpenEvent, setConfirmOpenEvent] = useState(false);
+  const [openEventMessage, setOpenEventMessage] = useState("");
   const writing = useRef(false);
   const progressRequest = useRef(0);
+
+  useEffect(() => {
+    setCurrentEvent(event);
+  }, [event]);
 
   useEffect(() => {
     setStep(validInitialStep);
@@ -137,14 +185,51 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     }
   };
 
+  const isEventOpen = currentEvent?.status === "OPEN";
+
+  const handleOpenEvent = async () => {
+    if (openingEvent || !currentReadiness?.ready || isEventOpen) return;
+    setOpeningEvent(true);
+    setOpenEventMessage("");
+    setConfirmOpenEvent(false);
+    let operation;
+    try {
+      operation = createPendingEventOpenOperation(event.id);
+      const openedEvent = await apiRequest(`/api/v1/events/${encodeURIComponent(event.id)}/open`, {
+        method: "POST",
+        headers: { "Idempotency-Key": operation.operationId },
+      });
+      const receipt = openedEvent?.operation;
+      const isMatchingApplied = receipt?.operationId === operation.operationId
+        && receipt?.eventId === event.id && receipt?.intent === "OPEN_EVENT"
+        && receipt?.status === "applied" && openedEvent?.status === "OPEN";
+      if (isMatchingApplied) {
+        resolvePendingEventOpenOperation(event.id, receipt);
+        setCurrentEvent(openedEvent);
+        setOpenEventMessage("¡Competencia abierta con éxito! Ya podés gestionar las jornadas en Control de votación.");
+        reloadProgress();
+      } else {
+        setOpenEventMessage("La respuesta no confirmó la apertura. Verificá el estado del evento.");
+      }
+    } catch (err) {
+      const receipt = err?.details?.operation ?? err?.operation;
+      if (operation && receipt?.operationId === operation.operationId && receipt?.status === "rejected") {
+        resolvePendingEventOpenOperation(event.id, receipt);
+      }
+      setOpenEventMessage(err?.message ?? "Error al abrir la competencia.");
+    } finally {
+      setOpeningEvent(false);
+    }
+  };
+
   const statusSummary = (key) => {
     const status = stepStatuses[key];
-    if (status === "complete") return `${READINESS_STATE_LABELS[status]} según readiness de la API.`;
-    if (status === "incomplete") return "Readiness informa uno o más bloqueos oficiales para este paso.";
-    if (status === "unqueried") return "Readiness no consultado todavía.";
-    return "Readiness no disponible; no se puede confirmar el estado de este paso.";
+    if (status === "complete") return null;
+    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness);
+    if (status === "unqueried") return "Todavía no se revisaron los requisitos de este paso.";
+    return "No se pudieron revisar los requisitos de este paso.";
   };
-  const eventStatusLabel = uxStatusLabel(event.status, "No disponible");
+  const eventStatusLabel = uxStatusLabel(currentEvent?.status, "No disponible");
 
   return (
     <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1) }}>
@@ -154,6 +239,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             <div>
               <p className="eyebrow">Competencia</p>
               <h1>{event.name ?? "Evento"}</h1>
+              <h2 className="competencia-flow-title" style={{ fontSize: "var(--text-xl)", fontWeight: 700, margin: "var(--space-2) 0" }}>Preparación del evento</h2>
               <p className="competencia-event-status">Estado del evento: {eventStatusLabel}</p>
               <p className="competencia-step-meta">Paso {activeIndex + 1} de {steps.length}</p>
             </div>
@@ -161,29 +247,37 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               {onBack && <button className="secondary" type="button" onClick={onBack}>Volver</button>}
             </div>
           </header>
-          <nav className="competencia-nav competencia-stepper" aria-label="Pasos de configuración de competencia">
-            <ol>
+          <nav className="competencia-nav competencia-stepper competencia-stepper-header" aria-label="Pasos de configuración de competencia">
+            <ol className="competencia-stepper-line">
               {steps.map((item, index) => {
                 const state = stepStatuses[item.key];
                 const isCurrent = step === item.key;
+                const isComplete = !isCurrent && state === "complete";
                 const stateLabel = READINESS_STATE_LABELS[state];
+                const shortLabels = {
+                  participantes: "Comparsas",
+                  jurados: "Jurados",
+                  rubros: "Evaluación",
+                  revision: "Revisión final",
+                };
                 return (
-                  <li key={item.key}>
+                  <li key={item.key} className="competencia-stepper-item">
                     <button
                       type="button"
-                      className={isCurrent ? "active" : "secondary"}
+                      className={`competencia-stepper-btn ${isCurrent ? "is-active active" : "secondary"} ${isComplete ? "is-complete" : ""}`}
                       aria-current={isCurrent ? "step" : undefined}
                       aria-label={`Paso ${index + 1} de ${steps.length}: ${item.label}. ${stateLabel}.${isCurrent ? " Paso actual." : ""}`}
                       onClick={() => goStep(item.key)}
                     >
-                      <span className="competencia-step-badge" aria-hidden="true">
-                        {!isCurrent && state === "complete" ? "✓" : index + 1}
+                      <span className="competencia-stepper-circle competencia-step-badge" aria-hidden="true">
+                        {isComplete ? "✓" : index + 1}
                       </span>
                       <span className="competencia-step-copy">
-                        <span className="competencia-step-label">{item.label}</span>
+                        <span className="competencia-step-label">{shortLabels[item.key] ?? item.label}</span>
                         <span className="competencia-step-state">{stateLabel}</span>
                       </span>
                     </button>
+                    {index < steps.length - 1 && <span className="competencia-stepper-divider" aria-hidden="true" />}
                   </li>
                 );
               })}
@@ -192,65 +286,92 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
-              <p className="step-intro">Cargá quiénes participan: primero los tipos, después las comparsas y por último el orden de pasada de cada jornada.</p>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
-              <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación">
-                <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
-              </section>
-              <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
-                <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
-              </section>
-              <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
-                <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
-              </section>
+
+              <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-sub-comparsas"
+                  aria-controls="panel-sub-comparsas"
+                  aria-selected={troupeTab === "comparsas"}
+                  className={`competencia-subtab-btn ${troupeTab === "comparsas" ? "is-active active" : ""}`}
+                  onClick={() => setTroupeTab("comparsas")}
+                >
+                  Comparsas
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-sub-orden"
+                  aria-controls="panel-sub-orden"
+                  aria-selected={troupeTab === "orden"}
+                  className={`competencia-subtab-btn ${troupeTab === "orden" ? "is-active active" : ""}`}
+                  onClick={() => setTroupeTab("orden")}
+                >
+                  Orden de pasada por jornada
+                </button>
+              </div>
+
+              <div
+                role="tabpanel"
+                id="panel-sub-comparsas"
+                aria-labelledby="tab-sub-comparsas"
+                className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
+              >
+                <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
+                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
+                </section>
+                <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
+                </section>
+              </div>
+
+              <div
+                role="tabpanel"
+                id="panel-sub-orden"
+                aria-labelledby="tab-sub-orden"
+                className={`competencia-tab-panel ${troupeTab === "orden" ? "is-active" : "is-hidden"}`}
+              >
+                <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
+                  <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
+                </section>
+              </div>
             </section>
           )}
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <p className="step-intro">Primero creá al menos una especialidad activa. Después vas a poder asignar jurados a cada especialidad. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Jurados y especialidades">Jurados por jornada</h2>
+              <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
-              <div className="competencia-tabs" role="tablist" aria-label="Especialidades y asignaciones">
-                <button
-                  type="button"
-                  role="tab"
-                  id="competencia-tab-especialidades"
-                  aria-controls="competencia-jurados-panel"
-                  aria-selected={juryTab === "especialidades"}
-                  className={juryTab === "especialidades" ? "active" : "secondary"}
-                  onClick={() => selectJuryTab("especialidades")}
-                >
-                  Especialidades
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="competencia-tab-asignaciones"
-                  aria-controls="competencia-jurados-panel"
-                  aria-selected={juryTab === "asignaciones"}
-                  className={juryTab === "asignaciones" ? "active" : "secondary"}
-                  onClick={() => selectJuryTab("asignaciones")}
-                >
-                  Asignar jurados
-                </button>
-              </div>
-              <div role="tabpanel" id="competencia-jurados-panel" aria-labelledby={`competencia-tab-${juryTab}`} tabIndex={0}>
-                {juryTab === "especialidades" ? (
-                  <>
-                    <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
-                    {specialtiesActive.length === 0 && <p className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</p>}
-                  </>
-                ) : (
-                  <AdminAssignmentsPage initialEventId={event.id} embedded={true} />
-                )}
-              </div>
+
+              <JuradosPorJornadaSection
+                event={event}
+                onOpenSpecialties={() => {
+                  const el = document.getElementById("seccion-especialidades");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                onDataChanged={() => {
+                  if (incRevision) incRevision();
+                  if (reloadProgress) reloadProgress();
+                }}
+              />
+
+              <section
+                id="seccion-especialidades"
+                className="competencia-subblock"
+                aria-label="Gestión de especialidades"
+                style={{ marginBlockStart: "2.5rem" }}
+              >
+                <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+              </section>
             </section>
           )}
           {step === "rubros" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Configurar evaluación</h2>
-              <p className="step-intro">Definí qué va a evaluar cada jurado y cómo se registrará su evaluación.</p>
-              <div className="competencia-tabs" role="tablist" aria-label="Rubros e ítems">
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Configurar evaluación" className="sr-only">Configurar evaluación</h2>
+              <span className="sr-only">Definí qué se evalúa en cada rubro y agregá los ítems que recibirán puntuación.</span>
+              <div className="competencia-tabs sr-only" role="tablist" aria-label="Rubros e ítems">
                 <button type="button" role="tab" id="competencia-tab-rubros" aria-controls="competencia-rubros-panel"
                   aria-selected={rubricTab === "rubros"} className={rubricTab === "rubros" ? "active" : "secondary"}
                   onClick={() => setRubricTab("rubros")}>Rubros</button>
@@ -266,33 +387,191 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 readiness={currentReadiness}
                 readinessStatus={currentReadinessStatus}
                 onBack={() => goStep("jurados")}
-                onContinue={() => goStep("revision")}
                 tab={rubricTab}
               />
               </div>
               <CompetenciaOverview key={`overview-${event.id}`} event={event} />
-              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} onBack={() => goStep("jurados")} onContinue={() => goStep("revision")} />
+              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} />
             </section>
           )}
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
-              <p className="step-intro">Revisá únicamente los bloqueos oficiales de apertura informados por la API.</p>
-              <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
-              {currentReadinessStatus === "available" ? currentReadiness.ready ? (
-                <p className="readiness-ok">La API confirma que no hay bloqueos oficiales de apertura.</p>
+
+              {isEventOpen ? (
+                <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
+                  <div className="revision-banner-icon" aria-hidden="true">🟢</div>
+                  <div className="revision-banner-content">
+                    <h3>Competencia abierta</h3>
+                    <p>
+                      El evento está abierto. Ya podés iniciar las jornadas y habilitar las votaciones desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse.
+                    </p>
+                    <div className="revision-banner-actions">
+                      <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>
+                      <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <ul className="readiness-checklist" aria-label="Bloqueos oficiales de readiness">
-                  {officialIssues.map((issue) => <li key={issue.key} className="readiness-fail">
-                    <span className="readiness-icon" aria-hidden="true">!</span>
-                    <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
-                    <a href={issue.href}>{issue.action}</a>
-                  </li>)}
-                </ul>
-              ) : <p role="status">{currentReadinessStatus === "unqueried" ? "Readiness no consultado." : "No se pudo consultar readiness; revisá Eventos para volver a consultar."}</p>}
-              {currentReadinessStatus === "unavailable" && <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>}
+                <>
+                  <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
+                  {currentReadinessStatus === "available" ? (
+                    currentReadiness.ready ? (
+                      <div className="revision-status-banner is-ready" role="region" aria-label="Requisitos para abrir el evento">
+                        <div className="revision-banner-icon" aria-hidden="true">✅</div>
+                        <div className="revision-banner-content">
+                          <h3>Preparación completa</h3>
+                          <p className="readiness-ok">Se cumplen los requisitos para abrir el evento.</p>
+                          <div className="revision-banner-actions">
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => setConfirmOpenEvent(true)}
+                              disabled={openingEvent}
+                            >
+                              {openingEvent ? "Abriendo…" : "Abrir competencia"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
+                        {officialIssues.map((issue) => (
+                          <li key={issue.key} className="readiness-fail">
+                            <span className="readiness-icon" aria-hidden="true">!</span>
+                            <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
+                            <a href={issue.href}>{issue.action}</a>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  ) : (
+                    <p role="status">
+                      {currentReadinessStatus === "unqueried"
+                        ? "Todavía no se revisaron los requisitos para abrir."
+                        : "No se pudieron revisar los requisitos. Volvé a intentarlo desde Jornadas."}
+                    </p>
+                  )}
+                  {currentReadinessStatus === "unavailable" && (
+                    <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>
+                  )}
+                </>
+              )}
+
+              {openEventMessage && (
+                <p className="form-error" role="status" style={{ margin: "var(--space-3) 0" }}>
+                  {openEventMessage}
+                </p>
+              )}
+
+              <section className="revision-summary-section" aria-label="Resumen de la preparación">
+                <h3 className="revision-section-title">Resumen de la preparación</h3>
+                <div className="revision-summary-grid">
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 1</span>
+                      <h4>Comparsas</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {progress?.troupes?.filter((t) => t.active !== false).length ?? 0} comparsas
+                    </p>
+                    <p className="revision-card-detail">
+                      {progress?.categories?.filter((c) => c.active !== false).length ?? 0} tipos de participación
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("participantes")}
+                    >
+                      Ver comparsas
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 2</span>
+                      <h4>Jurados</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {specialtiesActive.length} especialidades
+                    </p>
+                    <p className="revision-card-detail">
+                      Asignaciones por jornada
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("jurados")}
+                    >
+                      Ver jurados
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 3</span>
+                      <h4>Evaluación</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {progress?.rubrics?.filter((r) => r.active !== false).length ?? 0} rubros
+                    </p>
+                    <p className="revision-card-detail">
+                      {(progress?.rubrics ?? [])
+                        .filter((r) => r.active !== false)
+                        .reduce((acc, r) => acc + (r.criteria?.length ?? r.items?.length ?? 0), 0)} criterios de puntuación
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("rubros")}
+                    >
+                      Ver evaluación
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Operación</span>
+                      <h4>Jornadas</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      Control de votación
+                    </p>
+                    <p className="revision-card-detail">
+                      Orden y apertura de mesas
+                    </p>
+                    <a
+                      href="#/admin/voting"
+                      className="button-link secondary revision-card-link"
+                    >
+                      Ir a jornadas
+                    </a>
+                  </div>
+                </div>
+              </section>
+
+              <ConfirmDialog
+                isOpen={confirmOpenEvent}
+                onClose={() => setConfirmOpenEvent(false)}
+                onConfirm={handleOpenEvent}
+                title="¿Abrir la competencia?"
+                description="Al abrir el evento, su estado cambiará a OPEN. Esto no inicia una jornada ni habilita los votos. Después podrás iniciar cada jornada y abrir su votación desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse."
+                confirmLabel={openingEvent ? "Abriendo…" : "Abrir competencia"}
+                cancelLabel="Cancelar"
+                confirming={openingEvent}
+                tone="success"
+              />
             </section>
           )}
+          <WizardFooterNav
+            activeIndex={activeIndex}
+            steps={steps}
+            onStepChange={goStep}
+            isEventOpen={isEventOpen}
+            isReady={currentReadiness?.ready}
+            onOpenEvent={() => setConfirmOpenEvent(true)}
+            opening={openingEvent}
+          />
         </fieldset>
       </PageShell>
     </WriteContext.Provider>
@@ -306,6 +585,65 @@ function StepSummary({ stepLabel, recommendation }) {
       <h3>Resumen del paso</h3>
       <p role="status">{recommendation}</p>
     </section>
+  );
+}
+
+function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening }) {
+  const hasPrev = activeIndex > 0;
+  const hasNext = activeIndex < steps.length - 1;
+  const nextStep = hasNext ? steps[activeIndex + 1] : null;
+  const prevStep = hasPrev ? steps[activeIndex - 1] : null;
+  const isLastStep = activeIndex === steps.length - 1;
+
+  const STEP_BUTTON_LABELS = {
+    participantes: "comparsas",
+    jurados: "jurados",
+    rubros: "evaluación",
+    revision: "revisión",
+  };
+
+  return (
+    <nav className="wizard-footer-nav" aria-label="Navegación del asistente">
+      <div>
+        {hasPrev ? (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => onStepChange(prevStep.key)}
+          >
+            ← Volver a {STEP_BUTTON_LABELS[prevStep.key] ?? prevStep.label.toLowerCase()}
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+      <div>
+        {hasNext && (
+          <button
+            type="button"
+            className="primary"
+            onClick={() => onStepChange(nextStep.key)}
+          >
+            Continuar a {STEP_BUTTON_LABELS[nextStep.key] ?? nextStep.label.toLowerCase()} →
+          </button>
+        )}
+        {isLastStep && isEventOpen && (
+          <a href="#/admin/voting" className="button-link primary">
+            Ir a Control de votación →
+          </a>
+        )}
+        {isLastStep && !isEventOpen && isReady && (
+          <button
+            type="button"
+            className="primary"
+            onClick={onOpenEvent}
+            disabled={opening}
+          >
+            {opening ? "Abriendo…" : "Abrir competencia"}
+          </button>
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -409,7 +747,7 @@ function CompetenciaOverview({ event }) {
   );
 }
 
-function EvaluationStepSummary({ progress, readiness, readinessStatus, onBack, onContinue }) {
+function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
   const specialties = (progress?.specialties ?? []).filter((specialty) => specialty.active !== false);
   const rubrics = (progress?.rubrics ?? []).filter((rubric) => rubric.active !== false);
   const items = rubrics.flatMap((rubric) => (rubric.items ?? []).filter((item) => item.active !== false));
@@ -430,20 +768,16 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus, onBack, o
       {readinessStatus === "available" ? (
         pendingRubrics.length || missingActiveRubrics || pendingNominations.length || pendingCriteria ? (
           <div className="evaluation-summary-pending" role="status">
-            <strong>Hay puntos de evaluación para revisar.</strong>
+            <strong>Para completar la evaluación:</strong>
             <ul>
-              {missingActiveRubrics && <li>No hay rubros activos.</li>}
-              {pendingRubrics.length > 0 && <li>{pendingRubrics.length} rubro(s) necesitan ítems activos y especialidades disponibles.</li>}
-              {pendingNominations.length > 0 && <li>Faltan participantes nominados en {pendingNominations.length} combinación(es) de rubro y comparsa.</li>}
-              {pendingCriteria > 0 && <li>{pendingCriteria} criterio(s) todavía deben vincularse a un ítem.</li>}
+              {missingActiveRubrics && <li>No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.</li>}
+              {pendingRubrics.map((rubric) => <li key={rubric.id}>{rubric.name ?? "Este rubro"} necesita ítems puntuables y una especialidad activa. Agregá o corregí sus ítems.</li>)}
+              {pendingNominations.map((nomination) => <li key={`${nomination.rubricId}-${nomination.troupeId}`}>Falta cargar un participante para {nomination.rubricName ?? "el rubro"} en {nomination.troupeName ?? "la comparsa"}.</li>)}
+              {pendingCriteria > 0 && <li>Hay {pendingCriteria} criterio(s) sin asociar. Abrí cada rubro y vinculá sus criterios a un ítem puntuable.</li>}
             </ul>
           </div>
-        ) : <p className="evaluation-summary-status" role="status">Readiness no informa pendientes de rubros o nominaciones.</p>
-      ) : <p className="evaluation-summary-status" role="status">No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.</p>}
-      <nav className="evaluation-step-actions" aria-label="Navegación de evaluación">
-        <button type="button" className="secondary" onClick={onBack}>Volver</button>
-        <button type="button" onClick={onContinue}>Continuar a revisión</button>
-      </nav>
+        ) : <p className="evaluation-summary-status" role="status">No hay requisitos pendientes en rubros ni nominaciones.</p>
+      ) : <p className="evaluation-summary-status" role="status">No se pudo revisar la evaluación. Volvé a intentarlo en Revisión final.</p>}
     </section>
   );
 }
@@ -595,76 +929,96 @@ function AdminTroupesSection({ event }) {
   const editingTroupe = drawerMode?.mode === "edit" ? troupes.find((t) => t.id === drawerMode.troupeId) : null;
 
   return (
-    <section className="config-section">
+    <section className="config-section participants-catalog-section">
       <div className="section-heading">
         <h2>Comparsas</h2>
-        <p>Eliminar oculta la comparsa de la vista y la conserva desactivada en BD. Para verlas usa el filtro de estado.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
-      <div className="troupe-filters">
-        <label>Buscar<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar comparsa por nombre" placeholder="Buscar por nombre" /></label>
-        <label>Tipo<select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filtrar comparsas por tipo">
-          <option value="all">Todos los tipos</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select></label>
-        <label>Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filtrar comparsas por estado">
-          <option value="all">Todas</option>
-          <option value="active">Activas</option>
-          <option value="inactive">Inactivas</option>
-        </select></label>
-        <span className="filter-count" role="status">{filtered.length} de {troupes.length} comparsas</span>
-      </div>
-      {filtered.length === 0 ? (
-        <p className="empty-state">Sin comparsas para los filtros actuales.</p>
-      ) : (
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Comparsa</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Estado</th>
-                {!locked && <th scope="col">Acción</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((troupe) => (
-                <tr key={troupe.id}>
-                  <td>
-                    <span className="troupe-cell">
-                      <TroupeLogo troupeId={troupe.id} hasLogo={troupe.hasLogo} sha256={troupe.logoSha256} alt={`Logo de ${troupe.name}`} />
-                      {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
-                      <span>
-                        <strong>{troupe.name}</strong>
-                        <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name}{troupe.brandColor ? ` (${troupe.brandColor})` : " (sin color)"}</span>
-                      </span>
-                    </span>
-                  </td>
-                  <td>{troupe.categoryName ?? "Sin tipo"}</td>
-                  <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
-                  {!locked && (
-                    <td>
-                      <button className="secondary" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
-                        Editar
-                      </button>{" "}
-                      {troupe.active !== false ? (
-                        <button className="secondary danger-action" type="button" aria-label={`Eliminar comparsa ${troupe.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(troupe); }}>
-                          Eliminar
-                        </button>
-                      ) : (
-                        <button className="secondary" type="button" aria-label={`Reactivar comparsa ${troupe.name}`} onClick={() => reactivateTroupe(troupe)}>
-                          Reactivar
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="competencia-card">
+        <div className="competencia-card-toolbar">
+          <div className="competencia-toolbar-left troupe-filters">
+            <span className="competencia-toolbar-count filter-count" role="status">{filtered.length} de {troupes.length} comparsas</span>
+            <div className="competencia-toolbar-search">
+              <label>Buscar<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar comparsa por nombre" placeholder="Buscar por nombre..." /></label>
+            </div>
+            <div className="competencia-toolbar-filter">
+              <label>Tipo<select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filtrar comparsas por tipo">
+                <option value="all">Todos los tipos</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select></label>
+            </div>
+            <div className="competencia-toolbar-filter">
+              <label>Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filtrar comparsas por estado">
+                <option value="all">Todas</option>
+                <option value="active">Activas</option>
+                <option value="inactive">Inactivas</option>
+              </select></label>
+            </div>
+          </div>
+          <div className="competencia-toolbar-right">
+            {!locked && <button type="button" className="btn-primary" aria-label="+ Nueva comparsa" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
+          </div>
         </div>
-      )}
+        {filtered.length === 0 ? (
+          <p className="empty-state" style={{ padding: "var(--space-6)" }}>Sin comparsas para los filtros actuales.</p>
+        ) : (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Comparsa</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Estado</th>
+                  {!locked && <th scope="col">Acción</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((troupe) => (
+                  <tr key={troupe.id}>
+                    <td>
+                      <span className="troupe-cell">
+                        <TroupeLogo troupeId={troupe.id} hasLogo={troupe.hasLogo} sha256={troupe.logoSha256} alt={`Logo de ${troupe.name}`} />
+                        {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
+                        <span>
+                          <strong>{troupe.name}</strong>
+                          {troupe.brandColor && (
+                            <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name} ({troupe.brandColor})</span>
+                          )}
+                        </span>
+                      </span>
+                    </td>
+                    <td>{troupe.categoryName ?? "Sin tipo"}</td>
+                    <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
+                    {!locked && (
+                      <td>
+                        <button className="secondary" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
+                          Editar
+                        </button>{" "}
+                        {troupe.active !== false ? (
+                          <button className="secondary danger-action" type="button" aria-label={`Eliminar comparsa ${troupe.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(troupe); }}>
+                            Eliminar
+                          </button>
+                        ) : (
+                          <button className="secondary" type="button" aria-label={`Reactivar comparsa ${troupe.name}`} onClick={() => reactivateTroupe(troupe)}>
+                            Reactivar
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {troupes.filter((t) => t.active !== false).length < 2 && (
+          <div className="competencia-card-footer">
+            <div className="competencia-readiness-badge">
+              <span aria-hidden="true">⚠️</span> Se requieren al menos 2 comparsas activas
+            </div>
+          </div>
+        )}
+      </div>
       <EntityDrawer
         isOpen={drawerMode !== null && !locked}
         onClose={() => setDrawerMode(null)}
@@ -676,14 +1030,12 @@ function AdminTroupesSection({ event }) {
           key={drawerMode?.mode === "edit" ? `edit-${drawerMode.troupeId}` : `create-${drawerMode?.ts}`}
           initialValue={editingTroupe ?? {}}
           categories={activeCategories}
+          onCancel={() => setDrawerMode(null)}
           submitting={saving}
           submitLabel={drawerMode?.mode === "edit" ? "Guardar comparsa" : "Agregar comparsa"}
           showActive={drawerMode?.mode === "edit"}
           onSubmit={submitTroupe}
         />
-        <DialogFooter>
-          <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
-        </DialogFooter>
       </EntityDrawer>
       <Dialog isOpen={mutationTarget !== null && !locked} onClose={() => setMutationTarget(null)} title={mutationTarget?.title ?? "Confirmar cambio"} description={mutationTarget?.description ?? ""}>
         <DialogFooter>
@@ -695,7 +1047,7 @@ function AdminTroupesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar comparsa"}
-        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras verla con el filtro Inactivas y reactivarla. No se borra el historial."
+        description="La comparsa se desactivará y podrás reactivarla cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -807,7 +1159,6 @@ function TroupeScheduleSection({ event }) {
     <section className="config-section" aria-label="Orden de pasada por jornada">
       <div className="section-heading">
         <h2>Orden de pasada</h2>
-        <p>Programá las comparsas en cada jornada y ordená la salida. Sin comparsas programadas, la votación abre planillas vacías. No abre votacion ni crea planillas.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
       {nights.length === 0 && <p>Cargando jornadas...</p>}
@@ -1021,14 +1372,18 @@ function AdminCategoriesSection({ event }) {
   };
 
   return (
-    <section className="config-section">
-      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas. Eliminar oculta el tipo y lo conserva desactivado en BD.</p></div>
+    <section className="config-section participants-catalog-section participants-types-section">
+      <div className="section-heading participants-type-heading">
+        <div>
+          <h2>Tipos de participación</h2>
+        </div>
+        {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
+      </div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       {ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay tipos de participación.</p>
       ) : (
-        <div className="table-wrapper">
+        <div className="table-wrapper participants-types-table">
           <table className="data-table">
             <thead>
               <tr>
@@ -1100,7 +1455,7 @@ function AdminCategoriesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar tipo"}
-        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        description="El tipo se desactivará y podrás reactivarlo cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -1223,7 +1578,7 @@ function AdminSpecialtiesSection({ event }) {
 
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3. Eliminar la oculta y la conserva desactivada en BD.</p></div>
+      <div className="section-heading"><h2>Especialidades</h2></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
       {ordered.length === 0 ? (
@@ -1301,7 +1656,7 @@ function AdminSpecialtiesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar especialidad"}
-        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras reactivarla. No se borra el historial."
+        description="La especialidad se desactivará y podrás reactivarla cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -1313,7 +1668,7 @@ function AdminSpecialtiesSection({ event }) {
   );
 }
 
-function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, onBack, onContinue, tab = "rubros" }) {
+function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, onBack, tab = "rubros" }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
   const [troupes, setTroupes] = useState([]);
@@ -1334,7 +1689,28 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
   const rubricDeleteTriggerRef = useRef(null);
   const itemCreateTriggerRef = useRef(null);
   const [message, setMessage] = useState("");
+  const [openMenuRubricId, setOpenMenuRubricId] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const { writing, setPending, reloadProgress, dataRevision, incRevision } = useContext(WriteContext);
+
+  const reloadAll = async () => {
+    setLoadError(false);
+    try {
+      const [freshRubrics, freshSpecialties, freshTroupes] = await Promise.all([
+        apiRequest(`/api/v1/events/${event.id}/rubrics`),
+        apiRequest(`/api/v1/events/${event.id}/specialties`),
+        apiRequest(`/api/v1/events/${event.id}/troupes`),
+      ]);
+      setRubrics(freshRubrics);
+      setSpecialties(freshSpecialties);
+      setTroupes(freshTroupes);
+      setSelectedSpecialtyId((current) => current && freshSpecialties.some((s) => s.id === current && s.active !== false)
+        ? current
+        : freshSpecialties.find((s) => s.active !== false)?.id ?? null);
+    } catch {
+      setLoadError(true);
+    }
+  };
 
   const scrollToSelector = (selector) => {
     requestAnimationFrame(() => {
@@ -1344,14 +1720,14 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
 
   useEffect(() => {
     let active = true;
-    apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => { if (active) setLoadError(true); });
     apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => {
       if (!active) return;
       setSpecialties(loaded);
       setSelectedSpecialtyId((current) => current && loaded.some((specialty) => specialty.id === current && specialty.active !== false)
         ? current
         : loaded.find((specialty) => specialty.active !== false)?.id ?? null);
-    }).catch(() => {});
+    }).catch(() => { if (active) setLoadError(true); });
     apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
     return () => { active = false; };
   }, [event.id, dataRevision]);
@@ -1631,257 +2007,585 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
 
   return (
     <section className="config-section">
-      <div className="evaluation-section-heading">
-        <div>
-          <h3>Especialidades</h3>
-          <p>Seleccioná una especialidad para ver qué rubros evalúa.</p>
-        </div>
-        {!locked && <button type="button" onClick={() => setShowCreateForm((visible) => !visible)} aria-expanded={showCreateForm} aria-controls="new-rubric-form">
-          {showCreateForm ? "Cancelar" : "+ Agregar rubro"}
-        </button>}
-      </div>
-      {activeSpecialties.length > 0 ? (
-        <div className="specialty-selector" role="group" aria-label="Especialidades de la competencia">
-          {activeSpecialties.map((specialty) => {
-            const count = activeRubrics.filter((rubric) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialty.id)).length;
-            const selected = selectedSpecialtyId === specialty.id;
-            return <button key={specialty.id} type="button" className={selected ? "specialty-option is-selected" : "specialty-option"}
-              aria-pressed={selected} onClick={() => setSelectedSpecialtyId(specialty.id)}>
-              <span>{specialty.name}</span><span className="specialty-option-count">{count} {count === 1 ? "rubro" : "rubros"}</span>
-            </button>;
-          })}
-        </div>
-      ) : (
-        <div className="evaluation-empty-state">
-          <strong>Todavía no hay especialidades activas</strong>
-          <p>Los rubros se organizan según la especialidad que evalúa cada jurado. Primero agregá una especialidad.</p>
-          <button className="secondary" type="button" onClick={onBack}>Volver a Jurados y especialidades</button>
+      {loadError && (
+        <div className="overview-alert" role="alert" style={{ marginBlockEnd: "var(--space-4)" }}>
+          <strong>No se pudo cargar la configuración de evaluación.</strong>
+          <button type="button" className="secondary" onClick={reloadAll}>Reintentar</button>
         </div>
       )}
-
-      {selectedSpecialty && <div className="evaluation-list-heading">
-        <h3>Rubros de {selectedSpecialty.name}</h3>
-      </div>}
-      <p className="feedback" role="status">{message}</p>
-
-      {!locked && showCreateForm && <SaveForm id="new-rubric-form" resetOnSuccess className="config-card rubric-create-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveRubric(`/api/v1/events/${event.id}/rubrics`, { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null }); }}>
-        <h3>Agregar rubro</h3>
-        <label>Nombre del rubro<input name="name" autoFocus required /></label>
-        <label>A quién se evalúa<select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominación</option></select></label>
-        <label>Tipo de evaluación<select name="rubricType">{RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-        {newRubricTarget === "NOMINATION" && <label>Qué tipo de participante<select name="expectedSubjectType" defaultValue="PERSON">{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>}
-        <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
-        <details className="advanced-options">
-          <summary>Opciones avanzadas</summary>
-          <label>Método de resolución<select name="resolutionMethod" title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
-        </details>
-        <div className="form-actions"><button type="submit">Crear rubro</button><button type="button" className="secondary" onClick={() => setShowCreateForm(false)}>Cancelar</button></div>
-      </SaveForm>}
-
-      {activeSpecialties.length > 0 && specialtyRubrics.length === 0 && <div className="evaluation-empty-state">
-        <strong>Todavía no hay rubros asociados a {selectedSpecialty?.name ?? "esta especialidad"}</strong>
-        <p>Los rubros indican qué evaluará el jurado. Podés agregar uno o vincular un ítem de un rubro existente a esta especialidad.</p>
-        {!locked && <button type="button" className="secondary" onClick={() => setShowCreateForm(true)}>+ Agregar rubro</button>}
-      </div>}
-
-      <div className="rubric-list">
-        {visibleRubrics.map((rubric, rubricIndex) => {
-          const isUnassigned = unassignedRubrics.some((entry) => entry.id === rubric.id);
-          const orderedItems = [...(rubric.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
-          const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id));
-          const isExpanded = expanded === rubric.id;
-          const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? rubric.rubricType;
-          const rubricStatus = rubric.active === false ? "Inactivo" : readinessStatus !== "available" ? "Estado por comprobar" : incompleteRubricIds.has(rubric.id) ? "Necesita configuración" : "Listo";
-          return (
-            <Fragment key={rubric.id}>
-            {isUnassigned && rubricIndex === visibleRubrics.findIndex((entry) => unassignedRubrics.some((candidate) => candidate.id === entry.id)) && <h3 className="rubric-group-heading">Otros rubros por revisar</h3>}
-            <article className={`rubric-card${isUnassigned ? " rubric-card-unassigned" : ""}`} data-rubric-id={rubric.id}>
-              <div className="rubric-card-header">
-                <div>
-                  <h3>{rubric.name}{rubric.active === false && <small> · Inactivo</small>}</h3>
-                  <span className="rubric-meta">{rubric.evaluationTarget === "NOMINATION" ? "Evalúa participantes nominados" : "Evalúa comparsas"} · {rubricTypeLabel}</span>
-                  <span className="rubric-meta">{orderedItems.filter((item) => item.active !== false).length} ítems · {rubricStatus}</span>
-                  {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
-                  {derived.length > 1 && <span className="rubric-shared-note">Este rubro se comparte entre {derived.map((specialty) => specialty.name).join(" y ")}.</span>}
-                  {isUnassigned && <span className="rubric-shared-note">No tiene ítems asociados a una especialidad activa.</span>}
-                </div>
-                <div className="rubric-card-actions">
-                  {tab === "items" && !locked && rubric.active !== false && (
-                    <button type="button" aria-label={`Crear ítem en ${rubric.name}`} disabled={activeSpecialties.length === 0}
-                      onClick={(event) => { itemCreateTriggerRef.current = event.currentTarget; setItemCreateTarget(rubric); }}>
-                      Crear ítem
+      <div className="evaluation-panel-card">
+        <div className="evaluation-panel-header">
+          <h2>Evaluación</h2>
+          <p>Definí qué se evalúa y cómo se puntúa.</p>
+        </div>
+        <div className="evaluation-panel-body">
+          {/* Columna Izquierda: Especialidades */}
+          <aside className="evaluation-specialties-col" aria-label="Especialidades">
+            <h3 className="evaluation-specialties-title">Especialidades</h3>
+            {activeSpecialties.length > 0 ? (
+              <div className="evaluation-specialty-list specialty-selector" role="group" aria-label="Especialidades de la competencia">
+                {activeSpecialties.map((specialty) => {
+                  const count = activeRubrics.filter((rubric) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialty.id)).length;
+                  const selected = selectedSpecialtyId === specialty.id;
+                  return (
+                    <button
+                      key={specialty.id}
+                      type="button"
+                      className={`evaluation-specialty-btn specialty-option ${selected ? "is-selected" : ""}`}
+                      aria-pressed={selected}
+                      onClick={() => setSelectedSpecialtyId(specialty.id)}
+                    >
+                      <span className="evaluation-specialty-info">
+                        <span className="evaluation-specialty-name">{specialty.name}</span>
+                        <span className="evaluation-specialty-count specialty-option-count">
+                          {count} {count === 1 ? "rubro" : "rubros"}
+                        </span>
+                      </span>
+                      <span className="evaluation-specialty-indicator" aria-hidden="true">›</span>
                     </button>
-                  )}
-                  <button className="secondary" type="button" aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`} aria-expanded={isExpanded} onClick={() => { setHighlightItemId(null); setExpanded(isExpanded ? null : rubric.id); setEditingRubricId(null); }}>
-                    {isExpanded ? "Contraer" : "Expandir"}
-                  </button>
-                  {!locked && (rubric.active !== false ? (
-                    <button className="secondary danger-action" type="button" aria-label={`Desactivar rubro ${rubric.name}`} onClick={(event) => { rubricDeleteTriggerRef.current = event.currentTarget; setRubricDeleteTarget(rubric); }}>
-                      Desactivar
-                    </button>
-                  ) : (
-                    <button className="secondary" type="button" aria-label={`Reactivar rubro ${rubric.name}`} onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}>
-                      Reactivar
-                    </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            ) : (
+              <div className="evaluation-empty-state">
+                <strong>Todavía no hay especialidades activas</strong>
+                <p>Los rubros se organizan según la especialidad que evalúa cada jurado. Primero agregá una especialidad.</p>
+                <button className="secondary" type="button" onClick={onBack}>Volver a Jurados y especialidades</button>
+              </div>
+            )}
+          </aside>
 
-              {isExpanded && (
-                <div className="rubric-expanded">
-                  {tab === "rubros" && <>
-                  {!locked && (
-                    editingRubricId === rubric.id ? (
-                      <SaveForm className="rubric-edit-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null, rubricType: fd.get("rubricType"), resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null, active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del rubro", `Se actualizará la configuración de ${rubric.name}.`, async () => { const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, body, "PATCH"); if (ok) setEditingRubricId(null); }); return false; }}>
-                        <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
-                        <label>A quién se evalúa<select name="evaluationTarget" value={editingRubricTarget} onChange={(e) => setEditingRubricTarget(e.target.value)}><option value="TROUPE">Comparsa</option><option value="NOMINATION">Nominación</option></select></label>
-                        <label>Tipo<select name="rubricType" defaultValue={rubric.rubricType}>
-                          {!RUBRIC_TYPES.some((type) => type.value === rubric.rubricType) && <option value={rubric.rubricType}>{LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? `${rubric.rubricType} (histórico)`}</option>}
-                          {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select></label>
-                        <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
-                        <details className="advanced-options">
-                          <summary>Opciones avanzadas</summary>
-                          {editingRubricTarget === "NOMINATION" && <label>Qué tipo de participante<select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"}>{SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>}
-                          <label>Método de resolución<select name="resolutionMethod" defaultValue={rubric.resolutionMethod} title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">{RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></label>
-                        </details>
-                        <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
-                        <div className="form-actions">
-                          <button type="submit">Guardar rubro</button>
-                          <button type="button" className="secondary" onClick={() => setEditingRubricId(null)}>Cancelar</button>
+          {/* Columna Derecha: Rubros de la Especialidad */}
+          <div className="evaluation-rubrics-col">
+            {selectedSpecialty && (
+              <div className="evaluation-rubrics-header evaluation-list-heading">
+                <h3>Rubros de {selectedSpecialty.name}</h3>
+                {!locked && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setShowCreateForm((visible) => !visible)}
+                    aria-expanded={showCreateForm}
+                    aria-controls="new-rubric-form"
+                  >
+                    {showCreateForm ? "Cancelar" : "+ Agregar rubro"}
+                  </button>
+                )}
+              </div>
+            )}
+            <p className="feedback" role="status">{message}</p>
+
+            {!locked && showCreateForm && (
+              <SaveForm
+                id="new-rubric-form"
+                resetOnSuccess
+                className="config-card rubric-create-form"
+                onSubmit={(e) => {
+                  const fd = new FormData(e.currentTarget);
+                  return saveRubric(`/api/v1/events/${event.id}/rubrics`, {
+                    name: fd.get("name"),
+                    evaluationTarget: fd.get("evaluationTarget"),
+                    rubricType: fd.get("rubricType"),
+                    resolutionMethod: fd.get("resolutionMethod"),
+                    evaluationObjective: fd.get("evaluationObjective") || null,
+                    expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
+                  });
+                }}
+              >
+                <h3>Agregar rubro</h3>
+                <label>Nombre del rubro<input name="name" autoFocus required /></label>
+                <label>A quién se evalúa
+                  <select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}>
+                    <option value="TROUPE">Comparsa</option>
+                    <option value="NOMINATION">Nominación</option>
+                  </select>
+                </label>
+                <label>Tipo de evaluación
+                  <select name="rubricType">
+                    {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </label>
+                {newRubricTarget === "NOMINATION" && (
+                  <label>Qué tipo de participante
+                    <select name="expectedSubjectType" defaultValue="PERSON">
+                      {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </label>
+                )}
+                <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
+                <details className="advanced-options">
+                  <summary>Opciones avanzadas</summary>
+                  <label>Método de resolución
+                    <select name="resolutionMethod" title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">
+                      {RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                  </label>
+                </details>
+                <div className="form-actions">
+                  <button type="submit">Crear rubro</button>
+                  <button type="button" className="secondary" onClick={() => setShowCreateForm(false)}>Cancelar</button>
+                </div>
+              </SaveForm>
+            )}
+
+            {activeSpecialties.length > 0 && specialtyRubrics.length === 0 && (
+              <div className="evaluation-empty-state">
+                <strong>Todavía no hay rubros asociados a {selectedSpecialty?.name ?? "esta especialidad"}</strong>
+                <p>Los rubros indican qué evaluará el jurado. Podés agregar uno o vincular un ítem de un rubro existente a esta especialidad.</p>
+                {!locked && (
+                  <button type="button" className="secondary" onClick={() => setShowCreateForm(true)}>Crear el primer rubro</button>
+                )}
+              </div>
+            )}
+
+            <div className="rubric-list">
+              {visibleRubrics.map((rubric, rubricIndex) => {
+                const isUnassigned = unassignedRubrics.some((entry) => entry.id === rubric.id);
+                const orderedItems = [...(rubric.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
+                const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id));
+                const isExpanded = expanded === rubric.id;
+                const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? rubric.rubricType;
+                const rubricStatus = rubric.active === false ? "Inactivo" : readinessStatus !== "available" ? "Estado por comprobar" : incompleteRubricIds.has(rubric.id) ? "Necesita configuración" : "Listo";
+                const criteriaCount = (rubric.criteria ?? []).filter((c) => c.active !== false).length;
+                const isMenuOpen = openMenuRubricId === rubric.id;
+
+                return (
+                  <Fragment key={rubric.id}>
+                    {isUnassigned && rubricIndex === visibleRubrics.findIndex((entry) => unassignedRubrics.some((candidate) => candidate.id === entry.id)) && (
+                      <h3 className="rubric-group-heading">Otros rubros por revisar</h3>
+                    )}
+                    <article className={`rubric-compact-row rubric-card${isUnassigned ? " rubric-card-unassigned" : ""}`} data-rubric-id={rubric.id}>
+                      <div className="rubric-compact-header rubric-card-header">
+                        <div className="rubric-compact-left">
+                          <h3>
+                            {rubric.name}
+                            {rubric.active === false && <small> · Inactivo</small>}
+                          </h3>
+                          <span className="rubric-compact-meta rubric-meta">
+                            {criteriaCount} {criteriaCount === 1 ? "criterio de puntuación" : "criterios de puntuación"}
+                            {" · "}
+                            {rubric.evaluationTarget === "NOMINATION" ? "Evalúa participantes nominados" : "Evalúa comparsas"}
+                            {" · "}
+                            {rubricStatus}
+                          </span>
+                          {rubric.evaluationObjective && <span className="rubric-meta">{rubric.evaluationObjective}</span>}
                         </div>
-                      </SaveForm>
-                    ) : (
-                      <div className="rubric-edit-actions">
-                        <button className="secondary" type="button" onClick={() => { setEditingRubricId(rubric.id); setEditingRubricTarget(rubric.evaluationTarget); }}>Editar rubro</button>
-                      </div>
-                    )
-                  )}
 
-                  {rubric.evaluationTarget === "NOMINATION" && (
-                    <section className="rubric-nominations" aria-label={`Participantes nominados para ${rubric.name}`}>
-                      <h4>Participantes nominados</h4>
-                      <p>Agregá a cada persona, pareja o unidad que el jurado puntuará por separado. El tipo {subjectTypeLabel(rubric.expectedSubjectType)} se hereda de este rubro.</p>
-                      <ul className="rubric-nomination-list">
-                        {(rubric.nominations ?? []).map((nomination) => (
-                          <li key={nomination.id} className={nomination.active ? "" : "is-inactive"}>
-                            <span><strong>{nomination.displayName}</strong> · {nomination.troupeName} <small>({subjectTypeLabel(nomination.subjectType)})</small></span>
-                            {!locked && (
-                              <button
-                                className="secondary"
-                                type="button"
-                                onClick={() => setNominationStatusTarget({ nomination, active: !nomination.active })}
-                              >
-                                {nomination.active ? "Desactivar" : "Reactivar"}
-                              </button>
-                            )}
-                            {!nomination.active && <StatusPill status="SUSPENDED" label="Inactivo" />}
-                          </li>
-                        ))}
-                      </ul>
-                      {!locked && activeTroupes.length > 0 && (
-                        <SaveForm
-                          resetOnSuccess
-                          className="inline-nomination-form"
-                          onSubmit={(e) => {
-                            const fd = new FormData(e.currentTarget);
-                            const troupe = activeTroupes.find((entry) => entry.id === fd.get("eventTroupeId"));
-                            setNominationCreateTarget({
-                              rubricId: rubric.id,
-                              rubricName: rubric.name,
-                              troupeName: troupe?.name ?? "la comparsa seleccionada",
-                              body: { eventTroupeId: fd.get("eventTroupeId"), displayName: fd.get("displayName") },
-                            });
-                            return false;
-                          }}
-                        >
-                          <label>Comparsa<select name="eventTroupeId" required defaultValue=""><option value="" disabled>Elegí una comparsa</option>{activeTroupes.map((troupe) => <option key={troupe.id} value={troupe.id}>{troupe.name}</option>)}</select></label>
-                          <label>Nombre del participante<input name="displayName" required placeholder="Ej.: Ana López o Pareja de baile" /></label>
-                          {rubric.rubricType === "RANDOM" && <small>Máximo 3 participantes activos por comparsa en este rubro.</small>}
-                          <button type="submit">Agregar participante</button>
-                        </SaveForm>
-                      )}
-                    </section>
-                  )}
-
-                  </>}
-
-                  {tab === "items" && <>
-                  <h4>Items puntuables</h4>
-                  {orderedItems.map((item, itemIndex) => (
-                    <article className={`subrecord${highlightItemId === item.id ? " is-target" : ""}`} key={item.id} data-item-id={item.id}>
-                      {editingItem === item.id ? (
-                        <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { name: fd.get("name"), specialtyId: fd.get("specialtyId"), displayOrder: Number(fd.get("displayOrder")), required: fd.get("required") === "on", allowNotPresented: fd.get("allowNotPresented") === "on", active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará ${item.name} y su configuración de puntuación.`, () => saveItem(rubric.id, body, "PATCH", item.id)); return false; }}>
-                          <label>Nombre<input name="name" defaultValue={item.name} required /></label>
-                          <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-                          <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
-                          <details className="advanced-options">
-                            <summary>Opciones avanzadas</summary>
-                            <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
-                            <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
-                          </details>
-                          <label className="check"><input name="active" type="checkbox" defaultChecked={item.active} /> Activo</label>
-                          <div className="form-actions">
-                            <button type="submit">Guardar item</button>
-                            <button type="button" className="secondary" onClick={() => setEditingItem(null)}>Cancelar</button>
-                          </div>
-                        </SaveForm>
-                      ) : (
-                        <div className="subrecord-summary">
-                          <strong>{item.name}</strong>
-                          <span>{item.specialtyName}</span>
-                          <span className="mono-text">Orden: {item.displayOrder}</span>
-                          {!locked && <button className="secondary" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
-                          {!locked && <>
-                            <button className="secondary" type="button" aria-label={`Subir item ${item.name}`} disabled={itemIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex - 1], "UP"), true)}>Subir</button>
-                            <button className="secondary" type="button" aria-label={`Bajar item ${item.name}`} disabled={itemIndex === orderedItems.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex + 1], "DOWN"), true)}>Bajar</button>
-                          </>}
+                        <div className="rubric-compact-center">
+                          {derived.length > 1 && (
+                            <span className="rubric-shared-pill rubric-shared-note" title={`Este rubro se comparte entre ${derived.map((s) => s.name).join(" y ")}`}>
+                              <span aria-hidden="true">🔗</span> Este rubro se comparte entre {derived.map((s) => s.name).join(" y ")}
+                            </span>
+                          )}
+                          {isUnassigned && <span className="rubric-shared-note">No tiene ítems asociados a una especialidad activa.</span>}
                         </div>
-                      )}
-                      <div className="criterion-list">
-                        {(rubric.criteria ?? []).filter((c) => c.scoringItemId === item.id).sort((a, b) => a.displayOrder - b.displayOrder).map((crit, criterionIndex, siblings) => (
-                          <article className="subrecord criterion" key={crit.id}>
-                            {editingCriterion === crit.id ? (
-                              <SaveForm onSubmit={(e) => { const fd = new FormData(e.currentTarget); const body = { scoringItemId: fd.get("scoringItemId"), description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")), active: fd.get("active") === "on" }; requestMutationConfirmation("Guardar cambios del criterio", `Se actualizará el criterio ${crit.description}.`, () => saveCriterion(rubric.id, body, "PATCH", crit.id)); return false; }}>
-                                <label>Descripcion<textarea name="description" defaultValue={crit.description} required /></label>
-                                <label>Item<select name="scoringItemId" defaultValue={crit.scoringItemId} required>{(rubric.items ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
-                                <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={crit.displayOrder} required /></label>
-                                <label className="check"><input name="active" type="checkbox" defaultChecked={crit.active} /> Activo</label>
-                                <button type="submit" aria-label={`Guardar criterio ${crit.description}`}>Guardar</button>
-                                <button type="button" className="secondary" aria-label={`Cancelar edicion de criterio ${crit.description}`} onClick={() => setEditingCriterion(null)}>Cancelar</button>
-                              </SaveForm>
-                            ) : (
-                              <div className="subrecord-summary">
-                                <span>{crit.description}</span>
-                                <span className="mono-text">#{crit.displayOrder}</span>
-                                {!locked && <button className="secondary" type="button" aria-label={`Editar criterio ${crit.description}`} onClick={() => setEditingCriterion(crit.id)}>Editar</button>}
-                                {!locked && <>
-                                  <button className="secondary" type="button" aria-label={`Subir criterio ${crit.description}`} disabled={criterionIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex - 1], "UP"), true)}>Subir</button>
-                                  <button className="secondary" type="button" aria-label={`Bajar criterio ${crit.description}`} disabled={criterionIndex === siblings.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex + 1], "DOWN"), true)}>Bajar</button>
-                                </>}
+
+                        <div className="rubric-compact-actions rubric-card-actions">
+                          <button
+                            className="secondary rubric-criteria-toggle"
+                            type="button"
+                            aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${rubric.name}`}
+                            aria-expanded={isExpanded}
+                            onClick={() => {
+                              setHighlightItemId(null);
+                              setExpanded(isExpanded ? null : rubric.id);
+                              setEditingRubricId(null);
+                            }}
+                          >
+                            {isExpanded ? "Ocultar criterios ▴" : "Ver criterios ▾"}
+                          </button>
+
+                          {!locked && <div className="rubric-quick-menu">
+                            <button
+                              type="button"
+                              className="secondary rubric-quick-menu-trigger"
+                              aria-label={`Más opciones para ${rubric.name}`}
+                              aria-expanded={isMenuOpen}
+                              onClick={() => setOpenMenuRubricId((cur) => cur === rubric.id ? null : rubric.id)}
+                            >
+                              ···
+                            </button>
+                            {isMenuOpen && (
+                              <div className="rubric-quick-menu-dropdown" role="menu">
+                                {!locked && (
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => {
+                                      setOpenMenuRubricId(null);
+                                      setExpanded(rubric.id);
+                                      setEditingRubricId(rubric.id);
+                                      setEditingRubricTarget(rubric.evaluationTarget);
+                                    }}
+                                  >
+                                    Editar rubro
+                                  </button>
+                                )}
+                                {!locked && (
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    disabled={activeSpecialties.length === 0}
+                                    onClick={(event) => {
+                                      setOpenMenuRubricId(null);
+                                      itemCreateTriggerRef.current = event.currentTarget;
+                                      setItemCreateTarget(rubric);
+                                    }}
+                                  >
+                                    Crear ítem
+                                  </button>
+                                )}
+                                {!locked && (rubric.active !== false ? (
+                                  <button
+                                    className="secondary danger-action"
+                                    type="button"
+                                    onClick={(event) => {
+                                      setOpenMenuRubricId(null);
+                                      rubricDeleteTriggerRef.current = event.currentTarget;
+                                      setRubricDeleteTarget(rubric);
+                                    }}
+                                  >
+                                    Desactivar rubro
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="secondary"
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuRubricId(null);
+                                      requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true);
+                                    }}
+                                  >
+                                    Reactivar rubro
+                                  </button>
+                                ))}
                               </div>
                             )}
-                          </article>
-                        ))}
-                        {!locked && (
-                          <SaveForm resetOnSuccess className="inline-criterion-form" onSubmit={(e) => { const fd = new FormData(e.currentTarget); return saveCriterion(rubric.id, { scoringItemId: item.id, description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")) }); }}>
-                            <input name="description" aria-label={`Nuevo criterio para ${item.name}`} placeholder="Guía para el jurado (ej: Sincronización)" required />
-                            <input name="displayOrder" aria-label={`Orden del nuevo criterio para ${item.name}`} type="number" min="1" defaultValue="1" required className="input-order" />
-                            <button type="submit" aria-label={`Agregar criterio a ${item.name}`}>+</button>
-                          </SaveForm>
-                        )}
-                      </div>
-                    </article>
-                  ))}
+                          </div>}
 
-                  {!locked && orderedItems.length === 0 && <p className="field-hint">Este rubro todavía no tiene ítems puntuables; agregá el primero desde su tarjeta.</p>}
-                  </>}
-                </div>
-              )}
-            </article>
-            </Fragment>
-          );
-        })}
+                          {tab === "items" && !locked && rubric.active !== false && (
+                            <button
+                              type="button"
+                              aria-label={`Crear ítem en ${rubric.name}`}
+                              disabled={activeSpecialties.length === 0}
+                              onClick={(event) => {
+                                itemCreateTriggerRef.current = event.currentTarget;
+                                setItemCreateTarget(rubric);
+                              }}
+                            >
+                              Crear ítem
+                            </button>
+                          )}
+                          {!locked && (rubric.active !== false ? (
+                            <button
+                              className="secondary danger-action sr-only"
+                              type="button"
+                              aria-label={`Desactivar rubro ${rubric.name}`}
+                              onClick={(event) => {
+                                rubricDeleteTriggerRef.current = event.currentTarget;
+                                setRubricDeleteTarget(rubric);
+                              }}
+                            >
+                              Desactivar
+                            </button>
+                          ) : (
+                            <button
+                              className="secondary sr-only"
+                              type="button"
+                              aria-label={`Reactivar rubro ${rubric.name}`}
+                              onClick={() => requestMutationConfirmation("Reactivar rubro", `Se volverá a incluir ${rubric.name} en la configuración activa.`, () => setRubricActive(rubric, true), true)}
+                            >
+                              Reactivar
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="rubric-compact-body rubric-expanded">
+                          {derived.length > 1 && (
+                            <div className="rubric-shared-explanation" role="note">
+                              <span aria-hidden="true">ℹ️</span>
+                              Los cambios en un rubro compartido se aplican a las especialidades asociadas ({derived.map((s) => s.name).join(", ")}).
+                            </div>
+                          )}
+
+                          {!locked && (
+                            editingRubricId === rubric.id ? (
+                              <SaveForm
+                                className="rubric-edit-form"
+                                onSubmit={(e) => {
+                                  const fd = new FormData(e.currentTarget);
+                                  const body = {
+                                    name: fd.get("name"),
+                                    evaluationTarget: fd.get("evaluationTarget"),
+                                    expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
+                                    rubricType: fd.get("rubricType"),
+                                    resolutionMethod: fd.get("resolutionMethod"),
+                                    evaluationObjective: fd.get("evaluationObjective") || null,
+                                    active: fd.get("active") === "on",
+                                  };
+                                  const desc = derived.length > 1
+                                    ? `Se actualizará la configuración de ${rubric.name}. Este rubro es compartido; afectará a las especialidades: ${derived.map((s) => s.name).join(", ")}.`
+                                    : `Se actualizará la configuración de ${rubric.name}.`;
+                                  requestMutationConfirmation("Guardar cambios del rubro", desc, async () => {
+                                    const ok = await saveRubric(`/api/v1/rubrics/${rubric.id}`, body, "PATCH");
+                                    if (ok) setEditingRubricId(null);
+                                  });
+                                  return false;
+                                }}
+                              >
+                                <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
+                                <label>A quién se evalúa
+                                  <select name="evaluationTarget" value={editingRubricTarget} onChange={(e) => setEditingRubricTarget(e.target.value)}>
+                                    <option value="TROUPE">Comparsa</option>
+                                    <option value="NOMINATION">Nominación</option>
+                                  </select>
+                                </label>
+                                <label>Tipo
+                                  <select name="rubricType" defaultValue={rubric.rubricType}>
+                                    {!RUBRIC_TYPES.some((type) => type.value === rubric.rubricType) && (
+                                      <option value={rubric.rubricType}>{LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? `${rubric.rubricType} (histórico)`}</option>
+                                    )}
+                                    {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                  </select>
+                                </label>
+                                <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
+                                <details className="advanced-options">
+                                  <summary>Opciones avanzadas</summary>
+                                  {editingRubricTarget === "NOMINATION" && (
+                                    <label>Qué tipo de participante
+                                      <select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"}>
+                                        {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                      </select>
+                                    </label>
+                                  )}
+                                  <label>Método de resolución
+                                    <select name="resolutionMethod" defaultValue={rubric.resolutionMethod} title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">
+                                      {RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                    </select>
+                                  </label>
+                                </details>
+                                <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
+                                <div className="form-actions">
+                                  <button type="submit">Guardar rubro</button>
+                                  <button type="button" className="secondary" onClick={() => setEditingRubricId(null)}>Cancelar</button>
+                                </div>
+                              </SaveForm>
+                            ) : (
+                              <div className="rubric-edit-actions">
+                                <button
+                                  className="secondary"
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingRubricId(rubric.id);
+                                    setEditingRubricTarget(rubric.evaluationTarget);
+                                  }}
+                                >
+                                  Editar rubro
+                                </button>
+                              </div>
+                            )
+                          )}
+
+                          {rubric.evaluationTarget === "NOMINATION" && (
+                            <section className="rubric-nominations" aria-label={`Participantes nominados para ${rubric.name}`}>
+                              <h4>Participantes nominados</h4>
+                              <ul className="rubric-nomination-list">
+                                {(rubric.nominations ?? []).map((nomination) => (
+                                  <li key={nomination.id} className={nomination.active ? "" : "is-inactive"}>
+                                    <span><strong>{nomination.displayName}</strong> · {nomination.troupeName} <small>({subjectTypeLabel(nomination.subjectType)})</small></span>
+                                    {!locked && (
+                                      <button
+                                        className="secondary"
+                                        type="button"
+                                        onClick={() => setNominationStatusTarget({ nomination, active: !nomination.active })}
+                                      >
+                                        {nomination.active ? "Desactivar" : "Reactivar"}
+                                      </button>
+                                    )}
+                                    {!nomination.active && <StatusPill status="SUSPENDED" label="Inactivo" />}
+                                  </li>
+                                ))}
+                              </ul>
+                              {!locked && activeTroupes.length > 0 && (
+                                <SaveForm
+                                  resetOnSuccess
+                                  className="inline-nomination-form"
+                                  onSubmit={(e) => {
+                                    const fd = new FormData(e.currentTarget);
+                                    const troupe = activeTroupes.find((entry) => entry.id === fd.get("eventTroupeId"));
+                                    setNominationCreateTarget({
+                                      rubricId: rubric.id,
+                                      rubricName: rubric.name,
+                                      troupeName: troupe?.name ?? "la comparsa seleccionada",
+                                      body: { eventTroupeId: fd.get("eventTroupeId"), displayName: fd.get("displayName") },
+                                    });
+                                    return false;
+                                  }}
+                                >
+                                  <label>Comparsa
+                                    <select name="eventTroupeId" required defaultValue="">
+                                      <option value="" disabled>Elegí una comparsa</option>
+                                      {activeTroupes.map((troupe) => <option key={troupe.id} value={troupe.id}>{troupe.name}</option>)}
+                                    </select>
+                                  </label>
+                                  <label>Nombre del participante
+                                    <input name="displayName" required placeholder="Ej.: Ana López o Pareja de baile" />
+                                  </label>
+                                  {rubric.rubricType === "RANDOM" && <small>Máximo 3 participantes activos por comparsa en este rubro.</small>}
+                                  <button type="submit">Agregar participante</button>
+                                </SaveForm>
+                              )}
+                            </section>
+                          )}
+
+                          <section className="rubric-items-section" aria-label={`Ítems y criterios de ${rubric.name}`}>
+                            <div className="rubric-items-header">
+                              <h4>Ítems y criterios puntuables</h4>
+                              {!locked && tab !== "items" && (
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  disabled={activeSpecialties.length === 0}
+                                  onClick={(event) => {
+                                    itemCreateTriggerRef.current = event.currentTarget;
+                                    setItemCreateTarget(rubric);
+                                  }}
+                                >
+                                  + Agregar ítem puntuable
+                                </button>
+                              )}
+                            </div>
+
+                            {orderedItems.length === 0 ? (
+                              <p className="field-hint">Este rubro todavía no tiene ítems puntuables; agregá el primero.</p>
+                            ) : (
+                              orderedItems.map((item, itemIndex) => {
+                                const itemCriteria = (rubric.criteria ?? []).filter((c) => c.scoringItemId === item.id).sort((a, b) => a.displayOrder - b.displayOrder);
+                                return (
+                                  <article className={`subrecord${highlightItemId === item.id ? " is-target" : ""}`} key={item.id} data-item-id={item.id}>
+                                    {editingItem === item.id ? (
+                                      <SaveForm onSubmit={(e) => {
+                                        const fd = new FormData(e.currentTarget);
+                                        const body = {
+                                          name: fd.get("name"),
+                                          specialtyId: fd.get("specialtyId"),
+                                          displayOrder: Number(fd.get("displayOrder")),
+                                          required: fd.get("required") === "on",
+                                          allowNotPresented: fd.get("allowNotPresented") === "on",
+                                          active: fd.get("active") === "on",
+                                        };
+                                        requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará ${item.name} y su configuración de puntuación.`, () => saveItem(rubric.id, body, "PATCH", item.id));
+                                        return false;
+                                      }}>
+                                        <label>Nombre<input name="name" defaultValue={item.name} required /></label>
+                                        <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+                                        <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
+                                        <details className="advanced-options">
+                                          <summary>Opciones avanzadas</summary>
+                                          <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
+                                          <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
+                                        </details>
+                                        <label className="check"><input name="active" type="checkbox" defaultChecked={item.active} /> Activo</label>
+                                        <div className="form-actions">
+                                          <button type="submit">Guardar item</button>
+                                          <button type="button" className="secondary" onClick={() => setEditingItem(null)}>Cancelar</button>
+                                        </div>
+                                      </SaveForm>
+                                    ) : (
+                                      <div className="subrecord-summary">
+                                        <strong>{item.name}</strong>
+                                        <span>{item.specialtyName}</span>
+                                        <span className="mono-text">Orden: {item.displayOrder}</span>
+                                        {!locked && <button className="secondary" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
+                                        {!locked && (
+                                          <>
+                                            <button className="secondary" type="button" aria-label={`Subir item ${item.name}`} disabled={itemIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex - 1], "UP"), true)}>Subir</button>
+                                            <button className="secondary" type="button" aria-label={`Bajar item ${item.name}`} disabled={itemIndex === orderedItems.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex + 1], "DOWN"), true)}>Bajar</button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div className="criterion-list">
+                                      {itemCriteria.length === 0 && (
+                                        <p className="field-hint" style={{ fontSize: "var(--text-xs)", margin: "0.25rem 0" }}>
+                                          Sin criterios de puntuación asociados a este ítem.
+                                        </p>
+                                      )}
+                                      {itemCriteria.map((crit, criterionIndex, siblings) => (
+                                        <article className="subrecord criterion" key={crit.id}>
+                                          {editingCriterion === crit.id ? (
+                                            <SaveForm onSubmit={(e) => {
+                                              const fd = new FormData(e.currentTarget);
+                                              const body = {
+                                                scoringItemId: fd.get("scoringItemId"),
+                                                description: fd.get("description"),
+                                                displayOrder: Number(fd.get("displayOrder")),
+                                                active: fd.get("active") === "on",
+                                              };
+                                              requestMutationConfirmation("Guardar cambios del criterio", `Se actualizará el criterio ${crit.description}.`, () => saveCriterion(rubric.id, body, "PATCH", crit.id));
+                                              return false;
+                                            }}>
+                                              <label>Descripcion<textarea name="description" defaultValue={crit.description} required /></label>
+                                              <label>Item<select name="scoringItemId" defaultValue={crit.scoringItemId} required>{(rubric.items ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
+                                              <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={crit.displayOrder} required /></label>
+                                              <label className="check"><input name="active" type="checkbox" defaultChecked={crit.active} /> Activo</label>
+                                              <button type="submit" aria-label={`Guardar criterio ${crit.description}`}>Guardar</button>
+                                              <button type="button" className="secondary" aria-label={`Cancelar edicion de criterio ${crit.description}`} onClick={() => setEditingCriterion(null)}>Cancelar</button>
+                                            </SaveForm>
+                                          ) : (
+                                            <div className="subrecord-summary">
+                                              <span>{crit.description}</span>
+                                              <span className="mono-text">#{crit.displayOrder}</span>
+                                              {!locked && <button className="secondary" type="button" aria-label={`Editar criterio ${crit.description}`} onClick={() => setEditingCriterion(crit.id)}>Editar</button>}
+                                              {!locked && (
+                                                <>
+                                                  <button className="secondary" type="button" aria-label={`Subir criterio ${crit.description}`} disabled={criterionIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex - 1], "UP"), true)}>Subir</button>
+                                                  <button className="secondary" type="button" aria-label={`Bajar criterio ${crit.description}`} disabled={criterionIndex === siblings.length - 1 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex + 1], "DOWN"), true)}>Bajar</button>
+                                                </>
+                                              )}
+                                            </div>
+                                          )}
+                                        </article>
+                                      ))}
+
+                                      {!locked && (
+                                        <SaveForm
+                                          resetOnSuccess
+                                          className="inline-criterion-form"
+                                          onSubmit={(e) => {
+                                            const fd = new FormData(e.currentTarget);
+                                            return saveCriterion(rubric.id, { scoringItemId: item.id, description: fd.get("description"), displayOrder: Number(fd.get("displayOrder")) });
+                                          }}
+                                        >
+                                          <input name="description" aria-label={`Nuevo criterio para ${item.name}`} placeholder="Guía para el jurado (ej: Sincronización)" required />
+                                          <input name="displayOrder" aria-label={`Orden del nuevo criterio para ${item.name}`} type="number" min="1" defaultValue="1" required className="input-order" />
+                                          <button type="submit" aria-label={`Agregar criterio a ${item.name}`}>+</button>
+                                        </SaveForm>
+                                      )}
+                                    </div>
+                                  </article>
+                                );
+                              })
+                            )}
+                          </section>
+                        </div>
+                      )}
+                    </article>
+                  </Fragment>
+                );
+              })}
+            </div>
+
+            {visibleRubrics.some((r) => activeSpecialties.filter((s) => (r.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id)).length > 1) && (
+              <p className="rubric-shared-footnote">
+                Los cambios en un rubro compartido se aplican a las especialidades asociadas.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
       <Dialog
         isOpen={itemCreateTarget !== null && !locked}

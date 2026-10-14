@@ -17,6 +17,14 @@ function fillOtp(code) {
 describe("LoginPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); window.location.hash = ""; });
 
+  it("muestra el nuevo logo WebP como imagen decorativa junto al nombre del sitio", () => {
+    const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
+    const logo = container.querySelector(".login-emblem");
+    expect(logo).toHaveAttribute("src", "/icons/carnaval-logo.webp");
+    expect(logo).toHaveAttribute("alt", "");
+    expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
+  });
+
   it("enlaza información y privacidad sin requerir autenticación ni abrir otra pestaña", () => {
     render(<LoginPage onAuthenticated={vi.fn()} />);
     const about = screen.getByRole("link", { name: "Acerca de Carnavales2027" });

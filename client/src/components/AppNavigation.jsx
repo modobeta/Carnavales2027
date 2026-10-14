@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../api/http.js";
 import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
@@ -147,7 +148,7 @@ export function AppNavigation({ session }) {
 
 const ROUTE_LABELS = {
   "#/admin/home": "Inicio",
-  "#/admin/events": "Evento y jornadas",
+  "#/admin/events": "Jornadas",
   "#/admin/competencia": "Comparsas y jurados",
   "#/admin/assignments": "Asignaciones",
   "#/admin/voting": "Control de votación",
@@ -155,7 +156,7 @@ const ROUTE_LABELS = {
   "#/admin/penalties": "Penalizaciones",
   "#/admin/results": "Escrutinio",
   "#/admin/record": "Acta oficial",
-  "#/admin/judges": "Crear Usuario",
+  "#/admin/judges": "Usuarios",
   "#/admin/users": "Administradores",
   "#/judge": "Mi panel",
   "#/judge/assignment": "Selección de comparsa",
@@ -192,7 +193,9 @@ function getInitials(name) {
 }
 
   const isHomeRoute = currentRoute === "#/admin/home";
-  const hideEventPicker = currentRoute === "#/admin/home" || currentRoute === "#/admin/events";
+  const isUsersRoute = currentRoute === "#/admin/judges" || currentRoute === "#/admin/users";
+  const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
+  const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
 
   return (
@@ -231,24 +234,7 @@ function getInitials(name) {
         )}
       </div>
       <div className="session-actions">
-        {adminEvent && !hideEventPicker && (
-          <label className="global-event-picker">
-            <span>Evento activo</span>
-            <select
-              aria-label="Evento activo"
-              value={adminEvent.activeEventId}
-              disabled={adminEvent.loading || adminEvent.events.length === 0}
-              onChange={(event) => {
-                adminEvent.setActiveEventId(event.target.value);
-                if (currentRoute.startsWith("#/judge/")) window.location.hash = "#/judge";
-              }}
-            >
-              {adminEvent.events.length === 0 ? <option value="">Sin eventos</option> : adminEvent.events.map((event) => (
-                <option key={event.id} value={event.id}>{event.name}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} />}
         <div className="session-user">
           <div className="session-avatar" aria-hidden="true">
             {getInitials(session.user?.name)}
@@ -310,10 +296,11 @@ function getInitials(name) {
               <NavigationIcon name="home" />
               <span>Inicio</span>
             </a>
+            {!isGlobalAdminRoute && <>
             <span className="nav-section-label">Preparación</span>
             <a className="nav-primary-link" href="#/admin/events" aria-current={isCurrentNavItem(currentLocation, "#/admin/events") ? "page" : undefined}>
               <NavigationIcon name="calendar" />
-              <span>Evento y jornadas</span>
+              <span>Jornadas</span>
             </a>
             <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
               <summary className="nav-group-summary">
@@ -353,14 +340,11 @@ function getInitials(name) {
                 <PublicResultsLink currentRoute={currentRoute} />
               </div>
             </details>
+            </>}
             <span className="nav-section-label">Usuarios</span>
-            <a className="nav-primary-link" href="#/admin/judges" aria-current={isCurrentNavItem(currentLocation, "#/admin/judges") ? "page" : undefined}>
-              <NavigationIcon name="userPlus" />
-              <span>Crear Usuario</span>
-            </a>
-            <a className="nav-primary-link" href="#/admin/users" aria-current={isCurrentNavItem(currentLocation, "#/admin/users") ? "page" : undefined}>
+            <a className="nav-primary-link" href="#/admin/judges" aria-current={isUsersRoute ? "page" : undefined}>
               <NavigationIcon name="userCheck" />
-              <span>Administradores</span>
+              <span>Usuarios</span>
             </a>
           </>
         )}
