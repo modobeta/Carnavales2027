@@ -286,7 +286,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
-              <p className="step-intro">Creá los tipos de participación y cargá las comparsas. Después, ordená la salida de las comparsas en cada jornada de Competencia.</p>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
 
               <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
@@ -343,7 +342,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Jurados y especialidades">Jurados por jornada</h2>
-              <p className="step-intro">Creá las especialidades y asigná jurados para cada jornada. Para abrir el evento, cada jornada de Competencia necesita al menos un jurado activo. Revisá la cobertura por especialidad para completar la organización. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
 
               <JuradosPorJornadaSection
@@ -398,7 +397,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
-              <p className="step-intro">Revisá los requisitos pendientes antes de abrir el evento.</p>
 
               {isEventOpen ? (
                 <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
@@ -424,9 +422,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                         <div className="revision-banner-content">
                           <h3>Preparación completa</h3>
                           <p className="readiness-ok">Se cumplen los requisitos para abrir el evento.</p>
-                          <p className="revision-banner-subtext">
-                            Abrir el evento no inicia una jornada ni habilita los votos. Eso se hace después, desde Control de votación.
-                          </p>
                           <div className="revision-banner-actions">
                             <button
                               type="button"
@@ -937,7 +932,6 @@ function AdminTroupesSection({ event }) {
     <section className="config-section participants-catalog-section">
       <div className="section-heading">
         <h2>Comparsas</h2>
-        <p>Eliminar oculta la comparsa de la vista y la conserva desactivada en BD. Para verlas usa el filtro de estado.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
       <div className="competencia-card">
@@ -987,7 +981,9 @@ function AdminTroupesSection({ event }) {
                         {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
                         <span>
                           <strong>{troupe.name}</strong>
-                          <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name}{troupe.brandColor ? ` (${troupe.brandColor})` : " (sin color)"}</span>
+                          {troupe.brandColor && (
+                            <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name} ({troupe.brandColor})</span>
+                          )}
                         </span>
                       </span>
                     </td>
@@ -1015,23 +1011,13 @@ function AdminTroupesSection({ event }) {
             </table>
           </div>
         )}
-        <div className="competencia-card-footer">
-          <div
-            className={`competencia-readiness-badge ${
-              troupes.filter((t) => t.active !== false).length >= 2 ? "is-ready" : ""
-            }`}
-          >
-            {troupes.filter((t) => t.active !== false).length >= 2 ? (
-              <>
-                <span aria-hidden="true">✓</span> Requisitos de comparsas completos (mínimo 2 activas)
-              </>
-            ) : (
-              <>
-                <span aria-hidden="true">⚠️</span> Se requieren al menos 2 comparsas activas
-              </>
-            )}
+        {troupes.filter((t) => t.active !== false).length < 2 && (
+          <div className="competencia-card-footer">
+            <div className="competencia-readiness-badge">
+              <span aria-hidden="true">⚠️</span> Se requieren al menos 2 comparsas activas
+            </div>
           </div>
-        </div>
+        )}
       </div>
       <EntityDrawer
         isOpen={drawerMode !== null && !locked}
@@ -1061,7 +1047,7 @@ function AdminTroupesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar comparsa"}
-        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras verla con el filtro Inactivas y reactivarla. No se borra el historial."
+        description="La comparsa se desactivará y podrás reactivarla cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -1173,7 +1159,6 @@ function TroupeScheduleSection({ event }) {
     <section className="config-section" aria-label="Orden de pasada por jornada">
       <div className="section-heading">
         <h2>Orden de pasada</h2>
-        <p>Programá las comparsas en cada jornada y ordená la salida. Sin comparsas programadas, la votación abre planillas vacías. No abre votacion ni crea planillas.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
       {nights.length === 0 && <p>Cargando jornadas...</p>}
@@ -1391,7 +1376,6 @@ function AdminCategoriesSection({ event }) {
       <div className="section-heading participants-type-heading">
         <div>
           <h2>Tipos de participación</h2>
-          <p>Cada comparsa lleva un tipo. Creá los tipos antes de cargar comparsas.</p>
         </div>
         {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       </div>
@@ -1471,7 +1455,7 @@ function AdminCategoriesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar tipo"}
-        description="Se ocultara de la lista y quedara desactivado en BD (active=false). Podras reactivarlo. No se borra el historial."
+        description="El tipo se desactivará y podrás reactivarlo cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -1594,7 +1578,7 @@ function AdminSpecialtiesSection({ event }) {
 
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Especialidades</h2><p>Cada ítem puntuable pertenece a una especialidad activa: creá al menos una antes de cargar ítems en el paso 3. Eliminar la oculta y la conserva desactivada en BD.</p></div>
+      <div className="section-heading"><h2>Especialidades</h2></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
       {ordered.length === 0 ? (
@@ -1672,7 +1656,7 @@ function AdminSpecialtiesSection({ event }) {
         isOpen={deleteTarget !== null && !locked}
         onClose={() => setDeleteTarget(null)}
         title={deleteTarget ? `Eliminar ${deleteTarget.name}` : "Eliminar especialidad"}
-        description="Se ocultara de la lista y quedara desactivada en BD (active=false). Podras reactivarla. No se borra el historial."
+        description="La especialidad se desactivará y podrás reactivarla cuando sea necesario. No se borra el historial."
         focusReturnRef={deleteTriggerRef}
       >
         <div className="dialog-actions">
@@ -2407,7 +2391,6 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                           {rubric.evaluationTarget === "NOMINATION" && (
                             <section className="rubric-nominations" aria-label={`Participantes nominados para ${rubric.name}`}>
                               <h4>Participantes nominados</h4>
-                              <p>Agregá a cada persona, pareja o unidad que el jurado puntuará por separado. El tipo {subjectTypeLabel(rubric.expectedSubjectType)} se hereda de este rubro.</p>
                               <ul className="rubric-nomination-list">
                                 {(rubric.nominations ?? []).map((nomination) => (
                                   <li key={nomination.id} className={nomination.active ? "" : "is-inactive"}>

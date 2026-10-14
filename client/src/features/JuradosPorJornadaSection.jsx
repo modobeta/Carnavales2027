@@ -370,7 +370,6 @@ export function JuradosPorJornadaSection({
       <div className="competencia-step-header-row">
         <div>
           <h2>Jurados por jornada</h2>
-          <p>Asigná quién evalúa cada especialidad en cada jornada.</p>
         </div>
         <div>
           <button

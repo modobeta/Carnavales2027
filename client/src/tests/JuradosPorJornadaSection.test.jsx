@@ -93,7 +93,6 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
 
     // Encabezado
     expect(await screen.findByRole("heading", { name: "Jurados por jornada" })).toBeInTheDocument();
-    expect(screen.getByText("Asigná quién evalúa cada especialidad en cada jornada.")).toBeInTheDocument();
 
     const specBtn = screen.getByRole("button", { name: "Gestionar especialidades" });
     expect(specBtn).toBeInTheDocument();
