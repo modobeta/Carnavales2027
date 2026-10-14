@@ -1121,4 +1121,75 @@ describe("AdminCompetenciaPage", () => {
       expect(await screen.findByText(/Se requieren al menos 2 comparsas activas/)).toBeInTheDocument();
     });
   });
+
+  describe("Paso 3: Evaluación (rediseño 2 columnas y componentes)", () => {
+    it("renderiza el panel de dos columnas con selector de especialidades y lista de rubros", async () => {
+      mockCompetitionData({
+        specialties: [
+          { id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true },
+          { id: "specialty-2", name: "Vestido", code: "VESTIDO", displayOrder: 2, active: true },
+        ],
+      });
+      const { container } = render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+
+      expect(await screen.findByRole("heading", { name: "Evaluación", level: 2 })).toBeInTheDocument();
+      expect(screen.getByText("Definí qué se evalúa y cómo se puntúa.")).toBeInTheDocument();
+
+      const panel = container.querySelector(".evaluation-panel-card");
+      expect(panel).not.toBeNull();
+      expect(panel.querySelector(".evaluation-specialties-col")).not.toBeNull();
+      expect(panel.querySelector(".evaluation-rubrics-col")).not.toBeNull();
+
+      expect(await screen.findByRole("heading", { name: "Rubros de Danza" })).toBeInTheDocument();
+      const specialtyOptions = screen.getAllByRole("button", { name: /Danza|Vestido/i });
+      expect(specialtyOptions.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("muestra cantidad de criterios, estado y etiqueta de compartido con aviso de impacto", async () => {
+      const vestidoItem = { ...item, id: "item-vestido", specialtyId: "specialty-2", specialtyName: "Vestido", name: "Terminación" };
+      const shared = { ...rubric, items: [item, vestidoItem] };
+      mockCompetitionData({
+        rubrics: [shared],
+        specialties: [
+          { id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true },
+          { id: "specialty-2", name: "Vestido", code: "VESTIDO", displayOrder: 2, active: true },
+        ],
+      });
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+
+      expect(await screen.findByText(/criterio(s)? de puntuación/)).toBeInTheDocument();
+      expect(screen.getByText(/Este rubro se comparte entre Danza y Vestido/)).toBeInTheDocument();
+      expect(screen.getByText("Ver criterios ▾")).toBeInTheDocument();
+
+      // Abrir edición del rubro compartido para comprobar la advertencia de impacto
+      fireEvent.click(screen.getByRole("button", { name: "Expandir Coreografia" }));
+      expect(screen.getByText("Ocultar criterios ▴")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
+
+      const nameInput = screen.getByDisplayValue("Coreografia");
+      fireEvent.change(nameInput, { target: { value: "Coreografia Modificada" } });
+      fireEvent.click(screen.getByRole("button", { name: "Guardar rubro" }));
+
+      // Comprobar diálogo de confirmación de cambios compartidos
+      const confirmDialog = await screen.findByRole("dialog", { name: "Guardar cambios del rubro" });
+      expect(within(confirmDialog).getByText(/afectará a las especialidades: Danza, Vestido/)).toBeInTheDocument();
+    });
+
+    it("proporciona navegación inferior con Volver a jurados y Continuar a revisión", async () => {
+      mockCompetitionData();
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+
+      const volverBtn = await screen.findByRole("button", { name: "Volver a jurados" });
+      const continuarBtn = screen.getByRole("button", { name: "Continuar a revisión" });
+      expect(volverBtn).toBeInTheDocument();
+      expect(continuarBtn).toBeInTheDocument();
+
+      fireEvent.click(volverBtn);
+      expect(await screen.findByRole("heading", { name: "Jurados y especialidades" })).toBeInTheDocument();
+    });
+  });
 });
+

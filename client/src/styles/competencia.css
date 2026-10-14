@@ -1058,4 +1058,331 @@
   border: 1px solid var(--border-default);
 }
 
+/* ==========================================================================
+   Paso 3: Evaluación (Contenedor de 2 columnas, Especialidades y Rubros)
+   ========================================================================== */
+
+.evaluation-panel-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+  margin-block-end: 1.5rem;
+}
+
+.evaluation-panel-header {
+  padding: var(--space-4) var(--space-5);
+  border-block-end: 1px solid var(--border-default);
+}
+
+.evaluation-panel-header h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.evaluation-panel-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+
+.evaluation-panel-body {
+  display: flex;
+  align-items: stretch;
+  min-inline-size: 0;
+}
+
+/* Columna Izquierda: Selector de Especialidades */
+.evaluation-specialties-col {
+  inline-size: 15.5rem; /* ~248px */
+  min-inline-size: 13.75rem; /* 220px */
+  max-inline-size: 16.25rem; /* 260px */
+  flex-shrink: 0;
+  border-inline-end: 1px solid var(--border-default);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.evaluation-specialties-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.evaluation-specialty-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evaluation-specialty-btn {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: start;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.evaluation-specialty-btn:hover {
+  background: var(--surface-hover-subtle);
+  color: var(--text-primary);
+}
+
+.evaluation-specialty-btn.is-selected {
+  background: var(--surface-raised);
+  border-color: var(--border-subtle);
+  border-inline-start: 4px solid var(--palette-action);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.evaluation-specialty-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.evaluation-specialty-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.evaluation-specialty-count {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.evaluation-specialty-indicator {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--palette-action);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.evaluation-specialty-btn.is-selected .evaluation-specialty-indicator {
+  opacity: 1;
+}
+
+/* Columna Derecha: Rubros de la Especialidad */
+.evaluation-rubrics-col {
+  flex: 1;
+  min-inline-size: 0;
+  padding: var(--space-5);
+  background: var(--surface-card);
+}
+
+.evaluation-rubrics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.evaluation-rubrics-header h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Tarjeta / Fila de Rubro */
+.rubric-compact-row {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  margin-block-end: var(--space-3);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.rubric-compact-row:hover {
+  border-color: var(--border-subtle);
+}
+
+.rubric-compact-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+}
+
+.rubric-compact-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 10rem;
+}
+
+.rubric-compact-left h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rubric-compact-meta {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rubric-compact-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rubric-shared-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
+  white-space: nowrap;
+}
+
+.rubric-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Detalle desplegado de rubro */
+.rubric-compact-body {
+  border-block-start: 1px solid var(--border-default);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rubric-shared-explanation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.rubric-quick-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.rubric-quick-menu-dropdown {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 100%;
+  margin-block-start: var(--space-1);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-1);
+  z-index: 10;
+  min-inline-size: 10rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rubric-quick-menu-dropdown button {
+  inline-size: 100%;
+  text-align: start;
+  justify-content: flex-start;
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 48rem) {
+  .evaluation-panel-body {
+    flex-direction: column;
+  }
+
+  .evaluation-specialties-col {
+    inline-size: 100%;
+    max-inline-size: none;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border-default);
+    padding: var(--space-3);
+  }
+
+  .evaluation-specialty-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .evaluation-specialty-btn {
+    inline-size: auto;
+    min-inline-size: 8.5rem;
+  }
+}
+
+.rubric-items-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.rubric-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rubric-items-header h4 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rubric-shared-footnote {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  margin-block-start: var(--space-4);
+  margin-block-end: 0;
+}
+
 
