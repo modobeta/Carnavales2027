@@ -2485,3 +2485,120 @@
     padding: var(--space-4);
   }
 }
+
+/* ==========================================================================
+   Padrón de personas y accesos (Usuarios → Crear e invitar)
+   Fila compacta: identidad a la izquierda, estado a la derecha y un segundo
+   renglón con los metadatos a la izquierda y las acciones a la derecha.
+   ========================================================================== */
+.roster-page .judge-grid {
+  gap: var(--space-3);
+}
+
+/* En anchos intermedios el padrón usa una sola columna para que las acciones
+   no se compriman contra los metadatos de cada persona. */
+@container (min-width: 38rem) and (max-width: 52.99rem) {
+  .roster-page .judge-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.roster-page .judge-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-inline-start: 4px solid var(--primary-dark);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  transition: border-color var(--transition-fast);
+}
+
+.roster-page .judge-card:hover {
+  border-color: var(--border-default);
+  border-inline-start-color: var(--primary-dark);
+}
+
+.roster-page .judge-card-heading {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.roster-page .person-identity {
+  display: grid;
+  gap: var(--space-0-5);
+}
+
+.roster-page .judge-card h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.roster-page .person-contact {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.roster-page .person-document {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.roster-page .judge-status {
+  flex: 0 0 auto;
+}
+
+.roster-page .operational-roles {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.roster-page .invitation-state {
+  grid-column: 1;
+  margin: 0 !important;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.roster-page .judge-actions {
+  grid-column: 2;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.roster-page .judge-actions button {
+  min-block-size: var(--touch-target-min);
+}
+
+@media (max-width: 36rem) {
+  .roster-page .judge-card {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-page .operational-roles,
+  .roster-page .invitation-state,
+  .roster-page .judge-actions {
+    grid-column: 1;
+  }
+
+  .roster-page .judge-actions,
+  .roster-page .judge-actions button {
+    inline-size: 100%;
+  }
+
+  .roster-page .judge-actions {
+    justify-content: flex-start;
+  }
+}

@@ -118,7 +118,7 @@ describe("EventConfigurationPage", () => {
   it("muestra el panel de preparacion del evento", async () => {
     apiRequest.mockResolvedValue({ ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    await waitFor(() => expect(screen.getByText("Preparacion del evento")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Requisitos para abrir el evento")).toBeInTheDocument());
   });
 
   it("permite eliminar una jornada con confirmacion previa", async () => {

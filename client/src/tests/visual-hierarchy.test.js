@@ -9,6 +9,7 @@ describe("visual hierarchy system", () => {
   const index = source("../index.css");
   const components = source("../styles/components.css");
   const admin = source("../styles/admin.css");
+  const competencia = source("../styles/competencia.css");
 
   it("uses restrained Carnaval surfaces and keeps turquoise as an accent, not a modal canvas", () => {
     expect(tokens).toContain("--palette-page: #24102b;");
@@ -109,6 +110,34 @@ describe("visual hierarchy system", () => {
     expect(assignmentPicker).toContain("min-inline-size: min(100%, 18rem);");
     expect(navActionLayout).toContain("flex-wrap: nowrap;");
     expect(navActionLayout).toContain("align-items: center;");
+  });
+
+  it("gives participant catalogs a responsive heading and filter toolbar", () => {
+    const typesHeading = competencia.match(/\.participants-type-heading\s*\{[^}]*\}/)?.[0] ?? "";
+    const troupeToolbar = competencia.match(/\.participants-troupes-block \.competencia-card-toolbar\s*\{[^}]*\}/)?.[0] ?? "";
+    const mobileRefinement = competencia.match(/@media \(max-width: 40rem\)[\s\S]*?\.participants-troupes-block \.competencia-card-toolbar[\s\S]*?\}/)?.[0] ?? "";
+
+    expect(typesHeading).toContain("display: flex;");
+    expect(typesHeading).toContain("justify-content: space-between;");
+    expect(troupeToolbar).toContain("display: grid;");
+    expect(mobileRefinement).toContain("grid-template-columns: 1fr;");
+  });
+
+  it("presents the person roster as compact rows with aligned status and actions", () => {
+    const rowCard = admin.match(/\.roster-page \.judge-card\s*\{[^}]*\}/)?.[0] ?? "";
+    const heading = admin.match(/\.roster-page \.judge-card-heading\s*\{[^}]*\}/)?.[0] ?? "";
+    const meta = admin.match(/\.roster-page \.invitation-state\s*\{[^}]*\}/)?.[0] ?? "";
+    const actions = admin.match(/\.roster-page \.judge-actions\s*\{[^}]*\}/)?.[0] ?? "";
+    const narrowGrid = admin.match(/@container \(min-width: 38rem\) and \(max-width: 52\.99rem\)[\s\S]*?grid-template-columns: 1fr;/)?.[0] ?? "";
+
+    expect(rowCard).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(rowCard).toContain("background: var(--card-bg);");
+    expect(heading).toContain("grid-column: 1 / -1;");
+    expect(meta).toContain("grid-column: 1;");
+    expect(meta).toContain("margin: 0 !important;");
+    expect(actions).toContain("grid-column: 2;");
+    expect(actions).toContain("justify-content: flex-end;");
+    expect(narrowGrid).toContain("grid-template-columns: 1fr;");
   });
 
   it("reduces Jurado ballot noise only on desktop and keeps voting context prominent", () => {

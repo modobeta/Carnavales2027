@@ -122,5 +122,5 @@ it("muestra un rubro y su ítem recién creados sin recargar y conserva el resum
   expect(screen.getAllByText("Colorido").length).toBeGreaterThan(0);
   const summary = screen.getByRole("region", { name: "Resumen de evaluación" });
   expect(within(summary).getByText("Ítems activos").nextElementSibling).toHaveTextContent("1");
-  expect(within(summary).getByText("Readiness no informa pendientes de rubros o nominaciones.")).toBeInTheDocument();
+  expect(within(summary).getByText("No hay requisitos pendientes en rubros ni nominaciones.")).toBeInTheDocument();
 });

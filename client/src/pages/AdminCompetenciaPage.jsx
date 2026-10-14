@@ -226,8 +226,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     const status = stepStatuses[key];
     if (status === "complete") return null;
     if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness);
-    if (status === "unqueried") return "Readiness no consultado todavía.";
-    return "Readiness no disponible; no se puede confirmar el estado de este paso.";
+    if (status === "unqueried") return "Todavía no se revisaron los requisitos de este paso.";
+    return "No se pudieron revisar los requisitos de este paso.";
   };
   const eventStatusLabel = uxStatusLabel(currentEvent?.status, "No disponible");
 
@@ -286,7 +286,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
-              <p className="step-intro">Cargá quiénes participan: primero los tipos, después las comparsas y por último el orden de pasada de cada jornada.</p>
+              <p className="step-intro">Creá los tipos de participación y cargá las comparsas. Después, ordená la salida de las comparsas en cada jornada de Competencia.</p>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
 
               <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
@@ -320,10 +320,10 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 aria-labelledby="tab-sub-comparsas"
                 className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
               >
-                <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
+                <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
                   <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
                 </section>
-                <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
+                <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
                   <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
                 </section>
               </div>
@@ -343,7 +343,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Jurados y especialidades">Jurados por jornada</h2>
-              <p className="step-intro">Asigná quién evalúa cada especialidad en cada jornada. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <p className="step-intro">Creá las especialidades y asigná jurados para cada jornada. Para abrir el evento, cada jornada de Competencia necesita al menos un jurado activo. Revisá la cobertura por especialidad para completar la organización. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
 
               <JuradosPorJornadaSection
@@ -371,7 +371,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "rubros" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Configurar evaluación" className="sr-only">Configurar evaluación</h2>
-              <span className="sr-only">Definí qué va a evaluar cada jurado y cómo se registrará su evaluación.</span>
+              <span className="sr-only">Definí qué se evalúa en cada rubro y agregá los ítems que recibirán puntuación.</span>
               <div className="competencia-tabs sr-only" role="tablist" aria-label="Rubros e ítems">
                 <button type="button" role="tab" id="competencia-tab-rubros" aria-controls="competencia-rubros-panel"
                   aria-selected={rubricTab === "rubros"} className={rubricTab === "rubros" ? "active" : "secondary"}
@@ -398,7 +398,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
-              <p className="step-intro">Revisá únicamente los bloqueos oficiales de apertura informados por la API.</p>
+              <p className="step-intro">Revisá los requisitos pendientes antes de abrir el evento.</p>
 
               {isEventOpen ? (
                 <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
@@ -406,7 +406,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                   <div className="revision-banner-content">
                     <h3>Competencia abierta</h3>
                     <p>
-                      La preparación del evento finalizó con éxito. La configuración de comparsas, jurados y evaluación está resguardada para proteger la integridad y trazabilidad de las planillas oficiales.
+                      El evento está abierto. Ya podés iniciar las jornadas y habilitar las votaciones desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse.
                     </p>
                     <div className="revision-banner-actions">
                       <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>
@@ -419,13 +419,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                   <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
                   {currentReadinessStatus === "available" ? (
                     currentReadiness.ready ? (
-                      <div className="revision-status-banner is-ready" role="region" aria-label="Estado de readiness">
+                      <div className="revision-status-banner is-ready" role="region" aria-label="Requisitos para abrir el evento">
                         <div className="revision-banner-icon" aria-hidden="true">✅</div>
                         <div className="revision-banner-content">
                           <h3>Preparación completa</h3>
-                          <p className="readiness-ok">La API confirma que no hay bloqueos oficiales de apertura.</p>
+                          <p className="readiness-ok">Se cumplen los requisitos para abrir el evento.</p>
                           <p className="revision-banner-subtext">
-                            Al abrir la competencia, la configuración quedará resguardada y podrás iniciar las jornadas y habilitar votaciones desde el panel de control.
+                            Abrir el evento no inicia una jornada ni habilita los votos. Eso se hace después, desde Control de votación.
                           </p>
                           <div className="revision-banner-actions">
                             <button
@@ -440,7 +440,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                         </div>
                       </div>
                     ) : (
-                      <ul className="readiness-checklist" aria-label="Bloqueos oficiales de readiness">
+                      <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
                         {officialIssues.map((issue) => (
                           <li key={issue.key} className="readiness-fail">
                             <span className="readiness-icon" aria-hidden="true">!</span>
@@ -453,8 +453,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                   ) : (
                     <p role="status">
                       {currentReadinessStatus === "unqueried"
-                        ? "Readiness no consultado."
-                        : "No se pudo consultar readiness; revisá Eventos para volver a consultar."}
+                        ? "Todavía no se revisaron los requisitos para abrir."
+                        : "No se pudieron revisar los requisitos. Volvé a intentarlo desde Jornadas."}
                     </p>
                   )}
                   {currentReadinessStatus === "unavailable" && (
@@ -560,7 +560,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 onClose={() => setConfirmOpenEvent(false)}
                 onConfirm={handleOpenEvent}
                 title="¿Abrir la competencia?"
-                description="Al abrir la competencia, la configuración quedará resguardada para proteger la integridad y trazabilidad de los votos. Podrás comenzar a abrir jornadas y habilitar votaciones en Control de votación."
+                description="Al abrir el evento, su estado cambiará a OPEN. Esto no inicia una jornada ni habilita los votos. Después podrás iniciar cada jornada y abrir su votación desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse."
                 confirmLabel={openingEvent ? "Abriendo…" : "Abrir competencia"}
                 cancelLabel="Cancelar"
                 confirming={openingEvent}
@@ -781,8 +781,8 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
               {pendingCriteria > 0 && <li>Hay {pendingCriteria} criterio(s) sin asociar. Abrí cada rubro y vinculá sus criterios a un ítem puntuable.</li>}
             </ul>
           </div>
-        ) : <p className="evaluation-summary-status" role="status">Readiness no informa pendientes de rubros o nominaciones.</p>
-      ) : <p className="evaluation-summary-status" role="status">No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.</p>}
+        ) : <p className="evaluation-summary-status" role="status">No hay requisitos pendientes en rubros ni nominaciones.</p>
+      ) : <p className="evaluation-summary-status" role="status">No se pudo revisar la evaluación. Volvé a intentarlo en Revisión final.</p>}
     </section>
   );
 }
@@ -934,7 +934,7 @@ function AdminTroupesSection({ event }) {
   const editingTroupe = drawerMode?.mode === "edit" ? troupes.find((t) => t.id === drawerMode.troupeId) : null;
 
   return (
-    <section className="config-section">
+    <section className="config-section participants-catalog-section">
       <div className="section-heading">
         <h2>Comparsas</h2>
         <p>Eliminar oculta la comparsa de la vista y la conserva desactivada en BD. Para verlas usa el filtro de estado.</p>
@@ -1387,14 +1387,19 @@ function AdminCategoriesSection({ event }) {
   };
 
   return (
-    <section className="config-section">
-      <div className="section-heading"><h2>Tipos de participacion</h2><p>Cada comparsa elige uno de estos tipos al darse de alta: crealos antes de cargar comparsas. Eliminar oculta el tipo y lo conserva desactivado en BD.</p></div>
+    <section className="config-section participants-catalog-section participants-types-section">
+      <div className="section-heading participants-type-heading">
+        <div>
+          <h2>Tipos de participación</h2>
+          <p>Cada comparsa lleva un tipo. Creá los tipos antes de cargar comparsas.</p>
+        </div>
+        {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
+      </div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       {ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay tipos de participación.</p>
       ) : (
-        <div className="table-wrapper">
+        <div className="table-wrapper participants-types-table">
           <table className="data-table">
             <thead>
               <tr>

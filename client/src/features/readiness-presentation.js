@@ -8,15 +8,15 @@ export const PREPARATION_STEPS = [
 export const READINESS_STATE_LABELS = {
   complete: "Completo",
   incomplete: "Incompleto",
-  unqueried: "No consultado",
-  unavailable: "No disponible",
+  unqueried: "Pendiente de revisión",
+  unavailable: "No se pudo revisar",
 };
 
 const MISSING_INFO = {
-  COMPETITION_NIGHT: ["No hay jornadas de competencia configuradas", "#/admin/events", "Configurar jornadas"],
-  ACTIVE_TROUPE: ["No hay comparsas activas", "#/admin/competencia", "Configurar participantes"],
-  ACTIVE_SPECIALTY: ["No hay especialidades activas", "#/admin/competencia", "Configurar especialidades"],
-  ACTIVE_RUBRIC: ["No hay rubros activos", "#/admin/competencia", "Configurar rubros"],
+  COMPETITION_NIGHT: ["Creá al menos una jornada de Competencia", "#/admin/events", "Configurar jornadas"],
+  ACTIVE_TROUPE: ["Creá o activá al menos una comparsa", "#/admin/competencia", "Configurar comparsas"],
+  ACTIVE_SPECIALTY: ["Creá o activá al menos una especialidad", "#/admin/competencia", "Configurar especialidades"],
+  ACTIVE_RUBRIC: ["Creá o activá al menos un rubro", "#/admin/competencia", "Configurar rubros"],
 };
 
 export function isInterpretableReadiness(readiness) {
@@ -47,7 +47,7 @@ export function readinessIssues(readiness) {
   for (const code of readiness.missing) {
     if (["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY", "INCOMPLETE_TROUPES", "INCOMPLETE_RUBRICS"].includes(code)) continue;
     const [title, href, action] = MISSING_INFO[code] ?? [`Falta resolver ${code}`, "#/admin/events", "Revisar evento"];
-    issues.push({ key: `missing-${code}`, title, description: "Bloqueo oficial informado por readiness.", href, action, kind: "blocking" });
+    issues.push({ key: `missing-${code}`, title, description: "Este requisito debe completarse antes de abrir el evento.", href, action, kind: "blocking" });
   }
   readiness.incompleteTroupes.forEach((troupe) => issues.push({
     key: `troupe-${troupe.id}`, title: `${troupe.name} necesita una categoría activa`, description: "Elegí una categoría activa para esta comparsa.", href: "#/admin/competencia", action: "Corregir participante", kind: "blocking",
@@ -56,13 +56,13 @@ export function readinessIssues(readiness) {
     key: `rubric-${rubric.id}`, title: `${rubric.name} necesita ítems puntuables válidos`, description: "Agregá ítems puntuables con especialidades activas.", href: "#/admin/competencia", action: "Corregir rubro", kind: "blocking",
   }));
   readiness.incompleteSchedules.forEach((night) => issues.push({
-    key: `schedule-${night.nightId}`, title: `${night.nightName} no tiene comparsas programadas`, description: "Programá al menos una comparsa en esta jornada.", href: "#/admin/competencia", action: "Configurar orden de pasada", kind: "blocking",
+    key: `schedule-${night.nightId}`, title: `${night.nightName} no tiene comparsas programadas`, description: "Programá al menos una comparsa en esta jornada de Competencia.", href: "#/admin/competencia", action: "Configurar orden de salida", kind: "blocking",
   }));
   readiness.incompleteNominations.forEach((item) => issues.push({
-    key: `nomination-${item.rubricId}-${item.troupeId}`, title: `Falta un participante para ${item.rubricName} en ${item.troupeName}`, description: "Cargá la nominación requerida para esta comparsa.", href: "#/admin/competencia", action: "Cargar participante", kind: "blocking",
+    key: `nomination-${item.rubricId}-${item.troupeId}`, title: `Falta un participante para ${item.rubricName} en ${item.troupeName}`, description: "Cargá al menos un participante para este rubro y esta comparsa.", href: "#/admin/competencia", action: "Cargar participante", kind: "blocking",
   }));
   readiness.nightsWithoutJury.forEach((night) => issues.push({
-    key: `jury-${night.nightId}`, title: `${night.nightName} no tiene jurado asignado`, description: "Asigná jurado activo a esta jornada de competencia.", href: "#/admin/assignments", action: "Revisar asignaciones", kind: "blocking",
+    key: `jury-${night.nightId}`, title: `${night.nightName} no tiene jurados asignados`, description: "Asigná al menos un jurado activo a esta jornada de Competencia.", href: "#/admin/assignments", action: "Asignar jurado", kind: "blocking",
   }));
   return issues;
 }

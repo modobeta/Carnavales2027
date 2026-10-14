@@ -55,11 +55,16 @@ Las versiones exactas instalables están en los dos `package-lock.json`.
 
 ## Funcionalidades presentes
 
-- Eventos y jornadas; categorías, comparsas, especialidades, rubros, ítems, criterios y orden de pasada.
+- **Panel y navegación administrativa:** Inicio operativo (`#/admin/home`) con estado y accesos directos por evento; gestión de catálogo de eventos y jornadas en `#/admin/events`.
+- **Asistente de preparación de competencia (`#/admin/competencia`):**
+  - *Paso 1 (Participantes):* tipos de participación, comparsas (con soporte de logos y colores) y orden de pasada por jornada.
+  - *Paso 2 (Jurados):* asignación de jurados por jornada, cálculo de cobertura de puestos, roles titular/suplente y gestión de especialidades.
+  - *Paso 3 (Evaluación):* diseño en dos columnas (especialidades a la izquierda, rubros a la derecha), detalle desplegable de criterios por fila y aviso de impacto en rubros compartidos.
+  - *Paso 4 (Revisión final):* verificación de bloqueos de readiness, apertura de competencia con confirmación e idempotencia, y resumen ejecutivo con enlace a Control de votación.
 - Padrón de jurados, invitaciones, perfiles operativos, cupos, asignaciones y suplencias priorizadas.
 - Acceso con contraseña y segundo factor por correo; registro público deshabilitado.
 - Planillas online, confirmación por ítem, control de completitud y avance por orden de pasada.
-- Apertura/cierre administrativo y supervisión de progreso con SSE, sin divulgar puntajes individuales en el monitor.
+- Control de votación (`#/admin/voting`): apertura/cierre de jornada y ventana de votación, habilitación de planillas y supervisión con SSE.
 - Penalizaciones, consolidación de resultados, desempate ceremonial y actas oficiales con hash e impresión.
 - Portal público de snapshots de resultados liberados, con actualización SSE.
 
@@ -156,11 +161,13 @@ ADMIN puede consultar resultados y actas, pero **el rol ADMIN por sí solo no au
 ## Validación
 
 ```powershell
-# Desde client/: pruebas de interfaz, sin build
+# Desde client/: pruebas de interfaz y diseño, sin build
 npm test
 ```
 
-En API, `npm test` y `npm run db:test` exigen `TEST_DATABASE_URL`. Prepará una base descartable con ambas familias de migraciones según la [guía de pruebas](api/README.md#pruebas). Los tests escriben datos: no deben apuntar a desarrollo operativo ni producción.
+La suite de pruebas del cliente cuenta con **490 tests pasando en 63 suites de Vitest**, incluyendo 45 tests dedicados a tokens y diseño visual semántico (`tokens.test.js`).
+
+En API, `npm test` y `npm run db:test` exigen `TEST_DATABASE_URL` (más de 310 tests de persistencia, reglas de negocio y contratos HTTP). Prepará una base descartable con ambas familias de migraciones según la [guía de pruebas](api/README.md#pruebas). Los tests escriben datos: no deben apuntar a desarrollo operativo ni producción.
 
 No hay scripts de lint ni de typecheck configurados. El piloto incorpora `.github/workflows/ci.yml` para pruebas API/PostgreSQL 18 y cliente/build en Node 22. La evidencia histórica está en `specs/029-piloto-produccion/validation.md`; no representa pruebas ejecutadas en cada actualización documental.
 
@@ -179,14 +186,16 @@ No hay registro libre ni una contraseña universal del proyecto. El responsable 
 
 La recuperación está en `/#/forgot-password`; el enlace recibido permite definir una contraseña nueva. `/#/cuenta` contiene las opciones de cuenta. Cerrá sesión al terminar, especialmente en dispositivos compartidos.
 
-### Administración: preparar una prueba
+### Administración: preparar y operar un evento
 
-1. Seleccionar o crear un evento y sus jornadas.
-2. Completar categorías, comparsas, especialidades, rubros/ítems y criterios; revisar las nominaciones cuando correspondan.
-3. Configurar personas, perfiles, invitaciones y los roles necesarios. En la implementación actual, revisar cupos/asignaciones de jurados.
-4. Ordenar las pasadas por jornada y verificar fechas, horarios y pertenencia al evento.
-5. Revisar los bloqueos de preparación (*readiness*) antes de abrir la votación. No omitir controles mediante cambios directos en la base.
-6. Abrir la ventana de votación, supervisar avance y cerrar mediante el flujo administrativo autorizado.
+1. **Gestión de eventos e inicio:** Crear o seleccionar el evento y sus jornadas en `#/admin/events`. Desde `#/admin/home` se puede consultar el estado activo y las próximas acciones.
+2. **Asistente de competencia (`#/admin/competencia`):**
+   - *Paso 1 (Participantes):* definir tipos de participación, cargar comparsas (con logos y colores) y ordenar las pasadas por jornada.
+   - *Paso 2 (Jurados):* seleccionar jornada, asignar jurados (titulares y suplentes) por especialidad comprobando la cobertura de puestos, y gestionar especialidades.
+   - *Paso 3 (Evaluación):* seleccionar cada especialidad y configurar sus rubros e ítems puntuables desplegables; identificar rubros compartidos y revisar el impacto antes de guardar cambios.
+   - *Paso 4 (Revisión final):* revisar los bloqueos oficiales de *readiness* informados por la API. Si no hay bloqueos, confirmar la apertura mediante modal accesible (`ConfirmDialog`); el sistema persiste la clave de idempotencia antes de enviar la solicitud.
+3. **Mesa operativa (`#/admin/voting`):** con el evento en estado `OPEN`, abrir la jornada correspondiente y, de manera separada, abrir su ventana de votación. Supervisar el avance de las planillas en tiempo real (SSE) y cerrar la jornada al concluir las evaluaciones.
+4. **Escrutinio y resultados:** gestionar penalizaciones si corresponde (`#/admin/penalties`), auditar resultados y emitir actas oficiales (`#/admin/results` y `#/admin/record`).
 
 Las confirmaciones sensibles deben revisarse antes de aceptarlas. Si el servidor rechaza borrar un recurso con historia, no forzar el borrado: protege evidencia y dependencias.
 

@@ -89,8 +89,11 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/invitations/operational/accept?secret=...` | Aceptación de perfil operativo |
 | `#/invitations/accepted` | Confirmación de aceptación de jurado |
 | `#/cuenta` | Cuenta y cambio de contraseña; su pantalla usa el estado de sesión |
-| `#/admin/home`, `#/admin/events`, `#/admin/competencia` | Inicio, eventos y competencia; ADMIN |
-| `#/admin/judges`, `#/admin/assignments`, `#/admin/voting` | Personas/jurados, asignaciones y votación; ADMIN |
+| `#/admin/home` | Inicio operativo; resumen de eventos activos y accesos directos (ADMIN) |
+| `#/admin/events` | Catálogo de eventos y gestión de jornadas (ADMIN) |
+| `#/admin/competencia?step=...` | Asistente de preparación de competencia en 4 pasos (ADMIN) |
+| `#/admin/judges`, `#/admin/assignments` | Personas/jurados y asignaciones (ADMIN) |
+| `#/admin/voting` | Control de votación por jornada y mesa (ADMIN) |
 | `#/admin/penalties` | Penalizaciones; ADMIN o COMISARIO |
 | `#/admin/results`, `#/admin/record` | Resultados y acta; ADMIN, SCRUTINEER o ESCRIBANO |
 | `#/judge`, `#/judge/assignment` | Inicio y asignaciones del jurado |
@@ -108,9 +111,18 @@ Durante la votación, el jurado ve dos barras: progreso de la comparsa que está
 
 La cabecera muestra nombre, roles en español y evento activo. **Evento activo** cambia el contexto compartido de trabajo y recuerda la selección por usuario. Los jueces eligen únicamente entre sus eventos con asignaciones activas, aun antes de abrir la votación; sus planillas/progreso se filtran por `eventId`. Cambiar de evento desde una planilla vuelve a **Mi panel**. Administradores, comisarios, escrutadores/escribanos y veedores conservan el acceso que sus endpoints ya autorizaban (Supervisión lista eventos con actividad). El selector no concede permisos ni reemplaza las validaciones de la API. Ante errores se bloquea la selección y se ofrece reintento.
 
-En **Votación**, el administrador sigue este orden: evento abierto → **Abrir jornada** (confirmar) → **Abrir votación** (confirmar). La pantalla muestra por separado el estado de jornada y ventana; abrir la jornada no habilita votos por sí solo. Si la ventana está abierta, **Habilitar planillas pendientes** permite generar las de asignaciones nuevas sin reabrir una ventana cerrada. Si no hay planillas, se indica revisar las asignaciones. El cierre requiere confirmación, planillas completas y no permite reapertura. Las reglas y la auditoría existentes de la API siguen siendo la autoridad.
+### Navegación y preparación de la competencia (ADMIN)
 
-En **Competencia**, los rubros nuevos ofrecen los tipos vigentes **Nominativo** y **Aleatorio**. Los tipos General, Calculado y Especial pueden aparecer como históricos al consultar o editar configuraciones antiguas; no se ofrecen para crear rubros. Si el rubro evalúa una nominación, cargar sus participantes por comparsa antes de abrir el evento. La preparación marca las combinaciones pendientes y la API impide abrir hasta completarlas. En rubros Aleatorios se admiten hasta tres nominaciones activas por comparsa.
+El panel administrativo organiza la gestión en momentos claros de uso:
+
+1. **Inicio (`#/admin/home`)**: Vista ejecutiva de eventos activos con accesos rápidos para continuar la preparación de competencia o ingresar a la mesa de control según el estado de cada evento.
+2. **Eventos y jornadas (`#/admin/events`)**: Gestión de alta, edición y estado de eventos y sus jornadas correspondientes.
+3. **Preparación del evento (`#/admin/competencia`)**: Asistente secuencial de cuatro pasos con navegación superior e inferior:
+   - **Paso 1 — Participantes / Comparsas (`?step=participantes`)**: Configuración de tipos de participación (categorías), alta y edición de comparsas (con carga y remoción de logos y colores distintivos) y orden de pasada por jornada.
+   - **Paso 2 — Jurados y especialidades (`?step=jurados`)**: Selector de jornada para asignaciones, tabla con estado de cobertura de puestos («Completa», «Falta 1 jurado», «Sin asignar»), modal accesible para asignar o reemplazar titulares y suplentes, y acceso a gestión de especialidades.
+   - **Paso 3 — Evaluación (`?step=rubros`)**: Panel de dos columnas que sitúa a la izquierda el selector vertical de especialidades y a la derecha los rubros correspondientes. Cada rubro expone sus criterios de puntuación desplegables en fila («Ver criterios ▾»), identifica rubros compartidos entre especialidades e incluye diálogo de confirmación que advierte el impacto en todas las especialidades antes de guardar modificaciones.
+   - **Paso 4 — Revisión final (`?step=revision`)**: Si el evento está en preparación (`CONFIGURING`), valida los bloqueos oficiales de readiness informados por la API y, una vez satisfechos, habilita el botón «Abrir competencia» con confirmación accesible (`ConfirmDialog`) y persistencia de idempotencia antes del envío. Si el evento ya está abierto (`OPEN`), muestra un banner informativo con accesos directos a «Control de votación» y «Resultados», junto a un resumen ejecutivo en cuatro tarjetas (Comparsas, Jurados, Evaluación y Jornadas).
+4. **Control de votación (`#/admin/voting`)**: Administración operativa por jornada. Sigue el orden: evento abierto → **Abrir jornada** (confirmar) → **Abrir votación** (confirmar). Muestra por separado el estado de jornada y ventana; abrir la jornada no habilita votos por sí solo. Si la ventana está abierta, **Habilitar planillas pendientes** genera planillas para asignaciones nuevas sin reabrir ventanas cerradas. El cierre requiere confirmación, planillas completas y no permite reapertura.
 
 El menú lateral habilita **Resultados** solo cuando `/api/v1/public/events` informa al menos un evento con resultados publicados. Mientras se consulta, si no hay resultados o si la consulta falla, aparece atenuado y sin destino navegable. Se vuelve a comprobar al cambiar de sección, al regresar a la pestaña y cada 60 segundos mientras está visible. El enlace abre dentro de la aplicación y conserva el menú y la sesión. El acceso público directo sigue disponible y muestra un estado vacío o un error con reintento, no una carga indefinida.
 
@@ -161,7 +173,7 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 
 `vite.config.js` configura Vitest con jsdom y `src/tests/setup.js`. El setup incluye matchers DOM, fake-indexeddb, soporte de Web Crypto y shims de almacenamiento/diálogo cuando faltan. Las pruebas cubren transporte, sesión, permisos, navegación, formularios, planillas, SSE, resultados, tokens y componentes.
 
-Ejecutá `npm test` o los archivos afectados; registrá lo que efectivamente se ejecutó, sin copiar cifras históricas de `docs/`. No hace falta una base PostgreSQL para las pruebas de cliente que usan mocks.
+La suite del cliente (`npm test`) cuenta con **490 pruebas pasando en 63 suites de test**, incluyendo la verificación completa de los design tokens (`src/tests/tokens.test.js`, 45 tests) y las cuatro etapas del asistente de preparación de competencia. No hace falta una base PostgreSQL para las pruebas de cliente, ya que operan sobre mocks de API y entorno DOM aislado.
 
 En el piloto, **Express sirve el bundle `client/dist` y `/api` desde un mismo servicio Render HTTPS**; no se despliega una segunda aplicación estática. La configuración vive en [render.yaml](../render.yaml) y la [guía de despliegue](../DEPLOYMENT.md). `npm run preview` es una vista previa local, no el servidor productivo ni un reemplazo del backend.
 

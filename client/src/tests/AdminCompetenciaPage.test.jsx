@@ -70,18 +70,18 @@ describe("AdminCompetenciaPage", () => {
     expect(await screen.findAllByText("Incompleto", { selector: ".competencia-step-state" })).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
     expect(await screen.findByText(/Estrella/)).toBeInTheDocument();
-    expect(screen.getByText("Asigná jurado activo a esta jornada de competencia.")).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Bloqueos oficiales de readiness" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Revisar asignaciones" })).toHaveAttribute("href", "#/admin/assignments");
+    expect(screen.getByText("Asigná al menos un jurado activo a esta jornada de Competencia.")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Requisitos pendientes para abrir el evento" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Asignar jurado" })).toHaveAttribute("href", "#/admin/assignments");
   });
 
   it("mantiene el estado no disponible si readiness no pudo consultarse", async () => {
     mockCompetitionData({ readiness: new Error("offline") });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
 
-    expect(await screen.findAllByText("No disponible")).not.toHaveLength(0);
+    expect(await screen.findAllByText("No se pudo revisar")).not.toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
-    expect(await screen.findByText("No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.")).toBeInTheDocument();
+    expect(await screen.findByText("No se pudo revisar la evaluación. Volvé a intentarlo en Revisión final.")).toBeInTheDocument();
     expect(screen.queryByText(/configuración está completa y lista/)).not.toBeInTheDocument();
   });
 
@@ -138,7 +138,7 @@ describe("AdminCompetenciaPage", () => {
     render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} initialStep="rubros" />);
 
     expect(await screen.findByRole("heading", { name: "Configurar evaluación" })).toBeInTheDocument();
-    expect(screen.getByText("Definí qué va a evaluar cada jurado y cómo se registrará su evaluación.")).toBeInTheDocument();
+    expect(screen.getByText("Definí qué se evalúa en cada rubro y agregá los ítems que recibirán puntuación.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Paso 3 de 4: Evaluación/ })).toHaveAttribute("aria-current", "step");
   });
 
@@ -1052,11 +1052,11 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(4);
       expect(screen.queryByRole("region", { name: "Configuración de la competencia" })).not.toBeInTheDocument();
       // Paso 1 por defecto: tipos y comparsas juntos, sin resumen suelto
-      expect(screen.getByRole("heading", { name: "Tipos de participacion" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Tipos de participación" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Comparsas" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Resumen de competencia" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
-      expect(await screen.findByText("La API confirma que no hay bloqueos oficiales de apertura.")).toBeInTheDocument();
+      expect(await screen.findByText("Se cumplen los requisitos para abrir el evento.")).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Resumen de competencia" })).not.toBeInTheDocument();
       expect(screen.queryByText(/Items puntuables/)).not.toBeInTheDocument();
     });
@@ -1162,7 +1162,10 @@ describe("AdminCompetenciaPage", () => {
       const typesBlock = screen.getByRole("region", { name: "Bloque 1 de 3: Tipos de participación" });
       const troupesBlock = screen.getByRole("region", { name: "Bloque 2 de 3: Comparsas" });
       expect(typesBlock.compareDocumentPosition(troupesBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(within(typesBlock).getByRole("button", { name: "+ Nuevo tipo" })).toBeInTheDocument();
+      const typesHeader = typesBlock.querySelector(".participants-type-heading");
+      expect(typesHeader).not.toBeNull();
+      expect(within(typesHeader).getByRole("heading", { name: "Tipos de participación" })).toBeInTheDocument();
+      expect(within(typesHeader).getByRole("button", { name: "+ Nuevo tipo" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "⚙ Gestionar tipos de participación" })).not.toBeInTheDocument();
       expect(await screen.findByText(/Se requieren al menos 2 comparsas activas/)).toBeInTheDocument();
     });
@@ -1245,7 +1248,7 @@ describe("AdminCompetenciaPage", () => {
 
       expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Competencia abierta" })).toBeInTheDocument();
-      expect(screen.getByText(/La preparación del evento finalizó con éxito/)).toBeInTheDocument();
+      expect(screen.getByText(/El evento está abierto.*Control de votación/)).toBeInTheDocument();
 
       // Enlaces directos a operaciones
       const votingLinks = screen.getAllByRole("link", { name: /Ir a Control de votación/ });
@@ -1266,7 +1269,7 @@ describe("AdminCompetenciaPage", () => {
 
       expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Preparación completa" })).toBeInTheDocument();
-      expect(screen.getByText("La API confirma que no hay bloqueos oficiales de apertura.")).toBeInTheDocument();
+      expect(screen.getByText("Se cumplen los requisitos para abrir el evento.")).toBeInTheDocument();
 
       const openButtons = screen.getAllByRole("button", { name: "Abrir competencia" });
       expect(openButtons.length).toBeGreaterThanOrEqual(1);
@@ -1274,6 +1277,7 @@ describe("AdminCompetenciaPage", () => {
       // Al hacer click, muestra el diálogo de confirmación
       fireEvent.click(openButtons[0]);
       expect(await screen.findByRole("dialog", { name: "¿Abrir la competencia?" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toHaveTextContent(/estado cambiará a OPEN/);
     });
   });
 });

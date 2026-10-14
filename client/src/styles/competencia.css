@@ -822,6 +822,165 @@
   color: var(--success);
 }
 
+/* Catálogos del paso Participantes: tipos primero, comparsas después. */
+.participants-types-block {
+  margin-block-end: 1rem;
+}
+
+.participants-troupes-block {
+  margin-block-end: 0;
+}
+
+.participants-catalog-section {
+  margin-block: 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.participants-catalog-section .section-heading {
+  margin-block-end: 1rem;
+}
+
+.participants-catalog-section .section-heading h2 {
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.participants-catalog-section .section-heading p {
+  max-inline-size: 68ch;
+  color: var(--text-secondary);
+}
+
+.participants-type-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.participants-type-heading > div {
+  min-inline-size: 0;
+}
+
+.participants-type-heading > button {
+  flex: 0 0 auto;
+  min-block-size: var(--touch-target-min);
+}
+
+.participants-types-table {
+  margin-block-start: 0.25rem;
+}
+
+.participants-types-table .data-table thead th {
+  font-size: 0.8rem;
+  letter-spacing: 0.015em;
+  text-transform: none;
+}
+
+.participants-types-table .data-table td {
+  padding-block: 0.8rem;
+}
+
+.participants-troupes-block .competencia-card-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.participants-troupes-block .competencia-toolbar-left {
+  display: grid;
+  grid-template-columns: auto minmax(9rem, 1.25fr) repeat(2, minmax(8rem, 0.75fr));
+  align-items: end;
+  gap: 0.75rem;
+  margin-block: 0;
+}
+
+.participants-troupes-block .competencia-toolbar-count {
+  align-self: center;
+  margin-inline-end: 0;
+  white-space: nowrap;
+}
+
+.participants-troupes-block .competencia-toolbar-search {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: none;
+}
+
+.participants-troupes-block .competencia-toolbar-search label,
+.participants-troupes-block .competencia-toolbar-filter label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.participants-troupes-block .competencia-toolbar-search input,
+.participants-troupes-block .competencia-toolbar-filter select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--touch-target-min);
+}
+
+.participants-troupes-block .competencia-toolbar-right {
+  display: flex;
+  align-items: end;
+}
+
+@media (max-width: 56rem) {
+  .participants-troupes-block .competencia-card-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-left {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .participants-troupes-block .competencia-toolbar-count {
+    grid-column: 1 / -1;
+  }
+
+  .participants-troupes-block .competencia-toolbar-right {
+    justify-content: end;
+  }
+}
+
+@media (max-width: 40rem) {
+  .participants-catalog-section .section-heading {
+    align-items: stretch;
+  }
+
+  .participants-type-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .participants-type-heading > button {
+    inline-size: 100%;
+  }
+
+  .participants-troupes-block .competencia-card-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-left {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-troupes-block .competencia-toolbar-count {
+    grid-column: auto;
+  }
+
+  .participants-troupes-block .competencia-toolbar-right,
+  .participants-troupes-block .competencia-toolbar-right button {
+    inline-size: 100%;
+  }
+}
+
 /* Wizard Footer Navigation */
 .wizard-footer-nav {
   display: flex;
@@ -1546,4 +1705,3 @@
   font-size: var(--text-xs);
   padding: var(--space-1) var(--space-3);
 }
-

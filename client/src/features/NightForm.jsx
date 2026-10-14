@@ -47,7 +47,7 @@ export function NightForm({
         defaultValue={initialValue.displayOrder ?? defaultOrder}
         required
       />
-      <p className="help-text">Define el orden en listas y planillas. Se asigna por orden de creación.</p>
+      <p className="help-text">Define en qué orden aparece la jornada en las listas. No cambia el orden de salida de las comparsas.</p>
       <label htmlFor={`${idPrefix}-date`}>Fecha</label>
       <input
         id={`${idPrefix}-date`}
