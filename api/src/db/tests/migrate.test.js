@@ -110,6 +110,8 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "085_event_open_operation_evidence.sql"
           || filename === "086_event_open_operation_truncate_guard.sql"
           || filename === "087_admin_event_assignments.sql"
+          || filename === "088_voting_incidents.sql"
+          || filename === "089_ballot_custody.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -548,11 +550,6 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "089_ballot_custody.sql",
       version: "089",
-      applied: true,
-    },
-    {
-      filename: "090_scrutiny_v1_admission.sql",
-      version: "090",
       applied: true,
     },
   ]);
