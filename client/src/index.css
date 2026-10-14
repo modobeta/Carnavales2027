@@ -651,8 +651,9 @@ label { color: var(--text-secondary); }
   transition: transform var(--transition-fast);
 }
 .app-drawer .nav-group[open] > .nav-group-summary::after { transform: rotate(225deg) translate(-0.1rem, -0.1rem); }
-.app-drawer .nav-group-summary:hover,
-.app-drawer .nav-group[open] > .nav-group-summary { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-drawer .nav-group-summary:hover { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-drawer .nav-group[open] > .nav-group-summary { color: var(--text-primary); background: var(--palette-admin-nav-active); }
+.app-drawer .nav-group-links a[aria-current="page"] { color: var(--text-primary); background: var(--palette-admin-nav-active); }
 .app-drawer .nav-group-links {
   display: flex;
   flex-direction: column;
