@@ -266,6 +266,7 @@ describe("AppNavigation", () => {
     const selector = await screen.findByRole("button", { name: "Evento actual" });
     expect(selector).toHaveTextContent("Carnaval 2027");
     fireEvent.click(selector);
+    expect(screen.getByRole("button", { name: /Crear nuevo evento/ })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("option", { name: "Prueba 2027" }));
     await waitFor(() => expect(selector).toHaveTextContent("Prueba 2027"));
   });
