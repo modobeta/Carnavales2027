@@ -277,7 +277,7 @@ export function LoginPage({ onAuthenticated }) {
       <div className="login-orbit login-orbit-left" aria-hidden="true" />
       <div className="login-orbit login-orbit-right" aria-hidden="true" />
       <div className="card login-card">
-        <div className="login-emblem" aria-hidden="true" />
+        <img className="login-emblem" src="/icons/carnaval-logo.webp" alt="" width="424" height="424" />
         <h1>Carnavales</h1>
         {sessionExpiredNotice && step === "credentials" && (
           <div className="login-expired-notice" role="status">
