@@ -137,24 +137,11 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
     });
   });
 
-  it("alterna modo 'Pared de Sala' / Wallboard con atributos accesibles (RF-195)", async () => {
+  it("no muestra el botón ni la opción de 'Pared de Sala' / Wallboard", async () => {
     const { container } = render(<VeedorMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
 
-    const toggleBtn = screen.getByRole("button", { name: "Modo Pared de Sala" });
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "false");
-    expect(container.querySelector(".monitor-page.is-wallboard")).toBeNull();
-
-    // Activar modo pared
-    fireEvent.click(toggleBtn);
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
-    expect(toggleBtn).toHaveTextContent("Salir de Pared de Sala");
-    expect(container.querySelector(".monitor-page.is-wallboard")).not.toBeNull();
-
-    // Desactivar modo pared
-    fireEvent.click(toggleBtn);
-    expect(toggleBtn).toHaveAttribute("aria-pressed", "false");
-    expect(toggleBtn).toHaveTextContent("Modo Pared de Sala");
+    expect(screen.queryByRole("button", { name: /Pared de Sala/i })).not.toBeInTheDocument();
     expect(container.querySelector(".monitor-page.is-wallboard")).toBeNull();
   });
 });

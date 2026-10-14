@@ -96,3 +96,127 @@ export async function getMonitorNight({ eventId, nightId }) {
     total: open + submitted + reopened,
   };
 }
+
+export async function listMonitorJudges({ eventId, nightId }) {
+  const id = requireText(eventId, "eventId");
+  const nid = requireText(nightId, "nightId");
+
+  const { rows } = await getPool().query(
+    `SELECT jp.id AS "judgeProfileId",
+            jp.name AS "judgeName",
+            jp.email AS "judgeEmail",
+            s.id AS "specialtyId",
+            s.name AS "specialtyName",
+            ja.assignment_type AS "assignmentType",
+            ja.status AS "assignmentStatus",
+            b.id AS "ballotId",
+            b.status AS "ballotStatus",
+            b.submitted_at AS "submittedAt",
+            COUNT(bs.id)::INTEGER AS "totalScores",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state <> 'PENDING')::INTEGER AS "resolvedScores",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'PENDING')::INTEGER AS "pendingScores"
+       FROM judge_assignment ja
+       JOIN judge_profile jp ON jp.id = ja.judge_profile_id
+       JOIN event_specialty s ON s.id = ja.specialty_id
+       LEFT JOIN ballot b ON b.judge_profile_id = jp.id AND b.night_id = ja.night_id AND b.status <> 'REPLACED'
+       LEFT JOIN ballot_score bs ON bs.ballot_id = b.id
+      WHERE ja.event_id = $1 AND ja.night_id = $2
+        AND ja.status = 'ACTIVE' AND ja.assignment_type = 'PRIMARY'
+      GROUP BY jp.id, jp.name, jp.email, s.id, s.name, ja.assignment_type, ja.status, b.id, b.status, b.submitted_at
+      ORDER BY s.name, jp.name`,
+    [id, nid],
+  );
+
+  return rows.map((row) => {
+    const total = row.totalScores ?? 0;
+    const resolved = row.resolvedScores ?? 0;
+    const progress = total > 0 ? Math.round((resolved / total) * 100) : 0;
+    return {
+      judgeProfileId: row.judgeProfileId,
+      judgeName: row.judgeName,
+      judgeEmail: row.judgeEmail,
+      specialtyId: row.specialtyId,
+      specialtyName: row.specialtyName,
+      assignmentType: row.assignmentType,
+      assignmentStatus: row.assignmentStatus,
+      ballotId: row.ballotId,
+      ballotStatus: row.ballotStatus ?? "NOT_STARTED",
+      submittedAt: row.submittedAt,
+      totalScores: total,
+      resolvedScores: resolved,
+      pendingScores: row.pendingScores ?? 0,
+      progress,
+    };
+  });
+}
+
+export async function listMonitorBallots({ eventId, nightId }) {
+  const id = requireText(eventId, "eventId");
+  const nid = requireText(nightId, "nightId");
+
+  const { rows: ballotRows } = await getPool().query(
+    `SELECT b.id AS "ballotId",
+            b.status AS "ballotStatus",
+            b.submitted_at AS "submittedAt",
+            jp.id AS "judgeProfileId",
+            jp.name AS "judgeName",
+            s.id AS "specialtyId",
+            s.name AS "specialtyName",
+            COUNT(bs.id)::INTEGER AS "totalItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'SCORED')::INTEGER AS "scoredItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'NOT_PRESENTED')::INTEGER AS "absentItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'PENDING')::INTEGER AS "pendingItems",
+            bcl.custody_status AS "custodyStatus",
+            bcl.received_at AS "custodyReceivedAt",
+            bcl.canonical_hash AS "custodyHash"
+       FROM ballot b
+       JOIN judge_profile jp ON jp.id = b.judge_profile_id
+       JOIN event_specialty s ON s.id = b.specialty_id
+       LEFT JOIN ballot_score bs ON bs.ballot_id = b.id
+       LEFT JOIN ballot_custody_log bcl ON bcl.ballot_id = b.id AND bcl.custody_status = 'RECEIVED'
+      WHERE b.event_id = $1 AND b.night_id = $2
+      GROUP BY b.id, b.status, b.submitted_at, jp.id, jp.name, s.id, s.name,
+               bcl.custody_status, bcl.received_at, bcl.canonical_hash
+      ORDER BY s.name, jp.name`,
+    [id, nid],
+  );
+
+  const { rows: troupeScores } = await getPool().query(
+    `SELECT bs.ballot_id AS "ballotId",
+            et.id AS "troupeId",
+            et.name AS "troupeName",
+            nts.presentation_order AS "presentationOrder",
+            COUNT(bs.id)::INTEGER AS "totalItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'SCORED')::INTEGER AS "scoredItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'NOT_PRESENTED')::INTEGER AS "absentItems",
+            COUNT(bs.id) FILTER (WHERE bs.evaluation_state = 'PENDING')::INTEGER AS "pendingItems"
+       FROM ballot_score bs
+       JOIN ballot b ON b.id = bs.ballot_id
+       JOIN night_troupe_schedule nts ON nts.id = bs.night_schedule_id
+       JOIN event_troupe et ON et.id = nts.event_troupe_id
+      WHERE b.event_id = $1 AND b.night_id = $2
+      GROUP BY bs.ballot_id, et.id, et.name, nts.presentation_order
+      ORDER BY nts.presentation_order, et.name`,
+    [id, nid],
+  );
+
+  const troupesByBallot = new Map();
+  for (const item of troupeScores) {
+    if (!troupesByBallot.has(item.ballotId)) troupesByBallot.set(item.ballotId, []);
+    troupesByBallot.get(item.ballotId).push({
+      troupeId: item.troupeId,
+      troupeName: item.troupeName,
+      presentationOrder: item.presentationOrder,
+      totalItems: item.totalItems,
+      scoredItems: item.scoredItems,
+      absentItems: item.absentItems,
+      pendingItems: item.pendingItems,
+      completed: item.pendingItems === 0,
+    });
+  }
+
+  return ballotRows.map((ballot) => ({
+    ...ballot,
+    troupes: troupesByBallot.get(ballot.ballotId) ?? [],
+  }));
+}

@@ -25,6 +25,7 @@ describe("AppNavigation", () => {
     cleanup();
     vi.clearAllMocks();
     window.location.hash = "";
+    window.localStorage.removeItem("carnavales.sidebar.collapsed");
     document.body.style.overflow = "";
     window.matchMedia = originalMatchMedia;
   });
@@ -133,6 +134,14 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("en desktop no muestra el enlace de Inicio para el rol VEEDOR ni en #/veedor", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/veedor";
+    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["VEEDOR"] }} />);
+    expect(screen.queryByRole("link", { name: "Inicio" })).not.toBeInTheDocument();
+    expect(screen.getByText("Supervisión", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+  });
+
   it("abre y cierra el drawer lateral con el boton hamburguesa", () => {
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     const toggle = screen.getByRole("button", { name: "Abrir menu de navegacion" });
@@ -193,6 +202,54 @@ describe("AppNavigation", () => {
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     expect(screen.getByRole("button", { name: "Abrir menu de navegacion" })).toBeInTheDocument();
     expect(document.querySelector("#app-drawer")).not.toHaveClass("is-open");
+  });
+
+  it("en desktop el botón Menú lateral contrae el menú a solo iconos sin perder los nombres de los enlaces", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/voting";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    const toggle = screen.getByRole("button", { name: "Menú lateral" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+
+    const drawer = screen.getByRole("navigation", { name: "Navegacion principal" });
+    expect(drawer).toHaveClass("is-collapsed");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("title", "Control de votación");
+
+    fireEvent.click(toggle);
+
+    expect(drawer).not.toHaveClass("is-collapsed");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("recuerda el estado contraído del menú lateral entre montajes", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/voting";
+    const { unmount } = render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Menú lateral" }));
+    unmount();
+
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    expect(screen.getByRole("navigation", { name: "Navegacion principal" })).toHaveClass("is-collapsed");
+  });
+
+  it("al pulsar un grupo con el menú contraído, lo expande para mostrar sus enlaces", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/voting";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Menú lateral" }));
+
+    fireEvent.click(screen.getByText("Resultados y actas").closest("summary"));
+
+    expect(screen.getByRole("navigation", { name: "Navegacion principal" })).not.toHaveClass("is-collapsed");
+  });
+
+  it("no ofrece el modo solo iconos a roles sin menú de Administrador", () => {
+    mockMatchMedia(true);
+    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["VEEDOR"] }} />);
+    expect(screen.queryByRole("button", { name: "Menú lateral" })).not.toBeInTheDocument();
   });
 
   it("muestra el selector global del evento para ADMIN", async () => {

@@ -28,11 +28,30 @@ describe("VeedorMonitorPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Supervisión de la jornada" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Jornada competitiva")).toHaveValue("night-1");
+    expect(screen.queryByLabelText("Jornada competitiva")).not.toBeInTheDocument();
     expect(screen.getByText(/Estado de la jornada: Abierta · Ventana de votación: Abierta/)).toBeInTheDocument();
     expect(screen.getByText("Confirmadas").nextElementSibling).toHaveTextContent("3");
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.queryByText("score")).not.toBeInTheDocument();
+  });
+
+  it("permite alternar entre jornadas cuando hay más de una", async () => {
+    const multiPayload = [{
+      id: "event-1",
+      name: "Carnaval 2027",
+      status: "OPEN",
+      nights: [
+        { id: "night-1", name: "Noche 1", status: "OPEN", votingStatus: "OPEN", counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0, REPLACED: 0 }, total: 1 },
+        { id: "night-2", name: "Noche 2", status: "OPEN", votingStatus: "OPEN", counts: { OPEN: 0, SUBMITTED: 2, REOPENED: 0, REPLACED: 0 }, total: 2 },
+      ],
+    }];
+    apiRequest.mockResolvedValue(multiPayload);
+    render(<VeedorMonitorPage />);
+
+    expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
+    const tabNight2 = screen.getByRole("button", { name: "Noche 2" });
+    fireEvent.click(tabNight2);
+    expect(await screen.findByRole("heading", { name: "Noche 2" })).toBeInTheDocument();
   });
 
   it("refresca cada 15 segundos, se pausa oculta y reanuda visible", async () => {

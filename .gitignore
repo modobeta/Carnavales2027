@@ -6,6 +6,7 @@ node_modules/
 /graphify-out/
 /specs/*
 !/specs/029-piloto-produccion/
+!/specs/038-roles-escrutinio-publicacion/
 MEMORY.md
 
 api/.env.pilot

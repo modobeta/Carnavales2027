@@ -198,8 +198,9 @@ export default function App({ session: providedSession }) {
     return <main id="main-content" className="container"><div className="card"><h1>Página no encontrada</h1><a href="#/login">Volver al inicio</a></div></main>;
   };
 
+  const isAdminArea = route.startsWith("#/admin/");
   const content = (
-    <div className="app-shell" data-layer={currentLayer}>
+    <div className={`app-shell${isAdminArea ? " is-admin" : ""}`} data-layer={currentLayer}>
       {renderContent()}
     </div>
   );

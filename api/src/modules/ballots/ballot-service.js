@@ -61,7 +61,7 @@ async function auditBallot(client, { ballotId, eventId, action, actorUserId, rea
 
 async function lockJudgeBallot(client, { ballotId, actorUserId }) {
   const { rows: ballots } = await client.query(
-    `SELECT b.id, b.event_id AS "eventId", b.status, b.revision, b.submitted_at AS "submittedAt",
+    `SELECT b.id, b.event_id AS "eventId", b.night_id AS "nightId", b.status, b.revision, b.submitted_at AS "submittedAt",
             b.judge_profile_id AS "judgeProfileId", jp.user_id AS "userId"
        FROM ballot b
        JOIN judge_profile jp ON jp.id = b.judge_profile_id
@@ -773,6 +773,12 @@ export async function saveScore({ actorUserId, ballotId, scoreId, evaluationStat
       );
     }
 
+    emitMonitorEvent("BALLOT_SCORE_SAVED", {
+      eventId: ballot.eventId,
+      nightId: ballot.nightId,
+      ballotId: bid,
+    });
+
     return saved;
   });
 }
@@ -964,6 +970,13 @@ export async function syncBallot({ actorUserId, ballotId, baseRevision, operatio
       );
       accepted.push({ operationId: operation.operationId, status: "ACCEPTED", revision: result.revision });
     }
+
+    emitMonitorEvent("BALLOT_BATCH_SYNCED", {
+      eventId: ballot.eventId,
+      nightId: ballot.nightId,
+      ballotId: bid,
+    });
+
     return { ballotId: bid, revision: Number(ballot.revision), operations: accepted };
   });
 }

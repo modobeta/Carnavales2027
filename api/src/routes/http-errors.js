@@ -43,9 +43,24 @@ export function sendKnownError(response, error) {
     error.message === "PENALTY_FIELDS_IMMUTABLE" ||
     error.message === "OFFICIAL_RECORD_IMMUTABLE" ||
     error.message === "TIE_BREAKER_PENDING" ||
-    error.message === "NIGHT_VOTING_STARTED"
+    error.message === "NIGHT_VOTING_STARTED" ||
+    error.message === "BALLOT_NOT_SUBMITTED" ||
+    error.message === "BALLOT_ALREADY_IN_CUSTODY" ||
+    error.message === "CANNOT_DELETE_VOTING_INCIDENT" ||
+    error.message === "CANNOT_DELETE_BALLOT_CUSTODY_LOG" ||
+    error.message === "CANNOT_UPDATE_BALLOT_CUSTODY_LOG"
   ) {
     response.status(409).json({ code: error.message });
+    return true;
+  }
+  if (
+    [
+      "RESOLUTION_NOTES_REQUIRED",
+      "INVALID_INCIDENT_STATUS",
+      "INVALID_INCIDENT_TYPE",
+    ].includes(error.message)
+  ) {
+    response.status(400).json({ code: error.message });
     return true;
   }
   if (error.message === "TIE_BREAKER_REQUIRES_MANUAL_DRAW") {
