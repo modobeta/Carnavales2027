@@ -6,6 +6,23 @@ import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
+const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
+
+function readStoredCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function storeCollapsed(collapsed) {
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed));
+  } catch {
+    // Storage is an optional convenience, not a requirement for the session.
+  }
+}
 
 function NavigationIcon({ name }) {
   const paths = {
@@ -54,6 +71,7 @@ export function AppNavigation({ session }) {
   const [closing, setClosing] = useState(false);
   const [message, setMessage] = useState("");
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window.matchMedia === "function"
       ? window.matchMedia("(min-width: 64rem)").matches
@@ -64,6 +82,19 @@ export function AppNavigation({ session }) {
   const toggleRef = useRef(null);
   const drawerRef = useRef(null);
   const drawerOpen = isDesktop || open;
+  const isAdmin = session.roles?.includes("ADMIN");
+  // El modo solo-iconos existe solo para el menú de Administrador en desktop;
+  // los demás roles tienen enlaces de solo texto que no caben en el rail.
+  const canCollapse = isDesktop && isAdmin;
+  const isRail = canCollapse && collapsed;
+  const railTitle = (label) => (isRail ? label : undefined);
+  const expandRail = () => {
+    if (isRail) setCollapsed(false);
+  };
+
+  useEffect(() => {
+    storeCollapsed(collapsed);
+  }, [collapsed]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
@@ -197,6 +228,7 @@ function getInitials(name) {
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
+  const showHomeBreadcrumb = session.roles?.includes("ADMIN") && currentRoute !== "#/veedor";
 
   return (
     <>
@@ -215,18 +247,37 @@ function getInitials(name) {
           <span aria-hidden="true">{open ? "✕" : "☰"}</span>
         </button>
         )}
+        {canCollapse && (
+        <button
+          className="nav-toggle nav-collapse-toggle"
+          type="button"
+          aria-expanded={!collapsed}
+          aria-controls="app-drawer"
+          aria-label="Menú lateral"
+          title={collapsed ? "Expandir menú lateral" : "Contraer menú lateral"}
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        )}
         <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
         {isDesktop && (
           <nav className="header-breadcrumb" aria-label="Ruta de navegación">
             {breadcrumb.isHome ? (
-              <>
-                <span>Inicio</span>
-                <span aria-hidden="true">&rsaquo;</span>
-              </>
+              session.roles?.includes("ADMIN") ? (
+                <>
+                  <span>Inicio</span>
+                  <span aria-hidden="true">&rsaquo;</span>
+                </>
+              ) : null
             ) : (
               <>
-                <a href="#/admin/home" className="breadcrumb-link">Inicio</a>
-                <span aria-hidden="true">&rsaquo;</span>
+                {showHomeBreadcrumb && (
+                  <>
+                    <a href="#/admin/home" className="breadcrumb-link">Inicio</a>
+                    <span aria-hidden="true">&rsaquo;</span>
+                  </>
+                )}
                 <span className="breadcrumb-current" aria-current="page">{breadcrumb.label}</span>
               </>
             )}
@@ -273,7 +324,7 @@ function getInitials(name) {
     <nav
       ref={drawerRef}
       id="app-drawer"
-      className={`app-drawer${drawerOpen ? " is-open" : ""}`}
+      className={`app-drawer${drawerOpen ? " is-open" : ""}${isRail ? " is-collapsed" : ""}`}
       aria-label="Navegacion principal"
       aria-hidden={!drawerOpen}
     >
@@ -292,18 +343,18 @@ function getInitials(name) {
         {session.roles?.includes("ADMIN") && (
           <>
             <span className="nav-section-label">Inicio</span>
-            <a className="nav-primary-link" href="#/admin/home" aria-current={isCurrentNavItem(currentLocation, "#/admin/home") ? "page" : undefined}>
+            <a className="nav-primary-link" href="#/admin/home" title={railTitle("Inicio")} aria-current={isCurrentNavItem(currentLocation, "#/admin/home") ? "page" : undefined}>
               <NavigationIcon name="home" />
               <span>Inicio</span>
             </a>
             {!isGlobalAdminRoute && <>
             <span className="nav-section-label">Preparación</span>
-            <a className="nav-primary-link" href="#/admin/events" aria-current={isCurrentNavItem(currentLocation, "#/admin/events") ? "page" : undefined}>
+            <a className="nav-primary-link" href="#/admin/events" title={railTitle("Jornadas")} aria-current={isCurrentNavItem(currentLocation, "#/admin/events") ? "page" : undefined}>
               <NavigationIcon name="calendar" />
               <span>Jornadas</span>
             </a>
             <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
-              <summary className="nav-group-summary">
+              <summary className="nav-group-summary" title={railTitle("Comparsas y jurados")} onClick={expandRail}>
                 <NavigationIcon name="people" />
                 <span>Comparsas y jurados</span>
               </summary>
@@ -314,12 +365,12 @@ function getInitials(name) {
               </div>
             </details>
             <span className="nav-section-label">En vivo</span>
-            <a className="nav-primary-link" href="#/admin/voting" aria-current={isCurrentNavItem(currentLocation, "#/admin/voting") ? "page" : undefined}>
+            <a className="nav-primary-link" href="#/admin/voting" title={railTitle("Control de votación")} aria-current={isCurrentNavItem(currentLocation, "#/admin/voting") ? "page" : undefined}>
               <NavigationIcon name="ballot" />
               <span>Control de votación</span>
             </a>
             <details className="nav-group" open={["#/veedor", "#/admin/penalties"].includes(currentRoute)}>
-              <summary className="nav-group-summary">
+              <summary className="nav-group-summary" title={railTitle("Supervisión y penalizaciones")} onClick={expandRail}>
                 <NavigationIcon name="shield" />
                 <span>Supervisión y penalizaciones</span>
               </summary>
@@ -330,7 +381,7 @@ function getInitials(name) {
             </details>
             <span className="nav-section-label">Finalización</span>
             <details className="nav-group" open={["#/admin/results", "#/admin/record", "#/resultados"].includes(currentRoute)}>
-              <summary className="nav-group-summary">
+              <summary className="nav-group-summary" title={railTitle("Resultados y actas")} onClick={expandRail}>
                 <NavigationIcon name="record" />
                 <span>Resultados y actas</span>
               </summary>
@@ -342,7 +393,7 @@ function getInitials(name) {
             </details>
             </>}
             <span className="nav-section-label">Usuarios</span>
-            <a className="nav-primary-link" href="#/admin/judges" aria-current={isUsersRoute ? "page" : undefined}>
+            <a className="nav-primary-link" href="#/admin/judges" title={railTitle("Usuarios")} aria-current={isUsersRoute ? "page" : undefined}>
               <NavigationIcon name="userCheck" />
               <span>Usuarios</span>
             </a>

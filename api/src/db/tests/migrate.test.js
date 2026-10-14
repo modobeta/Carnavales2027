@@ -540,6 +540,21 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       version: "087",
       applied: true,
     },
+    {
+      filename: "088_voting_incidents.sql",
+      version: "088",
+      applied: true,
+    },
+    {
+      filename: "089_ballot_custody.sql",
+      version: "089",
+      applied: true,
+    },
+    {
+      filename: "090_scrutiny_v1_admission.sql",
+      version: "090",
+      applied: true,
+    },
   ]);
 
   const secondRun = await migrate();
