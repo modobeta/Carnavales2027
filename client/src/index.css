@@ -2474,3 +2474,16 @@ button.button-link:disabled {
   .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary,
   .judge-ballot-page:not(.is-readonly) .ballot-footer #voting-confirm-help { grid-column: 1 / -1; }
 }
+
+/* Identidad visual Admin: los botones primarios (azul) pasan a verde de marca.
+   Se usa :where() para mantener baja la especificidad y no pisar las variantes
+   existentes (secondary, danger-action, app-button-*, etc.). */
+:where(.app-shell.is-admin) button,
+:where(.app-shell.is-admin) .button-link {
+  background: var(--modal-success);
+  color: var(--modal-success-ink);
+}
+:where(.app-shell.is-admin) button:hover:not(:disabled),
+:where(.app-shell.is-admin) .button-link:hover {
+  background: var(--modal-success-strong);
+}
