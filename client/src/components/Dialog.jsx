@@ -35,6 +35,7 @@ export function Dialog({
   focusReturnRef,
   className = "",
   ariaLabel,
+  ariaDescribedBy,
   tone = "default",
   size = "md",
   icon = true,
@@ -88,7 +89,7 @@ export function Dialog({
       onCancel={handleCancel}
       onClick={handleClick}
       aria-labelledby={title ? titleId : undefined}
-      aria-describedby={description ? descId : undefined}
+      aria-describedby={description ? descId : ariaDescribedBy}
       aria-label={!title && ariaLabel ? ariaLabel : undefined}
     >
       <div className="app-dialog-content">

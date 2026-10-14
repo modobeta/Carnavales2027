@@ -8,6 +8,7 @@ describe("visual hierarchy system", () => {
   const tokens = source("../styles/tokens.css");
   const index = source("../index.css");
   const components = source("../styles/components.css");
+  const admin = source("../styles/admin.css");
 
   it("uses restrained Carnaval surfaces and keeps turquoise as an accent, not a modal canvas", () => {
     expect(tokens).toContain("--palette-page: #24102b;");
@@ -30,6 +31,54 @@ describe("visual hierarchy system", () => {
     expect(tokens).toContain("@media (prefers-reduced-transparency: reduce)");
     expect(components).toContain("@media (prefers-reduced-transparency: reduce)");
     expect(components).toContain("backdrop-filter: none;");
+  });
+
+  it("gives dialog headers a clear title/close hierarchy and styles the night kind select", () => {
+    const headerStyles = components.match(/\.app-dialog-header\s*\{[^}]*\}/)?.[0] ?? "";
+    const titleStyles = components.match(/\.app-dialog-title\s*\{[^}]*\}/)?.[0] ?? "";
+    const closeStyles = components.match(/\.app-dialog-close-btn\s*\{[^}]*\}/)?.[0] ?? "";
+    const closeActiveStyles = components.match(/\.app-dialog-close-btn:active\s*\{[^}]*\}/)?.[0] ?? "";
+    const selectStyles = components.match(/\.night-form__kind\s*\{[^}]*\}/)?.[0] ?? "";
+    const selectFocusStyles = components.match(/\.night-form__kind:focus-visible\s*\{[^}]*\}/)?.[0] ?? "";
+    const selectActiveStyles = components.match(/\.night-form__kind:active\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(headerStyles).toContain("align-items: center;");
+    expect(headerStyles).toContain("position: sticky;");
+    expect(headerStyles).toContain("inset-block-start: calc(-1 * var(--space-4));");
+    expect(headerStyles).toContain("background: var(--surface-modal);");
+    expect(headerStyles).toContain("border-block-end: 1px solid var(--border-subtle);");
+    expect(titleStyles).toContain("line-height: var(--leading-tight);");
+    expect(closeStyles).toContain("min-inline-size: var(--touch-target-min);");
+    expect(closeActiveStyles).toContain("transform: scale(0.96);");
+    expect(selectStyles).toContain("appearance: none;");
+    expect(selectStyles).toContain("background-image:");
+    expect(selectStyles).toContain("min-block-size: var(--touch-target-min);");
+    expect(selectFocusStyles).toContain("box-shadow: var(--shadow-focus);");
+    expect(selectActiveStyles).toContain("border-color: var(--modal-violet);");
+  });
+
+  it("starts dialogs as mobile bottom sheets and restores centered layout on wider screens", () => {
+    const dialogStyles = components.match(/\.app-dialog\s*\{[^}]*\}/)?.[0] ?? "";
+    const mobileFooterStyles = components.match(/\.dialog-footer-actions\s*\{[^}]*\}/)?.[0] ?? "";
+    const desktopDialogStyles = components.match(/@media\s*\(min-width:\s*40rem\)[\s\S]*?\.app-dialog\s*\{[^}]*\}/)?.[0] ?? "";
+    const desktopFooterStyles = components.match(/@media\s*\(min-width:\s*40rem\)[\s\S]*?\.dialog-footer-actions\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(dialogStyles).toContain("margin: auto 0 0;");
+    expect(dialogStyles).toContain("inline-size: 100%;");
+    expect(dialogStyles).toContain("max-block-size: min(90vh, 90dvh);");
+    expect(mobileFooterStyles).toContain("flex-direction: column;");
+    expect(desktopDialogStyles).toContain("margin: auto;");
+    expect(desktopDialogStyles).toContain("max-inline-size: min(90vw, 34rem);");
+    expect(desktopFooterStyles).toContain("flex-direction: row;");
+  });
+
+  it("keeps the troupe drawer actions visible while its fields scroll", () => {
+    const stickyActions = admin.match(/\.entity-drawer \.dialog-footer-actions\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(stickyActions).toContain("position: sticky;");
+    expect(stickyActions).toContain("inset-block-end: 0;");
+    expect(stickyActions).toContain("background: var(--surface-modal);");
+    expect(stickyActions).toContain("env(safe-area-inset-bottom");
   });
 
   it("reduces Jurado ballot noise only on desktop and keeps voting context prominent", () => {

@@ -40,6 +40,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
+  const [troupeTab, setTroupeTab] = useState("comparsas");
   const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
@@ -161,29 +162,31 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               {onBack && <button className="secondary" type="button" onClick={onBack}>Volver</button>}
             </div>
           </header>
-          <nav className="competencia-nav competencia-stepper" aria-label="Pasos de configuración de competencia">
-            <ol>
+          <nav className="competencia-nav competencia-stepper competencia-stepper-header" aria-label="Pasos de configuración de competencia">
+            <ol className="competencia-stepper-line">
               {steps.map((item, index) => {
                 const state = stepStatuses[item.key];
                 const isCurrent = step === item.key;
+                const isComplete = !isCurrent && state === "complete";
                 const stateLabel = READINESS_STATE_LABELS[state];
                 return (
-                  <li key={item.key}>
+                  <li key={item.key} className="competencia-stepper-item">
                     <button
                       type="button"
-                      className={isCurrent ? "active" : "secondary"}
+                      className={`competencia-stepper-btn ${isCurrent ? "is-active active" : "secondary"} ${isComplete ? "is-complete" : ""}`}
                       aria-current={isCurrent ? "step" : undefined}
                       aria-label={`Paso ${index + 1} de ${steps.length}: ${item.label}. ${stateLabel}.${isCurrent ? " Paso actual." : ""}`}
                       onClick={() => goStep(item.key)}
                     >
-                      <span className="competencia-step-badge" aria-hidden="true">
-                        {!isCurrent && state === "complete" ? "✓" : index + 1}
+                      <span className="competencia-stepper-circle competencia-step-badge" aria-hidden="true">
+                        {isComplete ? "✓" : index + 1}
                       </span>
                       <span className="competencia-step-copy">
                         <span className="competencia-step-label">{item.label}</span>
                         <span className="competencia-step-state">{stateLabel}</span>
                       </span>
                     </button>
+                    {index < steps.length - 1 && <span className="competencia-stepper-divider" aria-hidden="true" />}
                   </li>
                 );
               })}
@@ -194,15 +197,56 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
               <p className="step-intro">Cargá quiénes participan: primero los tipos, después las comparsas y por último el orden de pasada de cada jornada.</p>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
-              <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación">
-                <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
-              </section>
-              <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
-                <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
-              </section>
-              <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
-                <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
-              </section>
+
+              <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-sub-comparsas"
+                  aria-controls="panel-sub-comparsas"
+                  aria-selected={troupeTab === "comparsas"}
+                  className={`competencia-subtab-btn ${troupeTab === "comparsas" ? "is-active active" : ""}`}
+                  onClick={() => setTroupeTab("comparsas")}
+                >
+                  Comparsas
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-sub-orden"
+                  aria-controls="panel-sub-orden"
+                  aria-selected={troupeTab === "orden"}
+                  className={`competencia-subtab-btn ${troupeTab === "orden" ? "is-active active" : ""}`}
+                  onClick={() => setTroupeTab("orden")}
+                >
+                  Orden de pasada por jornada
+                </button>
+              </div>
+
+              <div
+                role="tabpanel"
+                id="panel-sub-comparsas"
+                aria-labelledby="tab-sub-comparsas"
+                className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
+              >
+                <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
+                </section>
+                <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
+                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
+                </section>
+              </div>
+
+              <div
+                role="tabpanel"
+                id="panel-sub-orden"
+                aria-labelledby="tab-sub-orden"
+                className={`competencia-tab-panel ${troupeTab === "orden" ? "is-active" : "is-hidden"}`}
+              >
+                <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
+                  <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
+                </section>
+              </div>
             </section>
           )}
           {step === "jurados" && (
@@ -293,6 +337,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               {currentReadinessStatus === "unavailable" && <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>}
             </section>
           )}
+          <WizardFooterNav activeIndex={activeIndex} steps={steps} onStepChange={goStep} />
         </fieldset>
       </PageShell>
     </WriteContext.Provider>
@@ -306,6 +351,42 @@ function StepSummary({ stepLabel, recommendation }) {
       <h3>Resumen del paso</h3>
       <p role="status">{recommendation}</p>
     </section>
+  );
+}
+
+function WizardFooterNav({ activeIndex, steps, onStepChange }) {
+  const hasPrev = activeIndex > 0;
+  const hasNext = activeIndex < steps.length - 1;
+  const nextStep = hasNext ? steps[activeIndex + 1] : null;
+  const prevStep = hasPrev ? steps[activeIndex - 1] : null;
+
+  return (
+    <nav className="wizard-footer-nav" aria-label="Navegación del asistente">
+      <div>
+        {hasPrev ? (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => onStepChange(prevStep.key)}
+          >
+            ← Volver a {prevStep.label.toLowerCase()}
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+      <div>
+        {hasNext && (
+          <button
+            type="button"
+            className="primary"
+            onClick={() => onStepChange(nextStep.key)}
+          >
+            Continuar a {nextStep.label.toLowerCase()} →
+          </button>
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -601,70 +682,111 @@ function AdminTroupesSection({ event }) {
         <p>Eliminar oculta la comparsa de la vista y la conserva desactivada en BD. Para verlas usa el filtro de estado.</p>
       </div>
       <p className="feedback" role="status">{message}</p>
-      {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
-      <div className="troupe-filters">
-        <label>Buscar<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar comparsa por nombre" placeholder="Buscar por nombre" /></label>
-        <label>Tipo<select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filtrar comparsas por tipo">
-          <option value="all">Todos los tipos</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select></label>
-        <label>Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filtrar comparsas por estado">
-          <option value="all">Todas</option>
-          <option value="active">Activas</option>
-          <option value="inactive">Inactivas</option>
-        </select></label>
-        <span className="filter-count" role="status">{filtered.length} de {troupes.length} comparsas</span>
-      </div>
-      {filtered.length === 0 ? (
-        <p className="empty-state">Sin comparsas para los filtros actuales.</p>
-      ) : (
-        <div className="table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Comparsa</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Estado</th>
-                {!locked && <th scope="col">Acción</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((troupe) => (
-                <tr key={troupe.id}>
-                  <td>
-                    <span className="troupe-cell">
-                      <TroupeLogo troupeId={troupe.id} hasLogo={troupe.hasLogo} sha256={troupe.logoSha256} alt={`Logo de ${troupe.name}`} />
-                      {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
-                      <span>
-                        <strong>{troupe.name}</strong>
-                        <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name}{troupe.brandColor ? ` (${troupe.brandColor})` : " (sin color)"}</span>
-                      </span>
-                    </span>
-                  </td>
-                  <td>{troupe.categoryName ?? "Sin tipo"}</td>
-                  <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
-                  {!locked && (
-                    <td>
-                      <button className="secondary" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
-                        Editar
-                      </button>{" "}
-                      {troupe.active !== false ? (
-                        <button className="secondary danger-action" type="button" aria-label={`Eliminar comparsa ${troupe.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(troupe); }}>
-                          Eliminar
-                        </button>
-                      ) : (
-                        <button className="secondary" type="button" aria-label={`Reactivar comparsa ${troupe.name}`} onClick={() => reactivateTroupe(troupe)}>
-                          Reactivar
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="competencia-card">
+        <div className="competencia-card-toolbar">
+          <div className="competencia-toolbar-left troupe-filters">
+            <span className="competencia-toolbar-count filter-count" role="status">{filtered.length} de {troupes.length} comparsas</span>
+            <div className="competencia-toolbar-search">
+              <label>Buscar<input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar comparsa por nombre" placeholder="Buscar por nombre..." /></label>
+            </div>
+            <div className="competencia-toolbar-filter">
+              <label>Tipo<select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filtrar comparsas por tipo">
+                <option value="all">Todos los tipos</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select></label>
+            </div>
+            <div className="competencia-toolbar-filter">
+              <label>Estado<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filtrar comparsas por estado">
+                <option value="all">Todas</option>
+                <option value="active">Activas</option>
+                <option value="inactive">Inactivas</option>
+              </select></label>
+            </div>
+          </div>
+          <div className="competencia-toolbar-right">
+            {!locked && <button type="button" className="btn-primary" aria-label="+ Nueva comparsa" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
+          </div>
         </div>
-      )}
+        {filtered.length === 0 ? (
+          <p className="empty-state" style={{ padding: "var(--space-6)" }}>Sin comparsas para los filtros actuales.</p>
+        ) : (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Comparsa</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Estado</th>
+                  {!locked && <th scope="col">Acción</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((troupe) => (
+                  <tr key={troupe.id}>
+                    <td>
+                      <span className="troupe-cell">
+                        <TroupeLogo troupeId={troupe.id} hasLogo={troupe.hasLogo} sha256={troupe.logoSha256} alt={`Logo de ${troupe.name}`} />
+                        {troupe.brandColor && <span className="troupe-swatch" role="img" aria-label={`Color ${troupe.brandColor}`} style={{ backgroundColor: troupe.brandColor }} />}
+                        <span>
+                          <strong>{troupe.name}</strong>
+                          <span className="troupe-preview" aria-label={`Vista jurado de ${troupe.name}`}>Vista jurado: {troupe.name}{troupe.brandColor ? ` (${troupe.brandColor})` : " (sin color)"}</span>
+                        </span>
+                      </span>
+                    </td>
+                    <td>{troupe.categoryName ?? "Sin tipo"}</td>
+                    <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
+                    {!locked && (
+                      <td>
+                        <button className="secondary" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
+                          Editar
+                        </button>{" "}
+                        {troupe.active !== false ? (
+                          <button className="secondary danger-action" type="button" aria-label={`Eliminar comparsa ${troupe.name}`} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setDeleteTarget(troupe); }}>
+                            Eliminar
+                          </button>
+                        ) : (
+                          <button className="secondary" type="button" aria-label={`Reactivar comparsa ${troupe.name}`} onClick={() => reactivateTroupe(troupe)}>
+                            Reactivar
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="competencia-card-footer">
+          <div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                const el = document.getElementById("seccion-tipos-participacion");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              ⚙ Gestionar tipos de participación
+            </button>
+          </div>
+          <div
+            className={`competencia-readiness-badge ${
+              troupes.filter((t) => t.active !== false).length >= 2 ? "is-ready" : ""
+            }`}
+          >
+            {troupes.filter((t) => t.active !== false).length >= 2 ? (
+              <>
+                <span aria-hidden="true">✓</span> Requisitos de comparsas completos (mínimo 2 activas)
+              </>
+            ) : (
+              <>
+                <span aria-hidden="true">⚠️</span> Se requieren al menos 2 comparsas activas
+              </>
+            )}
+          </div>
+        </div>
+      </div>
       <EntityDrawer
         isOpen={drawerMode !== null && !locked}
         onClose={() => setDrawerMode(null)}
@@ -676,14 +798,12 @@ function AdminTroupesSection({ event }) {
           key={drawerMode?.mode === "edit" ? `edit-${drawerMode.troupeId}` : `create-${drawerMode?.ts}`}
           initialValue={editingTroupe ?? {}}
           categories={activeCategories}
+          onCancel={() => setDrawerMode(null)}
           submitting={saving}
           submitLabel={drawerMode?.mode === "edit" ? "Guardar comparsa" : "Agregar comparsa"}
           showActive={drawerMode?.mode === "edit"}
           onSubmit={submitTroupe}
         />
-        <DialogFooter>
-          <button type="button" className="secondary" onClick={() => setDrawerMode(null)}>Cancelar</button>
-        </DialogFooter>
       </EntityDrawer>
       <Dialog isOpen={mutationTarget !== null && !locked} onClose={() => setMutationTarget(null)} title={mutationTarget?.title ?? "Confirmar cambio"} description={mutationTarget?.description ?? ""}>
         <DialogFooter>

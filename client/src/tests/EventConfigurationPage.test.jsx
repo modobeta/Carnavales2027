@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
 import { EventConfigurationPage } from "../pages/EventConfigurationPage.jsx";
@@ -49,6 +49,25 @@ describe("EventConfigurationPage", () => {
       "/api/v1/events/event-1/nights",
       expect.objectContaining({ body: JSON.stringify({ name: "Noche 1", displayOrder: 1, kind: "COMPETITION", eventDate: null }) }),
     ));
+  });
+
+  it("agrupa Cancelar y Agregar jornada en el pie del formulario", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
+
+    const form = screen.getByRole("button", { name: "Agregar jornada" }).closest("form");
+    const actions = form.querySelector(".dialog-footer-actions");
+
+    expect(actions).toBeInTheDocument();
+    expect(within(actions).getAllByRole("button").map((button) => button.textContent.trim()))
+      .toEqual(["Cancelar", "Agregar jornada"]);
+  });
+
+  it("mantiene el tipo de jornada como un selector etiquetado y personalizado visualmente", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
+
+    expect(screen.getByLabelText("Tipo de jornada")).toHaveClass("night-form__kind");
   });
 
   it("presenta el orden como Orden de visualización con max+1", async () => {

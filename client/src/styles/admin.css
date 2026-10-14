@@ -848,6 +848,23 @@
   margin-inline: auto;
 }
 
+.entity-drawer .dialog-footer-actions {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 1;
+  margin-inline: calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  border-block-start: 1px solid var(--border-subtle);
+  background: var(--surface-modal);
+}
+
+@media (min-width: 40rem) {
+  .entity-drawer .dialog-footer-actions {
+    margin-inline: calc(-1 * var(--space-6));
+    padding-inline: var(--space-6);
+  }
+}
+
 /* Spec 027/B — Panel admin (aditivo) */
 .config-progress {
   display: grid;

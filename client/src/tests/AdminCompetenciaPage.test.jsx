@@ -654,6 +654,18 @@ describe("AdminCompetenciaPage", () => {
       expect(await screen.findByText("Vista jurado: Nueva (#22c55e)")).toBeInTheDocument();
     });
 
+    it("agrupa Cancelar y Agregar comparsa en el pie del formulario", async () => {
+      mockTroupes();
+      await openTroupesTab();
+      fireEvent.click(screen.getByRole("button", { name: "+ Nueva comparsa" }));
+
+      const form = screen.getByRole("button", { name: "Agregar comparsa" }).closest("form");
+      const actions = form.querySelector(".dialog-footer-actions");
+
+      expect(within(actions).getAllByRole("button").map((button) => button.textContent.trim()))
+        .toEqual(["Cancelar", "Agregar comparsa"]);
+    });
+
     it("crea comparsa sin color cuando no se activa el selector", async () => {
       const write = vi.fn().mockResolvedValue({ id: "troupe-3", name: "Nueva", categoryId: "category-1", categoryName: "Comparsa", brandColor: null, active: true });
       mockTroupes({ write });
@@ -1080,6 +1092,33 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.queryByText(/Quién evalúa/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Qué se puntúa/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Revisar y cerrar/)).not.toBeInTheDocument();
+    });
+
+    it("provee sub-pestañas para conmutar entre comparsas y orden de pasada, y footer de asistente para continuar", async () => {
+      mockCompetitionData();
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+
+      const comparsasTab = screen.getByRole("tab", { name: "Comparsas" });
+      const ordenTab = screen.getByRole("tab", { name: "Orden de pasada por jornada" });
+      expect(comparsasTab).toHaveAttribute("aria-selected", "true");
+      expect(ordenTab).toHaveAttribute("aria-selected", "false");
+
+      fireEvent.click(ordenTab);
+      expect(ordenTab).toHaveAttribute("aria-selected", "true");
+      expect(comparsasTab).toHaveAttribute("aria-selected", "false");
+
+      const footer = screen.getByRole("navigation", { name: "Navegación del asistente" });
+      const nextBtn = within(footer).getByRole("button", { name: /Continuar a jurados/i });
+      fireEvent.click(nextBtn);
+      expect(await screen.findByRole("heading", { name: "Jurados y especialidades" })).toBeInTheDocument();
+    });
+
+    it("muestra tarjeta de comparsas con toolbar integrada y acción de gestión de tipos", async () => {
+      mockCompetitionData();
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+
+      expect(screen.getByRole("button", { name: "⚙ Gestionar tipos de participación" })).toBeInTheDocument();
+      expect(await screen.findByText(/Se requieren al menos 2 comparsas activas/)).toBeInTheDocument();
     });
   });
 });

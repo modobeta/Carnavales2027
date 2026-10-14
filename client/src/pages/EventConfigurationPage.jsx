@@ -3,7 +3,6 @@ import { PageShell } from "../components/PageShell.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
 import { EntityDrawer } from "../components/EntityDrawer.jsx";
-import { DialogFooter } from "../components/DialogFooter.jsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { UnsavedChangesDialog } from "../components/UnsavedChangesDialog.jsx";
 import { useNotify } from "../components/Notifications.jsx";
@@ -289,14 +288,12 @@ export function EventConfigurationPage({
             key={drawerMode?.mode === "edit" ? `edit-${drawerMode.nightId}` : "create"}
             initialValue={editingNight ?? {}}
             defaultOrder={nextOrder}
+            onCancel={requestCloseDrawer}
             submitting={savingNight}
             submitLabel={drawerMode?.mode === "edit" ? "Guardar jornada" : "Agregar jornada"}
             onSubmit={saveNight}
           />
         </div>
-        <DialogFooter>
-          <button type="button" className="secondary" onClick={requestCloseDrawer}>Cancelar</button>
-        </DialogFooter>
       </EntityDrawer>
 
       <UnsavedChangesDialog
