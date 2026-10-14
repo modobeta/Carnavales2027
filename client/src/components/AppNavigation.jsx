@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../api/http.js";
 import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
@@ -233,24 +234,7 @@ function getInitials(name) {
         )}
       </div>
       <div className="session-actions">
-        {adminEvent && !hideEventPicker && (
-          <label className="global-event-picker">
-            <span>Evento activo</span>
-            <select
-              aria-label="Evento activo"
-              value={adminEvent.activeEventId}
-              disabled={adminEvent.loading || adminEvent.events.length === 0}
-              onChange={(event) => {
-                adminEvent.setActiveEventId(event.target.value);
-                if (currentRoute.startsWith("#/judge/")) window.location.hash = "#/judge";
-              }}
-            >
-              {adminEvent.events.length === 0 ? <option value="">Sin eventos</option> : adminEvent.events.map((event) => (
-                <option key={event.id} value={event.id}>{event.name}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} />}
         <div className="session-user">
           <div className="session-avatar" aria-hidden="true">
             {getInitials(session.user?.name)}

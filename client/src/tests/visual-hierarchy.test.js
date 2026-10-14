@@ -81,6 +81,36 @@ describe("visual hierarchy system", () => {
     expect(stickyActions).toContain("env(safe-area-inset-bottom");
   });
 
+  it("gives the global event picker a stacked label, a custom chevron and press feedback", () => {
+    const pickerStyles = admin.match(/\.global-event-picker\s*\{[^}]*\}/)?.[0] ?? "";
+    const pickerDot = admin.match(/\.global-event-picker::before\s*\{[^}]*\}/)?.[0] ?? "";
+    const pickerLabel = admin.match(/\.global-event-picker span\s*\{[^}]*\}/)?.[0] ?? "";
+    const pickerSelect = admin.match(/\.global-event-picker select\s*\{[^}]*\}/)?.[0] ?? "";
+    const pickerActive = admin.match(/\.global-event-picker:active\s*\{[^}]*\}/)?.[0] ?? "";
+    const pickerFocus = admin.match(/\.global-event-picker:focus-within\s*\{[^}]*\}/)?.[0] ?? "";
+    const reducedMotion = admin.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.global-event-picker:active\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(pickerStyles).toContain("display: inline-grid;");
+    expect(pickerStyles).toContain("min-block-size: 2.75rem;");
+    expect(pickerDot).toContain("background: var(--modal-violet);");
+    expect(pickerLabel).toContain("grid-row: 1;");
+    expect(pickerSelect).toContain("appearance: none;");
+    expect(pickerSelect).toContain("background-image:");
+    expect(pickerSelect).toContain("min-block-size: 0;");
+    expect(pickerActive).toContain("transform: scale(0.98);");
+    expect(pickerFocus).toContain("box-shadow: var(--shadow-focus);");
+    expect(reducedMotion).toContain("transform: none;");
+  });
+
+  it("keeps event, profile and sign-out controls aligned in the navigation row", () => {
+    const assignmentPicker = admin.match(/\.assignment-page \.event-picker\s*\{[^}]*\}/)?.[0] ?? "";
+    const navActionLayout = admin.match(/@media \(min-width: 36\.01rem\)\s*\{[\s\S]*?\.app-navigation \.session-actions\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(assignmentPicker).toContain("min-inline-size: min(100%, 18rem);");
+    expect(navActionLayout).toContain("flex-wrap: nowrap;");
+    expect(navActionLayout).toContain("align-items: center;");
+  });
+
   it("reduces Jurado ballot noise only on desktop and keeps voting context prominent", () => {
     const desktopRefinement = index.split("/* Jurado desktop refinement — planilla prioritaria */")[1] ?? "";
 

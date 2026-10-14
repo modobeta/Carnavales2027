@@ -13,6 +13,7 @@ import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
+import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
 
 const WriteContext = createContext(null);
 
@@ -155,6 +156,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             <div>
               <p className="eyebrow">Competencia</p>
               <h1>{event.name ?? "Evento"}</h1>
+              <h2 className="competencia-flow-title" style={{ fontSize: "var(--text-xl)", fontWeight: 700, margin: "var(--space-2) 0" }}>Preparación del evento</h2>
               <p className="competencia-event-status">Estado del evento: {eventStatusLabel}</p>
               <p className="competencia-step-meta">Paso {activeIndex + 1} de {steps.length}</p>
             </div>
@@ -169,6 +171,12 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 const isCurrent = step === item.key;
                 const isComplete = !isCurrent && state === "complete";
                 const stateLabel = READINESS_STATE_LABELS[state];
+                const shortLabels = {
+                  participantes: "Comparsas",
+                  jurados: "Jurados",
+                  rubros: "Evaluación",
+                  revision: "Revisión final",
+                };
                 return (
                   <li key={item.key} className="competencia-stepper-item">
                     <button
@@ -182,7 +190,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                         {isComplete ? "✓" : index + 1}
                       </span>
                       <span className="competencia-step-copy">
-                        <span className="competencia-step-label">{item.label}</span>
+                        <span className="competencia-step-label">{shortLabels[item.key] ?? item.label}</span>
                         <span className="competencia-step-state">{stateLabel}</span>
                       </span>
                     </button>
@@ -251,43 +259,30 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           )}
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <p className="step-intro">Primero creá al menos una especialidad activa. Después vas a poder asignar jurados a cada especialidad. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Jurados y especialidades">Jurados por jornada</h2>
+              <p className="step-intro">Asigná quién evalúa cada especialidad en cada jornada. Administrá el padrón en <a href="#/admin/judges">Jurados</a>.</p>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
-              <div className="competencia-tabs" role="tablist" aria-label="Especialidades y asignaciones">
-                <button
-                  type="button"
-                  role="tab"
-                  id="competencia-tab-especialidades"
-                  aria-controls="competencia-jurados-panel"
-                  aria-selected={juryTab === "especialidades"}
-                  className={juryTab === "especialidades" ? "active" : "secondary"}
-                  onClick={() => selectJuryTab("especialidades")}
-                >
-                  Especialidades
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="competencia-tab-asignaciones"
-                  aria-controls="competencia-jurados-panel"
-                  aria-selected={juryTab === "asignaciones"}
-                  className={juryTab === "asignaciones" ? "active" : "secondary"}
-                  onClick={() => selectJuryTab("asignaciones")}
-                >
-                  Asignar jurados
-                </button>
-              </div>
-              <div role="tabpanel" id="competencia-jurados-panel" aria-labelledby={`competencia-tab-${juryTab}`} tabIndex={0}>
-                {juryTab === "especialidades" ? (
-                  <>
-                    <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
-                    {specialtiesActive.length === 0 && <p className="field-hint">Creá o reactivá una especialidad para habilitar las asignaciones.</p>}
-                  </>
-                ) : (
-                  <AdminAssignmentsPage initialEventId={event.id} embedded={true} />
-                )}
-              </div>
+
+              <JuradosPorJornadaSection
+                event={event}
+                onOpenSpecialties={() => {
+                  const el = document.getElementById("seccion-especialidades");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                onDataChanged={() => {
+                  if (incRevision) incRevision();
+                  if (reloadProgress) reloadProgress();
+                }}
+              />
+
+              <section
+                id="seccion-especialidades"
+                className="competencia-subblock"
+                aria-label="Gestión de especialidades"
+                style={{ marginBlockStart: "2.5rem" }}
+              >
+                <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+              </section>
             </section>
           )}
           {step === "rubros" && (
@@ -360,6 +355,13 @@ function WizardFooterNav({ activeIndex, steps, onStepChange }) {
   const nextStep = hasNext ? steps[activeIndex + 1] : null;
   const prevStep = hasPrev ? steps[activeIndex - 1] : null;
 
+  const STEP_BUTTON_LABELS = {
+    participantes: "comparsas",
+    jurados: "jurados",
+    rubros: "evaluación",
+    revision: "revisión",
+  };
+
   return (
     <nav className="wizard-footer-nav" aria-label="Navegación del asistente">
       <div>
@@ -369,7 +371,7 @@ function WizardFooterNav({ activeIndex, steps, onStepChange }) {
             className="secondary"
             onClick={() => onStepChange(prevStep.key)}
           >
-            ← Volver a {prevStep.label.toLowerCase()}
+            ← Volver a {STEP_BUTTON_LABELS[prevStep.key] ?? prevStep.label.toLowerCase()}
           </button>
         ) : (
           <span />
@@ -382,7 +384,7 @@ function WizardFooterNav({ activeIndex, steps, onStepChange }) {
             className="primary"
             onClick={() => onStepChange(nextStep.key)}
           >
-            Continuar a {nextStep.label.toLowerCase()} →
+            Continuar a {STEP_BUTTON_LABELS[nextStep.key] ?? nextStep.label.toLowerCase()} →
           </button>
         )}
       </div>

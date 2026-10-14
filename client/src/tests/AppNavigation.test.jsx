@@ -90,7 +90,7 @@ describe("AppNavigation", () => {
     expect(screen.queryByText("En vivo")).not.toBeInTheDocument();
     expect(screen.queryByText("Finalización")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Jornadas" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Evento activo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Evento actual" })).not.toBeInTheDocument();
   });
 
   it("muestra la navegación contextual con Jornadas activo en #/admin/events", () => {
@@ -206,9 +206,10 @@ describe("AppNavigation", () => {
       </AdminEventProvider>,
     );
 
-    const selector = await screen.findByRole("combobox", { name: "Evento activo" });
-    await waitFor(() => expect(selector).toHaveValue("e1"));
-    fireEvent.change(selector, { target: { value: "e2" } });
-    expect(selector).toHaveValue("e2");
+    const selector = await screen.findByRole("button", { name: "Evento actual" });
+    expect(selector).toHaveTextContent("Carnaval 2027");
+    fireEvent.click(selector);
+    fireEvent.click(await screen.findByRole("option", { name: "Prueba 2027" }));
+    await waitFor(() => expect(selector).toHaveTextContent("Prueba 2027"));
   });
 });
