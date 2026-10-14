@@ -14,6 +14,8 @@ import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, re
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 
 const WriteContext = createContext(null);
 
@@ -36,6 +38,42 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
+function incompleteStepGuidance(stepKey, readiness) {
+  const missing = new Set(readiness?.missing ?? []);
+  const messages = [];
+
+  if (stepKey === "participantes") {
+    if (missing.has("ACTIVE_TROUPE")) messages.push("No hay comparsas activas. Creá una comparsa o activá una existente.");
+    for (const troupe of readiness?.incompleteTroupes ?? []) {
+      messages.push(`Elegí una categoría activa para ${troupe.name ?? "esta comparsa"}.`);
+    }
+    for (const nomination of readiness?.incompleteNominations ?? []) {
+      messages.push(`Cargá el participante que falta para ${nomination.rubricName ?? "el rubro"} en ${nomination.troupeName ?? "la comparsa"}.`);
+    }
+    if (messages.length === 0) messages.push("Revisá los participantes y completá los datos que faltan para continuar.");
+  }
+
+  if (stepKey === "jurados") {
+    if (missing.has("ACTIVE_SPECIALTY")) messages.push("No hay especialidades activas. Creá o activá una especialidad antes de asignar jurados.");
+    for (const night of readiness?.nightsWithoutJury ?? []) {
+      messages.push(`Asigná un jurado activo a ${night.nightName ?? "esta jornada"}.`);
+    }
+    if (missing.has("NIGHTS_WITHOUT_JURY") && messages.length === 0) messages.push("Revisá las asignaciones y asegurate de que cada jornada tenga un jurado activo.");
+    if (messages.length === 0) messages.push("Revisá las especialidades y las asignaciones de jurados para completar este paso.");
+  }
+
+  if (stepKey === "rubros") {
+    if (missing.has("ACTIVE_RUBRIC")) messages.push("No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.");
+    for (const rubric of readiness?.incompleteRubrics ?? []) {
+      messages.push(`${rubric.name ?? "Este rubro"}: agregá ítems puntuables y asigná cada uno a una especialidad activa.`);
+    }
+    if (messages.length === 0) messages.push("Revisá los rubros e ítems de evaluación y completá lo que falta.");
+  }
+
+  if (stepKey === "revision") return "Antes de abrir el evento, resolvé los bloqueos detallados más abajo.";
+  return messages.join(" ");
+}
+
 export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
   const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
@@ -48,8 +86,16 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [progress, setProgress] = useState(null);
   const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
+  const [currentEvent, setCurrentEvent] = useState(event);
+  const [openingEvent, setOpeningEvent] = useState(false);
+  const [confirmOpenEvent, setConfirmOpenEvent] = useState(false);
+  const [openEventMessage, setOpenEventMessage] = useState("");
   const writing = useRef(false);
   const progressRequest = useRef(0);
+
+  useEffect(() => {
+    setCurrentEvent(event);
+  }, [event]);
 
   useEffect(() => {
     setStep(validInitialStep);
@@ -139,14 +185,51 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     }
   };
 
+  const isEventOpen = currentEvent?.status === "OPEN";
+
+  const handleOpenEvent = async () => {
+    if (openingEvent || !currentReadiness?.ready || isEventOpen) return;
+    setOpeningEvent(true);
+    setOpenEventMessage("");
+    setConfirmOpenEvent(false);
+    let operation;
+    try {
+      operation = createPendingEventOpenOperation(event.id);
+      const openedEvent = await apiRequest(`/api/v1/events/${encodeURIComponent(event.id)}/open`, {
+        method: "POST",
+        headers: { "Idempotency-Key": operation.operationId },
+      });
+      const receipt = openedEvent?.operation;
+      const isMatchingApplied = receipt?.operationId === operation.operationId
+        && receipt?.eventId === event.id && receipt?.intent === "OPEN_EVENT"
+        && receipt?.status === "applied" && openedEvent?.status === "OPEN";
+      if (isMatchingApplied) {
+        resolvePendingEventOpenOperation(event.id, receipt);
+        setCurrentEvent(openedEvent);
+        setOpenEventMessage("¡Competencia abierta con éxito! Ya podés gestionar las jornadas en Control de votación.");
+        reloadProgress();
+      } else {
+        setOpenEventMessage("La respuesta no confirmó la apertura. Verificá el estado del evento.");
+      }
+    } catch (err) {
+      const receipt = err?.details?.operation ?? err?.operation;
+      if (operation && receipt?.operationId === operation.operationId && receipt?.status === "rejected") {
+        resolvePendingEventOpenOperation(event.id, receipt);
+      }
+      setOpenEventMessage(err?.message ?? "Error al abrir la competencia.");
+    } finally {
+      setOpeningEvent(false);
+    }
+  };
+
   const statusSummary = (key) => {
     const status = stepStatuses[key];
-    if (status === "complete") return `${READINESS_STATE_LABELS[status]} según readiness de la API.`;
-    if (status === "incomplete") return "Readiness informa uno o más bloqueos oficiales para este paso.";
+    if (status === "complete") return null;
+    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness);
     if (status === "unqueried") return "Readiness no consultado todavía.";
     return "Readiness no disponible; no se puede confirmar el estado de este paso.";
   };
-  const eventStatusLabel = uxStatusLabel(event.status, "No disponible");
+  const eventStatusLabel = uxStatusLabel(currentEvent?.status, "No disponible");
 
   return (
     <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1) }}>
@@ -237,11 +320,11 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 aria-labelledby="tab-sub-comparsas"
                 className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
               >
-                <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
-                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
-                </section>
                 <section className="competencia-subblock" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
                   <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
+                </section>
+                <section className="competencia-subblock" aria-label="Bloque 2 de 3: Comparsas">
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
                 </section>
               </div>
 
@@ -305,34 +388,195 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 readiness={currentReadiness}
                 readinessStatus={currentReadinessStatus}
                 onBack={() => goStep("jurados")}
-                onContinue={() => goStep("revision")}
                 tab={rubricTab}
               />
               </div>
               <CompetenciaOverview key={`overview-${event.id}`} event={event} />
-              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} onBack={() => goStep("jurados")} onContinue={() => goStep("revision")} />
+              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} />
             </section>
           )}
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
               <p className="step-intro">Revisá únicamente los bloqueos oficiales de apertura informados por la API.</p>
-              <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
-              {currentReadinessStatus === "available" ? currentReadiness.ready ? (
-                <p className="readiness-ok">La API confirma que no hay bloqueos oficiales de apertura.</p>
+
+              {isEventOpen ? (
+                <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
+                  <div className="revision-banner-icon" aria-hidden="true">🟢</div>
+                  <div className="revision-banner-content">
+                    <h3>Competencia abierta</h3>
+                    <p>
+                      La preparación del evento finalizó con éxito. La configuración de comparsas, jurados y evaluación está resguardada para proteger la integridad y trazabilidad de las planillas oficiales.
+                    </p>
+                    <div className="revision-banner-actions">
+                      <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>
+                      <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <ul className="readiness-checklist" aria-label="Bloqueos oficiales de readiness">
-                  {officialIssues.map((issue) => <li key={issue.key} className="readiness-fail">
-                    <span className="readiness-icon" aria-hidden="true">!</span>
-                    <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
-                    <a href={issue.href}>{issue.action}</a>
-                  </li>)}
-                </ul>
-              ) : <p role="status">{currentReadinessStatus === "unqueried" ? "Readiness no consultado." : "No se pudo consultar readiness; revisá Eventos para volver a consultar."}</p>}
-              {currentReadinessStatus === "unavailable" && <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>}
+                <>
+                  <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
+                  {currentReadinessStatus === "available" ? (
+                    currentReadiness.ready ? (
+                      <div className="revision-status-banner is-ready" role="region" aria-label="Estado de readiness">
+                        <div className="revision-banner-icon" aria-hidden="true">✅</div>
+                        <div className="revision-banner-content">
+                          <h3>Preparación completa</h3>
+                          <p className="readiness-ok">La API confirma que no hay bloqueos oficiales de apertura.</p>
+                          <p className="revision-banner-subtext">
+                            Al abrir la competencia, la configuración quedará resguardada y podrás iniciar las jornadas y habilitar votaciones desde el panel de control.
+                          </p>
+                          <div className="revision-banner-actions">
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => setConfirmOpenEvent(true)}
+                              disabled={openingEvent}
+                            >
+                              {openingEvent ? "Abriendo…" : "Abrir competencia"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="readiness-checklist" aria-label="Bloqueos oficiales de readiness">
+                        {officialIssues.map((issue) => (
+                          <li key={issue.key} className="readiness-fail">
+                            <span className="readiness-icon" aria-hidden="true">!</span>
+                            <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
+                            <a href={issue.href}>{issue.action}</a>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  ) : (
+                    <p role="status">
+                      {currentReadinessStatus === "unqueried"
+                        ? "Readiness no consultado."
+                        : "No se pudo consultar readiness; revisá Eventos para volver a consultar."}
+                    </p>
+                  )}
+                  {currentReadinessStatus === "unavailable" && (
+                    <a className="button-link" href="#/admin/events">Reintentar en Eventos</a>
+                  )}
+                </>
+              )}
+
+              {openEventMessage && (
+                <p className="form-error" role="status" style={{ margin: "var(--space-3) 0" }}>
+                  {openEventMessage}
+                </p>
+              )}
+
+              <section className="revision-summary-section" aria-label="Resumen de la preparación">
+                <h3 className="revision-section-title">Resumen de la preparación</h3>
+                <div className="revision-summary-grid">
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 1</span>
+                      <h4>Comparsas</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {progress?.troupes?.filter((t) => t.active !== false).length ?? 0} comparsas
+                    </p>
+                    <p className="revision-card-detail">
+                      {progress?.categories?.filter((c) => c.active !== false).length ?? 0} tipos de participación
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("participantes")}
+                    >
+                      Ver comparsas
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 2</span>
+                      <h4>Jurados</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {specialtiesActive.length} especialidades
+                    </p>
+                    <p className="revision-card-detail">
+                      Asignaciones por jornada
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("jurados")}
+                    >
+                      Ver jurados
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Paso 3</span>
+                      <h4>Evaluación</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      {progress?.rubrics?.filter((r) => r.active !== false).length ?? 0} rubros
+                    </p>
+                    <p className="revision-card-detail">
+                      {(progress?.rubrics ?? [])
+                        .filter((r) => r.active !== false)
+                        .reduce((acc, r) => acc + (r.criteria?.length ?? r.items?.length ?? 0), 0)} criterios de puntuación
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary revision-card-link"
+                      onClick={() => goStep("rubros")}
+                    >
+                      Ver evaluación
+                    </button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header">
+                      <span className="revision-card-badge">Operación</span>
+                      <h4>Jornadas</h4>
+                    </div>
+                    <p className="revision-card-value">
+                      Control de votación
+                    </p>
+                    <p className="revision-card-detail">
+                      Orden y apertura de mesas
+                    </p>
+                    <a
+                      href="#/admin/voting"
+                      className="button-link secondary revision-card-link"
+                    >
+                      Ir a jornadas
+                    </a>
+                  </div>
+                </div>
+              </section>
+
+              <ConfirmDialog
+                isOpen={confirmOpenEvent}
+                onClose={() => setConfirmOpenEvent(false)}
+                onConfirm={handleOpenEvent}
+                title="¿Abrir la competencia?"
+                description="Al abrir la competencia, la configuración quedará resguardada para proteger la integridad y trazabilidad de los votos. Podrás comenzar a abrir jornadas y habilitar votaciones en Control de votación."
+                confirmLabel={openingEvent ? "Abriendo…" : "Abrir competencia"}
+                cancelLabel="Cancelar"
+                confirming={openingEvent}
+                tone="success"
+              />
             </section>
           )}
-          <WizardFooterNav activeIndex={activeIndex} steps={steps} onStepChange={goStep} />
+          <WizardFooterNav
+            activeIndex={activeIndex}
+            steps={steps}
+            onStepChange={goStep}
+            isEventOpen={isEventOpen}
+            isReady={currentReadiness?.ready}
+            onOpenEvent={() => setConfirmOpenEvent(true)}
+            opening={openingEvent}
+          />
         </fieldset>
       </PageShell>
     </WriteContext.Provider>
@@ -349,11 +593,12 @@ function StepSummary({ stepLabel, recommendation }) {
   );
 }
 
-function WizardFooterNav({ activeIndex, steps, onStepChange }) {
+function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening }) {
   const hasPrev = activeIndex > 0;
   const hasNext = activeIndex < steps.length - 1;
   const nextStep = hasNext ? steps[activeIndex + 1] : null;
   const prevStep = hasPrev ? steps[activeIndex - 1] : null;
+  const isLastStep = activeIndex === steps.length - 1;
 
   const STEP_BUTTON_LABELS = {
     participantes: "comparsas",
@@ -385,6 +630,21 @@ function WizardFooterNav({ activeIndex, steps, onStepChange }) {
             onClick={() => onStepChange(nextStep.key)}
           >
             Continuar a {STEP_BUTTON_LABELS[nextStep.key] ?? nextStep.label.toLowerCase()} →
+          </button>
+        )}
+        {isLastStep && isEventOpen && (
+          <a href="#/admin/voting" className="button-link primary">
+            Ir a Control de votación →
+          </a>
+        )}
+        {isLastStep && !isEventOpen && isReady && (
+          <button
+            type="button"
+            className="primary"
+            onClick={onOpenEvent}
+            disabled={opening}
+          >
+            {opening ? "Abriendo…" : "Abrir competencia"}
           </button>
         )}
       </div>
@@ -492,7 +752,7 @@ function CompetenciaOverview({ event }) {
   );
 }
 
-function EvaluationStepSummary({ progress, readiness, readinessStatus, onBack, onContinue }) {
+function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
   const specialties = (progress?.specialties ?? []).filter((specialty) => specialty.active !== false);
   const rubrics = (progress?.rubrics ?? []).filter((rubric) => rubric.active !== false);
   const items = rubrics.flatMap((rubric) => (rubric.items ?? []).filter((item) => item.active !== false));
@@ -513,20 +773,16 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus, onBack, o
       {readinessStatus === "available" ? (
         pendingRubrics.length || missingActiveRubrics || pendingNominations.length || pendingCriteria ? (
           <div className="evaluation-summary-pending" role="status">
-            <strong>Hay puntos de evaluación para revisar.</strong>
+            <strong>Para completar la evaluación:</strong>
             <ul>
-              {missingActiveRubrics && <li>No hay rubros activos.</li>}
-              {pendingRubrics.length > 0 && <li>{pendingRubrics.length} rubro(s) necesitan ítems activos y especialidades disponibles.</li>}
-              {pendingNominations.length > 0 && <li>Faltan participantes nominados en {pendingNominations.length} combinación(es) de rubro y comparsa.</li>}
-              {pendingCriteria > 0 && <li>{pendingCriteria} criterio(s) todavía deben vincularse a un ítem.</li>}
+              {missingActiveRubrics && <li>No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.</li>}
+              {pendingRubrics.map((rubric) => <li key={rubric.id}>{rubric.name ?? "Este rubro"} necesita ítems puntuables y una especialidad activa. Agregá o corregí sus ítems.</li>)}
+              {pendingNominations.map((nomination) => <li key={`${nomination.rubricId}-${nomination.troupeId}`}>Falta cargar un participante para {nomination.rubricName ?? "el rubro"} en {nomination.troupeName ?? "la comparsa"}.</li>)}
+              {pendingCriteria > 0 && <li>Hay {pendingCriteria} criterio(s) sin asociar. Abrí cada rubro y vinculá sus criterios a un ítem puntuable.</li>}
             </ul>
           </div>
         ) : <p className="evaluation-summary-status" role="status">Readiness no informa pendientes de rubros o nominaciones.</p>
       ) : <p className="evaluation-summary-status" role="status">No se pudo comprobar el estado de evaluación ahora. La Revisión final verificará los bloqueos oficiales.</p>}
-      <nav className="evaluation-step-actions competencia-footer-nav" aria-label="Navegación de evaluación">
-        <button type="button" className="secondary" onClick={onBack}>Volver a jurados</button>
-        <button type="button" onClick={onContinue}>Continuar a revisión</button>
-      </nav>
     </section>
   );
 }
@@ -760,18 +1016,6 @@ function AdminTroupesSection({ event }) {
           </div>
         )}
         <div className="competencia-card-footer">
-          <div>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                const el = document.getElementById("seccion-tipos-participacion");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              ⚙ Gestionar tipos de participación
-            </button>
-          </div>
           <div
             className={`competencia-readiness-badge ${
               troupes.filter((t) => t.active !== false).length >= 2 ? "is-ready" : ""
@@ -1435,7 +1679,7 @@ function AdminSpecialtiesSection({ event }) {
   );
 }
 
-function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, onBack, onContinue, tab = "rubros" }) {
+function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, onBack, tab = "rubros" }) {
   const [rubrics, setRubrics] = useState([]);
   const [specialties, setSpecialties] = useState([]);
   const [troupes, setTroupes] = useState([]);
@@ -1962,7 +2206,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                             {isExpanded ? "Ocultar criterios ▴" : "Ver criterios ▾"}
                           </button>
 
-                          <div className="rubric-quick-menu">
+                          {!locked && <div className="rubric-quick-menu">
                             <button
                               type="button"
                               className="secondary rubric-quick-menu-trigger"
@@ -2028,7 +2272,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                 ))}
                               </div>
                             )}
-                          </div>
+                          </div>}
 
                           {tab === "items" && !locked && rubric.active !== false && (
                             <button
