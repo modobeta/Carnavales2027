@@ -56,6 +56,21 @@ describe("identidad y selección de evento", () => {
     expect(screen.queryByText("Comparsa 1")).not.toBeInTheDocument();
   });
 
+  it("no ofrece crear evento ni copy de administración al jurado", async () => {
+    apiRequest.mockImplementation(async (path) => {
+      if (path === "/api/v1/judge/profile") return { assignments: [{ eventId: "e1", eventName: "Evento 1", status: "ACTIVE" }] };
+      return { events: [] };
+    });
+    const session = { user: { id: "j1", name: "Juez Uno" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } };
+    render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /></AdminEventProvider>);
+    const selector = await screen.findByRole("button", { name: "Evento actual" });
+    await waitFor(() => expect(selector).toHaveTextContent("Evento 1"));
+    fireEvent.click(selector);
+    expect(screen.queryByRole("button", { name: /Crear nuevo evento/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/querés administrar/)).not.toBeInTheDocument();
+    expect(screen.getByText(/sobre el que querés trabajar/)).toBeInTheDocument();
+  });
+
   it("sincroniza supervisión con el selector global", async () => {
     apiRequest.mockImplementation(async (path) => path === "/api/v1/public/events" ? { events: [] } : [1, 2].map((n) => ({ id: `e${n}`, name: `Evento ${n}`, nights: [{ id: `n${n}`, name: `Jornada ${n}`, votingStatus: "OPEN", counts: {}, total: 0 }] })));
     const session = { user: { id: "v1", name: "Persona" }, roles: ["VEEDOR"] };

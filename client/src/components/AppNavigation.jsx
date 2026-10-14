@@ -285,7 +285,7 @@ function getInitials(name) {
         )}
       </div>
       <div className="session-actions">
-        {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} />}
+        {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} canCreateEvents={isAdmin} />}
         <div className="session-user">
           <div className="session-avatar" aria-hidden="true">
             {getInitials(session.user?.name)}

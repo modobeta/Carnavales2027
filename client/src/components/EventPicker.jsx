@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function EventPicker({ adminEvent }) {
+export function EventPicker({ adminEvent, canCreateEvents = false }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const close = () => setOpen(false);
@@ -66,7 +66,7 @@ export function EventPicker({ adminEvent }) {
         <div className="event-picker-popover" role="dialog" aria-label="Cambiar de evento">
           <header className="event-picker-popover-header">
             <h3>Cambiar de evento</h3>
-            <p>Seleccioná el evento que querés administrar.</p>
+            <p>{canCreateEvents ? "Seleccioná el evento que querés administrar." : "Seleccioná el evento sobre el que querés trabajar."}</p>
           </header>
 
           <div className="event-picker-popover-body">
@@ -84,7 +84,9 @@ export function EventPicker({ adminEvent }) {
             {!loading && !error && events.length === 0 && (
               <div className="event-picker-state">
                 <p>Todavía no hay eventos</p>
-                <button type="button" onClick={createEvent}>Crear primer evento</button>
+                {canCreateEvents && (
+                  <button type="button" onClick={createEvent}>Crear primer evento</button>
+                )}
               </div>
             )}
 
@@ -111,7 +113,7 @@ export function EventPicker({ adminEvent }) {
             )}
           </div>
 
-          {!loading && events.length > 0 && (
+          {canCreateEvents && !loading && events.length > 0 && (
             <>
               <div className="event-picker-separator" aria-hidden="true" />
               <button type="button" className="event-picker-create" onClick={createEvent}>
