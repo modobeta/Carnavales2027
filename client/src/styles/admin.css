@@ -2602,3 +2602,9 @@
     justify-content: flex-start;
   }
 }
+
+/* Identidad visual Admin: navegación activa. */
+.app-drawer .nav-primary-link[aria-current="page"] {
+  color: var(--text-primary);
+  background: var(--palette-admin-nav-active);
+}

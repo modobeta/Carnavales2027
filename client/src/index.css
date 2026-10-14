@@ -651,8 +651,9 @@ label { color: var(--text-secondary); }
   transition: transform var(--transition-fast);
 }
 .app-drawer .nav-group[open] > .nav-group-summary::after { transform: rotate(225deg) translate(-0.1rem, -0.1rem); }
-.app-drawer .nav-group-summary:hover,
-.app-drawer .nav-group[open] > .nav-group-summary { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-drawer .nav-group-summary:hover { color: var(--text-primary); background: var(--surface-hover-subtle); }
+.app-drawer .nav-group[open] > .nav-group-summary { color: var(--text-primary); background: var(--palette-admin-nav-active); }
+.app-drawer .nav-group-links a[aria-current="page"] { color: var(--text-primary); background: var(--palette-admin-nav-active); }
 .app-drawer .nav-group-links {
   display: flex;
   flex-direction: column;
@@ -3076,4 +3077,17 @@ button.button-link:disabled {
 
   .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary,
   .judge-ballot-page:not(.is-readonly) .ballot-footer #voting-confirm-help { grid-column: 1 / -1; }
+}
+
+/* Identidad visual Admin: los botones primarios (azul) pasan a verde de marca.
+   Se usa :where() para mantener baja la especificidad y no pisar las variantes
+   existentes (secondary, danger-action, app-button-*, etc.). */
+:where(.app-shell.is-admin) button,
+:where(.app-shell.is-admin) .button-link {
+  background: var(--modal-success);
+  color: var(--modal-success-ink);
+}
+:where(.app-shell.is-admin) button:hover:not(:disabled),
+:where(.app-shell.is-admin) .button-link:hover {
+  background: var(--modal-success-strong);
 }
