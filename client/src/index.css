@@ -3091,3 +3091,14 @@ button.button-link:disabled {
 :where(.app-shell.is-admin) .button-link:hover {
   background: var(--modal-success-strong);
 }
+/* La acción destructiva conserva el rojo: sin el resalte verde del tema Admin
+   y con las letras en blanco. */
+:where(.app-shell.is-admin) button.danger-action,
+:where(.app-shell.is-admin) .button-link.danger-action {
+  background: var(--danger-color);
+  color: var(--text-on-primary);
+}
+:where(.app-shell.is-admin) button.danger-action:hover:not(:disabled),
+:where(.app-shell.is-admin) .button-link.danger-action:hover {
+  background: var(--danger-hover);
+}
