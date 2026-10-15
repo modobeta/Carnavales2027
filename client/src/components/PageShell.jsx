@@ -7,7 +7,7 @@
  */
 export function PageShell({ layer, className = "", children, ...rest }) {
   return (
-    <main className={className} data-layer={layer} {...rest}>
+    <main id={rest.id ?? "main-content"} className={className} data-layer={layer} {...rest}>
       {children}
     </main>
   );

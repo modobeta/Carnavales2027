@@ -82,7 +82,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [incompleteDialog, setIncompleteDialog] = useState(null);
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [continuityPrompt, setContinuityPrompt] = useState(null); // { completedTroupeName, nextTroupeName, nextNightScheduleId }
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [showAllReadonlyGroups, setShowAllReadonlyGroups] = useState(false);
   const [readonlyTroupeFilter, setReadonlyTroupeFilter] = useState("");
   const [readonlyRubricFilter, setReadonlyRubricFilter] = useState("");
@@ -617,7 +617,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               participantType: scoreItem.participantType ?? null,
             })}
           >
-            <span aria-hidden="true">⚠</span> No se presentó este ítem
+            <span aria-hidden="true">⚠</span> {scoreItem.participantName
+              ? `No se presentó ${scoreItem.participantName}`
+              : "No se presentó este ítem"}
           </button>
         </div>
 
@@ -704,7 +706,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   type="button"
                   className="ballot-summary-toggle"
                   aria-expanded={summaryOpen}
-                  aria-label={summaryOpen ? "Ocultar resumen de la comparsa" : "Ampliar resumen de la comparsa"}
+                  aria-label={`Resumen ${troupeDone}/${troupeItems.length}: ${summaryOpen ? "ocultar detalle" : "mostrar detalle"}`}
                   onClick={() => setSummaryOpen((prev) => !prev)}
                 >
                   <span className="ballot-summary-heading">
@@ -976,7 +978,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                     <h3>{score.itemName}</h3>
                                     <p>{score.rubricName}</p>
                                     {score.participantName && <p className="evaluation-context">{SUBJECT_LABELS[score.participantType] ?? "Participante"}: {score.participantName}</p>}
-                                    {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">{score.evaluationObjective}{score.expectedSubjectType ? ` · Sujeto: ${SUBJECT_LABELS[score.expectedSubjectType] ?? score.expectedSubjectType}` : ""}</p>}
+                                    {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">
+                                      {score.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {score.evaluationObjective}</span>}
+                                      {score.expectedSubjectType && <span><strong>Sujeto esperado:</strong> {SUBJECT_LABELS[score.expectedSubjectType] ?? score.expectedSubjectType}</span>}
+                                    </p>}
                                   </div>
                                   <span className="readonly-score-value">{isNotPresented ? "Ítem no presentado" : `${score.score} pts`}</span>
                                 </li>
@@ -1018,9 +1023,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         className="ballot-troupe-logo"
                       />
                       <div>
-                        <p className="eyebrow">Salida {activeScore.presentationOrder} · {ballot.specialtyName}</p>
-                        <h2>{activeScore.troupeName}</h2>
-                        <p className="card-rubric-name">{activeScore.rubricName}</p>
+                        <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
                       </div>
                     </div>
                   </div>
@@ -1053,12 +1056,18 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       </div>
                     ) : (
                       <>
-                        <h3 className="card-item-title">{activeScore.itemName}</h3>
-                        {activeScore.participantName && <p className="nomination-target-label"><strong>{SUBJECT_LABELS[activeScore.participantType] ?? "Participante"}:</strong> {activeScore.participantName}</p>}
-                        <p className="rubric-instruction">Seleccioná una puntuación para este criterio.</p>
+                        <p className="ballot-target-label">Ítem a evaluar</p>
+                        <h2 className="card-item-title">{activeScore.itemName}</h2>
+                        {activeScore.participantName && (
+                          <div className="ballot-subject">
+                            <span>A quién se evalúa</span>
+                            <strong>{activeScore.participantName}</strong>
+                          </div>
+                        )}
+                        <p className="rubric-instruction">Elegí una puntuación para este ítem.</p>
                         {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
-                          {activeScore.evaluationObjective && <span>{activeScore.evaluationObjective}</span>}
-                          {activeScore.expectedSubjectType && <span> · Sujeto: {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
+                          {activeScore.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {activeScore.evaluationObjective}</span>}
+                          {activeScore.expectedSubjectType && <span><strong>Sujeto esperado:</strong> {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
                         </p>}
                         {renderScoreDecision(activeScore, activeScore.troupeName, activeScore.rubricName)}
                       </>
@@ -1094,7 +1103,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                           </button>
                         )}
                       </div>
-                      {!readonly && (
+                      {!readonly && previousPendingScores.length > 0 && (
                         <button
                           type="button"
                           className="faltantes-btn"

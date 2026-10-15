@@ -49,7 +49,6 @@ export function EventPicker({ adminEvent, canCreateEvents = false }) {
       <button
         type="button"
         className="event-picker-trigger"
-        aria-label="Evento actual"
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={loading || (!loading && events.length === 0)}

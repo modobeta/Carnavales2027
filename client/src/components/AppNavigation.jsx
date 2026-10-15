@@ -83,6 +83,7 @@ export function AppNavigation({ session }) {
   const drawerRef = useRef(null);
   const drawerOpen = isDesktop || open;
   const isAdmin = session.roles?.includes("ADMIN");
+  const isJudge = session.roles?.includes("JUDGE");
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
   // los demás roles tienen enlaces de solo texto que no caben en el rail.
   const canCollapse = isDesktop && isAdmin;
@@ -234,7 +235,7 @@ function getInitials(name) {
     <>
     <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isHomeRoute ? "is-home" : ""}`}>
       <div className="header-left">
-        {!isDesktop && (
+        {!isDesktop && !isJudge && (
         <button
           ref={toggleRef}
           className="nav-toggle"
@@ -313,7 +314,7 @@ function getInitials(name) {
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
       {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}
     </header>
-    {open && !isDesktop && (
+    {!isJudge && open && !isDesktop && (
       <button
         className="app-drawer-backdrop"
         type="button"
@@ -321,7 +322,7 @@ function getInitials(name) {
         onClick={() => setOpen(false)}
       />
     )}
-    <nav
+    {!isJudge && <nav
       ref={drawerRef}
       id="app-drawer"
       className={`app-drawer${drawerOpen ? " is-open" : ""}${isRail ? " is-collapsed" : ""}`}
@@ -411,7 +412,7 @@ function getInitials(name) {
           </>
         )}
         {!session.roles?.includes("ADMIN") && <PublicResultsLink currentRoute={currentRoute} />}
-    </nav>
+    </nav>}
     </>
   );
 }

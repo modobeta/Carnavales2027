@@ -215,7 +215,7 @@ Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y código
 La documentación de decisiones/specs y las instrucciones de agentes se conservan localmente, fuera de la publicación. Las validaciones históricas no equivalen a una comprobación actual; no declarar una funcionalidad validada sin evidencia del código y de las pruebas correspondientes.
 ### Faltantes anteriores en votación
 
-En la planilla del jurado, **Faltantes anteriores** muestra únicamente los ítems anteriores al visible que siguen sin votar, incluidos los de la misma comparsa. Excluye el actual, los siguientes y los ya resueltos (nota o «No se presentó»). El contador usa el mismo filtro y cada entrada permite volver al ítem. No tener faltantes anteriores no significa haber completado toda la votación.
+En la planilla del jurado, **Faltantes anteriores** aparece únicamente cuando existe al menos un ítem anterior al visible que sigue sin votar, incluidos los de la misma comparsa. Excluye el actual, los siguientes y los ya resueltos (nota o «No se presentó»). El contador usa el mismo filtro y cada entrada permite volver al ítem. Que no aparezca el botón significa que no hay faltantes anteriores; no significa que se haya completado toda la votación.
 
 ### Actualización de la configuración
 

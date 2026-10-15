@@ -22,7 +22,7 @@ describe("identidad y selección de evento", () => {
     const session = { user: { id: "u1", name: "Persona" }, roles: [role] };
     render(<AdminEventProvider session={session}><AppNavigation session={session} /></AdminEventProvider>);
     expect(screen.getByText(label)).toHaveClass("session-role");
-    const selector = screen.getByRole("button", { name: "Evento actual" });
+    const selector = screen.getByRole("button", { name: /^Evento actual/ });
     await waitFor(() => expect(selector).toHaveTextContent("Carnaval Uno"));
     fireEvent.click(selector);
     fireEvent.click(screen.getByRole("option", { name: "Carnaval Dos" }));
@@ -50,7 +50,7 @@ describe("identidad y selección de evento", () => {
     render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /><JudgeHomePage session={session} /></AdminEventProvider>);
     await screen.findAllByText("Comparsa 1");
     expect(screen.queryByText("Comparsa 2")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Evento actual" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Evento actual/ }));
     fireEvent.click(screen.getByRole("option", { name: "Evento 2" }));
     await screen.findAllByText("Comparsa 2");
     expect(screen.queryByText("Comparsa 1")).not.toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("identidad y selección de evento", () => {
     });
     const session = { user: { id: "j1", name: "Juez Uno" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } };
     render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /></AdminEventProvider>);
-    const selector = await screen.findByRole("button", { name: "Evento actual" });
+    const selector = await screen.findByRole("button", { name: /^Evento actual/ });
     await waitFor(() => expect(selector).toHaveTextContent("Evento 1"));
     fireEvent.click(selector);
     expect(screen.queryByRole("button", { name: /Crear nuevo evento/ })).not.toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("identidad y selección de evento", () => {
     const session = { user: { id: "v1", name: "Persona" }, roles: ["VEEDOR"] };
     render(<AdminEventProvider session={session}><AppNavigation session={session} /><VeedorMonitorPage /></AdminEventProvider>);
     await screen.findByRole("heading", { name: "Jornada 1" });
-    fireEvent.click(screen.getByRole("button", { name: "Evento actual" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Evento actual/ }));
     fireEvent.click(screen.getByRole("option", { name: "Evento 2" }));
     expect(await screen.findByRole("heading", { name: "Jornada 2" })).toBeInTheDocument();
   });
@@ -87,7 +87,7 @@ describe("identidad y selección de evento", () => {
     const session = { user: { id: "u1", name: "Persona" }, roles: ["COMISARIO"] };
     render(<AdminEventProvider session={session}><AppNavigation session={session} /></AdminEventProvider>);
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudieron cargar los eventos");
-    expect(screen.getByRole("button", { name: "Evento actual" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Evento actual/ })).toBeDisabled();
     expect(document.querySelector(".session-event")).toHaveTextContent("Sin eventos disponibles");
   });
 });

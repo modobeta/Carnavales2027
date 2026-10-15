@@ -10,7 +10,7 @@ describe("App", () => {
     expect(await screen.findByText("Resultados en Proceso de Escrutinio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Acceso Operativo" })).not.toBeInTheDocument();
-    expect(document.querySelector("#app-drawer")).toBeInTheDocument();
+    expect(document.querySelector("#app-drawer")).not.toBeInTheDocument();
     vi.unstubAllGlobals();
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.location.hash = ""; });
