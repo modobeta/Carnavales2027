@@ -13,6 +13,22 @@ function checksum(content) {
   return createHash("sha256").update(content).digest("hex");
 }
 
+// 084 was applied to the pilot from a file with mixed CRLF/LF endings before
+// Git normalized it. Accept that exact historical byte checksum only while
+// the SQL still matches the committed migration after newline normalization.
+const legacyNominationScope = {
+  filename: "084_legacy_nomination_scope.sql",
+  canonicalChecksum: "0c6f8472f5abdc250aad40ddf155e69e020a3d9565e037eca2afcca25aede696",
+  appliedChecksum: "a53d6aa87ccf55921d39eb23b01c3ef52227e93d1ced41add88c6018dd103c7e",
+};
+
+export function matchesAppliedChecksum(migration, appliedChecksum) {
+  if (appliedChecksum === migration.checksum) return true;
+  return migration.filename === legacyNominationScope.filename
+    && appliedChecksum === legacyNominationScope.appliedChecksum
+    && checksum(migration.content.replace(/\r\n/g, "\n")) === legacyNominationScope.canonicalChecksum;
+}
+
 async function loadMigrations() {
   const filenames = (await readdir(migrationsDirectory))
     .filter((filename) => /^\d+_.+\.sql$/.test(filename))
@@ -60,7 +76,7 @@ export async function migrate() {
       const existing = appliedByVersion.get(migration.version);
 
       if (existing) {
-        if (existing.checksum !== migration.checksum) {
+        if (!matchesAppliedChecksum(migration, existing.checksum)) {
           throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${migration.filename}`);
         }
         continue;
@@ -109,7 +125,7 @@ export async function getMigrationStatus() {
     return migrations.map((migration) => {
       const applied = appliedByVersion.get(migration.version);
 
-      if (applied && applied.checksum !== migration.checksum) {
+      if (applied && !matchesAppliedChecksum(migration, applied.checksum)) {
         throw new Error(`MIGRATION_CHECKSUM_MISMATCH: ${migration.filename}`);
       }
 
