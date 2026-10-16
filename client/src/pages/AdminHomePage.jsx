@@ -6,6 +6,7 @@ import { StatusPill } from "../components/StatusPill.jsx";
 import { ActionMenu } from "../components/ActionMenu.jsx";
 import { EVENT_STATUS_LABELS } from "../components/event-status-labels.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { hasEventAdminCapability } from "../auth/role-routes.js";
 
 function normalize(text) {
   return String(text ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -28,9 +29,13 @@ const EMPTY_SUMMARY = { nights: 0, troupes: 0, judges: 0, rubrics: 0, loading: t
 /**
  * AdminHomePage — Inicio del Administrador ("Mis eventos").
  * Permite buscar, filtrar y seleccionar el evento a administrar.
+ * Con ADMIN_EVENT vigente (sin ADMIN) es solo consulta de sus eventos asignados:
+ * sin funciones globales ni datos de endpoints que la API le rechaza (spec 039).
  */
-export function AdminHomePage() {
+export function AdminHomePage({ session } = {}) {
   const adminEvent = useAdminEvent();
+  const isEventAdmin = hasEventAdminCapability(session);
+  const ownRoles = session?.roles ?? [];
   const [catalog, setCatalog] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [summaries, setSummaries] = useState({});
@@ -80,7 +85,7 @@ export function AdminHomePage() {
     }
     let current = true;
     const loadSummaries = async () => {
-      const judgesResult = await apiRequest("/api/v1/judges").catch(() => []);
+      const judgesResult = isEventAdmin ? [] : await apiRequest("/api/v1/judges").catch(() => []);
       const judges = Array.isArray(judgesResult)
         ? judgesResult.filter((judge) => judge.registrationStatus === "REGISTERED").length
         : 0;
@@ -88,7 +93,7 @@ export function AdminHomePage() {
         const [nightsRes, troupesRes, rubricsRes] = await Promise.allSettled([
           apiRequest(`/api/v1/events/${event.id}/nights`),
           apiRequest(`/api/v1/events/${event.id}/troupes`),
-          apiRequest(`/api/v1/events/${event.id}/rubrics`),
+          isEventAdmin ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/rubrics`),
         ]);
         const nightsList = nightsRes.status === "fulfilled" && Array.isArray(nightsRes.value) ? nightsRes.value : [];
         const troupesList = troupesRes.status === "fulfilled" && Array.isArray(troupesRes.value) ? troupesRes.value : [];
@@ -165,7 +170,16 @@ export function AdminHomePage() {
     setConfirmTarget({ event, kind });
   };
 
+  const eventAdminMenuItemsFor = (event) => {
+    if (event.active === false) return [];
+    const items = [];
+    if (event.status === "OPEN" && ownRoles.includes("VEEDOR")) items.push({ key: "supervise", label: "Ir a supervisión", onSelect: () => goWithEvent(event, "#/veedor") });
+    if (event.status === "CLOSED" && ownRoles.some((role) => ["SCRUTINEER", "ESCRIBANO"].includes(role))) items.push({ key: "results", label: "Ver resultados", onSelect: () => goWithEvent(event, "#/admin/results") });
+    return items;
+  };
+
   const menuItemsFor = (event) => {
+    if (isEventAdmin) return eventAdminMenuItemsFor(event);
     if (event.active === false) {
       return [{ key: "reactivate", label: "Reactivar", onSelect: (_e, trigger) => askConfirm(event, "reactivate", trigger) }];
     }
@@ -186,13 +200,15 @@ export function AdminHomePage() {
     <PageShell layer="instrument" className="container my-events-page">
       <header className="my-events-header">
         <div>
-          <h1>{showDeleted ? "Eventos eliminados" : "Mis eventos"}</h1>
-          <p>{showDeleted ? "Eventos desactivados; podés reactivarlos desde su menú." : "Elegí el evento que querés administrar."}</p>
+          <h1>{showDeleted ? (isEventAdmin ? "Eventos inactivos" : "Eventos eliminados") : "Mis eventos"}</h1>
+          <p>{isEventAdmin
+            ? (showDeleted ? "Eventos asignados que están desactivados; solo consulta." : "Eventos que tenés asignados como administrador de evento.")
+            : (showDeleted ? "Eventos desactivados; podés reactivarlos desde su menú." : "Elegí el evento que querés administrar.")}</p>
         </div>
-        <button ref={createTriggerRef} type="button" className="my-events-create" onClick={() => setIsCreateOpen(true)}>
+        {!isEventAdmin && <button ref={createTriggerRef} type="button" className="my-events-create" onClick={() => setIsCreateOpen(true)}>
           <span aria-hidden="true">+</span>
           <span>Crear evento</span>
-        </button>
+        </button>}
       </header>
 
       <div className="my-events-filters" role="search">
@@ -221,9 +237,18 @@ export function AdminHomePage() {
         <p>Cargando eventos…</p>
       ) : visibleEvents.length === 0 && !showDeleted ? (
         <section className="my-events-empty card" aria-label="Catálogo de eventos vacío">
-          <h2>Todavía no hay eventos</h2>
-          <p>Creá el primero para comenzar la configuración del carnaval.</p>
-          <button type="button" onClick={() => setIsCreateOpen(true)}>Crear primer evento</button>
+          {isEventAdmin ? (
+            <>
+              <h2>No hay eventos activos asignados</h2>
+              <p>Los eventos asignados aparecerán aquí cuando estén activos.</p>
+            </>
+          ) : (
+            <>
+              <h2>Todavía no hay eventos</h2>
+              <p>Creá el primero para comenzar la configuración del carnaval.</p>
+              <button type="button" onClick={() => setIsCreateOpen(true)}>Crear primer evento</button>
+            </>
+          )}
         </section>
       ) : filteredEvents.length === 0 ? (
         <p className="my-events-empty-filter">
@@ -234,14 +259,15 @@ export function AdminHomePage() {
           {filteredEvents.map((event) => {
             const summary = summaries[event.id] ?? EMPTY_SUMMARY;
             const isDeleted = event.active === false;
+            const menuItems = menuItemsFor(event);
             return (
               <article key={event.id} className={`my-event-card${isDeleted ? " is-deleted" : ""}`} aria-label={event.name}>
                 <div className="my-event-card-top">
                   <div className="my-event-card-pills">
                     <StatusPill status={event.status} label={EVENT_STATUS_LABELS[event.status] ?? event.status} />
-                    {isDeleted && <StatusPill status="SUSPENDED" label="Eliminado" />}
+                    {isDeleted && <StatusPill status="SUSPENDED" label={isEventAdmin ? "Inactivo" : "Eliminado"} />}
                   </div>
-                  <ActionMenu label={`Acciones de ${event.name}`} items={menuItemsFor(event)} />
+                  {menuItems.length > 0 && <ActionMenu label={`Acciones de ${event.name}`} items={menuItems} />}
                 </div>
                 <h2 className="my-event-card-title">{event.name}</h2>
                 <hr className="my-event-card-divider" />
@@ -257,7 +283,7 @@ export function AdminHomePage() {
                     <span aria-hidden="true">•</span>
                     <span>{countText(summary, "troupes", "comparsa", "comparsas")}</span>
                   </p>
-                  <p>
+                  {!isEventAdmin && <p>
                     <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
@@ -267,9 +293,9 @@ export function AdminHomePage() {
                     <span>{countText(summary, "judges", "jurado", "jurados")}</span>
                     <span aria-hidden="true">•</span>
                     <span>{countText(summary, "rubrics", "rubro", "rubros")}</span>
-                  </p>
+                  </p>}
                 </div>
-                {!isDeleted && (
+                {!isDeleted && !isEventAdmin && (
                   <button type="button" className="my-event-card-cta" onClick={() => handleAdminister(event)} aria-label={`Administrar evento ${event.name}`}>
                     <span>Administrar evento</span>
                     <span aria-hidden="true">&rarr;</span>
@@ -283,7 +309,7 @@ export function AdminHomePage() {
 
       {(showDeleted || deletedEvents.length > 0) && (
         <button type="button" className="my-events-deleted-toggle" onClick={() => setShowDeleted((val) => !val)}>
-          {showDeleted ? "Volver a mis eventos" : "Ver eventos eliminados"}
+          {showDeleted ? "Volver a mis eventos" : isEventAdmin ? "Ver eventos inactivos" : "Ver eventos eliminados"}
         </button>
       )}
 

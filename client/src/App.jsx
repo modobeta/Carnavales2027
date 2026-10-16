@@ -146,7 +146,7 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} role="JUDGE"><JudgeAssignmentPage session={session} /></RoleArea>;
   }
   if (route === "#/admin/home") {
-    return <RoleArea session={session} adminArea><AdminHomePage /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminHomePage session={session} /></RoleArea>;
   }
   if (route === "#/admin/events") {
     return <RoleArea session={session} admin><AdminEventsPage /></RoleArea>;
