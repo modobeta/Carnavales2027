@@ -4,6 +4,7 @@ import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
+import { canAccessAdminArea, hasEventAdminCapability } from "../auth/role-routes.js";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -84,6 +85,9 @@ export function AppNavigation({ session }) {
   const drawerOpen = isDesktop || open;
   const isAdmin = session.roles?.includes("ADMIN");
   const isJudge = session.roles?.includes("JUDGE");
+  const isEventAdmin = hasEventAdminCapability(session);
+  // El Jurado no tiene menú lateral, salvo que necesite volver a su Inicio de ADMIN_EVENT.
+  const hideDrawer = isJudge && !isEventAdmin;
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
   // los demás roles tienen enlaces de solo texto que no caben en el rail.
   const canCollapse = isDesktop && isAdmin;
@@ -229,13 +233,14 @@ function getInitials(name) {
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
-  const showHomeBreadcrumb = session.roles?.includes("ADMIN") && currentRoute !== "#/veedor";
+  const showHomeBreadcrumb = canAccessAdminArea(session) && currentRoute !== "#/veedor";
+  const roleLabels = [...(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role), ...(isEventAdmin ? ["Administrador de evento"] : [])];
 
   return (
     <>
     <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isHomeRoute ? "is-home" : ""}`}>
       <div className="header-left">
-        {!isDesktop && !isJudge && (
+        {!isDesktop && !hideDrawer && (
         <button
           ref={toggleRef}
           className="nav-toggle"
@@ -265,7 +270,7 @@ function getInitials(name) {
         {isDesktop && (
           <nav className="header-breadcrumb" aria-label="Ruta de navegación">
             {breadcrumb.isHome ? (
-              session.roles?.includes("ADMIN") ? (
+              canAccessAdminArea(session) ? (
                 <>
                   <span>Inicio</span>
                   <span aria-hidden="true">&rsaquo;</span>
@@ -293,7 +298,7 @@ function getInitials(name) {
           </div>
           <div className="session-identity">
             <strong>{session.user?.name}</strong>
-            <span className="session-role">{(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role).join(" · ") || "Sin rol asignado"}</span>
+            <span className="session-role">{roleLabels.join(" · ") || "Sin rol asignado"}</span>
             {adminEvent && (
               <span className="session-event sr-only">
                 {adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}
@@ -314,7 +319,7 @@ function getInitials(name) {
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
       {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}
     </header>
-    {!isJudge && open && !isDesktop && (
+    {!hideDrawer && open && !isDesktop && (
       <button
         className="app-drawer-backdrop"
         type="button"
@@ -322,7 +327,7 @@ function getInitials(name) {
         onClick={() => setOpen(false)}
       />
     )}
-    {!isJudge && <nav
+    {!hideDrawer && <nav
       ref={drawerRef}
       id="app-drawer"
       className={`app-drawer${drawerOpen ? " is-open" : ""}${isRail ? " is-collapsed" : ""}`}
@@ -399,6 +404,9 @@ function getInitials(name) {
               <span>Usuarios</span>
             </a>
           </>
+        )}
+        {isEventAdmin && (
+          <a href="#/admin/home" aria-current={currentRoute === "#/admin/home" ? "page" : undefined}>Inicio</a>
         )}
         {session.roles?.includes("COMISARIO") && !session.roles?.includes("ADMIN") && (
           <>

@@ -280,4 +280,71 @@ describe("AppNavigation", () => {
     fireEvent.click(await screen.findByRole("option", { name: "Prueba 2027" }));
     await waitFor(() => expect(selector).toHaveTextContent("Prueba 2027"));
   });
+
+  describe("ADMIN_EVENT (spec 039 T6)", () => {
+    const eventAdmin = (roles = []) => ({ status: "authenticated", user: { name: "Admin evento" }, roles, adminEvents: [{ id: "e1" }] });
+    const globalAdminRoutes = ["#/admin/events", "#/admin/competencia?step=participantes", "#/admin/competencia?step=jurados", "#/admin/competencia?step=rubros", "#/admin/voting", "#/admin/judges", "#/admin/users", "#/admin/assignments"];
+
+    it("muestra la etiqueta de administrador de evento y solo Inicio como destino administrativo", () => {
+      mockMatchMedia(false);
+      window.location.hash = "#/admin/home";
+      render(<AppNavigation session={eventAdmin()} />);
+      expect(screen.getByText("Administrador de evento")).toHaveClass("session-role");
+      expect(screen.queryByText("Sin rol asignado")).not.toBeInTheDocument();
+      openMenu();
+      expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "#/admin/home");
+      expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page");
+      const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+      for (const route of globalAdminRoutes) expect(hrefs).not.toContain(route);
+      expect(hrefs).not.toContain("#/admin/penalties");
+      expect(hrefs).not.toContain("#/admin/results");
+      expect(hrefs).not.toContain("#/admin/record");
+      expect(hrefs).not.toContain("#/veedor");
+      expect(screen.queryByText("Preparación")).not.toBeInTheDocument();
+      expect(screen.queryByText("En vivo")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Evento actual/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Menú lateral" })).not.toBeInTheDocument();
+    });
+
+    it("las entradas de otros roles dependen solo de los roles propios", () => {
+      mockMatchMedia(false);
+      window.location.hash = "#/admin/home";
+      render(<AppNavigation session={eventAdmin(["COMISARIO"])} />);
+      expect(screen.getByText("Comisario · Administrador de evento")).toHaveClass("session-role");
+      openMenu();
+      const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+      expect(hrefs).toEqual(expect.arrayContaining(["#/admin/home", "#/admin/penalties"]));
+      expect(hrefs).not.toContain("#/admin/results");
+      expect(hrefs).not.toContain("#/admin/record");
+      expect(hrefs).not.toContain("#/veedor");
+      for (const route of globalAdminRoutes) expect(hrefs).not.toContain(route);
+    });
+
+    it("un JUDGE con ADMIN_EVENT conserva un menú para volver a Inicio", () => {
+      mockMatchMedia(false);
+      window.location.hash = "#/judge";
+      render(<AppNavigation session={eventAdmin(["JUDGE"])} />);
+      openMenu();
+      expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "#/admin/home");
+      expect(screen.getByRole("link", { name: "Mi panel" })).toHaveAttribute("aria-current", "page");
+    });
+
+    it("en desktop ofrece la miga Inicio fuera de #/admin/home", () => {
+      mockMatchMedia(true);
+      window.location.hash = "#/admin/penalties";
+      render(<AppNavigation session={eventAdmin(["COMISARIO"])} />);
+      expect(screen.getByRole("navigation", { name: "Ruta de navegación" }).querySelector('a[href="#/admin/home"]')).not.toBeNull();
+    });
+
+    it("ADMIN con asignaciones conserva su menú y etiqueta", () => {
+      mockMatchMedia(false);
+      window.location.hash = "#/admin/events";
+      render(<AppNavigation session={{ ...eventAdmin(["ADMIN"]) }} />);
+      expect(screen.getByText("Administrador")).toHaveClass("session-role");
+      expect(screen.queryByText(/Administrador de evento/)).not.toBeInTheDocument();
+      openMenu();
+      expect(screen.getByText("Preparación")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Jornadas" })).toHaveAttribute("aria-current", "page");
+    });
+  });
 });
