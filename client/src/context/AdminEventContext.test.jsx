@@ -28,6 +28,16 @@ function JourneyProbe() {
   );
 }
 
+function StatusProbe() {
+  const context = useAdminEvent();
+  return (
+    <div>
+      <span>{`eventos:${context.events.length} error:${context.error || "-"}`}</span>
+      <button type="button" onClick={() => void context.refreshEvents()}>Reintentar</button>
+    </div>
+  );
+}
+
 describe("AdminEventContext", () => {
   afterEach(() => {
     cleanup();
@@ -52,6 +62,58 @@ describe("AdminEventContext", () => {
     expect(selector).toHaveValue("e2");
     expect(screen.getAllByText("Prueba 2027").length).toBeGreaterThan(0);
     expect(window.localStorage.getItem("carnavales.admin.activeEventId")).toBe("e2");
+  });
+
+  it("carga para ADMIN_EVENT solo el catálogo autorizado y oculta inactivos", async () => {
+    apiRequest.mockResolvedValue([
+      { id: "e1", name: "Asignado activo", active: true },
+      { id: "e2", name: "Asignado inactivo", active: false },
+    ]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e1" }, { id: "e2" }] };
+
+    render(<AdminEventProvider session={session}><Probe /></AdminEventProvider>);
+
+    const selector = await screen.findByRole("combobox", { name: "Evento activo" });
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
+    await screen.findByRole("option", { name: "Asignado activo" });
+    expect(selector).toHaveValue("e1");
+    expect(screen.queryByRole("option", { name: "Asignado inactivo" })).not.toBeInTheDocument();
+  });
+
+  it("ADMIN_EVENT con único evento inactivo queda sin eventos visibles y sin error", async () => {
+    apiRequest.mockResolvedValue([{ id: "e2", name: "Asignado inactivo", active: false }]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e2", active: false }] };
+
+    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+
+    expect(await screen.findByText("eventos:0 error:-")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
+  });
+
+  it("un fallo del catálogo de ADMIN_EVENT se informa como error con reintento", async () => {
+    apiRequest.mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce([{ id: "e1", name: "Asignado" }]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e1" }] };
+
+    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+
+    expect(await screen.findByText("eventos:0 error:No se pudieron cargar los eventos.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
+  });
+
+  it("descarta la respuesta tardía de una carga anterior", async () => {
+    let resolveFirst;
+    apiRequest
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockResolvedValueOnce([{ id: "e2", name: "Nuevo" }]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e2" }] };
+
+    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
+    resolveFirst([{ id: "e1", name: "Viejo" }, { id: "e3", name: "Otro" }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByText("eventos:1 error:-")).toBeInTheDocument();
   });
 
   it("conserva la jornada elegida en el contexto de sesión y la limpia al cambiar evento", async () => {

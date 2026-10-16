@@ -35,7 +35,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     const requestId = ++requestSequence.current;
     setLoading(true);
     try {
-      const loaded = await loadAvailableEvents(session?.roles, judgeArea);
+      const loaded = await loadAvailableEvents(session?.roles, judgeArea, session?.adminEvents);
       const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
       if (requestId !== requestSequence.current) return [];
       setEvents(items ?? []);
