@@ -88,6 +88,8 @@ describe("AdminCompetenciaPage en modo ADMIN_EVENT (spec 040 T2)", () => {
     expect(within(summary).queryByRole("button", { name: "Ver evaluación" })).not.toBeInTheDocument();
     expect(within(summary).queryByText(/especialidades|rubros|criterios de puntuación/)).not.toBeInTheDocument();
     expect(within(summary).queryByText("Paso 3")).not.toBeInTheDocument();
+    expect(within(summary).queryByText("Control de votación")).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="#/admin/voting"]')).toBeNull();
     expectNoForbiddenCalls();
   });
 

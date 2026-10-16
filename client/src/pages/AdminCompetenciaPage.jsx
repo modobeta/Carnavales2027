@@ -551,7 +551,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     </button>
                   </div>}
 
-                  <div className="revision-summary-card">
+                  {!eventAdminMode && <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Operación</span>
                       <h4>Jornadas</h4>
@@ -568,7 +568,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ir a jornadas
                     </a>
-                  </div>
+                  </div>}
                 </div>
               </section>
 
