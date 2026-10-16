@@ -177,7 +177,7 @@ La fuente exacta de métodos y payloads es `src/routes/*.routes.js`; la tabla ag
 | --- | --- |
 | `GET /health` | Liveness público; no consulta DB |
 | `/api/auth/*` | Sesión, contraseña, segundo factor y recuperación de Better Auth |
-| `/api/v1/me` | Sesión operativa, usuario y roles con 2FA |
+| `GET /api/v1/me` | Sesión operativa, usuario, roles globales, perfil de jurado y eventos con asignación ADMIN_EVENT vigente; requiere sesión y 2FA. |
 | `GET /api/v1/events` | Catálogo global para ADMIN o limitado a asignaciones activas de ADMIN_EVENT; requiere sesión y 2FA. |
 | `GET /api/v1/events/:eventId` | Detalle para ADMIN global o ADMIN_EVENT con asignación vigente al evento exacto, incluidos inactivos; sesión y 2FA. |
 | `GET /api/v1/events/:eventId/readiness` | Preparación oficial para ADMIN global o ADMIN_EVENT con asignación vigente exacta, incluidos inactivos; sesión y 2FA; solo lectura. |
@@ -207,6 +207,8 @@ La fuente exacta de métodos y payloads es `src/routes/*.routes.js`; la tabla ag
 | `/api/v1/events/:eventId/results/release` | Liberación; SCRUTINEER o ESCRIBANO, con 2FA |
 | `/api/v1/events/:eventId/scrutiny-record` | Consulta/certificación según permisos de escrutinio |
 | `/api/v1/public/events`, `/public/events/:eventId/results`, `/public/stream` | Portal público de resultados liberados |
+
+`GET /api/v1/me` devuelve el objeto directo `{ "user", "roles", "judgeProfile", "adminEvents" }`. `roles` conserva los roles globales; `adminEvents` contiene los eventos con asignación ADMIN_EVENT vigente de la identidad autenticada, como `{ "id", "name", "status", "active" }`, incluidos los eventos inactivos. La lista se obtiene para el usuario de la sesión; no expone el catálogo global. `adminEvents` es información para que el cliente presente la navegación adecuada, **no concede autorización**: cada operación protegida vuelve a validar el permiso en su endpoint. Sin sesión responde HTTP 401 `UNAUTHENTICATED`; sin 2FA HTTP 403 `TWO_FACTOR_REQUIRED`; un fallo inesperado sigue el manejo de error de la API y no se sustituye por una lista vacía.
 
 `GET /api/v1/events/:eventId/categories` requiere sesión y 2FA; `ADMIN` conserva lectura global con o sin asignación, mientras que `ADMIN_EVENT` debe tener una asignación activa al evento exacto, incluso si está inactivo. Devuelve HTTP 200 con una lista directa de `{ "id", "eventId", "name", "code", "displayOrder", "active" }`, ordenada por `displayOrder`; `?eligible=true` limita la lista a categorías activas. Query, body y cabeceras con identidad, rol o evento no cambian la autorización ni el evento de la ruta. Sin sesión devuelve HTTP 401 `UNAUTHENTICATED`; sin 2FA HTTP 403 `TWO_FACTOR_REQUIRED`; sin ADMIN ni asignación exacta vigente HTTP 403 `ADMIN_REQUIRED`, sin confirmar existencia o detalles del evento ajeno. Para ADMIN, un evento inexistente conserva HTTP 404 `EVENT_NOT_FOUND`. Es una lectura sin mutaciones ni auditoría de modificación.
 
