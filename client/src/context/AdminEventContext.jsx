@@ -21,7 +21,7 @@ function storeEventId(eventId, key) {
   }
 }
 
-// eventAdminArea: la pantalla actual es el área de ADMIN_EVENT (#/admin/home); fuera de ella cada rol conserva su catálogo.
+// eventAdminArea: la pantalla actual es del área de ADMIN_EVENT (Inicio y preparación); fuera de ella cada rol conserva su catálogo.
 export function AdminEventProvider({ children, session, judgeArea = false, eventAdminArea = false }) {
   // ADMIN_EVENT guarda su selección aparte para que otro rol de la misma cuenta no la reemplace (spec 040, D3).
   const storageArea = judgeArea ? "judge" : eventAdminArea ? "event-admin" : "operational";
@@ -80,6 +80,8 @@ export function AdminEventProvider({ children, session, judgeArea = false, event
   const setActiveEventId = (eventId) => {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
+    // Un inactivo readmitido solo se ofrece mientras está en contexto (spec 040, CA-6.2/CA-6.5).
+    if (eventAdminArea) setEvents((current) => current.filter((event) => event.active !== false || event.id === nextId));
     setActiveEventIdState(nextId);
     activeEventIdRef.current = nextId;
     setActiveNightIdState("");

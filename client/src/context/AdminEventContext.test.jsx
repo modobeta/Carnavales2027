@@ -205,6 +205,16 @@ describe("AdminEventContext en pantallas de ADMIN_EVENT (spec 040 T1)", () => {
     expect(await screen.findByText("Asignado inactivo", { selector: "span" })).toBeInTheDocument();
   });
 
+  it("al elegir otro evento, el inactivo readmitido deja de ofrecerse en el selector", async () => {
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "e9");
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session([], [{ id: "e1" }, { id: "e9", active: false }])} eventAdminArea><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado inactivo" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Evento activo" }), { target: { value: "e1" } });
+    expect(screen.queryByRole("option", { name: "Asignado inactivo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e1");
+  });
+
   it("no readmite un inactivo guardado que ya no figura en adminEvents", async () => {
     window.localStorage.setItem("carnavales.event.u1.event-admin", "e9");
     apiRequest.mockResolvedValue(catalog);
