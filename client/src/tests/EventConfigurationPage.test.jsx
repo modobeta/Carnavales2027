@@ -44,6 +44,8 @@ describe("EventConfigurationPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ Agregar jornada" }));
     fireEvent.change(screen.getByLabelText("Nombre de jornada"), { target: { value: "Noche 1" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar jornada" }));
+    // O-9 / E-1 (spec 040): el alta también se confirma en un modal.
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Confirmar nueva jornada" })).getByRole("button", { name: "Confirmar alta" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights",

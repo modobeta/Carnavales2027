@@ -57,6 +57,7 @@ export function EventConfigurationPage({
   const [deletingNight, setDeletingNight] = useState(false);
   const [votingStatuses, setVotingStatuses] = useState({});
   const [renameTarget, setRenameTarget] = useState(null);
+  const [createNightTarget, setCreateNightTarget] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const renameTriggerRef = useRef(null);
   const drawerTriggerRef = useRef(null);
@@ -69,6 +70,7 @@ export function EventConfigurationPage({
   const showNightActions = !eventAdminMode && (!locked || currentEvent.status === "OPEN");
   // ADMIN_EVENT renombra solo eventos asignados activos en preparación (la API revalida).
   const canRenameEvent = !locked && (!eventAdminMode || currentEvent.active !== false);
+  const canCreateNight = canRenameEvent;
   const handleRejection = useEventAdminRejection(eventAdminMode);
   const { notify } = useNotify();
   const { dirty, markDirty } = useFormDirty(drawerMode);
@@ -104,7 +106,9 @@ export function EventConfigurationPage({
       if (reset) form?.reset();
       return saved;
     } catch (error) {
-      const detail = errorMessages[error.code] ?? error.message ?? "No se pudo guardar.";
+      // Un error sin código conocido (p. ej. de red) no muestra textos técnicos (spec 040, T6 obs. 2).
+      const apiMessage = error?.name === "ApiError" && error.message !== error.code ? error.message : null;
+      const detail = errorMessages[error.code] ?? apiMessage ?? "No se pudo guardar. Reintentá.";
       setMessage(detail);
       notify({ message: detail, type: "error" });
       void handleRejection(error, currentEvent.id);
@@ -146,13 +150,26 @@ export function EventConfigurationPage({
         );
         if (saved) closeDrawer();
       } else {
-        const saved = await save(
-          `/api/v1/events/${event.id}/nights`,
-          body,
-          { reset: false, onSaved: (entry) => setNights((current) => [...current, entry]) },
-        );
-        if (saved) closeDrawer();
+        // O-9 / E-1 (spec 040): el alta se confirma en un modal antes de la solicitud.
+        setCreateNightTarget(body);
       }
+    } finally {
+      setSavingNight(false);
+    }
+  };
+
+  const confirmCreateNight = async () => {
+    const body = createNightTarget;
+    if (!body) return;
+    setSavingNight(true);
+    try {
+      const saved = await save(
+        `/api/v1/events/${event.id}/nights`,
+        body,
+        { reset: false, onSaved: (entry) => setNights((current) => [...current, entry]) },
+      );
+      setCreateNightTarget(null);
+      if (saved) closeDrawer();
     } finally {
       setSavingNight(false);
     }
@@ -251,9 +268,9 @@ export function EventConfigurationPage({
 
       <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
         <div className="section-heading"><h2>Jornadas</h2><p>Calendario de la competencia.</p></div>
-        {canMutate && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
+        {canCreateNight && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
         {orderedNights.length === 0 ? (
-          <p className="empty-state">{eventAdminMode ? "Todavía no hay jornadas." : "Todavía no hay jornadas. Agregá la primera noche de competencia."}</p>
+          <p className="empty-state">{canCreateNight ? "Todavía no hay jornadas. Agregá la primera noche de competencia." : "Todavía no hay jornadas."}</p>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
@@ -303,7 +320,7 @@ export function EventConfigurationPage({
       </section>
 
       <EntityDrawer
-        isOpen={drawerMode !== null && canMutate}
+        isOpen={drawerMode !== null && (canMutate || (drawerMode.mode === "create" && canCreateNight))}
         onClose={requestCloseDrawer}
         title={drawerMode?.mode === "edit" ? `Editar jornada${editingNight ? ` — ${editingNight.name}` : ""}` : "Nueva jornada"}
         description={drawerMode?.mode === "edit" ? "Modificá los datos de la jornada." : "Completá los datos de la jornada."}
@@ -340,6 +357,17 @@ export function EventConfigurationPage({
         confirming={deletingNight}
         tone="danger"
         focusReturnRef={deleteNightTriggerRef}
+      />
+
+      <ConfirmDialog
+        isOpen={createNightTarget !== null}
+        onClose={() => { if (!savingNight) setCreateNightTarget(null); }}
+        onConfirm={() => void confirmCreateNight()}
+        title="Confirmar nueva jornada"
+        description={`Se agregará la jornada «${createNightTarget?.name ?? ""}» al evento.`}
+        confirmLabel="Confirmar alta"
+        cancelLabel="Cancelar"
+        confirming={savingNight}
       />
 
       <ConfirmDialog

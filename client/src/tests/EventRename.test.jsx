@@ -58,7 +58,7 @@ describe.each([
 
   it.each([
     [new ApiError({ status: 409, code: "EVENT_LOCKED" }), "El evento esta abierto y su configuracion ya no puede modificarse."],
-    [new Error("timeout"), "timeout"],
+    [new TypeError("Failed to fetch"), "No se pudo guardar. Reintentá."],
   ])("un rechazo o fallo (%s) se informa sin éxito simulado", async (error, text) => {
     mockApi(async () => { throw error; });
     render(<EventConfigurationPage event={event} eventAdminMode={eventAdminMode} />);
