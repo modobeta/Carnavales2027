@@ -10,7 +10,7 @@ import { Button } from "../components/Button.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
-import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
+import { PREPARATION_STEPS, READINESS_STATE_LABELS, eventAdminReadinessItems, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
@@ -65,6 +65,7 @@ function LoadErrorAlert({ message, onRetry }) {
 
 function incompleteStepGuidance(stepKey, readiness, eventAdminMode = false) {
   if (eventAdminMode && stepKey === "participantes") return eventAdminParticipantsGuidance(readiness);
+  if (eventAdminMode && stepKey === "revision") return "La apertura la realiza el administrador general. Estos son los requisitos pendientes.";
   const missing = new Set(readiness?.missing ?? []);
   const messages = [];
 
@@ -103,7 +104,7 @@ function incompleteStepGuidance(stepKey, readiness, eventAdminMode = false) {
 // ADMIN_EVENT solo ve los pasos que la API le autoriza (spec 040, CA-4.3); el resto se oculta, no se deshabilita.
 const EVENT_ADMIN_STEP_KEYS = ["participantes", "revision"];
 
-export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "", eventAdminMode = false }) {
+export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "", eventAdminMode = false, ownRoles = [] }) {
   const availableSteps = eventAdminMode ? PREPARATION_STEPS.filter((item) => EVENT_ADMIN_STEP_KEYS.includes(item.key)) : PREPARATION_STEPS;
   const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
@@ -438,7 +439,19 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
 
-              {isEventOpen ? (
+              {eventAdminMode && (isEventOpen || currentEvent?.status === "CLOSED") ? (
+                <div className={`revision-status-banner ${isEventOpen ? "is-open" : "is-closed"}`} role="region" aria-label="Estado de la competencia">
+                  <div className="revision-banner-content">
+                    <h3>{isEventOpen ? "Competencia abierta" : "Competencia finalizada"}</h3>
+                    <p>{isEventOpen ? "El evento está abierto. La operación de las jornadas y la votación la realiza el administrador general." : "El evento finalizó."}</p>
+                    {ownRoles.some((role) => ["SCRUTINEER", "ESCRIBANO"].includes(role)) && (
+                      <div className="revision-banner-actions">
+                        <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : isEventOpen ? (
                 <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
                   <div className="revision-banner-icon" aria-hidden="true">🟢</div>
                   <div className="revision-banner-content">
@@ -461,8 +474,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                         <div className="revision-banner-icon" aria-hidden="true">✅</div>
                         <div className="revision-banner-content">
                           <h3>Preparación completa</h3>
-                          <p className="readiness-ok">Se cumplen los requisitos para abrir el evento.</p>
-                          <div className="revision-banner-actions">
+                          <p className="readiness-ok">{eventAdminMode ? "Se cumplen los requisitos. La apertura la realiza el administrador general." : "Se cumplen los requisitos para abrir el evento."}</p>
+                          {!eventAdminMode && <div className="revision-banner-actions">
                             <button
                               type="button"
                               className="primary"
@@ -471,9 +484,19 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                             >
                               {openingEvent ? "Abriendo…" : "Abrir competencia"}
                             </button>
-                          </div>
+                          </div>}
                         </div>
                       </div>
+                    ) : eventAdminMode ? (
+                      <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
+                        {eventAdminReadinessItems(currentReadiness).map((item) => (
+                          <li key={item.key} className="readiness-fail">
+                            <span className="readiness-icon" aria-hidden="true">!</span>
+                            <span>{item.text}</span>
+                            {item.resolvableHere && <a href="#/admin/events">Ir a Jornadas</a>}
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
                       <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
                         {officialIssues.map((issue) => (

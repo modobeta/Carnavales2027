@@ -41,6 +41,7 @@ export function EventConfigurationPage({
   onBack,
   onCompetencia,
   onEventChange,
+  eventAdminMode = false,
 }) {
   const [currentEvent, setCurrentEvent] = useState(event);
   const [nights, setNights] = useState(initialNights);
@@ -57,6 +58,10 @@ export function EventConfigurationPage({
   const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
   const locked = currentEvent.status !== "CONFIGURING";
+  // Modo ADMIN_EVENT (spec 040): solo lectura hasta que T6–T9 habiliten cada operación;
+  // sin «Finalizar jornada» ni estado de votación (D-P2), y un evento inactivo es solo consulta.
+  const canMutate = !locked && !eventAdminMode;
+  const showNightActions = !eventAdminMode && (!locked || currentEvent.status === "OPEN");
   const { notify } = useNotify();
   const { dirty, markDirty } = useFormDirty(drawerMode);
   const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
@@ -64,7 +69,7 @@ export function EventConfigurationPage({
   useEffect(() => setNights(initialNights), [initialNights]);
 
   useEffect(() => {
-    if (currentEvent.status !== "OPEN") {
+    if (currentEvent.status !== "OPEN" || eventAdminMode) {
       setVotingStatuses({});
       return undefined;
     }
@@ -78,7 +83,7 @@ export function EventConfigurationPage({
       }
     })).then((entries) => { if (current) setVotingStatuses(Object.fromEntries(entries)); });
     return () => { current = false; };
-  }, [currentEvent.id, currentEvent.status, nights]);
+  }, [currentEvent.id, currentEvent.status, nights, eventAdminMode]);
 
   const save = async (path, body, { form, method = "POST", onSaved, reset = method === "POST" } = {}) => {
     try {
@@ -212,21 +217,26 @@ export function EventConfigurationPage({
         </>}
       />
       <EventStatusBanner status={currentEvent.status} />
+      {eventAdminMode && currentEvent.active === false && <p role="status" className="feedback">Evento inactivo: solo consulta.</p>}
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
-        <form className="config-card" onSubmit={submit(`/api/v1/events/${event.id}`, (data) => ({ name: data.get("name") }), setCurrentEvent, "PATCH")}>
-          <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
-          <button disabled={locked}>Guardar evento</button>
-        </form>
+        {eventAdminMode ? (
+          <p className="config-card"><strong>Nombre del evento:</strong> {currentEvent.name ?? "—"}</p>
+        ) : (
+          <form className="config-card" onSubmit={submit(`/api/v1/events/${event.id}`, (data) => ({ name: data.get("name") }), setCurrentEvent, "PATCH")}>
+            <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
+            <button disabled={locked}>Guardar evento</button>
+          </form>
+        )}
       </section>
 
       <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
         <div className="section-heading"><h2>Jornadas</h2><p>Calendario de la competencia.</p></div>
-        {!locked && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
+        {canMutate && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
         {orderedNights.length === 0 ? (
-          <p className="empty-state">Todavía no hay jornadas. Agregá la primera noche de competencia.</p>
+          <p className="empty-state">{eventAdminMode ? "Todavía no hay jornadas." : "Todavía no hay jornadas. Agregá la primera noche de competencia."}</p>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
@@ -236,7 +246,7 @@ export function EventConfigurationPage({
                   <th scope="col">Jornada</th>
                   <th scope="col">Fecha</th>
                   <th scope="col">Tipo</th>
-                  {(!locked || currentEvent.status === "OPEN") && <th scope="col">Acción</th>}
+                  {showNightActions && <th scope="col">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -246,7 +256,7 @@ export function EventConfigurationPage({
                     <td><strong>{night.name}</strong>{night.status === "CLOSED" && <small> · Finalizada</small>}</td>
                     <td>{formatDate(night.eventDate)}</td>
                     <td>{nightKindLabel(night.kind)}</td>
-                    {(!locked || currentEvent.status === "OPEN") && (
+                    {showNightActions && (
                       <td>
                         {!locked && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
                         {!locked && <button
@@ -276,7 +286,7 @@ export function EventConfigurationPage({
       </section>
 
       <EntityDrawer
-        isOpen={drawerMode !== null && !locked}
+        isOpen={drawerMode !== null && canMutate}
         onClose={requestCloseDrawer}
         title={drawerMode?.mode === "edit" ? `Editar jornada${editingNight ? ` — ${editingNight.name}` : ""}` : "Nueva jornada"}
         description={drawerMode?.mode === "edit" ? "Modificá los datos de la jornada." : "Completá los datos de la jornada."}
@@ -330,6 +340,7 @@ export function EventConfigurationPage({
       <EventReadinessPanel
         event={currentEvent}
         locked={locked}
+        eventAdminMode={eventAdminMode}
         refreshKey={readinessRevision}
           onOpened={(openedEvent) => {
             setCurrentEvent((current) => ({ ...current, ...openedEvent }));

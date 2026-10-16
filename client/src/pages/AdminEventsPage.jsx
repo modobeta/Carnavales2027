@@ -4,7 +4,7 @@ import { apiRequest } from "../api/http.js";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
-export function AdminEventsPage() {
+export function AdminEventsPage({ eventAdminMode = false } = {}) {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
   const [nights, setNights] = useState([]);
@@ -80,6 +80,7 @@ export function AdminEventsPage() {
         onBack={() => { window.location.hash = "#/admin/home"; }}
         onCompetencia={() => { window.location.hash = "#/admin/competencia"; }}
         onEventChange={adminEvent?.updateEvent}
+        eventAdminMode={eventAdminMode}
       />
     );
   }
