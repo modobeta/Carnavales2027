@@ -59,6 +59,12 @@ describe("eventAdminReadinessItems", () => {
     expect(items.some((item) => /INCOMPLETE_|NIGHTS_WITHOUT_JURY/.test(item.key))).toBe(false);
   });
 
+  it("un código desconocido no se expone ni se atribuye a nadie", () => {
+    const [item] = eventAdminReadinessItems({ ...readyReadiness, ready: false, missing: ["NUEVO_CODIGO"] });
+    expect(item.text).toBe("Hay un requisito pendiente que no se pudo identificar.");
+    expect(item.resolvableHere).toBe(false);
+  });
+
   it("no inventa bloqueos con readiness no interpretable", () => {
     expect(eventAdminReadinessItems(null)).toEqual([]);
     expect(eventAdminReadinessItems({ ready: true })).toEqual([]);
@@ -98,6 +104,13 @@ describe("EventReadinessPanel en modo ADMIN_EVENT", () => {
     expect(screen.queryByText(/intento de apertura/)).not.toBeInTheDocument();
     expect(window.localStorage.getItem("event-open-operation:e1")).toBe(stored);
     expectNoReservedCalls();
+  });
+
+  it("sin bloqueos detallados no informa «0 pendientes» si el evento no está listo", async () => {
+    mockApi({ ...readyReadiness, ready: false, missing: ["INCOMPLETE_SCHEDULES"] });
+    render(<EventReadinessPanel event={event} eventAdminMode />);
+    expect(await screen.findByText("Hay requisitos pendientes para abrir.")).toBeInTheDocument();
+    expect(screen.queryByText(/pendientes para abrir: 0/)).not.toBeInTheDocument();
   });
 
   it("ADMIN conserva el botón de apertura", async () => {

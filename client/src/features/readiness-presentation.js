@@ -82,7 +82,7 @@ export function eventAdminReadinessItems(readiness) {
   };
   for (const code of readiness.missing) {
     if (["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY", "INCOMPLETE_TROUPES", "INCOMPLETE_RUBRICS"].includes(code)) continue;
-    items.push({ key: `missing-${code}`, text: missingText[code] ?? `Requisito pendiente (${code}); ${GENERAL_ADMIN}.`, resolvableHere: code === "COMPETITION_NIGHT" });
+    items.push({ key: `missing-${code}`, text: missingText[code] ?? "Hay un requisito pendiente que no se pudo identificar.", resolvableHere: code === "COMPETITION_NIGHT" });
   }
   readiness.incompleteTroupes.forEach((troupe) => items.push({ key: `troupe-${troupe.id}`, text: `La comparsa «${troupe.name}» no tiene una categoría activa.`, resolvableHere: false }));
   readiness.incompleteSchedules.forEach((night) => items.push({ key: `schedule-${night.nightId}`, text: `La jornada «${night.nightName}» no tiene comparsas programadas.`, resolvableHere: false }));

@@ -188,7 +188,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
           <div className="readiness-summary">
             {readiness.ready
               ? <p className="readiness-ok">Se cumplen los requisitos. La apertura la realiza el administrador general.</p>
-              : <p className="readiness-pending">Requisitos pendientes para abrir: {eventAdminReadinessItems(readiness).length}.</p>}
+              : <p className="readiness-pending">{eventAdminReadinessItems(readiness).length > 0 ? `Requisitos pendientes para abrir: ${eventAdminReadinessItems(readiness).length}.` : "Hay requisitos pendientes para abrir."}</p>}
           </div>
           <ul className="readiness-checklist">
             {eventAdminReadinessItems(readiness).map((item) => (
