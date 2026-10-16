@@ -9,9 +9,9 @@ const event = { id: "e1", name: "Evento asignado", status: "CONFIGURING", active
 const readiness = { ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] };
 const forbidden = ["/specialties", "/rubrics", "/orphaned-criteria", "/schedule", "/judge-assignments", "/judge-quota", "/api/v1/judges"];
 
-function mockApi() {
+function mockApi(currentReadiness = readiness) {
   apiRequest.mockImplementation(async (path) => {
-    if (path.endsWith("/readiness")) return readiness;
+    if (path.endsWith("/readiness")) return currentReadiness;
     if (path.endsWith("/troupes")) return [{ id: "t1", name: "Estrella", categoryId: "c1", active: true }];
     if (path.endsWith("/categories")) return [{ id: "c1", name: "Comparsa", code: "COMPARSA", displayOrder: 1, active: true }];
     return [];
@@ -77,6 +77,27 @@ describe("AdminCompetenciaPage en modo ADMIN_EVENT (spec 040 T2)", () => {
     expect(within(footer).queryByRole("link", { name: /Control de votación/ })).not.toBeInTheDocument();
     fireEvent.click(within(footer).getByRole("button", { name: /Volver a comparsas/ }));
     expect(screen.getByRole("heading", { name: "Participantes", level: 2 })).toBeInTheDocument();
+  });
+
+  it("el resumen de Revisión final no ofrece pasos ocultos ni cifras no consultadas", async () => {
+    mockApi();
+    render(<AdminCompetenciaPage event={event} eventAdminMode initialStep="revision" />);
+    const summary = await screen.findByRole("region", { name: "Resumen de la preparación" });
+    await within(summary).findByText("1 comparsas");
+    expect(within(summary).queryByRole("button", { name: "Ver jurados" })).not.toBeInTheDocument();
+    expect(within(summary).queryByRole("button", { name: "Ver evaluación" })).not.toBeInTheDocument();
+    expect(within(summary).queryByText(/especialidades|rubros|criterios de puntuación/)).not.toBeInTheDocument();
+    expect(within(summary).queryByText("Paso 3")).not.toBeInTheDocument();
+    expectNoForbiddenCalls();
+  });
+
+  it("la guía de Participantes informa los pendientes sin indicar acciones no disponibles", async () => {
+    mockApi({ ...readiness, ready: false, missing: ["ACTIVE_TROUPE"], incompleteTroupes: [{ name: "Estrella" }], incompleteNominations: [{ rubricName: "Reina", troupeName: "Estrella" }] });
+    render(<AdminCompetenciaPage event={event} eventAdminMode />);
+    const guidance = await screen.findByText(/No hay comparsas activas/);
+    expect(guidance.textContent).not.toMatch(/Creá|Elegí|Cargá|activá/);
+    expect(guidance.textContent).toMatch(/Estrella no tiene una categoría activa/);
+    expect(guidance.textContent).toMatch(/administrador general/);
   });
 
   it("ADMIN conserva los cuatro pasos y los controles", async () => {

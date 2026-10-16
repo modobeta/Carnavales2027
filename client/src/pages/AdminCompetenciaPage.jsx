@@ -38,7 +38,23 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
-function incompleteStepGuidance(stepKey, readiness) {
+// En modo ADMIN_EVENT, Participantes es solo consulta: la guía informa sin indicar acciones (spec 040, CA-5.2).
+function eventAdminParticipantsGuidance(readiness) {
+  const missing = new Set(readiness?.missing ?? []);
+  const messages = [];
+  if (missing.has("ACTIVE_TROUPE")) messages.push("No hay comparsas activas.");
+  for (const troupe of readiness?.incompleteTroupes ?? []) {
+    messages.push(`${troupe.name ?? "Una comparsa"} no tiene una categoría activa.`);
+  }
+  for (const nomination of readiness?.incompleteNominations ?? []) {
+    messages.push(`Falta el participante de ${nomination.rubricName ?? "un rubro"} en ${nomination.troupeName ?? "una comparsa"}; lo carga el administrador general.`);
+  }
+  if (messages.length === 0) messages.push("Hay datos de participantes pendientes.");
+  return messages.join(" ");
+}
+
+function incompleteStepGuidance(stepKey, readiness, eventAdminMode = false) {
+  if (eventAdminMode && stepKey === "participantes") return eventAdminParticipantsGuidance(readiness);
   const missing = new Set(readiness?.missing ?? []);
   const messages = [];
 
@@ -171,7 +187,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   }, [step]);
 
   const goStep = (key) => {
-    setStep(key);
+    // Solo se navega a pasos visibles: un paso oculto no se alcanza ni monta sus consultas.
+    if (availableSteps.some((item) => item.key === key)) setStep(key);
   };
 
   const selectJuryTab = (newTab) => {
@@ -230,7 +247,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const statusSummary = (key) => {
     const status = stepStatuses[key];
     if (status === "complete") return null;
-    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness);
+    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness, eventAdminMode);
     if (status === "unqueried") return "Todavía no se revisaron los requisitos de este paso.";
     return "No se pudieron revisar los requisitos de este paso.";
   };
@@ -492,7 +509,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     </button>
                   </div>
 
-                  <div className="revision-summary-card">
+                  {!eventAdminMode && <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Paso 2</span>
                       <h4>Jurados</h4>
@@ -510,9 +527,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ver jurados
                     </button>
-                  </div>
+                  </div>}
 
-                  <div className="revision-summary-card">
+                  {!eventAdminMode && <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Paso 3</span>
                       <h4>Evaluación</h4>
@@ -532,7 +549,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ver evaluación
                     </button>
-                  </div>
+                  </div>}
 
                   <div className="revision-summary-card">
                     <div className="revision-card-header">
