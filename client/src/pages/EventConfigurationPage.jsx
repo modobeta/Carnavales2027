@@ -10,12 +10,14 @@ import { useUnsavedChanges, useFormDirty } from "../hooks/useUnsavedChanges.js";
 import { apiRequest } from "../api/http.js";
 import { EventReadinessPanel } from "../features/EventReadinessPanel.jsx";
 import { NightForm, nightKindLabel } from "../features/NightForm.jsx";
+import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 
 const EMPTY_LIST = [];
 const errorMessages = {
   EVENT_LOCKED: "El evento esta abierto y su configuracion ya no puede modificarse.",
   RESOURCE_CONFLICT: "Ese nombre u orden ya está en uso.",
   VALIDATION_ERROR: "Revisa los datos ingresados.",
+  ADMIN_REQUIRED: "Acción no permitida para este evento.",
 };
 
 function formatDate(value) {
@@ -54,6 +56,9 @@ export function EventConfigurationPage({
   const [deleteNightTarget, setDeleteNightTarget] = useState(null);
   const [deletingNight, setDeletingNight] = useState(false);
   const [votingStatuses, setVotingStatuses] = useState({});
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renaming, setRenaming] = useState(false);
+  const renameTriggerRef = useRef(null);
   const drawerTriggerRef = useRef(null);
   const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
@@ -62,6 +67,9 @@ export function EventConfigurationPage({
   // sin «Finalizar jornada» ni estado de votación (D-P2), y un evento inactivo es solo consulta.
   const canMutate = !locked && !eventAdminMode;
   const showNightActions = !eventAdminMode && (!locked || currentEvent.status === "OPEN");
+  // ADMIN_EVENT renombra solo eventos asignados activos en preparación (la API revalida).
+  const canRenameEvent = !locked && (!eventAdminMode || currentEvent.active !== false);
+  const handleRejection = useEventAdminRejection(eventAdminMode);
   const { notify } = useNotify();
   const { dirty, markDirty } = useFormDirty(drawerMode);
   const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
@@ -99,6 +107,7 @@ export function EventConfigurationPage({
       const detail = errorMessages[error.code] ?? error.message ?? "No se pudo guardar.";
       setMessage(detail);
       notify({ message: detail, type: "error" });
+      void handleRejection(error, currentEvent.id);
       return null;
     }
   };
@@ -222,10 +231,18 @@ export function EventConfigurationPage({
 
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
-        {eventAdminMode ? (
+        {eventAdminMode && !canRenameEvent ? (
           <p className="config-card"><strong>Nombre del evento:</strong> {currentEvent.name ?? "—"}</p>
         ) : (
-          <form className="config-card" onSubmit={submit(`/api/v1/events/${event.id}`, (data) => ({ name: data.get("name") }), setCurrentEvent, "PATCH")}>
+          <form
+            className="config-card"
+            onSubmit={(formEvent) => {
+              formEvent.preventDefault();
+              // E-1 (spec 040): renombrar pide confirmación explícita antes de la solicitud.
+              renameTriggerRef.current = formEvent.nativeEvent?.submitter ?? null;
+              setRenameTarget(String(new FormData(formEvent.currentTarget).get("name") ?? ""));
+            }}
+          >
             <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
             <button disabled={locked}>Guardar evento</button>
           </form>
@@ -323,6 +340,23 @@ export function EventConfigurationPage({
         confirming={deletingNight}
         tone="danger"
         focusReturnRef={deleteNightTriggerRef}
+      />
+
+      <ConfirmDialog
+        isOpen={renameTarget !== null}
+        onClose={() => { if (!renaming) setRenameTarget(null); }}
+        onConfirm={async () => {
+          setRenaming(true);
+          await save(`/api/v1/events/${event.id}`, { name: renameTarget }, { method: "PATCH", onSaved: setCurrentEvent, reset: false });
+          setRenaming(false);
+          setRenameTarget(null);
+        }}
+        title="Guardar cambios del evento"
+        description={`El nombre del evento cambiará a «${renameTarget ?? ""}».`}
+        confirmLabel="Guardar cambios"
+        cancelLabel="Cancelar"
+        confirming={renaming}
+        focusReturnRef={renameTriggerRef}
       />
 
       <ConfirmDialog

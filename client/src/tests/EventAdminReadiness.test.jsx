@@ -123,11 +123,10 @@ describe("EventReadinessPanel en modo ADMIN_EVENT", () => {
 describe("EventConfigurationPage en modo ADMIN_EVENT", () => {
   const nights = [{ id: "n1", name: "Primera noche", kind: "COMPETITION", status: "OPEN", displayOrder: 1 }];
 
-  it("es de solo lectura: sin guardar evento ni controles de jornadas", async () => {
+  it("sin controles de jornadas (se habilitan en T7–T9)", async () => {
     mockApi(fullReadiness);
     render(<EventConfigurationPage event={event} nights={nights} eventAdminMode />);
     expect(screen.getByText("Primera noche")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Guardar evento" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Agregar jornada/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Editar jornada/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Eliminar jornada/ })).not.toBeInTheDocument();

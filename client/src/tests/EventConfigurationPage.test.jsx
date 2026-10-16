@@ -108,6 +108,8 @@ describe("EventConfigurationPage", () => {
 
     fireEvent.change(screen.getByLabelText("Nombre del evento"), { target: { value: "Goya 2027 Editado" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar evento" }));
+    // E-1 (spec 040): ADMIN también confirma el cambio en un modal.
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1",
