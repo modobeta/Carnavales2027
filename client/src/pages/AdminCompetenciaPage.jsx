@@ -1783,6 +1783,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
 
   useEffect(() => {
     let active = true;
+    setLoadError(false);
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => { if (active) setLoadError(true); });
     apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => {
       if (!active) return;
