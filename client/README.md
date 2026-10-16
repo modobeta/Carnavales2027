@@ -101,7 +101,7 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/veedor` | Supervisión; ADMIN o VEEDOR, sujeta a autorización de la API |
 | `#/resultados?eventId=...` | Portal público; selección de evento opcional |
 
-No hay ruta vigente `#/home`: el login deriva al inicio propio del rol. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
+No hay ruta vigente `#/home`: tras conservar un `returnTo` restringido del jurado, el login deriva por precedencia a ADMIN, ADMIN_EVENT vigente, JUDGE, COMISARIO, SCRUTINEER/ESCRIBANO y VEEDOR. ADMIN_EVENT llega solo a `#/admin/home`; las demás rutas mantienen sus guardias. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
 
 `SessionProvider` consulta `/api/v1/me` y distingue `loading`, `authenticated`, `anonymous`, `second-factor-required` y `error`. El estado siempre expone `adminEvents` como array: en una sesión autenticada propaga los eventos informados por `/me` (o `[]` si el campo falta), y en los demás estados se normaliza a `[]`. Las guardias de interfaz ofrecen navegación y mensajes; **la seguridad la impone el backend**. La selección de evento en localStorage es una preferencia, no un permiso.
 

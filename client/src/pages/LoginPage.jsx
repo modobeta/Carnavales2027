@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
+import { hasEventAdminCapability } from "../auth/role-routes.js";
 
 export function getLoginParams() {
   const [, query = ""] = (window.location.hash || "").split("?");
@@ -25,6 +26,7 @@ export function goToRoleHome(session) {
   }
   const roles = session.roles ?? [];
   if (roles.includes("ADMIN")) window.location.hash = "#/admin/home";
+  else if (hasEventAdminCapability(session)) window.location.hash = "#/admin/home";
   else if (roles.includes("JUDGE")) window.location.hash = "#/judge";
   else if (roles.includes("COMISARIO")) window.location.hash = "#/admin/penalties";
   else if (roles.some((r) => ["SCRUTINEER", "ESCRIBANO"].includes(r))) window.location.hash = "#/admin/results";
