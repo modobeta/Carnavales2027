@@ -86,8 +86,9 @@ export function AppNavigation({ session }) {
   const isAdmin = session.roles?.includes("ADMIN");
   const isJudge = session.roles?.includes("JUDGE");
   const isEventAdmin = hasEventAdminCapability(session);
-  // El Jurado no tiene menú lateral, salvo que necesite volver a su Inicio de ADMIN_EVENT.
-  const hideDrawer = isJudge && !isEventAdmin;
+  // El Jurado no tiene menú lateral, salvo que necesite volver a su Inicio de ADMIN_EVENT;
+  // las pantallas de votación (#/judge/*) conservan su diseño sin menú.
+  const hideDrawer = isJudge && (!isEventAdmin || currentRoute.startsWith("#/judge/"));
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
   // los demás roles tienen enlaces de solo texto que no caben en el rail.
   const canCollapse = isDesktop && isAdmin;

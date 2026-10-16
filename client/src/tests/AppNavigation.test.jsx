@@ -329,6 +329,13 @@ describe("AppNavigation", () => {
       expect(screen.getByRole("link", { name: "Mi panel" })).toHaveAttribute("aria-current", "page");
     });
 
+    it.each(["#/judge/ballot", "#/judge/assignment"])("un JUDGE con ADMIN_EVENT no ve el menú lateral dentro de la votación (%s)", (route) => {
+      mockMatchMedia(true);
+      window.location.hash = route;
+      render(<AppNavigation session={eventAdmin(["JUDGE"])} />);
+      expect(screen.queryByRole("navigation", { name: "Navegacion principal" })).not.toBeInTheDocument();
+    });
+
     it("en desktop ofrece la miga Inicio fuera de #/admin/home", () => {
       mockMatchMedia(true);
       window.location.hash = "#/admin/penalties";
