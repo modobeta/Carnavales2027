@@ -230,3 +230,14 @@ describe("AdminHomePage (Rediseño a Mis eventos)", () => {
     expect(await screen.findByText("Evento Carnaval Nuevo creado.")).toBeInTheDocument();
   });
 });
+
+describe("AdminHomePage global", () => {
+  it("ADMIN conserva funciones globales aunque tenga adminEvents", async () => {
+    mockApi();
+    render(<AdminHomePage session={{ status: "authenticated", roles: ["ADMIN"], adminEvents: [{ id: "e1" }] }} />);
+    await screen.findByRole("article", { name: "Test-Prueba-01" });
+    expect(screen.getByRole("button", { name: /Crear evento/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Administrar evento/ })).toHaveLength(3);
+    await waitFor(() => expect(apiRequest.mock.calls.map(([path]) => path)).toContain("/api/v1/judges"));
+  });
+});

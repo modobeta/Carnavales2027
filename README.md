@@ -150,7 +150,7 @@ npm run dev
 
 | Rol | Responsabilidad principal |
 | --- | --- |
-| `ADMIN` | Configuración, accesos, asignaciones, apertura/cierre y supervisión |
+| `ADMIN` | Administración global de usuarios y todos los eventos; una cuenta ADMIN nueva se crea por invitación. La cuenta inicial de bootstrap está protegida frente a revocación de ADMIN y eliminación. |
 | `JUDGE` | Evaluación de las planillas de su asignación habilitada |
 | `VEEDOR` | Supervisión, con perfil operativo registrado |
 | `COMISARIO` | Gestión de penalizaciones, también accesible a ADMIN |
@@ -165,9 +165,9 @@ ADMIN puede consultar resultados y actas, pero **el rol ADMIN por sí solo no au
 npm test
 ```
 
-La suite de pruebas del cliente cuenta con **490 tests pasando en 63 suites de Vitest**, incluyendo 45 tests dedicados a tokens y diseño visual semántico (`tokens.test.js`).
+La suite de pruebas del cliente cuenta con **576 tests pasando en 71 archivos**, incluyendo 45 tests dedicados a tokens y diseño visual semántico (`tokens.test.js`).
 
-En API, `npm test` y `npm run db:test` exigen `TEST_DATABASE_URL` (más de 310 tests de persistencia, reglas de negocio y contratos HTTP). Prepará una base descartable con ambas familias de migraciones según la [guía de pruebas](api/README.md#pruebas). Los tests escriben datos: no deben apuntar a desarrollo operativo ni producción.
+En API, `npm test` incluye casos HTTP, persistencia y reglas de negocio; `npm run db:test` ejecuta el subconjunto de persistencia. Ambos exigen `TEST_DATABASE_URL`. Prepará una base descartable con ambas familias de migraciones según la [guía de pruebas](api/README.md#pruebas). Los tests escriben datos: no deben apuntar a desarrollo operativo ni producción.
 
 No hay scripts de lint ni de typecheck configurados. El piloto incorpora `.github/workflows/ci.yml` para pruebas API/PostgreSQL 18 y cliente/build en Node 22. La evidencia histórica está en `specs/029-piloto-produccion/validation.md`; no representa pruebas ejecutadas en cada actualización documental.
 

@@ -95,10 +95,10 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
       humanMessages: ["No existe ninguna jornada de competencia configurada", "No hay comparsas activas registradas",
         "No hay especialidades activas configuradas", "No existe ningún rubro activo"],
     };
-    // No global role for the delegate; ADMIN initially has no assignment.
-    await expectResponse(ids.eventA, ids.assigned, 200, empty);
+    // Una asignación activa ya no concede acceso; ADMIN opera en ambos eventos.
+    await expectResponse(ids.eventA, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     await expectResponse(ids.eventA, ids.admin, 200, empty);
-    await expectResponse(ids.eventB, ids.assigned, 200, empty);
+    await expectResponse(ids.eventB, ids.admin, 200, empty);
 
     for (const session of [ids.other, ids.unassigned, ids.revoked, ids.judge]) {
       for (const eventId of [ids.eventA, ids.missing]) {
@@ -171,14 +171,13 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
       for (const active of [true, false]) {
         await pool.query("UPDATE carnival_event SET active=$2 WHERE id=$1", [ids.eventA, active]);
         await expectResponse(ids.eventA, ids.admin, 200, expected);
-        await expectResponse(ids.eventA, ids.assigned, 200, expected);
       }
       await pool.query("UPDATE carnival_event SET active=true WHERE id=$1", [ids.eventA]);
     };
     await checkBoth(incomplete);
     // Even identifiers/names in nested detail arrays must never be disclosed to an outsider.
     await expectResponse(ids.eventA, ids.other, 403, { code: "ADMIN_REQUIRED" }, spoof);
-    await expectResponse(ids.eventB, ids.assigned, 200, empty, spoof);
+    await expectResponse(ids.eventB, ids.assigned, 403, { code: "ADMIN_REQUIRED" }, spoof);
 
     await pool.query("UPDATE event_category SET active=true WHERE id=$1", [category.id]);
     await pool.query(
@@ -204,15 +203,15 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
     const complete = { ...detailOnly, ready: true, incompleteTroupes: [], incompleteRubrics: [] };
     await checkBoth(complete); // No new per-specialty jury requirement.
 
-    const first = await expectResponse(ids.eventA, ids.assigned, 200, complete);
-    await expectResponse(ids.eventA, ids.assigned, 200, complete, { headers: { "Idempotency-Key": randomUUID() } });
-    await expectResponse(ids.eventA, ids.assigned, 200, complete, { headers: { "Idempotency-Key": "not-a-key" } });
+    const first = await expectResponse(ids.eventA, ids.admin, 200, complete);
+    await expectResponse(ids.eventA, ids.admin, 200, complete, { headers: { "Idempotency-Key": randomUUID() } });
+    await expectResponse(ids.eventA, ids.admin, 200, complete, { headers: { "Idempotency-Key": "not-a-key" } });
     await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.eventA]);
     await expectResponse(ids.eventA, ids.assigned, 403, { code: "ADMIN_REQUIRED" }, { headers: { "If-None-Match": first.headers.etag } });
-    await expectResponse(ids.eventB, ids.assigned, 200, empty);
+    await expectResponse(ids.eventB, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     await expectResponse(ids.eventA, ids.admin, 200, complete);
     await pool.query("UPDATE admin_event_assignment SET is_active=true WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.eventA]);
-    await expectResponse(ids.eventA, ids.assigned, 200, complete);
+    await expectResponse(ids.eventB, ids.admin, 200, empty);
     await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES($1,$2,true)", [ids.admin, ids.eventA]);
     await expectResponse(ids.eventA, ids.admin, 200, complete);
     await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.admin, ids.eventA]);
@@ -224,8 +223,7 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
     for (const failedSql of [
       "SELECT 1 FROM carnival_event WHERE id=$1",
       "SELECT COUNT(*) FROM rubric WHERE event_id=$1 AND active",
-      "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-      ") AS allowed",
+      "SELECT EXISTS (",
     ]) {
       pool.query = function (sql, ...args) {
         if (typeof sql === "string" && sql.includes(failedSql)) {
@@ -234,7 +232,7 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
         return originalQuery.call(pool, sql, ...args);
       };
       try {
-        for (const session of failedSql === ") AS allowed" ? [ids.assigned] : [ids.admin, ids.assigned]) {
+        for (const session of [ids.admin]) {
           await expectResponse(ids.eventA, session, 500, { code: "INTERNAL_ERROR" });
         }
       } finally {
@@ -242,7 +240,7 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
         else delete pool.query;
       }
     }
-    await expectResponse(ids.eventA, ids.assigned, 200, complete);
+    await expectResponse(ids.eventA, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

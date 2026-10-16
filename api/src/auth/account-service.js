@@ -77,7 +77,12 @@ export async function createOrVerifyCredentialUser({ email, name, password, auth
   const context = await getAuthContext(authInstance);
   const existing = await context.internalAdapter.findUserByEmail(normalizedEmail, { includeAccounts: true });
   if (!existing) {
-    return { user: await createCredentialUser({ email: normalizedEmail, name, password: normalizedPassword, authInstance }), created: true };
+    const user = await createCredentialUser({ email: normalizedEmail, name, password: normalizedPassword, authInstance });
+    return {
+      user,
+      created: true,
+      rollback: () => context.internalAdapter.deleteUser(user.id),
+    };
   }
 
   const credential = existing.accounts.find((account) => account.providerId === "credential");

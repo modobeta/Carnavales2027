@@ -22,7 +22,8 @@ function storeEventId(eventId, key) {
 }
 
 export function AdminEventProvider({ children, session, judgeArea = false }) {
-  const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${judgeArea ? "judge" : "operational"}` : STORAGE_KEY;
+  const storageArea = judgeArea ? "judge" : "operational";
+  const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${storageArea}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
   const activeEventIdRef = useRef(activeEventId);
@@ -36,18 +37,21 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     setLoading(true);
     try {
       const loaded = await loadAvailableEvents(session?.roles, judgeArea);
-      const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
+      const all = Array.isArray(loaded) ? loaded : [];
+      const items = all.filter((event) => event.active !== false);
       if (requestId !== requestSequence.current) return [];
-      setEvents(items ?? []);
-      setError("");
       const currentId = activeEventIdRef.current;
-      const storedEvent = items.find((event) => event.id === currentId);
-      const nextId = storedEvent?.id ?? items[0]?.id ?? "";
+      const visible = items;
+      setEvents(visible);
+      setError("");
+      const storedEvent = visible.find((event) => event.id === currentId);
+      const fallbackId = items[0]?.id ?? "";
+      const nextId = storedEvent?.id ?? fallbackId;
       if (nextId !== currentId) setActiveNightIdState("");
       activeEventIdRef.current = nextId;
       setActiveEventIdState(nextId);
       storeEventId(nextId, storageKey);
-      return items ?? [];
+      return visible;
     } catch {
       if (requestId !== requestSequence.current) return [];
       setEvents([]);

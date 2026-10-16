@@ -3,8 +3,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { auditEvent } from "../../audit/audit-service.js";
 import { getPool } from "../../db/pool.js";
 
-const operationalRoles = new Set(["VEEDOR", "COMISARIO", "SCRUTINEER", "ESCRIBANO"]);
-const invitationLockKey = "carnavales2027_v2_operational_invitation";
+const inviteableRoles = new Set(["ADMIN", "VEEDOR", "COMISARIO", "SCRUTINEER", "ESCRIBANO"]);
+const invitationLockKey = "carnavales2027_v2_role_invitation";
 
 function normalizeEmail(value) {
   if (typeof value !== "string") throw new TypeError("email debe ser texto no vacío.");
@@ -29,13 +29,20 @@ function maskEmail(email) {
 
 async function inTransaction(operation) {
   const client = await getPool().connect();
+  let commitStarted = false;
   try {
     await client.query("BEGIN");
     const result = await operation(client);
+    commitStarted = true;
     await client.query("COMMIT");
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Preserve the original failure; the caller treats a failed COMMIT as ambiguous.
+    }
+    if (commitStarted && error && typeof error === "object") error.commitOutcomeUnknown = true;
     throw error;
   } finally {
     client.release();
@@ -56,8 +63,23 @@ export const listOperationalUsers = async () => {
   return rows;
 };
 
-export const inviteOperationalUser = async (email, roleCode, adminUserId) => {
-  if (!operationalRoles.has(roleCode)) {
+export const listUsers = async ({ client = getPool() } = {}) => {
+  const { rows } = await client.query(`
+    SELECT u.id, u.name, u.email,
+      COALESCE(array_agg(ur.role_code ORDER BY ur.role_code)
+        FILTER (WHERE ur.role_code IS NOT NULL), '{}') AS roles,
+      COALESCE(bs.initial_admin_user_id = u.id, false) AS "isPrimaryAdmin"
+    FROM "user" u
+    LEFT JOIN user_role ur ON ur.user_id = u.id
+    LEFT JOIN bootstrap_state bs ON bs.singleton
+    GROUP BY u.id, u.name, u.email, bs.initial_admin_user_id
+    ORDER BY u.name ASC, u.email ASC
+  `);
+  return rows;
+};
+
+export const inviteRoleUser = async (email, roleCode, adminUserId) => {
+  if (!inviteableRoles.has(roleCode)) {
     const error = new Error("Rol inválido para este circuito");
     error.code = "INVALID_OPERATIONAL_ROLE";
     throw error;
@@ -78,7 +100,7 @@ export const inviteOperationalUser = async (email, roleCode, adminUserId) => {
   );
   await auditEvent(pool, {
     actorUserId: adminUserId,
-    action: "OPERATIONAL_INVITATION_CREATED",
+    action: roleCode === "ADMIN" ? "ADMIN_INVITATION_CREATED" : "OPERATIONAL_INVITATION_CREATED",
     entityType: "role_invitation",
     entityId: rows[0].id,
     after: { email: normalizedEmail, roleCode, expiresAt: rows[0].expiresAt },
@@ -126,12 +148,17 @@ export const acceptRoleInvitation = async ({ token, password, createUser = creat
     return rows[0];
   });
 
+  let createdIdentity = null;
   try {
     const identity = await createUser({
       email: invitation.email,
       name: invitation.email.split("@", 1)[0],
       password,
     });
+    createdIdentity = identity;
+    if (invitation.roleCode === "ADMIN" && identity.created !== true) {
+      throw new Error("ACCOUNT_ALREADY_EXISTS");
+    }
     userId = identity.user?.id ?? identity.id;
     return await inTransaction(async (client) => {
       const { rows } = await client.query(
@@ -140,7 +167,6 @@ export const acceptRoleInvitation = async ({ token, password, createUser = creat
           WHERE id = $1
             AND acceptance_claim_id = $2
             AND status = 'PENDING'
-            AND expires_at > clock_timestamp()
           FOR UPDATE`,
         [invitation.id, claimId],
       );
@@ -167,6 +193,16 @@ export const acceptRoleInvitation = async ({ token, password, createUser = creat
       return { userId, roleCode: invitation.roleCode };
     });
   } catch (error) {
+    if (invitation.roleCode === "ADMIN"
+      && createdIdentity?.created === true
+      && error.commitOutcomeUnknown !== true
+      && typeof createdIdentity.rollback === "function") {
+      try {
+        await createdIdentity.rollback();
+      } catch {
+        // Preserve the API failure; the invitation remains unaccepted and can expire normally.
+      }
+    }
     try {
       await getPool().query(
         `UPDATE role_invitation

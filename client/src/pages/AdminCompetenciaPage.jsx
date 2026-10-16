@@ -38,6 +38,16 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
+// Error de carga inicial con reintento: nunca se presenta como lista vacía (spec 040, E-2).
+function LoadErrorAlert({ message, onRetry }) {
+  return (
+    <div className="overview-alert" role="alert">
+      <strong>{message}</strong>{" "}
+      <button type="button" className="secondary" onClick={onRetry}>Reintentar</button>
+    </div>
+  );
+}
+
 function incompleteStepGuidance(stepKey, readiness) {
   const missing = new Set(readiness?.missing ?? []);
   const messages = [];
@@ -75,7 +85,8 @@ function incompleteStepGuidance(stepKey, readiness) {
 }
 
 export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
-  const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
+  const availableSteps = PREPARATION_STEPS;
+  const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
@@ -84,6 +95,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [progressError, setProgressError] = useState(false);
   const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
   const [currentEvent, setCurrentEvent] = useState(event);
@@ -125,13 +137,20 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const reloadProgress = () => {
     const request = ++progressRequest.current;
     Promise.all([
-      apiRequest(`/api/v1/events/${event.id}/troupes`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/categories`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/specialties`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`).catch(() => []),
+      apiRequest(`/api/v1/events/${event.id}/troupes`),
+      apiRequest(`/api/v1/events/${event.id}/categories`),
+      // Cargar los datos administrativos completos para preparar la competencia.
+      apiRequest(`/api/v1/events/${event.id}/specialties`),
+      apiRequest(`/api/v1/events/${event.id}/rubrics`),
+      apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`),
     ]).then(([troupes, categories, specialties, rubrics, orphaned]) => {
-      if (request === progressRequest.current) setProgress({ troupes, categories, specialties, rubrics, orphaned });
+      if (request !== progressRequest.current) return;
+      setProgress({ troupes, categories, specialties, rubrics, orphaned });
+      setProgressError(false);
+    }).catch((error) => {
+      if (request !== progressRequest.current) return;
+      setProgress(null);
+      setProgressError(true);
     });
     return () => { progressRequest.current += 1; };
   };
@@ -143,8 +162,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     setReadinessState({ eventId: event.id, status: "unqueried", data: null });
     apiRequest(`/api/v1/events/${event.id}/readiness`).then((readiness) => {
       if (active) setReadinessState({ eventId: event.id, status: isInterpretableReadiness(readiness) ? "available" : "unavailable", data: isInterpretableReadiness(readiness) ? readiness : null });
-    }).catch(() => {
-      if (active) setReadinessState({ eventId: event.id, status: "unavailable", data: null });
+    }).catch((error) => {
+      if (!active) return;
+      setReadinessState({ eventId: event.id, status: "unavailable", data: null });
     });
     return () => { active = false; };
   }, [event.id, dataRevision]);
@@ -153,7 +173,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const currentReadiness = readinessState.eventId === event.id ? readinessState.data : null;
   const currentReadinessStatus = readinessState.eventId === event.id ? readinessState.status : "unqueried";
   const stepStatuses = readinessStepStates(currentReadiness, currentReadinessStatus);
-  const steps = PREPARATION_STEPS.map((item) => ({ ...item, label: item.key === "rubros" ? "Evaluación" : item.label }));
+  const steps = availableSteps.map((item) => ({ ...item, label: item.key === "rubros" ? "Evaluación" : item.label }));
   const officialIssues = readinessIssues(currentReadiness);
   const activeIndex = Math.max(0, steps.findIndex((item) => item.key === step));
 
@@ -166,7 +186,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   }, [step]);
 
   const goStep = (key) => {
-    setStep(key);
+    // Solo se navega a pasos visibles: un paso oculto no se alcanza ni monta sus consultas.
+    if (availableSteps.some((item) => item.key === key)) setStep(key);
   };
 
   const selectJuryTab = (newTab) => {
@@ -283,6 +304,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               })}
             </ol>
           </nav>
+          {progressError && <LoadErrorAlert message="No se pudo cargar el resumen de la preparación." onRetry={reloadProgress} />}
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
@@ -391,14 +413,25 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               />
               </div>
               <CompetenciaOverview key={`overview-${event.id}`} event={event} />
-              <EvaluationStepSummary progress={progress} readiness={currentReadiness} readinessStatus={currentReadinessStatus} />
+              <EvaluationStepSummary progress={progress} progressError={progressError} readiness={currentReadiness} readinessStatus={currentReadinessStatus} />
             </section>
           )}
           {step === "revision" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
 
-              {isEventOpen ? (
+              {(isEventOpen || currentEvent?.status === "CLOSED") ? (
+                <div className={`revision-status-banner ${isEventOpen ? "is-open" : "is-closed"}`} role="region" aria-label="Estado de la competencia">
+                  <div className="revision-banner-content">
+                    <h3>{isEventOpen ? "Competencia abierta" : "Competencia finalizada"}</h3>
+                    <p>{isEventOpen ? "El evento está abierto. La operación de las jornadas y la votación continúa desde Control de votación." : "El evento finalizó."}</p>
+                    <div className="revision-banner-actions">
+                      {isEventOpen && <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>}
+                      <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
+                    </div>
+                  </div>
+                </div>
+              ) : isEventOpen ? (
                 <div className="revision-status-banner is-open" role="region" aria-label="Estado de la competencia">
                   <div className="revision-banner-icon" aria-hidden="true">🟢</div>
                   <div className="revision-banner-content">
@@ -466,7 +499,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
 
               <section className="revision-summary-section" aria-label="Resumen de la preparación">
                 <h3 className="revision-section-title">Resumen de la preparación</h3>
-                <div className="revision-summary-grid">
+                {progress ? <div className="revision-summary-grid">
                   <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Paso 1</span>
@@ -547,7 +580,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                       Ir a jornadas
                     </a>
                   </div>
-                </div>
+                </div> : <p role="status">{progressError ? "Resumen no disponible." : "Cargando el resumen…"}</p>}
               </section>
 
               <ConfirmDialog
@@ -570,6 +603,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             isEventOpen={isEventOpen}
             isReady={currentReadiness?.ready}
             onOpenEvent={() => setConfirmOpenEvent(true)}
+            allowOpen
             opening={openingEvent}
           />
         </fieldset>
@@ -588,7 +622,7 @@ function StepSummary({ stepLabel, recommendation }) {
   );
 }
 
-function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening }) {
+function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening, allowOpen = true }) {
   const hasPrev = activeIndex > 0;
   const hasNext = activeIndex < steps.length - 1;
   const nextStep = hasNext ? steps[activeIndex + 1] : null;
@@ -627,12 +661,12 @@ function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isRead
             Continuar a {STEP_BUTTON_LABELS[nextStep.key] ?? nextStep.label.toLowerCase()} →
           </button>
         )}
-        {isLastStep && isEventOpen && (
+        {allowOpen && isLastStep && isEventOpen && (
           <a href="#/admin/voting" className="button-link primary">
             Ir a Control de votación →
           </a>
         )}
-        {isLastStep && !isEventOpen && isReady && (
+        {allowOpen && isLastStep && !isEventOpen && isReady && (
           <button
             type="button"
             className="primary"
@@ -747,7 +781,7 @@ function CompetenciaOverview({ event }) {
   );
 }
 
-function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
+function EvaluationStepSummary({ progress, progressError = false, readiness, readinessStatus }) {
   const specialties = (progress?.specialties ?? []).filter((specialty) => specialty.active !== false);
   const rubrics = (progress?.rubrics ?? []).filter((rubric) => rubric.active !== false);
   const items = rubrics.flatMap((rubric) => (rubric.items ?? []).filter((item) => item.active !== false));
@@ -764,7 +798,7 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
         <div><dt>Especialidades con rubros</dt><dd>{specialties.filter((specialty) => coveredSpecialtyIds.has(specialty.id)).length} de {specialties.length}</dd></div>
         <div><dt>Rubros activos</dt><dd>{rubrics.length}</dd></div>
         <div><dt>Ítems activos</dt><dd>{items.length}</dd></div>
-      </dl> : <p role="status">Cargando el resumen de evaluación…</p>}
+      </dl> : <p role="status">{progressError ? "Resumen de evaluación no disponible." : "Cargando el resumen de evaluación…"}</p>}
       {readinessStatus === "available" ? (
         pendingRubrics.length || missingActiveRubrics || pendingNominations.length || pendingCriteria ? (
           <div className="evaluation-summary-pending" role="status">
@@ -782,7 +816,7 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
   );
 }
 
-function AdminTroupesSection({ event }) {
+function AdminTroupesSection({ event, readOnly = false }) {
   const [troupes, setTroupes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [drawerMode, setDrawerMode] = useState(null);
@@ -797,14 +831,18 @@ function AdminTroupesSection({ event }) {
   const deleteTriggerRef = useRef(null);
   const { writing, setPending, dataRevision, incRevision, reloadProgress } = useContext(WriteContext);
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     let active = true;
-    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => {});
+    setLoadError(false);
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => { if (active) setLoadError(true); });
+    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [event.id, dataRevision]);
+  }, [event.id, dataRevision, loadAttempt]);
 
-  const locked = event.status === "OPEN";
+  const locked = event.status === "OPEN" || readOnly;
   const activeCategories = categories.filter((c) => c.active !== false);
 
   const save = async (path, body, method = "POST") => {
@@ -934,6 +972,7 @@ function AdminTroupesSection({ event }) {
         <h2>Comparsas</h2>
       </div>
       <p className="feedback" role="status">{message}</p>
+      {loadError && <LoadErrorAlert message="No se pudieron cargar las comparsas." onRetry={() => setLoadAttempt((n) => n + 1)} />}
       <div className="competencia-card">
         <div className="competencia-card-toolbar">
           <div className="competencia-toolbar-left troupe-filters">
@@ -959,7 +998,7 @@ function AdminTroupesSection({ event }) {
             {!locked && <button type="button" className="btn-primary" aria-label="+ Nueva comparsa" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva comparsa</button>}
           </div>
         </div>
-        {filtered.length === 0 ? (
+        {loadError ? null : filtered.length === 0 ? (
           <p className="empty-state" style={{ padding: "var(--space-6)" }}>Sin comparsas para los filtros actuales.</p>
         ) : (
           <div className="table-wrapper">
@@ -1073,17 +1112,21 @@ function TroupeScheduleSection({ event }) {
   const { writing, setPending, dataRevision } = useContext(WriteContext);
   const locked = event.status === "OPEN";
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     let active = true;
+    setLoadError(false);
     apiRequest(`/api/v1/events/${event.id}/nights`).then((loaded) => {
       if (!active) return;
       const available = loaded ?? [];
       setNights(available);
       setNightId((selected) => available.some((night) => night.id === selected) ? selected : available[0]?.id ?? "");
-    }).catch(() => {});
-    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded ?? []); }).catch(() => {});
+    }).catch(() => { if (active) setLoadError(true); });
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded ?? []); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [event.id, dataRevision]);
+  }, [event.id, dataRevision, loadAttempt]);
 
   useEffect(() => {
     const request = ++scheduleRequest.current;
@@ -1161,7 +1204,8 @@ function TroupeScheduleSection({ event }) {
         <h2>Orden de pasada</h2>
       </div>
       <p className="feedback" role="status">{message}</p>
-      {nights.length === 0 && <p>Cargando jornadas...</p>}
+      {loadError && <LoadErrorAlert message="No se pudieron cargar las jornadas." onRetry={() => setLoadAttempt((n) => n + 1)} />}
+      {!loadError && nights.length === 0 && <p>Cargando jornadas...</p>}
       {nights.length > 0 && (
         <label>Jornada<select value={nightId} onChange={(e) => setNightId(e.target.value)} aria-label="Jornada para el orden de pasada">
           {nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}
@@ -1262,7 +1306,7 @@ function TroupeScheduleSection({ event }) {
   );
 }
 
-function AdminCategoriesSection({ event }) {
+function AdminCategoriesSection({ event, readOnly = false }) {
   const [categories, setCategories] = useState([]);
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -1273,12 +1317,16 @@ function AdminCategoriesSection({ event }) {
   const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     let active = true;
-    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => {});
+    setLoadError(false);
+    apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [event.id, dataRevision]);
-  const locked = event.status === "OPEN";
+  }, [event.id, dataRevision, loadAttempt]);
+  const locked = event.status === "OPEN" || readOnly;
 
   const save = async (path, body, method = "POST") => {
     try {
@@ -1380,7 +1428,8 @@ function AdminCategoriesSection({ event }) {
         {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nuevo tipo</button>}
       </div>
       <p className="feedback" role="status">{message}</p>
-      {ordered.length === 0 ? (
+      {loadError && <LoadErrorAlert message="No se pudieron cargar los tipos de participación." onRetry={() => setLoadAttempt((n) => n + 1)} />}
+      {loadError ? null : ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay tipos de participación.</p>
       ) : (
         <div className="table-wrapper participants-types-table">
@@ -1478,11 +1527,15 @@ function AdminSpecialtiesSection({ event }) {
   const deleteTriggerRef = useRef(null);
   const { writing, setPending, incRevision, reloadProgress, dataRevision } = useContext(WriteContext);
 
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
   useEffect(() => {
     let active = true;
-    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => {});
+    setLoadError(false);
+    apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => { if (active) setSpecialties(loaded); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [event.id, dataRevision]);
+  }, [event.id, dataRevision, loadAttempt]);
   const locked = event.status === "OPEN";
 
   const save = async (path, body, method = "POST") => {
@@ -1581,7 +1634,8 @@ function AdminSpecialtiesSection({ event }) {
       <div className="section-heading"><h2>Especialidades</h2></div>
       <p className="feedback" role="status">{message}</p>
       {!locked && <button type="button" onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "create", ts: Date.now() }); }}>+ Nueva especialidad</button>}
-      {ordered.length === 0 ? (
+      {loadError && <LoadErrorAlert message="No se pudieron cargar las especialidades." onRetry={() => setLoadAttempt((n) => n + 1)} />}
+      {loadError ? null : ordered.length === 0 ? (
         <p className="empty-state">Todavía no hay especialidades.</p>
       ) : (
         <div className="table-wrapper">
@@ -1720,6 +1774,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
 
   useEffect(() => {
     let active = true;
+    setLoadError(false);
     apiRequest(`/api/v1/events/${event.id}/rubrics`).then((loaded) => { if (active) setRubrics(loaded); }).catch(() => { if (active) setLoadError(true); });
     apiRequest(`/api/v1/events/${event.id}/specialties`).then((loaded) => {
       if (!active) return;
@@ -1728,7 +1783,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
         ? current
         : loaded.find((specialty) => specialty.active !== false)?.id ?? null);
     }).catch(() => { if (active) setLoadError(true); });
-    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => {});
+    apiRequest(`/api/v1/events/${event.id}/troupes`).then((loaded) => { if (active) setTroupes(loaded); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
   }, [event.id, dataRevision]);
 

@@ -2,7 +2,7 @@ import * as userService from "./user-service.js";
 
 export const listUsers = async (req, res, next) => {
   try {
-    const users = await userService.listOperationalUsers();
+    const users = await userService.listUsers();
     res.json(users);
   } catch (error) {
     next(error);
@@ -15,7 +15,7 @@ export const inviteUser = async (req, res, next) => {
     if (!email || !roleCode) {
       return res.status(400).json({ code: "BAD_REQUEST", message: "Email y roleCode son requeridos" });
     }
-    const invitation = await userService.inviteOperationalUser(email, roleCode, req.user.id);
+    const invitation = await userService.inviteRoleUser(email, roleCode, req.user.id);
     res.status(201).json(invitation);
   } catch (error) {
     if (error.code === "INVALID_OPERATIONAL_ROLE") {

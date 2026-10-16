@@ -44,10 +44,16 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
 
   const userId = randomUUID();
   const adminId = randomUUID();
+  const assignedEventId = randomUUID();
+  const inactiveEventId = randomUUID();
+  const revokedEventId = randomUUID();
+  const otherUserEventId = randomUUID();
+  const otherUserId = randomUUID();
+  const userWithoutAssignmentsId = randomUUID();
   const pool = getPool();
   await pool.query(
     `INSERT INTO "user" (id, name, email, "emailVerified")
-     VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
+     VALUES ($1, $2, $3, $4), ($5, $6, $7, $8), ($9, $10, $11, $12), ($13, $14, $15, $16)`,
     [
       userId,
       "User without admin",
@@ -57,11 +63,30 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
       "Administrator",
       `${adminId}@example.test`,
       true,
+      otherUserId,
+      "Other user",
+      `${otherUserId}@example.test`,
+      true,
+      userWithoutAssignmentsId,
+      "User without assignments",
+      `${userWithoutAssignmentsId}@example.test`,
+      true,
     ],
   );
   await pool.query(
     "INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')",
     [adminId],
+  );
+  await pool.query(
+    `INSERT INTO carnival_event (id, name, active)
+     VALUES ($1, 'Assigned event', TRUE), ($2, 'Inactive assigned event', FALSE),
+            ($3, 'Revoked event', TRUE), ($4, 'Other user event', TRUE)`,
+    [assignedEventId, inactiveEventId, revokedEventId, otherUserEventId],
+  );
+  await pool.query(
+    `INSERT INTO admin_event_assignment (user_id, event_id, is_active)
+     VALUES ($1, $2, TRUE), ($1, $3, TRUE), ($1, $4, FALSE), ($5, $6, TRUE)`,
+    [userId, assignedEventId, inactiveEventId, revokedEventId, otherUserId, otherUserEventId],
   );
 
   const sessions = {
@@ -70,6 +95,9 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
     },
     userWithoutAdmin: {
       user: { id: userId, email: `${userId}@example.test`, name: "User without admin", twoFactorEnabled: true },
+    },
+    userWithoutAssignments: {
+      user: { id: userWithoutAssignmentsId, email: `${userWithoutAssignmentsId}@example.test`, name: "User without assignments", twoFactorEnabled: true },
     },
     admin: {
       user: { id: adminId, email: `${adminId}@example.test`, name: "Administrator", twoFactorEnabled: true },
@@ -94,7 +122,8 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
       headers: { "x-test-session": "userWithoutAdmin" },
     });
     assert.equal(missingRole.status, 200);
-    assert.deepEqual(await missingRole.json(), {
+    const missingRolePayload = await missingRole.json();
+    assert.deepEqual(missingRolePayload, {
       user: {
         id: userId,
         email: `${userId}@example.test`,
@@ -102,7 +131,32 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
       },
       roles: [],
       judgeProfile: null,
+      adminEvents: [],
     });
+
+    const spoofedCapability = await fetch(
+      `${baseUrl}/api/v1/me?userId=${otherUserId}&role=ADMIN&eventId=${otherUserEventId}&adminEvents=all`,
+      { headers: { "x-test-session": "userWithoutAdmin", "x-test-user-id": otherUserId } },
+    );
+    assert.equal(spoofedCapability.status, 200);
+    const spoofedCapabilityPayload = await spoofedCapability.json();
+    assert.deepEqual(spoofedCapabilityPayload.adminEvents, missingRolePayload.adminEvents);
+
+    const withoutAssignments = await fetch(`${baseUrl}/api/v1/me`, {
+      headers: { "x-test-session": "userWithoutAssignments" },
+    });
+    assert.equal(withoutAssignments.status, 200);
+    assert.deepEqual((await withoutAssignments.json()).adminEvents, []);
+
+    await pool.query(
+      "UPDATE admin_event_assignment SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE",
+      [userId],
+    );
+    const afterRevocation = await fetch(`${baseUrl}/api/v1/me`, {
+      headers: { "x-test-session": "userWithoutAdmin" },
+    });
+    assert.equal(afterRevocation.status, 200);
+    assert.deepEqual((await afterRevocation.json()).adminEvents, []);
 
     const admin = await fetch(`${baseUrl}/api/v1/me`, {
       headers: { "x-test-session": "admin" },
@@ -116,6 +170,24 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
       },
       roles: ["ADMIN"],
       judgeProfile: null,
+      adminEvents: [],
     });
+
+    const originalQuery = pool.query;
+    try {
+      pool.query = function queryWithAssignmentFailure(...args) {
+        if (typeof args[0] === "string" && args[0].includes("admin_event_assignment")) {
+          return Promise.reject(new Error("injected assignment query failure"));
+        }
+        return originalQuery.apply(this, args);
+      };
+      const emptyCapability = await fetch(`${baseUrl}/api/v1/me`, {
+        headers: { "x-test-session": "userWithoutAdmin" },
+      });
+      assert.equal(emptyCapability.status, 200);
+      assert.deepEqual((await emptyCapability.json()).adminEvents, []);
+    } finally {
+      pool.query = originalQuery;
+    }
   });
 });

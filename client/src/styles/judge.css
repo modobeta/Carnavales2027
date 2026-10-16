@@ -171,14 +171,6 @@
   background: var(--surface-card);
 }
 
-.judge-progress-card > div:first-child,
-.ballot-progress > div:first-child {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: baseline;
-}
-
 .judge-progress-card span,
 .ballot-progress span {
   color: var(--text-muted);

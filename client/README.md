@@ -89,9 +89,9 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/invitations/operational/accept?secret=...` | Aceptación de perfil operativo |
 | `#/invitations/accepted` | Confirmación de aceptación de jurado |
 | `#/cuenta` | Cuenta y cambio de contraseña; su pantalla usa el estado de sesión |
-| `#/admin/home` | Inicio operativo; resumen de eventos activos y accesos directos (ADMIN) |
-| `#/admin/events` | Catálogo de eventos y gestión de jornadas (ADMIN) |
-| `#/admin/competencia?step=...` | Asistente de preparación de competencia en 4 pasos (ADMIN) |
+| `#/admin/home` | Inicio global; catálogo, creación y gestión de eventos (ADMIN) |
+| `#/admin/events` | Configuración global de eventos y jornadas (ADMIN) |
+| `#/admin/competencia?step=...` | Preparación completa de la competencia (ADMIN) |
 | `#/admin/judges`, `#/admin/assignments` | Personas/jurados y asignaciones (ADMIN) |
 | `#/admin/voting` | Control de votación por jornada y mesa (ADMIN) |
 | `#/admin/penalties` | Penalizaciones; ADMIN o COMISARIO |
@@ -101,27 +101,31 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/veedor` | Supervisión; ADMIN o VEEDOR, sujeta a autorización de la API |
 | `#/resultados?eventId=...` | Portal público; selección de evento opcional |
 
-No hay ruta vigente `#/home`: el login deriva al inicio propio del rol. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
+No hay ruta vigente `#/home`: el login conserva un `returnTo` restringido del jurado y luego deriva según los roles de la sesión: ADMIN, JUDGE, COMISARIO, SCRUTINEER/ESCRIBANO y VEEDOR. `adminEvents` de `/me` no concede acceso administrativo ni cambia el destino. Todas las rutas de administración requieren ADMIN, también al abrirlas directamente. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
 
-`SessionProvider` consulta `/api/v1/me` y distingue `loading`, `authenticated`, `anonymous`, `second-factor-required` y `error`. Las guardias de interfaz ofrecen navegación y mensajes; **la seguridad la impone el backend**. La selección de evento en localStorage es una preferencia, no un permiso.
+`SessionProvider` consulta `/api/v1/me` y distingue `loading`, `authenticated`, `anonymous`, `second-factor-required` y `error`. Conserva `adminEvents` como array por compatibilidad de respuesta, pero ese campo no se usa para autorización, navegación ni catálogo. Las guardias de interfaz ofrecen navegación y mensajes; **la seguridad la impone el backend**. La selección de evento en localStorage es una preferencia, no un permiso.
+
+En `#/admin/users`, ADMIN puede crear una invitación con el rol `ADMIN` para una cuenta nueva. La pantalla muestra un enlace de aceptación para compartir; al aceptar, la persona define su contraseña y recibe solo ADMIN. La lista identifica al administrador principal mediante `isPrimaryAdmin` de la API y no ofrece revocar su rol. No existe una acción de eliminación de usuarios en esta pantalla; la API protege igualmente la cuenta ante solicitudes directas.
 
 ## Recorrido de acceso para usuarios
 
 Durante la votación, el jurado ve dos barras: progreso de la comparsa que está consultando y total de puntuaciones completadas de su planilla. **Confirmar votación** permanece bloqueado hasta completar todas las puntuaciones y recibir confirmación de la API (incluidas decisiones «No se presentó»). Llegar al 100 % de una comparsa no habilita el cierre si faltan otras. El cierre conserva su confirmación explícita y validación en servidor.
 
-La cabecera muestra nombre, roles en español y evento activo. **Evento activo** cambia el contexto compartido de trabajo y recuerda la selección por usuario. Los jueces eligen únicamente entre sus eventos con asignaciones activas, aun antes de abrir la votación; sus planillas/progreso se filtran por `eventId`. Cambiar de evento desde una planilla vuelve a **Mi panel**. Administradores, comisarios, escrutadores/escribanos y veedores conservan el acceso que sus endpoints ya autorizaban (Supervisión lista eventos con actividad). El selector no concede permisos ni reemplaza las validaciones de la API. Ante errores se bloquea la selección y se ofrece reintento.
+La cabecera muestra nombre, roles en español y evento activo. **Evento activo** cambia el contexto compartido de trabajo y recuerda la selección por usuario. Los jueces eligen únicamente entre sus eventos con asignaciones activas, aun antes de abrir la votación; sus planillas/progreso se filtran por `eventId`. Cambiar de evento desde una planilla vuelve a **Mi panel**. ADMIN carga el catálogo global de `/api/v1/events` con o sin asignaciones; los demás roles conservan el catálogo que autorizan sus endpoints (Supervisión lista eventos con actividad). El selector ofrece contexto de trabajo y no concede permisos. Ante errores se bloquea la selección y se ofrece reintento.
 
 ### Navegación y preparación de la competencia (ADMIN)
 
-El panel administrativo organiza la gestión en momentos claros de uso:
+El panel administrativo está reservado a ADMIN global. Las cuentas con otros roles no acceden a administración por tener `adminEvents` en `/me`; sus menús y catálogos siguen dependiendo de sus roles propios. ADMIN puede operar sobre todos los eventos mediante las rutas administrativas y el backend valida cada operación y el estado del evento. Un Jurado sin ADMIN no tiene menú lateral dentro de `#/judge/*`; una cuenta ADMIN + JUDGE conserva navegación administrativa y de jurado.
 
-1. **Inicio (`#/admin/home`)**: Vista ejecutiva de eventos activos con accesos rápidos para continuar la preparación de competencia o ingresar a la mesa de control según el estado de cada evento.
-2. **Eventos y jornadas (`#/admin/events`)**: Gestión de alta, edición y estado de eventos y sus jornadas correspondientes.
+1. **Inicio (`#/admin/home`)**: Vista ejecutiva global con eventos activos, creación, reactivación y acciones de gestión. Incluye resumen de jornadas, comparsas, jurados y rubros cuando están disponibles.
+2. **Eventos y jornadas (`#/admin/events`)**: Gestión global de alta, edición y estado de eventos, jornadas y apertura. Guardar el nombre del evento, agregar o editar una jornada y otras acciones sensibles requieren confirmación explícita; los cambios aparecen solo cuando la API los acepta (la programación automática de comparsas la hace el servidor). El borrado y el cierre de jornadas se rigen por las validaciones de estado e historial del backend. El panel muestra requisitos de apertura y operaciones pendientes para ADMIN.
 3. **Preparación del evento (`#/admin/competencia`)**: Asistente secuencial de cuatro pasos con navegación superior e inferior:
    - **Paso 1 — Participantes / Comparsas (`?step=participantes`)**: Configuración de tipos de participación (categorías), alta y edición de comparsas (con carga y remoción de logos y colores distintivos) y orden de pasada por jornada.
    - **Paso 2 — Jurados y especialidades (`?step=jurados`)**: Selector de jornada para asignaciones, tabla con estado de cobertura de puestos («Completa», «Falta 1 jurado», «Sin asignar»), modal accesible para asignar o reemplazar titulares y suplentes, y acceso a gestión de especialidades.
    - **Paso 3 — Evaluación (`?step=rubros`)**: Panel de dos columnas que sitúa a la izquierda el selector vertical de especialidades y a la derecha los rubros correspondientes. Cada rubro expone sus criterios de puntuación desplegables en fila («Ver criterios ▾»), identifica rubros compartidos entre especialidades e incluye diálogo de confirmación que advierte el impacto en todas las especialidades antes de guardar modificaciones.
    - **Paso 4 — Revisión final (`?step=revision`)**: Si el evento está en preparación (`CONFIGURING`), valida los bloqueos oficiales de readiness informados por la API y, una vez satisfechos, habilita el botón «Abrir competencia» con confirmación accesible (`ConfirmDialog`) y persistencia de idempotencia antes del envío. Si el evento ya está abierto (`OPEN`), muestra un banner informativo con accesos directos a «Control de votación» y «Resultados», junto a un resumen ejecutivo en cuatro tarjetas (Comparsas, Jurados, Evaluación y Jornadas).
+   - ADMIN gestiona la preparación completa: Participantes, Jurados y especialidades, Evaluación y Revisión final. Puede administrar comparsas, asignaciones, rubros/ítems y orden de pasada, abrir la competencia cuando el servidor confirma que está lista y navegar a control de votación y resultados según el estado. Las rutas y pestañas no se limitan por asignaciones de evento.
+   - **Errores de carga:** si falla la carga inicial del resumen de la preparación, de comparsas, tipos de participación, especialidades, Evaluación, orden de pasada o del padrón de jurados, se muestra el error con «Reintentar» en lugar de una lista vacía o un «0», para todos los roles.
 4. **Control de votación (`#/admin/voting`)**: Administración operativa por jornada. Sigue el orden: evento abierto → **Abrir jornada** (confirmar) → **Abrir votación** (confirmar). Muestra por separado el estado de jornada y ventana; abrir la jornada no habilita votos por sí solo. Si la ventana está abierta, **Habilitar planillas pendientes** genera planillas para asignaciones nuevas sin reabrir ventanas cerradas. El cierre requiere confirmación, planillas completas y no permite reapertura.
 
 El menú lateral habilita **Resultados** solo cuando `/api/v1/public/events` informa al menos un evento con resultados publicados. Mientras se consulta, si no hay resultados o si la consulta falla, aparece atenuado y sin destino navegable. Se vuelve a comprobar al cambiar de sección, al regresar a la pestaña y cada 60 segundos mientras está visible. El enlace abre dentro de la aplicación y conserva el menú y la sesión. El acceso público directo sigue disponible y muestra un estado vacío o un error con reintento, no una carga indefinida.
@@ -173,7 +177,7 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 
 `vite.config.js` configura Vitest con jsdom y `src/tests/setup.js`. El setup incluye matchers DOM, fake-indexeddb, soporte de Web Crypto y shims de almacenamiento/diálogo cuando faltan. Las pruebas cubren transporte, sesión, permisos, navegación, formularios, planillas, SSE, resultados, tokens y componentes.
 
-La suite del cliente (`npm test`) cuenta con **493 pruebas pasando en 64 suites de test**, incluyendo la verificación completa de los design tokens (`src/tests/tokens.test.js`, 45 tests), identidad visual y branding WebP/PNG, y las cuatro etapas del asistente de preparación de competencia. No hace falta una base PostgreSQL para las pruebas de cliente, ya que operan sobre mocks de API y entorno DOM aislado.
+La suite del cliente (`npm test`) cuenta con **576 pruebas pasando en 71 archivos**, incluyendo la verificación completa de los design tokens (`src/tests/tokens.test.js`, 45 tests), identidad visual y branding WebP/PNG, y las cuatro etapas del asistente de preparación de competencia. No hace falta una base PostgreSQL para las pruebas de cliente, ya que operan sobre mocks de API y entorno DOM aislado.
 
 En el piloto, **Express sirve el bundle `client/dist` y `/api` desde un mismo servicio Render HTTPS**; no se despliega una segunda aplicación estática. La configuración vive en [render.yaml](../render.yaml) y la [guía de despliegue](../DEPLOYMENT.md). `npm run preview` es una vista previa local, no el servidor productivo ni un reemplazo del backend.
 
@@ -215,7 +219,7 @@ Para reportar fallas, adjuntar pasos, navegador/dispositivo, rol, hora y código
 La documentación de decisiones/specs y las instrucciones de agentes se conservan localmente, fuera de la publicación. Las validaciones históricas no equivalen a una comprobación actual; no declarar una funcionalidad validada sin evidencia del código y de las pruebas correspondientes.
 ### Faltantes anteriores en votación
 
-En la planilla del jurado, **Faltantes anteriores** muestra únicamente los ítems anteriores al visible que siguen sin votar, incluidos los de la misma comparsa. Excluye el actual, los siguientes y los ya resueltos (nota o «No se presentó»). El contador usa el mismo filtro y cada entrada permite volver al ítem. No tener faltantes anteriores no significa haber completado toda la votación.
+En la planilla del jurado, **Faltantes anteriores** aparece únicamente cuando existe al menos un ítem anterior al visible que sigue sin votar, incluidos los de la misma comparsa. Excluye el actual, los siguientes y los ya resueltos (nota o «No se presentó»). El contador usa el mismo filtro y cada entrada permite volver al ítem. Que no aparezca el botón significa que no hay faltantes anteriores; no significa que se haya completado toda la votación.
 
 ### Actualización de la configuración
 

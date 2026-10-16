@@ -21,7 +21,7 @@ const READINESS_LABELS = {
   NIGHTS_WITHOUT_JURY: "Asigná al menos un jurado activo a cada jornada de Competencia",
 };
 
-export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, refreshKey = 0 }) {
+export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onReadinessChange, refreshKey = 0 }) {
   const [readinessSnapshot, setReadinessSnapshot] = useState({ eventId: null, data: null });
   const [readinessUnavailable, setReadinessUnavailable] = useState(false);
   const [message, setMessage] = useState("");
@@ -40,22 +40,28 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
     setLoading(true);
     setReadinessUnavailable(false);
     setReadinessSnapshot({ eventId: event.id, data: null });
+    onReadinessChange?.({ eventId: event.id, data: null });
     try {
       const nextReadiness = await apiRequest(`/api/v1/events/${encodeURIComponent(event.id)}/readiness`);
       if (isCurrent() && revision === requestRevision.current) {
         if (isInterpretableReadiness(nextReadiness)) {
           setReadinessSnapshot({ eventId: event.id, data: nextReadiness });
           setReadinessUnavailable(false);
+          onReadinessChange?.({ eventId: event.id, data: nextReadiness });
         } else {
           setReadinessUnavailable(true);
+          onReadinessChange?.({ eventId: event.id, data: null });
         }
       }
-    } catch {
-      if (isCurrent() && revision === requestRevision.current) setReadinessUnavailable(true);
+    } catch (error) {
+      if (isCurrent() && revision === requestRevision.current) {
+        setReadinessUnavailable(true);
+        onReadinessChange?.({ eventId: event.id, data: null });
+      }
     } finally {
       if (isCurrent() && revision === requestRevision.current) setLoading(false);
     }
-  }, [event.id]);
+  }, [event.id, onReadinessChange]);
 
   const readiness = readinessSnapshot.eventId === event.id ? readinessSnapshot.data : null;
 

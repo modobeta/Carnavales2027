@@ -20,6 +20,7 @@ export function createMeRouter({ requireSession }) {
         },
         roles: rows.map((row) => row.role_code),
         judgeProfile: await getJudgeProfileByUserId({ userId: request.user.id }),
+        adminEvents: [],
       });
     } catch (error) {
       next(error);

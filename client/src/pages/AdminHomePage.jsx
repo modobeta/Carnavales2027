@@ -219,7 +219,7 @@ export function AdminHomePage() {
 
       {loading ? (
         <p>Cargando eventos…</p>
-      ) : visibleEvents.length === 0 && !showDeleted ? (
+      ) : adminEvent?.error && visibleEvents.length === 0 ? null : visibleEvents.length === 0 && !showDeleted ? (
         <section className="my-events-empty card" aria-label="Catálogo de eventos vacío">
           <h2>Todavía no hay eventos</h2>
           <p>Creá el primero para comenzar la configuración del carnaval.</p>
@@ -234,6 +234,7 @@ export function AdminHomePage() {
           {filteredEvents.map((event) => {
             const summary = summaries[event.id] ?? EMPTY_SUMMARY;
             const isDeleted = event.active === false;
+            const menuItems = menuItemsFor(event);
             return (
               <article key={event.id} className={`my-event-card${isDeleted ? " is-deleted" : ""}`} aria-label={event.name}>
                 <div className="my-event-card-top">
@@ -241,7 +242,7 @@ export function AdminHomePage() {
                     <StatusPill status={event.status} label={EVENT_STATUS_LABELS[event.status] ?? event.status} />
                     {isDeleted && <StatusPill status="SUSPENDED" label="Eliminado" />}
                   </div>
-                  <ActionMenu label={`Acciones de ${event.name}`} items={menuItemsFor(event)} />
+                  {menuItems.length > 0 && <ActionMenu label={`Acciones de ${event.name}`} items={menuItems} />}
                 </div>
                 <h2 className="my-event-card-title">{event.name}</h2>
                 <hr className="my-event-card-divider" />

@@ -1,4 +1,5 @@
 import { RequireAdmin } from "./auth/RequireAdmin.jsx";
+import { RequireAdminArea } from "./auth/RequireAdminArea.jsx";
 import { RequireRole } from "./auth/RequireRole.jsx";
 import { RequireResultsRole } from "./auth/RequireResultsRole.jsx";
 import { RequirePenaltiesRole } from "./auth/RequirePenaltiesRole.jsx";
@@ -82,10 +83,12 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
   return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => setSelectedEvent(null)} />;
 }
 
-function RoleArea({ session, role, admin = false, children }) {
-  const content = admin
-    ? <RequireAdmin session={session}>{children}</RequireAdmin>
-    : <RequireRole session={session} role={role}>{children}</RequireRole>;
+function RoleArea({ session, role, admin = false, adminArea = false, children }) {
+  const content = adminArea
+    ? <RequireAdminArea session={session}>{children}</RequireAdminArea>
+    : admin
+      ? <RequireAdmin session={session}>{children}</RequireAdmin>
+      : <RequireRole session={session} role={role}>{children}</RequireRole>;
   return session.status === "authenticated"
     ? <ProtectedShell session={session}>{content}</ProtectedShell>
     : content;
@@ -142,16 +145,16 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} role="JUDGE"><JudgeAssignmentPage session={session} /></RoleArea>;
   }
   if (route === "#/admin/home") {
-    return <RoleArea session={session} admin><AdminHomePage /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminHomePage session={session} /></RoleArea>;
   }
   if (route === "#/admin/events") {
-    return <RoleArea session={session} admin><AdminEventsPage /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminEventsPage /></RoleArea>;
   }
   if (route === "#/admin/competencia") {
     const params = new URLSearchParams(query);
     const initialStep = params.get("step") ?? "participantes";
     const initialTab = params.get("tab") ?? "";
-    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
@@ -205,6 +208,7 @@ export default function App({ session: providedSession }) {
     </div>
   );
   if (session.status !== "authenticated") return content;
-  const judgeArea = path.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  const judgeArea = path.startsWith("#/judge")
+    || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
   return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{content}</AdminEventProvider>;
 }

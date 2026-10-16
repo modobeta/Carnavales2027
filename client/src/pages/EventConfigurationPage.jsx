@@ -16,6 +16,7 @@ const errorMessages = {
   EVENT_LOCKED: "El evento esta abierto y su configuracion ya no puede modificarse.",
   RESOURCE_CONFLICT: "Ese nombre u orden ya está en uso.",
   VALIDATION_ERROR: "Revisa los datos ingresados.",
+  ADMIN_REQUIRED: "Acción no permitida para este evento.",
 };
 
 function formatDate(value) {
@@ -53,10 +54,21 @@ export function EventConfigurationPage({
   const [deleteNightTarget, setDeleteNightTarget] = useState(null);
   const [deletingNight, setDeletingNight] = useState(false);
   const [votingStatuses, setVotingStatuses] = useState({});
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [createNightTarget, setCreateNightTarget] = useState(null);
+  const [editNightTarget, setEditNightTarget] = useState(null);
+  const [renaming, setRenaming] = useState(false);
+  const renameTriggerRef = useRef(null);
   const drawerTriggerRef = useRef(null);
   const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
   const locked = currentEvent.status !== "CONFIGURING";
+  const canMutate = !locked;
+  const showNightActions = !locked || currentEvent.status === "OPEN";
+  const canRenameEvent = !locked;
+  const canCreateNight = canRenameEvent;
+  const canEditNight = canRenameEvent;
+  const canDeleteNight = () => !locked;
   const { notify } = useNotify();
   const { dirty, markDirty } = useFormDirty(drawerMode);
   const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
@@ -91,7 +103,13 @@ export function EventConfigurationPage({
       if (reset) form?.reset();
       return saved;
     } catch (error) {
-      const detail = errorMessages[error.code] ?? error.message ?? "No se pudo guardar.";
+      // Un error sin código conocido (p. ej. de red) no muestra textos técnicos (spec 040, T6 obs. 2).
+      const apiMessage = error?.name === "ApiError"
+        && error.code !== "NETWORK_ERROR"
+        && error.message !== error.code
+        ? error.message
+        : null;
+      const detail = errorMessages[error.code] ?? apiMessage ?? "No se pudo guardar. Reintentá.";
       setMessage(detail);
       notify({ message: detail, type: "error" });
       return null;
@@ -125,20 +143,46 @@ export function EventConfigurationPage({
     setSavingNight(true);
     try {
       if (drawerMode?.mode === "edit" && editingNight) {
-        const saved = await save(
-          `/api/v1/nights/${editingNight.id}`,
-          body,
-          { method: "PATCH", reset: false, onSaved: (entry) => setNights((current) => current.map((n) => n.id === entry.id ? { ...n, ...entry } : n)) },
-        );
-        if (saved) closeDrawer();
+        // E-1 (spec 040): los cambios sensibles requieren confirmación antes del PATCH.
+        setEditNightTarget({ nightId: editingNight.id, body });
       } else {
-        const saved = await save(
-          `/api/v1/events/${event.id}/nights`,
-          body,
-          { reset: false, onSaved: (entry) => setNights((current) => [...current, entry]) },
-        );
-        if (saved) closeDrawer();
+        // O-9 / E-1 (spec 040): el alta se confirma en un modal antes de la solicitud.
+        setCreateNightTarget(body);
       }
+    } finally {
+      setSavingNight(false);
+    }
+  };
+
+  const confirmEditNight = async () => {
+    if (!editNightTarget || savingNight) return;
+    const { nightId, body } = editNightTarget;
+    setSavingNight(true);
+    try {
+      const saved = await save(
+        `/api/v1/nights/${nightId}`,
+        body,
+        { method: "PATCH", reset: false, onSaved: (entry) => setNights((current) => current.map((n) => n.id === entry.id ? { ...n, ...entry } : n)) },
+      );
+      setEditNightTarget(null);
+      if (saved) closeDrawer();
+    } finally {
+      setSavingNight(false);
+    }
+  };
+
+  const confirmCreateNight = async () => {
+    const body = createNightTarget;
+    if (!body) return;
+    setSavingNight(true);
+    try {
+      const saved = await save(
+        `/api/v1/events/${event.id}/nights`,
+        body,
+        { reset: false, onSaved: (entry) => setNights((current) => [...current, entry]) },
+      );
+      setCreateNightTarget(null);
+      if (saved) closeDrawer();
     } finally {
       setSavingNight(false);
     }
@@ -216,7 +260,14 @@ export function EventConfigurationPage({
 
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
-        <form className="config-card" onSubmit={submit(`/api/v1/events/${event.id}`, (data) => ({ name: data.get("name") }), setCurrentEvent, "PATCH")}>
+        <form
+          className="config-card"
+          onSubmit={(formEvent) => {
+            formEvent.preventDefault();
+            renameTriggerRef.current = formEvent.nativeEvent?.submitter ?? null;
+            setRenameTarget(String(new FormData(formEvent.currentTarget).get("name") ?? ""));
+          }}
+        >
           <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
           <button disabled={locked}>Guardar evento</button>
         </form>
@@ -224,9 +275,9 @@ export function EventConfigurationPage({
 
       <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
         <div className="section-heading"><h2>Jornadas</h2><p>Calendario de la competencia.</p></div>
-        {!locked && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
+        {canCreateNight && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
         {orderedNights.length === 0 ? (
-          <p className="empty-state">Todavía no hay jornadas. Agregá la primera noche de competencia.</p>
+          <p className="empty-state">{canCreateNight ? "Todavía no hay jornadas. Agregá la primera noche de competencia." : "Todavía no hay jornadas."}</p>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
@@ -236,7 +287,7 @@ export function EventConfigurationPage({
                   <th scope="col">Jornada</th>
                   <th scope="col">Fecha</th>
                   <th scope="col">Tipo</th>
-                  {(!locked || currentEvent.status === "OPEN") && <th scope="col">Acción</th>}
+                  {(showNightActions || canEditNight) && <th scope="col">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -246,10 +297,10 @@ export function EventConfigurationPage({
                     <td><strong>{night.name}</strong>{night.status === "CLOSED" && <small> · Finalizada</small>}</td>
                     <td>{formatDate(night.eventDate)}</td>
                     <td>{nightKindLabel(night.kind)}</td>
-                    {(!locked || currentEvent.status === "OPEN") && (
+                    {(showNightActions || canEditNight) && (
                       <td>
-                        {!locked && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
-                        {!locked && <button
+                        {canEditNight && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
+                        {canDeleteNight(night) && <button
                           className="secondary danger-action"
                           type="button"
                           aria-label={`Eliminar jornada ${night.name}`}
@@ -276,7 +327,11 @@ export function EventConfigurationPage({
       </section>
 
       <EntityDrawer
-        isOpen={drawerMode !== null && !locked}
+        isOpen={drawerMode !== null && (
+          canMutate
+          || (drawerMode.mode === "create" && canCreateNight)
+          || (drawerMode.mode === "edit" && canEditNight)
+        )}
         onClose={requestCloseDrawer}
         title={drawerMode?.mode === "edit" ? `Editar jornada${editingNight ? ` — ${editingNight.name}` : ""}` : "Nueva jornada"}
         description={drawerMode?.mode === "edit" ? "Modificá los datos de la jornada." : "Completá los datos de la jornada."}
@@ -313,6 +368,45 @@ export function EventConfigurationPage({
         confirming={deletingNight}
         tone="danger"
         focusReturnRef={deleteNightTriggerRef}
+      />
+
+      <ConfirmDialog
+        isOpen={createNightTarget !== null}
+        onClose={() => { if (!savingNight) setCreateNightTarget(null); }}
+        onConfirm={() => void confirmCreateNight()}
+        title="Confirmar nueva jornada"
+        description={`Se agregará la jornada «${createNightTarget?.name ?? ""}» al evento.`}
+        confirmLabel="Confirmar alta"
+        cancelLabel="Cancelar"
+        confirming={savingNight}
+      />
+
+      <ConfirmDialog
+        isOpen={editNightTarget !== null}
+        onClose={() => { if (!savingNight) setEditNightTarget(null); }}
+        onConfirm={() => void confirmEditNight()}
+        title="Confirmar cambios de jornada"
+        description={`Se guardarán los cambios de «${editNightTarget?.body?.name ?? "jornada"}».`}
+        confirmLabel="Guardar cambios"
+        cancelLabel="Cancelar"
+        confirming={savingNight}
+      />
+
+      <ConfirmDialog
+        isOpen={renameTarget !== null}
+        onClose={() => { if (!renaming) setRenameTarget(null); }}
+        onConfirm={async () => {
+          setRenaming(true);
+          await save(`/api/v1/events/${event.id}`, { name: renameTarget }, { method: "PATCH", onSaved: setCurrentEvent, reset: false });
+          setRenaming(false);
+          setRenameTarget(null);
+        }}
+        title="Guardar cambios del evento"
+        description={`El nombre del evento cambiará a «${renameTarget ?? ""}».`}
+        confirmLabel="Guardar cambios"
+        cancelLabel="Cancelar"
+        confirming={renaming}
+        focusReturnRef={renameTriggerRef}
       />
 
       <ConfirmDialog

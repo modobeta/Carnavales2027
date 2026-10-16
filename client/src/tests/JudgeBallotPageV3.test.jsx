@@ -69,14 +69,15 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
 
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // Sin toggle de vistas: la tarjeta es el único flujo
     expect(screen.queryByRole("button", { name: /Ver tarjeta única|Ver lista completa/ })).not.toBeInTheDocument();
 
-    // Tarjeta activa con salida, rubro e ítem
-    expect(await screen.findByText(/Salida 1 · Música y Batería/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ritmo y Cadencia", level: 3 })).toBeInTheDocument();
+    // La cabecera conserva el rubro y la tarjeta destaca el ítem a puntuar.
+    expect(await screen.findByText("Rubro: Batería")).toBeInTheDocument();
+    expect(screen.getByText("Ítem a evaluar")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ritmo y Cadencia", level: 2 })).toBeInTheDocument();
 
     // La lista completa ya no es el flujo principal
     expect(screen.queryByRole("region", { name: "Puntuaciones por comparsa" })).not.toBeInTheDocument();
@@ -94,7 +95,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
         : s)),
     });
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     expect(screen.getByRole("img", { name: "Logo de Comparsa Verde" })).toHaveAttribute(
       "src",
@@ -105,7 +106,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
   it("no muestra logo en la tarjeta cuando la comparsa no tiene", async () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     expect(screen.queryByRole("img", { name: "Logo de Comparsa Verde" })).not.toBeInTheDocument();
   });
@@ -120,14 +121,14 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" troupeId="schedule-1" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // La tarjeta única es el flujo principal (Fase 1, sin toggle)
-    await screen.findByRole("heading", { name: "Ritmo y Cadencia", level: 3 });
+    await screen.findByRole("heading", { name: "Ritmo y Cadencia", level: 2 });
 
     // Avanzar a la segunda tarjeta (Afinación)
     fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
-    expect(screen.getByRole("heading", { name: "Afinación", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
 
     // Votar 7 y confirmar en el modal
     fireEvent.click(screen.getByRole("button", { name: "Votar 7" }));
@@ -143,8 +144,8 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     // La tarjeta de Afinación queda bloqueada y visible: si el bug regresara a la
     // primera tarjeta, este texto nunca aparecería (Ritmo y Cadencia sigue PENDING).
     await screen.findByText("Decisión registrada");
-    expect(screen.getByRole("heading", { name: "Afinación", level: 3 })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Ritmo y Cadencia", level: 3 })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Ritmo y Cadencia", level: 2 })).not.toBeInTheDocument();
   });
 
   it("abre modal Spec 007 al tocar un número y confirma el voto (RF-77, solo números 1-10)", async () => {
@@ -157,7 +158,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     const scoreItem = screen.getByRole("group", { name: "Comparsa Verde: Ritmo y Cadencia" });
     // Solo números visibles: sin etiquetas textuales
@@ -197,7 +198,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // Click "No se presentó"
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
@@ -238,7 +239,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // La tarjeta muestra el primer ítem; el segundo se alcanza con Siguiente (Fase 1)
     const score1 = screen.getByRole("group", { name: "Comparsa Verde: Ritmo y Cadencia" });
@@ -277,7 +278,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
   it("muestra barra inferior fija con avance y diálogo de faltantes con salto directo (RF-188)", async () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // Bottom navigation bar is rendered
     const bottomBar = screen.getByRole("navigation", { name: "Navegación de planilla" });
@@ -317,7 +318,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // Press '8' on keyboard -> abre modal
     fireEvent.keyDown(window, { key: "8" });
@@ -342,40 +343,47 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
   it("marca la comparsa activa en la sidebar y el resumen (Fase 3)", async () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     const verdeBtn = screen.getByRole("button", { name: /Comparsa Verde/ });
     expect(verdeBtn).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("button", { name: /Comparsa Azul/ })).not.toHaveAttribute("aria-current");
 
     const summary = screen.getByRole("region", { name: "Resumen de la comparsa" });
+    expect(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ })).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
     expect(summary).toHaveTextContent("0 / 2 completos");
   });
 
   it("navega al ítem desde el resumen lateral (Fase 3)", async () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
+    fireEvent.click(screen.getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Ir al ítem Afinación" }));
-    expect(screen.getByRole("heading", { name: "Afinación", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
     expect(screen.getByText("Ítem 2 de 3")).toBeInTheDocument();
   });
 
   it("el resumen lateral se puede ocultar y ampliar", async () => {
     apiRequest.mockResolvedValue(ballotV3);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     const summary = screen.getByRole("region", { name: "Resumen de la comparsa" });
-    expect(within(summary).getByRole("button", { name: "Ir al ítem Afinación" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Ocultar resumen de la comparsa" }));
-    expect(screen.getByRole("button", { name: "Ampliar resumen de la comparsa" })).toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ })).toHaveAttribute("aria-expanded", "false");
     expect(within(summary).queryByRole("button", { name: "Ir al ítem Afinación" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ampliar resumen de la comparsa" }));
-    expect(screen.getByRole("button", { name: "Ocultar resumen de la comparsa" })).toBeInTheDocument();
+    fireEvent.click(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
+    expect(within(summary).getByRole("button", { name: "Ir al ítem Afinación" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Resumen \d+\/\d+: ocultar detalle$/ }));
+    expect(screen.getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ })).toBeInTheDocument();
+    expect(within(summary).queryByRole("button", { name: "Ir al ítem Afinación" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
+    expect(screen.getByRole("button", { name: /^Resumen \d+\/\d+: ocultar detalle$/ })).toBeInTheDocument();
     expect(within(summary).getByRole("button", { name: "Ir al ítem Afinación" })).toBeInTheDocument();
   });
 
@@ -386,7 +394,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     };
     apiRequest.mockResolvedValue(complete);
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     const banner = screen.getByRole("region", { name: "Lista para revisar" });
     expect(banner).toHaveTextContent("3 de 3 puntuaciones completas");
@@ -409,7 +417,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-v3" />);
 
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     expect(screen.queryByRole("button", { name: "Comparsa completa no se presentó" })).not.toBeInTheDocument();
   });
@@ -424,7 +432,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-v3" />);
-    await screen.findByRole("heading", { name: "Comparsa Verde", level: 2 });
+    await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     fireEvent.click(screen.getByRole("button", { name: /Comparsa completa no se presentó/ }));
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });

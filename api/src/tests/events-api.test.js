@@ -400,7 +400,7 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
   });
 });
 
-test("GET jornadas autoriza ADMIN_EVENT solo para el evento asignado, aunque esté inactivo", {
+test("GET jornadas requiere ADMIN global sin depender de asignaciones", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -474,10 +474,7 @@ test("GET jornadas autoriza ADMIN_EVENT solo para el evento asignado, aunque est
     assert.equal(expected.length, 1);
     assert.equal(expected[0].eventId, eventId);
 
-    const assigned = await fetch(target, { headers: { "x-test-session": "assigned" } });
-    assert.equal(assigned.status, 200);
-    assert.deepEqual(await assigned.json(), expected);
-    for (const session of ["otherAssigned", "revoked", "wrongRole"]) {
+    for (const session of ["assigned", "otherAssigned", "revoked", "wrongRole"]) {
       const denied = await fetch(target, { headers: { "x-test-session": session } });
       assert.equal(denied.status, 403, `${session} must not access the event`);
       assert.deepEqual(await denied.json(), { code: "ADMIN_REQUIRED" });
@@ -601,7 +598,7 @@ test("fallo al insertar EVENT_CREATED no confirma el evento ni deja auditoría p
   assert.equal(audit.rowCount, 0, "no debe quedar un EVENT_CREATED parcial para el ADMIN del fixture");
 });
 
-test("PATCH evento permite campos delegados solo al ADMIN_EVENT asignado y reserva active a ADMIN", {
+test("PATCH evento requiere ADMIN global para todos los cambios", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -657,14 +654,17 @@ test("PATCH evento permite campos delegados solo al ADMIN_EVENT asignado y reser
       },
       body: JSON.stringify(body),
     });
-    const delegatedUpdate = await request(ids.target, "assigned", { name: "T3 delegated name" });
+    const delegatedDenied = await request(ids.target, "assigned", { name: "T3 delegated name" });
+    assert.equal(delegatedDenied.status, 403);
+    assert.deepEqual(await delegatedDenied.json(), { code: "ADMIN_REQUIRED" });
+    const delegatedUpdate = await request(ids.target, "admin", { name: "T3 global name" });
     assert.equal(delegatedUpdate.status, 200);
     assert.deepEqual(await delegatedUpdate.json(), {
-      id: ids.target, name: "T3 delegated name", status: "CONFIGURING", active: true,
+      id: ids.target, name: "T3 global name", status: "CONFIGURING", active: true,
     });
     assert.deepEqual(
       (await pool.query("SELECT id, name, status, active FROM carnival_event WHERE id = $1", [ids.target])).rows,
-      [{ id: ids.target, name: "T3 delegated name", status: "CONFIGURING", active: true }],
+      [{ id: ids.target, name: "T3 global name", status: "CONFIGURING", active: true }],
     );
     const delegatedAudit = await pool.query(
       `SELECT actor_user_id AS "actorUserId", action, entity_type AS "entityType", entity_id AS "entityId"
@@ -672,7 +672,7 @@ test("PATCH evento permite campos delegados solo al ADMIN_EVENT asignado y reser
       [ids.target],
     );
     assert.deepEqual(delegatedAudit.rows, [{
-      actorUserId: ids.assigned, action: "EVENT_UPDATED", entityType: "carnival_event", entityId: ids.target,
+      actorUserId: ids.admin, action: "EVENT_UPDATED", entityType: "carnival_event", entityId: ids.target,
     }]);
 
     const beforeActiveDenied = await pool.query("SELECT id, actor_user_id, action, entity_type, entity_id, after_data FROM audit_event ORDER BY id");
@@ -712,19 +712,19 @@ test("PATCH evento permite campos delegados solo al ADMIN_EVENT asignado y reser
     );
     const unmodified = await pool.query("SELECT id, name, active FROM carnival_event WHERE id = ANY($1::uuid[]) ORDER BY id", [[ids.target, ids.otherEvent, ids.inactive]]);
     assert.deepEqual(unmodified.rows, [
-      { id: ids.target, name: "T3 delegated name", active: true },
+      { id: ids.target, name: "T3 global name", active: true },
       { id: ids.otherEvent, name: "T3 other", active: true },
       { id: ids.inactive, name: "T3 inactive", active: false },
     ].sort((a, b) => a.id.localeCompare(b.id)));
 
-    const invalidInput = await request(ids.target, "assigned", { name: "   " });
+    const invalidInput = await request(ids.target, "admin", { name: "   " });
     assert.equal(invalidInput.status, 400);
     assert.equal((await invalidInput.json()).code, "VALIDATION_ERROR");
     const beforeSpoofedRole = await pool.query("SELECT id, actor_user_id, action, entity_type, entity_id, after_data FROM audit_event ORDER BY id");
     const spoofedRole = await request(ids.target, "other", { name: "spoofed", role: "ADMIN", userId: ids.admin });
     assert.equal(spoofedRole.status, 403);
     assert.deepEqual(await spoofedRole.json(), { code: "ADMIN_REQUIRED" });
-    assert.equal((await pool.query("SELECT name FROM carnival_event WHERE id = $1", [ids.target])).rows[0].name, "T3 delegated name");
+    assert.equal((await pool.query("SELECT name FROM carnival_event WHERE id = $1", [ids.target])).rows[0].name, "T3 global name");
     assert.deepEqual(
       (await pool.query("SELECT id, actor_user_id, action, entity_type, entity_id, after_data FROM audit_event ORDER BY id")).rows,
       beforeSpoofedRole.rows,
@@ -744,7 +744,7 @@ test("PATCH evento permite campos delegados solo al ADMIN_EVENT asignado y reser
   });
 });
 
-test("POST jornadas permite a ADMIN_EVENT solo crear en eventos asignados activos", {
+test("POST jornadas requiere ADMIN global y permite operar en cualquier evento configurable", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -802,7 +802,7 @@ test("POST jornadas permite a ADMIN_EVENT solo crear en eventos asignados activo
     });
     const beforeAudit = await pool.query("SELECT count(*)::int AS count FROM audit_event");
 
-    const created = await request(ids.target, "assigned");
+    const created = await request(ids.target, "admin");
     assert.equal(created.status, 201);
     const createdNight = await created.json();
     assert.deepEqual(createdNight, {
@@ -824,7 +824,7 @@ test("POST jornadas permite a ADMIN_EVENT solo crear en eventos asignados activo
            FROM audit_event WHERE action='NIGHT_CREATED' AND entity_id=$1`,
         [createdNight.id],
       )).rows,
-      [{ actorUserId: ids.assigned, action: "NIGHT_CREATED", entityType: "night", entityId: createdNight.id }],
+      [{ actorUserId: ids.admin, action: "NIGHT_CREATED", entityType: "night", entityId: createdNight.id }],
     );
 
     const cases = [
@@ -833,12 +833,14 @@ test("POST jornadas permite a ADMIN_EVENT solo crear en eventos asignados activo
       [ids.revokedEvent, "revoked", 403, { code: "ADMIN_REQUIRED" }],
       [ids.target, "judge", 403, { code: "ADMIN_REQUIRED" }],
       [ids.inactiveEvent, "assigned", 403, { code: "ADMIN_REQUIRED" }],
-      [ids.openEvent, "assigned", 409, { code: "EVENT_LOCKED" }],
+      [ids.openEvent, "assigned", 403, { code: "ADMIN_REQUIRED" }],
+      [ids.openEvent, "admin", 409, { code: "EVENT_LOCKED" }],
+      [ids.inactiveEvent, "admin", 409, { code: "EVENT_LOCKED" }],
       [randomUUID(), "admin", 404, { code: "EVENT_NOT_FOUND" }],
       ["not-a-uuid", "admin", 400, { code: "VALIDATION_ERROR" }],
       [ids.target, null, 401, { code: "UNAUTHENTICATED" }],
       [ids.target, "noTwoFactor", 403, { code: "TWO_FACTOR_REQUIRED" }],
-      [ids.target, "assigned", 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }, { ...body, name: " " }],
+      [ids.target, "admin", 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }, { ...body, name: " " }],
     ];
     const countsBeforeDenials = await Promise.all([
       pool.query("SELECT event_id, id, name FROM night WHERE event_id = ANY($1::uuid[]) ORDER BY event_id, id", [[ids.target, ids.otherEvent, ids.revokedEvent, ids.inactiveEvent, ids.openEvent]]),
@@ -912,7 +914,7 @@ test("POST jornadas permite a ADMIN_EVENT solo crear en eventos asignados activo
   });
 });
 
-test("GET /events/:eventId autoriza el detalle exacto por asignación vigente sin mutaciones", {
+test("GET /events/:eventId requiere ADMIN global sin depender de asignaciones", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -1007,9 +1009,9 @@ test("GET /events/:eventId autoriza el detalle exacto por asignación vigente si
     };
     const before = await snapshot();
     for (const event of events) {
-      // ADMIN has no assignment; delegate has no global role. Exact DTO, no projected fields.
+      // ADMIN global accede al detalle con independencia de asignaciones.
       await expectResponse(event.id, ids.admin, 200, event);
-      await expectResponse(event.id, ids.assigned, 200, event);
+      await expectResponse(event.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     }
     for (const session of [ids.other, ids.unassigned, ids.revoked, ids.judge]) {
       for (const eventId of [eventA.id, ids.missing]) {
@@ -1034,11 +1036,11 @@ test("GET /events/:eventId autoriza el detalle exacto por asignación vigente si
     await expectResponse(ids.foreignEvent, ids.assigned, 403, { code: "ADMIN_REQUIRED" }, spoof);
     await expectResponse(eventA.id, ids.unassigned, 403, { code: "ADMIN_REQUIRED" }, spoof);
     await expectResponse(eventA.id, "noTwoFactor", 403, { code: "TWO_FACTOR_REQUIRED" }, spoof);
-    await expectResponse(eventB.id, ids.assigned, 200, eventB, spoof);
+    await expectResponse(eventB.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" }, spoof);
 
     // Repetition/conditional headers and an opening key cannot turn detail into a receipt/replay.
-    const first = await expectResponse(eventA.id, ids.assigned, 200, eventA);
-    await expectResponse(eventA.id, ids.assigned, 200, eventA, {
+    const first = await expectResponse(eventA.id, ids.admin, 200, eventA);
+    await expectResponse(eventA.id, ids.admin, 200, eventA, {
       headers: { "Idempotency-Key": randomUUID() },
     });
     assert.deepEqual(await snapshot(), before);
@@ -1048,13 +1050,13 @@ test("GET /events/:eventId autoriza el detalle exacto por asignación vigente si
     await expectResponse(eventA.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" }, {
       headers: { "If-None-Match": first.headers.etag },
     });
-    await expectResponse(eventB.id, ids.assigned, 200, eventB);
+    await expectResponse(eventB.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     await expectResponse(eventA.id, ids.admin, 200, eventA);
     assert.deepEqual(await snapshot(), afterRevocation);
 
     await pool.query("UPDATE admin_event_assignment SET is_active=true WHERE user_id=$1 AND event_id=$2", [ids.assigned, eventA.id]);
     await pool.query("INSERT INTO admin_event_assignment (user_id,event_id,is_active) VALUES ($1,$2,true)", [ids.admin, eventA.id]);
-    await expectResponse(eventA.id, ids.assigned, 200, eventA);
+    await expectResponse(eventA.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     await expectResponse(eventA.id, ids.admin, 200, eventA);
     await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.admin, eventA.id]);
     const beforeFailures = await snapshot();
@@ -1065,14 +1067,14 @@ test("GET /events/:eventId autoriza el detalle exacto por asignación vigente si
     const originalQuery = pool.query;
     for (const failedSql of [
       "SELECT id, name, status, active FROM carnival_event WHERE id = $1",
-      "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+      "SELECT EXISTS (",
     ]) {
       pool.query = function (sql, ...args) {
-        if (sql === failedSql) return Promise.reject(new Error("Injected detail DB failure: internal SQL must not leak"));
+        if (typeof sql === "string" && sql.includes(failedSql)) return Promise.reject(new Error("Injected detail DB failure: internal SQL must not leak"));
         return originalQuery.call(pool, sql, ...args);
       };
       try {
-        for (const session of [ids.admin, ids.assigned]) {
+        for (const session of [ids.admin]) {
           await expectResponse(eventA.id, session, 500, { code: "INTERNAL_ERROR" });
         }
       } finally {
@@ -1080,12 +1082,12 @@ test("GET /events/:eventId autoriza el detalle exacto por asignación vigente si
         else delete pool.query;
       }
     }
-    await expectResponse(eventA.id, ids.assigned, 200, eventA);
+    await expectResponse(eventA.id, ids.assigned, 403, { code: "ADMIN_REQUIRED" });
     assert.deepEqual(await snapshot(), beforeFailures);
   });
 });
 
-test("GET /events limita el catálogo a las asignaciones ADMIN_EVENT vigentes", {
+test("GET /events requiere ADMIN global y devuelve el catálogo completo", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -1210,17 +1212,8 @@ test("GET /events limita el catálogo a las asignaciones ADMIN_EVENT vigentes", 
     const assignedResponse = await fetch(`${target}?role=ADMIN&userId=${ids.admin}`, {
       headers: { "x-test-session": "assigned" },
     });
-    assert.equal(assignedResponse.status, 200);
-    const assignedEvents = await assignedResponse.json();
-    assert.deepEqual(
-      assignedEvents.map(({ id, name, status, active }) => ({ id, name, status, active }))
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      [
-        { id: ids.inactiveEvent, name: "T1 inactive assigned", status: "CONFIGURING", active: false },
-        { id: ids.secondEvent, name: "T1 second assigned", status: "CONFIGURING", active: true },
-      ].sort((left, right) => left.id.localeCompare(right.id)),
-    );
-    assert.equal(assignedEvents.some(({ id }) => id === ids.otherEvent), false);
+    assert.equal(assignedResponse.status, 403);
+    assert.deepEqual(await assignedResponse.json(), { code: "ADMIN_REQUIRED" });
 
     await pool.query(
       "UPDATE admin_event_assignment SET is_active = FALSE WHERE user_id = $1",

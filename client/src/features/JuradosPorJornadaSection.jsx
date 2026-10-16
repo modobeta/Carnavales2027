@@ -59,7 +59,7 @@ export function JuradosPorJornadaSection({
       const [nightsRes, specialtiesRes, judgesRes, assignmentsRes] = await Promise.all([
         apiRequest(`/api/v1/events/${event.id}/nights`),
         apiRequest(`/api/v1/events/${event.id}/specialties`),
-        apiRequest("/api/v1/judges").catch(() => []),
+        apiRequest("/api/v1/judges"),
         apiRequest(`/api/v1/events/${event.id}/judge-assignments`),
       ]);
 

@@ -40,6 +40,17 @@ describe("AppNavigation", () => {
     expect(window.location.hash).toBe("");
   });
 
+  it("omite el menú lateral para el Jurado, manteniendo las acciones de sesión", () => {
+    mockMatchMedia(false);
+    window.location.hash = "#/judge";
+    render(<AppNavigation session={{ user: { name: "Jurado" }, roles: ["JUDGE"] }} />);
+
+    expect(screen.queryByRole("navigation", { name: "Navegacion principal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Abrir menu de navegacion" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
+    expect(screen.getByText("Jurado")).toBeInTheDocument();
+  });
+
   it("agrupa las rutas existentes por etapa y marca la sección activa", () => {
     window.location.hash = "#/admin/competencia?step=participantes";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
@@ -91,7 +102,7 @@ describe("AppNavigation", () => {
     expect(screen.queryByText("En vivo")).not.toBeInTheDocument();
     expect(screen.queryByText("Finalización")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Jornadas" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Evento actual" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Evento actual/ })).not.toBeInTheDocument();
   });
 
   it("muestra la navegación contextual con Jornadas activo en #/admin/events", () => {
@@ -263,11 +274,42 @@ describe("AppNavigation", () => {
       </AdminEventProvider>,
     );
 
-    const selector = await screen.findByRole("button", { name: "Evento actual" });
+    const selector = await screen.findByRole("button", { name: /^Evento actual/ });
     expect(selector).toHaveTextContent("Carnaval 2027");
     fireEvent.click(selector);
     expect(screen.getByRole("button", { name: /Crear nuevo evento/ })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("option", { name: "Prueba 2027" }));
     await waitFor(() => expect(selector).toHaveTextContent("Prueba 2027"));
+  });
+
+  describe("navegación por roles actuales", () => {
+    it("no presenta administración a un usuario sin rol aunque tenga adminEvents", () => {
+      mockMatchMedia(false);
+      render(<AppNavigation session={{ status: "authenticated", user: { name: "Persona" }, roles: [], adminEvents: [{ id: "e1" }] }} />);
+      expect(screen.queryByText(/Administrador de evento/)).not.toBeInTheDocument();
+      openMenu();
+      const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+      expect(hrefs).not.toContain("#/admin/home");
+      expect(hrefs).not.toContain("#/admin/events");
+      expect(hrefs).not.toContain("#/admin/competencia?step=participantes");
+    });
+
+    it("conserva la etiqueta COMISARIO sin agregar identidad administrativa", () => {
+      mockMatchMedia(false);
+      render(<AppNavigation session={{ status: "authenticated", user: { name: "Comisario" }, roles: ["COMISARIO"], adminEvents: [{ id: "e1" }] }} />);
+      expect(screen.getByText("Comisario", { selector: ".session-role" })).toBeInTheDocument();
+      expect(screen.queryByText(/Administrador de evento/)).not.toBeInTheDocument();
+      openMenu();
+      expect(screen.getByRole("link", { name: "Penalizaciones" })).toHaveAttribute("href", "#/admin/penalties");
+      expect(screen.queryByRole("link", { name: "Inicio" })).not.toBeInTheDocument();
+    });
+
+    it("mantiene navegación administrativa para ADMIN con rol JUDGE", () => {
+      mockMatchMedia(false);
+      render(<AppNavigation session={{ status: "authenticated", user: { name: "Admin" }, roles: ["ADMIN", "JUDGE"], adminEvents: [] }} />);
+      openMenu();
+      expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "#/admin/home");
+      expect(screen.getByRole("link", { name: "Mi panel" })).toHaveAttribute("href", "#/judge");
+    });
   });
 });

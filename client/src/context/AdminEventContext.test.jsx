@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminEventProvider, useAdminEvent } from "./AdminEventContext.jsx";
 import { apiRequest } from "../api/http.js";
@@ -7,64 +7,38 @@ vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
 function Probe() {
   const context = useAdminEvent();
-  return (
-    <div>
-      <select aria-label="Evento activo" value={context.activeEventId} onChange={(event) => context.setActiveEventId(event.target.value)}>
-        {context.events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
-      </select>
-      <span>{context.activeEvent?.name ?? "Sin evento"}</span>
-    </div>
-  );
+  return <div><select aria-label="Evento activo" value={context.activeEventId} onChange={(event) => context.setActiveEventId(event.target.value)}>{context.events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}</select><span>{context.activeEvent?.name ?? "Sin evento"}</span></div>;
 }
 
-function JourneyProbe() {
+function StatusProbe() {
   const context = useAdminEvent();
-  return (
-    <div>
-      <span>{context.activeNightId || "Sin jornada"}</span>
-      <button type="button" onClick={() => context.setActiveNightId("night-2")}>Elegir jornada</button>
-      <button type="button" onClick={() => context.setActiveEventId("e2")}>Cambiar evento</button>
-    </div>
-  );
+  return <span>{`eventos:${context.events.length} error:${context.error || "-"}`}</span>;
 }
 
 describe("AdminEventContext", () => {
-  afterEach(() => {
-    cleanup();
-    vi.clearAllMocks();
-    window.localStorage.clear();
-  });
+  afterEach(() => { cleanup(); vi.clearAllMocks(); window.localStorage.clear(); });
 
-  it("carga un evento activo y permite cambiarlo sin otra fuente de selección", async () => {
-    apiRequest.mockResolvedValue([
-      { id: "e1", name: "Carnaval 2027", status: "CONFIGURING" },
-      { id: "e2", name: "Prueba 2027", status: "OPEN" },
-    ]);
-
-    render(<AdminEventProvider><Probe /></AdminEventProvider>);
-
+  it("ADMIN carga el catálogo global y permite cambiar el evento", async () => {
+    apiRequest.mockResolvedValue([{ id: "e1", name: "Carnaval 2027" }, { id: "e2", name: "Prueba 2027" }]);
+    render(<AdminEventProvider session={{ status: "authenticated", user: { id: "u1" }, roles: ["ADMIN"], adminEvents: [] }}><Probe /></AdminEventProvider>);
     const selector = await screen.findByRole("combobox", { name: "Evento activo" });
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
     expect(selector).toHaveValue("e1");
-    expect(screen.getAllByText("Carnaval 2027").length).toBeGreaterThan(0);
-
     fireEvent.change(selector, { target: { value: "e2" } });
-
     expect(selector).toHaveValue("e2");
-    expect(screen.getAllByText("Prueba 2027").length).toBeGreaterThan(0);
-    expect(window.localStorage.getItem("carnavales.admin.activeEventId")).toBe("e2");
+    expect(window.localStorage.getItem("carnavales.event.u1.operational")).toBe("e2");
   });
 
-  it("conserva la jornada elegida en el contexto de sesión y la limpia al cambiar evento", async () => {
-    apiRequest.mockResolvedValue([
-      { id: "e1", name: "Carnaval 2027", status: "CONFIGURING" },
-      { id: "e2", name: "Prueba 2027", status: "OPEN" },
-    ]);
+  it("adminEvents no concede catálogo a una sesión sin ADMIN", async () => {
+    render(<AdminEventProvider session={{ status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e1" }] }}><StatusProbe /></AdminEventProvider>);
+    await waitFor(() => expect(screen.getByText("eventos:0 error:-")).toBeInTheDocument());
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
 
-    render(<AdminEventProvider><JourneyProbe /></AdminEventProvider>);
-    await screen.findByText("Sin jornada");
-    fireEvent.click(screen.getByRole("button", { name: "Elegir jornada" }));
-    expect(screen.getByText("night-2")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar evento" }));
-    expect(screen.getByText("Sin jornada")).toBeInTheDocument();
+  it("mantiene el catálogo propio de los roles operativos", async () => {
+    apiRequest.mockResolvedValue([{ id: "e9", name: "Propio del rol" }]);
+    render(<AdminEventProvider session={{ status: "authenticated", user: { id: "u1" }, roles: ["COMISARIO"], adminEvents: [{ id: "e1" }] }}><StatusProbe /></AdminEventProvider>);
+    expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/penalties/events");
   });
 });

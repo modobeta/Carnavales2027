@@ -104,7 +104,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
 
     // Confirm the existing ADMIN 200 contract, then RED: delegated DELETE is still 403.
     await assertDeleted("target", "admin");
-    await assertDeleted("target", "assigned");
+    await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
 
     await context.test("ADMIN global con/sin asignación prevalece, incluido evento inactivo", async () => {
       for (const session of ["admin", "assignedAdmin"]) {
@@ -140,7 +140,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
         await assertRejected(troupes.otherEvent.id, session, session === null ? 401 : 403,
           { code: session === null ? "UNAUTHENTICATED" : session === "noTwoFactor" ? "TWO_FACTOR_REQUIRED" : "ADMIN_REQUIRED" }, spoof, query, headers);
       }
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES ($1,$2,true)", [ids.assigned, ids.otherEvent]);
         const fields = { ...spoof, eventId: ids.otherEvent, troupeId: troupes.otherEvent.id, userId: ids.other, client: {}, name: "Ignored", active: false };
         await assertDeleted("target", session, { body: fields, query: `?${new URLSearchParams(fields)}`, headers: {
@@ -150,7 +150,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
     });
 
     await context.test("sin logo y repetición mantienen 200 y una nueva auditoría por DELETE", async () => {
-      for (const session of ["assigned", "admin"]) {
+      for (const session of ["admin"]) {
         await assertDeleted("target", session, { withLogo: false });
         await assertDeleted("target", session, { withLogo: false, body: { operationId: randomUUID() } });
       }
@@ -158,7 +158,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
 
     await context.test("comparsa inactiva admite DELETE; GET Jurado conserva binario, SHA/ETag/304 y ausencia", async () => {
       await pool.query("UPDATE event_troupe SET active=false WHERE id=$1", [troupes.target.id]);
-      await upload("target", "assigned");
+      await upload("target", "admin");
       const url = `${baseUrl}/api/v1/troupes/${troupes.target.id}/logo`;
       const before = await snapshot();
       for (const session of [null, "expired", "noTwoFactor"]) {
@@ -180,7 +180,8 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
       assert.equal(cached.headers.get("cache-control"), "private, max-age=86400");
       assert.equal((await cached.arrayBuffer()).byteLength, 0);
       assert.deepEqual(await snapshot(), before);
-      await assertDeleted("target", "assigned");
+      await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
+      await assertDeleted("target", "admin");
       const deleted = await snapshot();
       for (const headers of [{}, { "if-none-match": `"${sha256}"` }]) {
         const withoutLogo = await fetch(url, { headers: { "x-test-session": "judge", ...headers } });
@@ -191,11 +192,11 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
       assert.equal(missing.status, 404);
       assert.deepEqual(await missing.json(), { code: "TROUPE_NOT_FOUND" });
       assert.deepEqual(await snapshot(), deleted);
-      await upload("target", "assigned");
+      await upload("target", "admin");
     });
 
     await context.test("fallos tras UPDATE real y en auditoría revierten bytes, metadata y evidencia", async () => {
-      for (const session of ["assigned", "admin"]) for (const stage of ["update", "audit"]) {
+      for (const session of ["admin"]) for (const stage of ["update", "audit"]) {
         const before = await snapshot();
         assert.deepEqual(before[2].find(({ id }) => id === troupes.target.id).logo_data, svg);
         const originalConnect = pool.connect;
@@ -240,7 +241,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
     await context.test("revocación y rol efectivo rigen al siguiente DELETE sin afectar B ni ADMIN", async () => {
       await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.target]);
       await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
-      await assertDeleted("otherEvent", "assigned");
+      await assertRejected(troupes.otherEvent.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
       await assertDeleted("target", "admin");
       await assertDeleted("target", "assignedAdmin");
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
@@ -265,7 +266,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
           await pool.query("UPDATE carnival_event SET status='CLOSED' WHERE id=$1", [eventId]);
         }
         assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [eventId])).rows, [{ active: true, status }]);
-        for (const session of ["assigned", "admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
+        for (const session of ["admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
         await assertRejected(troupes.lifecycle.id, "other", 403, { code: "ADMIN_REQUIRED" });
       }
     });
@@ -351,7 +352,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
     };
 
     // RED anchor: ADMIN-only PUT returns 403 instead of the delegated success.
-    await assertUploaded("target", "assigned");
+    await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
 
     await context.test("ADMIN global con/sin asignación prevalece, incluido evento inactivo", async () => {
       for (const session of ["admin", "assignedAdmin"]) {
@@ -390,7 +391,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
         await assertRejected(troupes.otherEvent.id, session, 403, { code: "ADMIN_REQUIRED" }, png, "image/png", query, headers);
         await assertRejected(troupes.otherEvent.id, session, 403, { code: "ADMIN_REQUIRED" }, JSON.stringify(spoof), "application/json", query, headers);
       }
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES ($1,$2,true)", [ids.assigned, ids.otherEvent]);
         const beforeOther = (await pool.query("SELECT * FROM event_troupe WHERE event_id=$1 ORDER BY id", [ids.otherEvent])).rows;
         // Binary content containing spoof fields is only content; JSON is not an upload.
@@ -404,7 +405,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
     });
 
     await context.test("formatos, MIME, vacío, contenido y límite binario conservan errores y SHA-256", async () => {
-      for (const session of ["assigned", "admin"]) {
+      for (const session of ["admin"]) {
         for (const [body, mime, message] of [
           [Buffer.alloc(0), "image/png", "logoData debe ser un archivo no vacío."],
           [undefined, "image/png", "logoData debe ser un archivo no vacío."],
@@ -427,7 +428,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
 
     await context.test("comparsa inactiva no es evento inactivo; GET Jurado conserva bytes, MIME, caché y ausencia", async () => {
       await pool.query("UPDATE event_troupe SET active=false WHERE id=$1", [troupes.target.id]);
-      await assertUploaded("target", "assigned", svg, "image/svg+xml");
+      await assertUploaded("target", "admin", svg, "image/svg+xml");
       const before = await snapshot();
       const url = `${baseUrl}/api/v1/troupes/${troupes.target.id}/logo`;
       for (const session of [null, "expired", "noTwoFactor"]) {
@@ -456,7 +457,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
       const missing = await fetch(`${baseUrl}/api/v1/troupes/${randomUUID()}/logo`, { headers: { "x-test-session": "judge" } });
       assert.equal(missing.status, 404);
       assert.deepEqual(await missing.json(), { code: "TROUPE_NOT_FOUND" });
-      await assertUploaded("target", "assigned");
+      await assertUploaded("target", "admin");
     });
 
     await context.test("fallos tras UPDATE real y en auditoría revierten binario, metadata y evidencia", async () => {
@@ -491,7 +492,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
           return originalConnect.call(pool).then(wrap);
         });
         let response;
-        try { response = await request(troupes.target.id, "assigned", svg, "image/svg+xml"); }
+        try { response = await request(troupes.target.id, "admin", svg, "image/svg+xml"); }
         finally { connectMock.mock.restore(); for (const restore of restores.reverse()) restore(); }
         assert.equal(response.status, 500);
         assert.deepEqual(await response.json(), { code: "INTERNAL_ERROR" });
@@ -504,7 +505,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
     await context.test("revocación y rol efectivo rigen al siguiente PUT sin afectar B ni ADMIN", async () => {
       await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.target]);
       await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
-      await assertUploaded("otherEvent", "assigned");
+      await assertRejected(troupes.otherEvent.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
       await assertUploaded("target", "admin");
       await assertUploaded("target", "assignedAdmin");
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
@@ -528,7 +529,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
           await pool.query("UPDATE carnival_event SET status='CLOSED' WHERE id=$1", [eventId]);
         }
         assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [eventId])).rows, [{ active: true, status }]);
-        for (const session of ["assigned", "admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
+        for (const session of ["admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
         await assertRejected(troupes.lifecycle.id, "other", 403, { code: "ADMIN_REQUIRED" });
       }
     });

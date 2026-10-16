@@ -792,8 +792,6 @@ label { color: var(--text-secondary); }
   padding: 1rem;
   background: var(--surface-card);
 }
-.judge-progress-card > div:first-child,
-.ballot-progress > div:first-child { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
 /* El encabezado de la barra puede llevar textos largos: permitir envoltura
    limpia con el detalle alineado a la derecha. */
 .judge-progress-card .app-progress-header { flex-wrap: wrap; row-gap: 0.25rem; }
@@ -1013,7 +1011,7 @@ button.button-link:disabled {
 .readonly-summary-controls .readonly-search-filter input { box-sizing: border-box; inline-size: 100%; min-block-size: 2.75rem; }
 .readonly-summary-controls .readonly-filter-count { flex: 1 1 100%; margin: 0; color: var(--text-muted); font-size: 0.84rem; }
 .readonly-filter-empty { grid-column: 1 / -1; margin: 0; border: 1px dashed var(--border-default); border-radius: var(--radius-md); padding: 1rem; color: var(--text-secondary); background: var(--surface-card); }
-.evaluation-context { margin: 0.35rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.evaluation-context { display: grid; gap: 0.25rem; margin: 0.35rem 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .readonly-hero {
   display: flex;
   align-items: center;
@@ -3023,14 +3021,16 @@ button.button-link:disabled {
   }
 
   .judge-ballot-page:not(.is-readonly) .not-presented-section {
-    padding: 0.75rem;
-    border-inline-start: 3px solid var(--warning-border);
-    background: rgba(255, 179, 0, 0.08);
+    padding: 0.5rem 0 0;
+    border: 0;
+    background: transparent;
     text-align: start;
   }
 
   .judge-ballot-page:not(.is-readonly) .not-presented-btn {
-    border-inline-start-width: 3px;
+    inline-size: auto;
+    min-inline-size: 14rem;
+    border-inline-start-width: 1px;
     background: transparent;
     font-weight: 650;
   }

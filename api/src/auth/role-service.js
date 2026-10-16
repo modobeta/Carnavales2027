@@ -65,6 +65,14 @@ async function canRemoveAdminRole(client, userId) {
   return rows[0].count > 1;
 }
 
+async function isPrimaryAdmin(client, userId) {
+  const { rows } = await client.query(
+    "SELECT EXISTS (SELECT 1 FROM bootstrap_state WHERE initial_admin_user_id = $1) AS protected",
+    [userId],
+  );
+  return rows[0].protected;
+}
+
 async function revokeRoleWithClient(client, { actorUserId, userId, roleCode }) {
   const { rows: userRows } = await client.query('SELECT 1 FROM "user" WHERE id = $1', [requireText(userId, "userId")]);
   if (userRows.length === 0) throw new Error("USER_NOT_FOUND");
@@ -74,6 +82,21 @@ async function revokeRoleWithClient(client, { actorUserId, userId, roleCode }) {
   );
   if (roleRows.length === 0) {
     return { removed: false };
+  }
+
+  if (roleCode === "ADMIN") {
+    // Serialize primary-admin checks with grants and all other ADMIN revocations.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [lastAdminLockKey]);
+    if (await isPrimaryAdmin(client, userId)) {
+      await auditEvent(client, {
+        actorUserId,
+        action: "USER_ROLE_REVOKE_REJECTED",
+        entityType: "user_role",
+        entityId: userId,
+        after: { roleCode, reason: "PRIMARY_ADMIN_PROTECTED" },
+      });
+      return { blocked: true, reason: "PRIMARY_ADMIN_PROTECTED" };
+    }
   }
 
   if (roleCode === "ADMIN" && !await canRemoveAdminRole(client, userId)) {
@@ -109,18 +132,6 @@ export async function grantRole({ actorUserId = null, userId, roleCode, client =
   }));
 }
 
-export async function listUsers({ client = getPool() } = {}) {
-  const { rows } = await client.query(
-    `SELECT u.id, u.name, u.email,
-            COALESCE(array_agg(ur.role_code ORDER BY ur.role_code) FILTER (WHERE ur.role_code IS NOT NULL), '{}') AS roles
-       FROM "user" u
-       LEFT JOIN user_role ur ON ur.user_id = u.id
-      GROUP BY u.id, u.name, u.email
-      ORDER BY u.name, u.email`,
-  );
-  return rows;
-}
-
 export async function revokeRole({ actorUserId = null, userId, roleCode, client = null }) {
   const result = await runTransaction(client, (transactionClient) => revokeRoleWithClient(transactionClient, {
     actorUserId,
@@ -129,7 +140,7 @@ export async function revokeRole({ actorUserId = null, userId, roleCode, client 
   }));
 
   if (result.blocked) {
-    throw new Error("LAST_ADMIN_REQUIRED");
+    throw new Error(result.reason ?? "LAST_ADMIN_REQUIRED");
   }
 
   return result;
@@ -137,6 +148,18 @@ export async function revokeRole({ actorUserId = null, userId, roleCode, client 
 
 export async function deleteUser({ actorUserId = null, userId, client = null }) {
   const result = await runTransaction(client, async (transactionClient) => {
+    await transactionClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [lastAdminLockKey]);
+    if (await isPrimaryAdmin(transactionClient, userId)) {
+      await auditEvent(transactionClient, {
+        actorUserId,
+        action: "USER_DELETE_REJECTED",
+        entityType: "user",
+        entityId: userId,
+        after: { reason: "PRIMARY_ADMIN_PROTECTED" },
+      });
+      return { blocked: true, reason: "PRIMARY_ADMIN_PROTECTED" };
+    }
+
     const { rows: adminRoleRows } = await transactionClient.query(
       "SELECT 1 FROM user_role WHERE user_id = $1 AND role_code = 'ADMIN'",
       [requireText(userId, "userId")],
@@ -169,7 +192,7 @@ export async function deleteUser({ actorUserId = null, userId, client = null }) 
   });
 
   if (result.blocked) {
-    throw new Error("LAST_ADMIN_REQUIRED");
+    throw new Error(result.reason ?? "LAST_ADMIN_REQUIRED");
   }
 
   return result;

@@ -165,7 +165,7 @@ test("DELETE /nights/:nightId borra solo jornadas sin historial y respeta evento
   });
 });
 
-test("DELETE jornada delega por owner activo y conserva historia/auditoría", {
+test("DELETE jornada requiere ADMIN global y conserva historia/auditoría", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const previousDatabaseUrl = process.env.DATABASE_URL;
@@ -271,7 +271,10 @@ test("DELETE jornada delega por owner activo y conserva historia/auditoría", {
     const afterDenied = await snapshot();
     assert.deepEqual(afterDenied.map(({ rows }) => rows), beforeDenied.map(({ rows }) => rows));
 
-    const history = await request(ids.historyNight, "assigned");
+    const assignedDenied = await request(ids.cleanNight, "assigned");
+    assert.equal(assignedDenied.status, 403);
+    assert.deepEqual(await assignedDenied.json(), { code: "ADMIN_REQUIRED" });
+    const history = await request(ids.historyNight, "admin");
     assert.equal(history.status, 409);
     assert.equal((await history.json()).code, "NIGHT_HAS_HISTORY");
     assert.deepEqual((await snapshot()).map(({ rows }) => rows), beforeDenied.map(({ rows }) => rows));
@@ -307,7 +310,7 @@ test("DELETE jornada delega por owner activo y conserva historia/auditoría", {
       return originalConnect.call(pool).then(wrapConnectedClient);
     };
     try {
-      const auditFailure = await request(ids.auditFailureNight, "assigned");
+      const auditFailure = await request(ids.auditFailureNight, "admin");
       assert.ok(auditFailure.status >= 400, `fallo de auditoría no debe devolver éxito; HTTP ${auditFailure.status}`);
       assert.equal(injectedAuditFailureCount, 1);
     } finally {
@@ -318,18 +321,18 @@ test("DELETE jornada delega por owner activo y conserva historia/auditoría", {
     assert.equal((await pool.query("SELECT id FROM night WHERE id=$1", [ids.auditFailureNight])).rowCount, 1);
     assert.equal((await pool.query("SELECT id FROM audit_event WHERE action='NIGHT_DELETED' AND entity_id=$1", [ids.auditFailureNight])).rowCount, 0);
 
-    const deleted = await request(ids.cleanNight, "assigned", { actorUserId: ids.admin });
+    const deleted = await request(ids.cleanNight, "admin", { actorUserId: ids.assigned });
     assert.equal(deleted.status, 200);
     assert.deepEqual(await deleted.json(), { id: ids.cleanNight });
     assert.equal((await pool.query("SELECT id FROM night WHERE id=$1", [ids.cleanNight])).rowCount, 0);
     assert.deepEqual(
       (await pool.query("SELECT actor_user_id,action,entity_type,entity_id FROM audit_event WHERE action='NIGHT_DELETED' AND entity_id=$1 ORDER BY id DESC LIMIT 1", [ids.cleanNight])).rows,
-      [{ actor_user_id: ids.assigned, action: "NIGHT_DELETED", entity_type: "night", entity_id: ids.cleanNight }],
+      [{ actor_user_id: ids.admin, action: "NIGHT_DELETED", entity_type: "night", entity_id: ids.cleanNight }],
     );
   });
 });
 
-test("DELETE ADMIN_EVENT conserva bloqueos de historial y estado OPEN", {
+test("DELETE ADMIN global conserva bloqueos de historial y estado OPEN", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const previousDatabaseUrl = process.env.DATABASE_URL;
@@ -356,6 +359,7 @@ test("DELETE ADMIN_EVENT conserva bloqueos de historial y estado OPEN", {
     `INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,'T7 history ADMIN_EVENT',$2,true)`,
     [actorId, `${actorId}@example.test`],
   );
+  await client.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN')", [actorId]);
   const configEvent = await createEvent({ client, name: `T7 blockers ${randomUUID()}` });
   const nightIds = {};
   for (const key of ["assignment", "quota", "ballot", "schedule", "penalty", "window"]) {

@@ -11,6 +11,11 @@ export const ROLE_DEFAULT_ROUTES = {
   ESCRIBANO: "#/admin/results",
 };
 
+export function canAccessAdminArea(session) {
+  const roles = Array.isArray(session?.roles) ? session.roles : [];
+  return session?.status === "authenticated" && roles.includes("ADMIN");
+}
+
 /**
  * Determina la ruta por defecto según los roles que posee el usuario.
  * Sigue la prioridad de privilegios operativos.
