@@ -112,6 +112,7 @@ Todos se ejecutan desde `api/`.
 - `src/db/migrate.js` ordena los archivos SQL, usa advisory lock, aplica cada migración en una transacción y registra versión/checksum SHA-256 en `schema_migrations`.
 - **No editar migraciones aplicadas:** el runner rechaza cambios con `MIGRATION_CHECKSUM_MISMATCH`. Agregá una nueva migración incremental.
 - El árbol contiene 89 archivos SQL numerados de `001` a `095`; no están presentes `071` ni `090`–`094`. No renumerar las migraciones para cerrar esos saltos históricos.
+- El piloto conserva el checksum original de `084_legacy_nomination_scope.sql`, aplicado con finales de línea mixtos antes de la normalización de Git. El runner acepta únicamente ese SHA-256 histórico si el contenido SQL normalizado de `084` coincide exactamente con el original; no cambia `schema_migrations` ni permite editar la migración.
 - Las tablas incluyen roles, eventos/jornadas, catálogos de competencia, perfiles e invitaciones, asignaciones, planillas/puntajes, ventanas de votación, penalizaciones, liberaciones, snapshots y actas.
 - Triggers y restricciones protegen historia, pertenencia al evento, cambios de estado e inmutabilidad. No son validaciones opcionales que pueda reemplazar el cliente.
 - `src/db/transaction.js` centraliza transacciones con reintentos limitados para deadlock `40P01` y difusión de eventos después del commit. Los módulos también contienen wrappers transaccionales propios: seguí el patrón del flujo afectado.
