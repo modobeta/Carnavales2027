@@ -69,6 +69,43 @@ function renderEventsPage(refresh) {
   );
 }
 
+describe("reactToEventAdminRejection: sesión terminada", () => {
+  it.each(["anonymous", "second-factor-required"])("con /me en %s lo deja a las guardias, sin tratarlo como fallo de verificación", async (status) => {
+    const refreshSession = vi.fn(async () => ({ status, roles: [], adminEvents: [] }));
+    const leaveEvent = vi.fn();
+    expect(await reactToEventAdminRejection({ error: forbidden(), eventId: "e1", refreshSession, leaveEvent })).toBe("session-ended");
+    expect(leaveEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("rechazos simultáneos en pantallas distintas", () => {
+  it("dos instancias de la reacción comparten una sola reconsulta de /me", async () => {
+    apiRequest.mockImplementation(async (path) => {
+      if (path === "/api/v1/events") return [assigned];
+      throw forbidden();
+    });
+    // /me tarda: los rechazos de las dos pantallas llegan mientras la reconsulta está en curso.
+    let resolveMe;
+    const refresh = vi.fn(() => new Promise((resolve) => { resolveMe = () => resolve({ ...baseSession, adminEvents: [] }); }));
+    const session = { ...baseSession, refresh };
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "e1");
+    render(
+      <SessionContext.Provider value={session}>
+        <AdminEventProvider session={session} eventAdminArea>
+          <AdminEventsPage eventAdminMode />
+          <AdminCompetenciaPage event={assigned} eventAdminMode initialStep="revision" />
+        </AdminEventProvider>
+      </SessionContext.Provider>,
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    await waitFor(() => expect(apiRequest.mock.calls.some(([path]) => path.endsWith("/readiness"))).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    resolveMe();
+    await waitFor(() => expect(window.location.hash).toBe("#/admin/home"));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("AdminEventsPage: rechazo al cargar jornadas", () => {
   it("revocado: una reconsulta de /me, sale del contexto y vuelve a Inicio", async () => {
     apiRequest.mockImplementation(async (path) => {
