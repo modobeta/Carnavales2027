@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { apiRequest } from "../api/http.js";
 import { clearUserOfflineData } from "../offline/ballot-store.js";
 
-const SessionContext = createContext({
+export const SessionContext = createContext({
   status: "loading",
   roles: [],
   adminEvents: [],

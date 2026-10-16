@@ -14,6 +14,7 @@ import { PREPARATION_STEPS, READINESS_STATE_LABELS, eventAdminReadinessItems, is
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
+import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 
@@ -124,6 +125,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [openEventMessage, setOpenEventMessage] = useState("");
   const writing = useRef(false);
   const progressRequest = useRef(0);
+  const handleRejection = useEventAdminRejection(eventAdminMode);
 
   useEffect(() => {
     setCurrentEvent(event);
@@ -167,10 +169,11 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
       if (request !== progressRequest.current) return;
       setProgress({ troupes, categories, specialties, rubrics, orphaned });
       setProgressError(false);
-    }).catch(() => {
+    }).catch((error) => {
       if (request !== progressRequest.current) return;
       setProgress(null);
       setProgressError(true);
+      void handleRejection(error, event.id);
     });
     return () => { progressRequest.current += 1; };
   };
@@ -182,8 +185,10 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     setReadinessState({ eventId: event.id, status: "unqueried", data: null });
     apiRequest(`/api/v1/events/${event.id}/readiness`).then((readiness) => {
       if (active) setReadinessState({ eventId: event.id, status: isInterpretableReadiness(readiness) ? "available" : "unavailable", data: isInterpretableReadiness(readiness) ? readiness : null });
-    }).catch(() => {
-      if (active) setReadinessState({ eventId: event.id, status: "unavailable", data: null });
+    }).catch((error) => {
+      if (!active) return;
+      setReadinessState({ eventId: event.id, status: "unavailable", data: null });
+      void handleRejection(error, event.id);
     });
     return () => { active = false; };
   }, [event.id, dataRevision]);

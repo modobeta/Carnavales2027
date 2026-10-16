@@ -8,6 +8,7 @@ import {
   resolvePendingEventOpenOperation,
 } from "./event-open-operation.js";
 import { eventAdminReadinessItems, isInterpretableReadiness } from "./readiness-presentation.js";
+import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 
 const READINESS_LABELS = {
   COMPETITION_NIGHT: "Creá al menos una jornada de Competencia",
@@ -36,6 +37,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
   const openTriggerRef = useRef(null);
   const openingRef = useRef(false);
   const requestRevision = useRef(0);
+  const handleRejection = useEventAdminRejection(eventAdminMode);
 
   const load = useCallback(async ({ isCurrent = () => true } = {}) => {
     const revision = ++requestRevision.current;
@@ -52,8 +54,11 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
           setReadinessUnavailable(true);
         }
       }
-    } catch {
-      if (isCurrent() && revision === requestRevision.current) setReadinessUnavailable(true);
+    } catch (error) {
+      if (isCurrent() && revision === requestRevision.current) {
+        setReadinessUnavailable(true);
+        void handleRejection(error, event.id);
+      }
     } finally {
       if (isCurrent() && revision === requestRevision.current) setLoading(false);
     }
