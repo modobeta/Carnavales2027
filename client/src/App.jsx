@@ -84,6 +84,8 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
   return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => setSelectedEvent(null)} />;
 }
 
+const EVENT_ADMIN_ROUTES = ["#/admin/home", "#/admin/events", "#/admin/competencia"];
+
 function RoleArea({ session, role, admin = false, adminArea = false, children }) {
   const content = adminArea
     ? <RequireAdminArea session={session}>{children}</RequireAdminArea>
@@ -209,8 +211,8 @@ export default function App({ session: providedSession }) {
     </div>
   );
   if (session.status !== "authenticated") return content;
-  // El catálogo de ADMIN_EVENT solo se usa en su única pantalla admitida; el resto conserva el de cada rol (N4 de la spec 039).
-  const eventAdminArea = route === "#/admin/home" && hasEventAdminCapability(session);
+  // El catálogo de ADMIN_EVENT se usa en sus pantallas (Inicio y preparación); el resto conserva el de cada rol (N4 de la spec 039, D3 de la 040).
+  const eventAdminArea = EVENT_ADMIN_ROUTES.includes(route) && hasEventAdminCapability(session);
   const judgeArea = path.startsWith("#/judge")
     || (session.roles?.length === 1 && session.roles[0] === "JUDGE" && !eventAdminArea);
   return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}:${eventAdminArea}`} session={session} judgeArea={judgeArea} eventAdminArea={eventAdminArea}>{content}</AdminEventProvider>;

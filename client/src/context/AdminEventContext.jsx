@@ -23,7 +23,9 @@ function storeEventId(eventId, key) {
 
 // eventAdminArea: la pantalla actual es el área de ADMIN_EVENT (#/admin/home); fuera de ella cada rol conserva su catálogo.
 export function AdminEventProvider({ children, session, judgeArea = false, eventAdminArea = false }) {
-  const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${judgeArea ? "judge" : "operational"}` : STORAGE_KEY;
+  // ADMIN_EVENT guarda su selección aparte para que otro rol de la misma cuenta no la reemplace (spec 040, D3).
+  const storageArea = judgeArea ? "judge" : eventAdminArea ? "event-admin" : "operational";
+  const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${storageArea}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
   const activeEventIdRef = useRef(activeEventId);
@@ -37,18 +39,27 @@ export function AdminEventProvider({ children, session, judgeArea = false, event
     setLoading(true);
     try {
       const loaded = await loadAvailableEvents(session?.roles, judgeArea, eventAdminArea ? session?.adminEvents : []);
-      const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
+      const all = Array.isArray(loaded) ? loaded : [];
+      const items = all.filter((event) => event.active !== false);
       if (requestId !== requestSequence.current) return [];
-      setEvents(items ?? []);
-      setError("");
       const currentId = activeEventIdRef.current;
-      const storedEvent = items.find((event) => event.id === currentId);
-      const nextId = storedEvent?.id ?? items[0]?.id ?? "";
+      // Un inactivo guardado solo se readmite si /me lo informa como asignado (spec 040, D4).
+      const readmitted = eventAdminArea && currentId && !items.some((event) => event.id === currentId)
+        && (session?.adminEvents ?? []).some((event) => event.id === currentId)
+        ? all.find((event) => event.id === currentId) ?? null
+        : null;
+      const visible = readmitted ? [...items, readmitted] : items;
+      setEvents(visible);
+      setError("");
+      const storedEvent = visible.find((event) => event.id === currentId);
+      // Para ADMIN_EVENT, una selección guardada inválida no cae al primer evento (CA-2.2).
+      const fallbackId = eventAdminArea && currentId ? "" : items[0]?.id ?? "";
+      const nextId = storedEvent?.id ?? fallbackId;
       if (nextId !== currentId) setActiveNightIdState("");
       activeEventIdRef.current = nextId;
       setActiveEventIdState(nextId);
       storeEventId(nextId, storageKey);
-      return items ?? [];
+      return visible;
     } catch {
       if (requestId !== requestSequence.current) return [];
       setEvents([]);

@@ -82,6 +82,16 @@ describe("App", () => {
     expect(calledPaths()).not.toContain("/api/v1/events");
   });
 
+  it.each(["#/admin/events", "#/admin/competencia"])("COMISARIO + ADMIN_EVENT en %s usa el catálogo de asignaciones (spec 040 T1)", async (route) => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.location.hash = route;
+    render(<App session={{ status: "authenticated", roles: ["COMISARIO"], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Comisario" } }} />);
+    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
+    await waitFor(() => expect(calledPaths()).toContain("/api/v1/events"));
+    expect(calledPaths()).not.toContain("/api/v1/penalties/events");
+  });
+
   it("sin capacidad #/admin/home sigue rechazado", () => {
     window.location.hash = "#/admin/home";
     render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [] }} />);

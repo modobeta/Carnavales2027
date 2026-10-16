@@ -157,3 +157,80 @@ describe("AdminEventContext", () => {
     expect(screen.getByText("Sin jornada")).toBeInTheDocument();
   });
 });
+
+describe("AdminEventContext en pantallas de ADMIN_EVENT (spec 040 T1)", () => {
+  const session = (roles = [], adminEvents = [{ id: "e1" }, { id: "e2" }]) => ({ status: "authenticated", user: { id: "u1" }, roles, adminEvents });
+  const catalog = [
+    { id: "e1", name: "Asignado uno", active: true },
+    { id: "e2", name: "Asignado dos", active: true },
+    { id: "e9", name: "Asignado inactivo", active: false },
+  ];
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("guarda la selección en una clave propia y no toca la operativa", async () => {
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session()} eventAdminArea><Probe /></AdminEventProvider>);
+    const selector = await screen.findByRole("combobox", { name: "Evento activo" });
+    await screen.findByRole("option", { name: "Asignado dos" });
+    fireEvent.change(selector, { target: { value: "e2" } });
+    expect(window.localStorage.getItem("carnavales.event.u1.event-admin")).toBe("e2");
+    expect(window.localStorage.getItem("carnavales.event.u1.operational")).toBeNull();
+  });
+
+  it("sin selección guardada conserva el comportamiento actual (primer evento activo)", async () => {
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session()} eventAdminArea><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado uno" });
+    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e1");
+  });
+
+  it("una selección guardada no asignada no se usa ni cae al primer evento", async () => {
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "ajeno");
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session()} eventAdminArea><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado uno" });
+    expect(screen.getByText("Sin evento")).toBeInTheDocument();
+    expect(window.localStorage.getItem("carnavales.event.u1.event-admin")).toBeNull();
+  });
+
+  it("readmite un inactivo guardado si figura en adminEvents", async () => {
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "e9");
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session([], [{ id: "e1" }, { id: "e9", active: false }])} eventAdminArea><StatusProbe /><Probe /></AdminEventProvider>);
+    expect(await screen.findByText("Asignado inactivo", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("no readmite un inactivo guardado que ya no figura en adminEvents", async () => {
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "e9");
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={session([], [{ id: "e1" }])} eventAdminArea><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado uno" });
+    expect(screen.getByText("Sin evento")).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Asignado inactivo" })).not.toBeInTheDocument();
+  });
+
+  it("la selección de ADMIN_EVENT sobrevive al paso por una pantalla de otro rol", async () => {
+    window.localStorage.setItem("carnavales.event.u1.event-admin", "e2");
+    apiRequest.mockImplementation(async (path) => path === "/api/v1/penalties/events" ? [{ id: "p1", name: "Penalizable" }] : catalog);
+    const comisario = session(["COMISARIO"]);
+    const { unmount } = render(<AdminEventProvider session={comisario}><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Penalizable" });
+    unmount();
+    render(<AdminEventProvider session={comisario} eventAdminArea><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado dos" });
+    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e2");
+  });
+
+  it("ADMIN conserva la caída al primer evento ante una selección inválida", async () => {
+    window.localStorage.setItem("carnavales.event.u1.operational", "ajeno");
+    apiRequest.mockResolvedValue(catalog);
+    render(<AdminEventProvider session={{ ...session(["ADMIN"]) }}><Probe /></AdminEventProvider>);
+    await screen.findByRole("option", { name: "Asignado uno" });
+    expect(screen.getByRole("combobox", { name: "Evento activo" })).toHaveValue("e1");
+  });
+});
