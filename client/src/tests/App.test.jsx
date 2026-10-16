@@ -72,6 +72,16 @@ describe("App", () => {
     expect(calledPaths()).not.toContain(unexpected);
   });
 
+  it("VEEDOR + ADMIN_EVENT en #/veedor conserva su catálogo propio", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.location.hash = "#/veedor";
+    render(<App session={{ status: "authenticated", roles: ["VEEDOR"], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Veedor" } }} />);
+    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
+    await waitFor(() => expect(calledPaths()).toContain("/api/v1/monitor/events"));
+    expect(calledPaths()).not.toContain("/api/v1/events");
+  });
+
   it("sin capacidad #/admin/home sigue rechazado", () => {
     window.location.hash = "#/admin/home";
     render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [] }} />);

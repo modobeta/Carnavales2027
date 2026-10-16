@@ -71,7 +71,7 @@ describe("AdminEventContext", () => {
     ]);
     const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e1" }, { id: "e2" }] };
 
-    render(<AdminEventProvider session={session}><Probe /></AdminEventProvider>);
+    render(<AdminEventProvider session={session} eventAdminArea><Probe /></AdminEventProvider>);
 
     const selector = await screen.findByRole("combobox", { name: "Evento activo" });
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
@@ -84,7 +84,7 @@ describe("AdminEventContext", () => {
     apiRequest.mockResolvedValue([{ id: "e2", name: "Asignado inactivo", active: false }]);
     const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e2", active: false }] };
 
-    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+    render(<AdminEventProvider session={session} eventAdminArea><StatusProbe /></AdminEventProvider>);
 
     expect(await screen.findByText("eventos:0 error:-")).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
@@ -94,7 +94,7 @@ describe("AdminEventContext", () => {
     apiRequest.mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce([{ id: "e1", name: "Asignado" }]);
     const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e1" }] };
 
-    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+    render(<AdminEventProvider session={session} eventAdminArea><StatusProbe /></AdminEventProvider>);
 
     expect(await screen.findByText("eventos:0 error:No se pudieron cargar los eventos.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
@@ -108,12 +108,39 @@ describe("AdminEventContext", () => {
       .mockResolvedValueOnce([{ id: "e2", name: "Nuevo" }]);
     const session = { status: "authenticated", user: { id: "u1" }, roles: [], adminEvents: [{ id: "e2" }] };
 
-    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+    render(<AdminEventProvider session={session} eventAdminArea><StatusProbe /></AdminEventProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
     resolveFirst([{ id: "e1", name: "Viejo" }, { id: "e3", name: "Otro" }]);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.getByText("eventos:1 error:-")).toBeInTheDocument();
+  });
+
+  it.each([
+    [["COMISARIO"], "/api/v1/penalties/events"],
+    [["SCRUTINEER"], "/api/v1/results/events"],
+    [["ESCRIBANO"], "/api/v1/results/events"],
+    [["VEEDOR"], "/api/v1/monitor/events"],
+  ])("fuera de #/admin/home %j con ADMIN_EVENT conserva el catálogo de su rol", async (roles, endpoint) => {
+    apiRequest.mockResolvedValue([{ id: "e9", name: "Propio del rol" }]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles, adminEvents: [{ id: "e1" }] };
+
+    render(<AdminEventProvider session={session}><StatusProbe /></AdminEventProvider>);
+
+    expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith(endpoint);
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events");
+  });
+
+  it("en #/admin/home un rol operativo con ADMIN_EVENT usa el catálogo administrativo", async () => {
+    apiRequest.mockResolvedValue([{ id: "e1", name: "Asignado" }]);
+    const session = { status: "authenticated", user: { id: "u1" }, roles: ["COMISARIO"], adminEvents: [{ id: "e1" }] };
+
+    render(<AdminEventProvider session={session} eventAdminArea><StatusProbe /></AdminEventProvider>);
+
+    expect(await screen.findByText("eventos:1 error:-")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/penalties/events");
   });
 
   it("conserva la jornada elegida en el contexto de sesión y la limpia al cambiar evento", async () => {

@@ -21,7 +21,8 @@ function storeEventId(eventId, key) {
   }
 }
 
-export function AdminEventProvider({ children, session, judgeArea = false }) {
+// eventAdminArea: la pantalla actual es el área de ADMIN_EVENT (#/admin/home); fuera de ella cada rol conserva su catálogo.
+export function AdminEventProvider({ children, session, judgeArea = false, eventAdminArea = false }) {
   const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${judgeArea ? "judge" : "operational"}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
@@ -35,7 +36,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     const requestId = ++requestSequence.current;
     setLoading(true);
     try {
-      const loaded = await loadAvailableEvents(session?.roles, judgeArea, session?.adminEvents);
+      const loaded = await loadAvailableEvents(session?.roles, judgeArea, eventAdminArea ? session?.adminEvents : []);
       const items = (Array.isArray(loaded) ? loaded : []).filter((event) => event.active !== false);
       if (requestId !== requestSequence.current) return [];
       setEvents(items ?? []);
