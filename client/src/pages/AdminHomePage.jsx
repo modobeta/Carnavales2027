@@ -235,7 +235,7 @@ export function AdminHomePage({ session } = {}) {
 
       {loading ? (
         <p>Cargando eventos…</p>
-      ) : visibleEvents.length === 0 && !showDeleted ? (
+      ) : adminEvent?.error && visibleEvents.length === 0 ? null : visibleEvents.length === 0 && !showDeleted ? (
         <section className="my-events-empty card" aria-label="Catálogo de eventos vacío">
           {isEventAdmin ? (
             <>

@@ -307,6 +307,14 @@ describe("AdminHomePage en modo ADMIN_EVENT (spec 039 T7)", () => {
     expect(screen.queryByRole("button", { name: /Crear/ })).not.toBeInTheDocument();
   });
 
+  it("con el contexto de eventos, un fallo de carga no se muestra como lista vacía", async () => {
+    apiRequest.mockRejectedValue(new Error("timeout"));
+    const session = eventAdmin();
+    render(<AdminEventProvider session={session} eventAdminArea><AdminHomePage session={session} /></AdminEventProvider>);
+    expect(await screen.findByText("No se pudieron cargar los eventos.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "No hay eventos activos asignados" })).not.toBeInTheDocument();
+  });
+
   it("ADMIN con asignaciones conserva todas sus funciones", async () => {
     mockApi();
     render(<AdminHomePage session={{ ...eventAdmin(["ADMIN"]) }} />);
