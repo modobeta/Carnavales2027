@@ -1,7 +1,12 @@
 import { afterEach, describe, it, expect } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { RequireAnyRole } from "../auth/RequireAnyRole.jsx";
-import { getDefaultRouteForRoles, ROLE_DEFAULT_ROUTES } from "../auth/role-routes.js";
+import {
+  canAccessAdminArea,
+  getDefaultRouteForRoles,
+  hasEventAdminCapability,
+  ROLE_DEFAULT_ROUTES,
+} from "../auth/role-routes.js";
 
 describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
   afterEach(() => { cleanup(); });
@@ -94,6 +99,29 @@ describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
       expect(getDefaultRouteForRoles(["VEEDOR", "JUDGE"])).toBe(ROLE_DEFAULT_ROUTES.JUDGE);
       expect(getDefaultRouteForRoles(["COMISARIO"])).toBe(ROLE_DEFAULT_ROUTES.COMISARIO);
       expect(getDefaultRouteForRoles(["SCRUTINEER"])).toBe(ROLE_DEFAULT_ROUTES.SCRUTINEER);
+    });
+  });
+
+  describe("capacidad de administración de eventos", () => {
+    it("reconoce capacidad solo en sesión autenticada sin ADMIN global", () => {
+      const adminEventSession = { status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }] };
+      expect(hasEventAdminCapability(adminEventSession)).toBe(true);
+      expect(hasEventAdminCapability({ ...adminEventSession, roles: ["ADMIN"] })).toBe(false);
+      expect(hasEventAdminCapability({ ...adminEventSession, adminEvents: [] })).toBe(false);
+      for (const status of ["loading", "anonymous", "second-factor-required", "error"]) {
+        expect(hasEventAdminCapability({ ...adminEventSession, status })).toBe(false);
+      }
+      expect(hasEventAdminCapability(undefined)).toBe(false);
+    });
+
+    it("permite el área solo a sesión autenticada ADMIN o con capacidad ADMIN_EVENT", () => {
+      expect(canAccessAdminArea({ status: "authenticated", roles: ["ADMIN"] })).toBe(true);
+      expect(canAccessAdminArea({ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }] })).toBe(true);
+      expect(canAccessAdminArea({ status: "authenticated", roles: [], adminEvents: [] })).toBe(false);
+      for (const status of ["loading", "anonymous", "second-factor-required", "error"]) {
+        expect(canAccessAdminArea({ status, roles: ["ADMIN"], adminEvents: [{ id: "e1" }] })).toBe(false);
+      }
+      expect(canAccessAdminArea(undefined)).toBe(false);
     });
   });
 });

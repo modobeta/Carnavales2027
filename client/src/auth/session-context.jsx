@@ -5,11 +5,12 @@ import { clearUserOfflineData } from "../offline/ballot-store.js";
 const SessionContext = createContext({
   status: "loading",
   roles: [],
+  adminEvents: [],
   user: null,
   judgeProfile: null,
   sessionExpired: false,
   lastErrorCode: null,
-  refresh: async () => ({ status: "anonymous", roles: [] }),
+  refresh: async () => ({ status: "anonymous", roles: [], adminEvents: [] }),
   clear: () => {},
 });
 export const useSession = () => useContext(SessionContext);
@@ -32,7 +33,7 @@ export function redirectToLoginExpired(returnToHash) {
 }
 
 export function SessionProvider({ children }) {
-  const [session, setSession] = useState({ status: "loading", roles: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
+  const [session, setSession] = useState({ status: "loading", roles: [], adminEvents: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
   const requestRevision = useRef(0);
   const activeUserId = useRef(null);
   const refresh = async () => {
@@ -43,7 +44,7 @@ export function SessionProvider({ children }) {
         await clearUserOfflineData(activeUserId.current);
       }
       activeUserId.current = data.user?.id ?? null;
-      const next = { status: "authenticated", ...data };
+      const next = { status: "authenticated", ...data, adminEvents: Array.isArray(data.adminEvents) ? data.adminEvents : [] };
       if (revision === requestRevision.current) setSession(next);
       return next;
     } catch (error) {
@@ -56,6 +57,7 @@ export function SessionProvider({ children }) {
       const next = {
         status,
         roles: [],
+        adminEvents: [],
         user: null,
         judgeProfile: null,
         sessionExpired: ended,
@@ -84,7 +86,7 @@ export function SessionProvider({ children }) {
         if (activeUserId.current) void clearUserOfflineData(activeUserId.current).catch(() => {});
         activeUserId.current = null;
         if (active) {
-          setSession({ status: "anonymous", roles: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
+          setSession({ status: "anonymous", roles: [], adminEvents: [], user: null, judgeProfile: null, sessionExpired: false, lastErrorCode: null });
           window.location.hash = "#/login?reason=event-ended";
         }
       } catch {
@@ -109,7 +111,7 @@ export function SessionProvider({ children }) {
         requestRevision.current += 1;
         if (activeUserId.current) void clearUserOfflineData(activeUserId.current);
         activeUserId.current = null;
-        setSession({ status: "anonymous", roles: [], user: null, judgeProfile: null, sessionExpired: Boolean(options?.sessionExpired), lastErrorCode: null });
+        setSession({ status: "anonymous", roles: [], adminEvents: [], user: null, judgeProfile: null, sessionExpired: Boolean(options?.sessionExpired), lastErrorCode: null });
     },
   }}>{children}</SessionContext.Provider>;
 }
