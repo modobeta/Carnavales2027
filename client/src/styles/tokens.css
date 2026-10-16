@@ -2,6 +2,20 @@
  * tokens.css — Carnavales2027_v2 Design System Foundation (Spec 020)
  * Sistema unificado de tokens semánticos, capas Marca e Instrumento,
  * accesibilidad (WCAG 2.2 AA) y variables operativas.
+ *
+ * Paleta base de client/STYLES.md:
+ *   - Fondo principal:            degradado vertical #036B8B → #5e46be (§2/§2.1)
+ *   - Tarjetas y paneles:         #5e46be (lavanda, §2.1) → tinta clara
+ *   - Superficies del tema oscuro:#243A53  (§2)           → tinta clara
+ *   - Acento / marca:             #01B2D4
+ *   - Botón principal:            #d22b8f  (§3.1)
+ *   - Botón secundario:           #DF3CB5  (§3.2, tinta oscura)
+ *   - Botón terciario:            #243A53  (§3.3)
+ *   - Botón edición:              #A500B5  (§3.4)
+ *   - Éxito / Advertencia:        #2BC100 / #FF6F00 (§3.5/§3.6)
+ *   - Destructivo:                #DC2626 / hover #B91C1C (§3.7)
+ *
+ * Las combinaciones críticas se verifican con `node scripts/contrast-check.mjs`.
  */
 
 :root {
@@ -57,9 +71,9 @@
   --touch-target-lg: 56px;
 
   /* Elevación discreta para que las superficies no compitan con el contenido. */
-  --shadow-sm: 0 1px 2px rgba(14, 5, 20, 0.18);
-  --shadow-md: 0 4px 12px rgba(14, 5, 20, 0.2);
-  --shadow-lg: 0 12px 32px rgba(14, 5, 20, 0.28);
+  --shadow-sm: 0 1px 2px rgba(4, 14, 24, 0.2);
+  --shadow-md: 0 4px 12px rgba(4, 14, 24, 0.22);
+  --shadow-lg: 0 12px 32px rgba(4, 14, 24, 0.3);
   --shadow-card: none;
   --shadow-focus: 0 0 0 3px rgba(224, 181, 68, 0.9);
 
@@ -74,100 +88,117 @@
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ==========================================================================
-     Paleta Carnaval (única fuente de color de la aplicación)
+     Paleta Carnaval (única fuente de color de la aplicación — STYLES.md §2/§3)
      Todos los colores de la interfaz se derivan de estas variables.
      ========================================================================== */
-  --palette-page: #24102b;        /* Fondo general */
-  --palette-card: #351744;        /* Superficie principal */
-  --palette-panel: #452252;       /* Superficie elevada */
-  --palette-deep: #30133c;        /* Superficie hundida y texto inverso */
-  --palette-input: #2a1534;       /* Campos de formulario */
-  --palette-highlight: #e0b544;   /* Resaltado / foco */
+  --palette-page: #036B8B;        /* Fondo principal: extremo superior del degradado (blanco = 6.0:1) */
+  --palette-page-alt: #5e46be;    /* Extremo inferior del degradado (violeta lavanda, §2.1) */
+  --palette-brand: #01B2D4;       /* Cyan de marca: acento sobre superficies oscuras */
+  --palette-card: #5e46be;        /* Tarjetas y paneles lavanda (§2.1); blanco = 6.8:1 */
+  --palette-panel: #243A53;       /* Superficie elevada / tema oscuro (blanco = 11.6:1) */
+  --palette-panel-strong: #2F4D6E;/* Superficie elevada sobre tema oscuro */
+  --palette-deep: #16293C;        /* Superficie hundida y tinta inversa */
+  --palette-input: #243A53;       /* Campos de formulario (blanco = 11.6:1) */
+  --palette-highlight: #E0B544;   /* Resaltado / foco sobre superficies oscuras */
   --palette-highlight-ink: #241a00;
-  --palette-confirm: #34d22b;     /* Botón confirmar (texto #0b1f1c = 9.3:1) */
-  --palette-confirm-ink: #0b1f1c;
-  --palette-cancel: #e30808;      /* Botón cancelar (blanco = 4.9:1) */
+  --palette-confirm: #2BC100;     /* Éxito (§3.5) — tinta #0B2600 = 7.3:1 */
+  --palette-confirm-ink: #0B2600;
+  --palette-cancel: #DC2626;      /* Destructivo (§3.7) — blanco = 4.8:1 */
   --palette-cancel-ink: #ffffff;
-  --palette-action: #3b82f6;      /* Bordes, focus y acentos */
-  --palette-action-fill: #2563eb; /* Relleno de acciones (blanco = 5.2:1) */
+  --palette-action: #01B2D4;      /* Bordes, focus y acentos (marca) */
+  --palette-action-fill: #d22b8f; /* Botón principal (§3.1) — blanco = 4.7:1 */
   --palette-action-ink: #ffffff;
-  --palette-modal: #56bfb4;       /* Acento turquesa */
-  --palette-modal-ink: #0b1f1c;
-  --palette-admin-nav-active: #d22b8f; /* Navegación Admin activa (blanco = 4.7:1) */
+  --palette-secondary-fill: #DF3CB5; /* Botón secundario (§3.2) — tinta oscura = 4.7:1 */
+  --palette-secondary-ink: #2E0033;
+  --palette-secondary-hover: #E85CC4;
+  --palette-edit-fill: #A500B5;   /* Botón edición (§3.4) — blanco = 6.4:1 */
+  --palette-edit-ink: #ffffff;
+  --palette-edit-hover: #7D008A;
+  --palette-modal: #A500B5;       /* Acento de modal informativo (§4.1) */
+  --palette-modal-ink: #ffffff;
+  --palette-admin-nav-active: #d22b8f; /* Navegación Admin activa = acción principal (§3.1) */
 
   /* ==========================================================================
      Superficies
      ========================================================================== */
-  --surface-base: var(--palette-page);
+  --surface-base: linear-gradient(180deg, var(--palette-page) 0%, var(--palette-page-alt) 100%);
   --surface-card: var(--palette-card);
   --surface-raised: var(--palette-panel);
+  --surface-raised-hover: var(--palette-panel-strong);
   --surface-sunken: var(--palette-deep);
-  --surface-overlay: rgba(20, 7, 26, 0.72);
-  --surface-modal: var(--palette-card);
-  --surface-modal-raised: var(--palette-input);
+  --surface-overlay: rgba(6, 20, 30, 0.74);
+  --surface-modal: var(--palette-panel);
+  --surface-modal-raised: var(--palette-panel-strong);
   --surface-modal-hover: rgba(255, 255, 255, 0.1);
 
   --surface-input: var(--palette-input);
   --surface-login-input: var(--palette-input);
   --surface-hover-subtle: rgba(255, 255, 255, 0.08); /* Hover de navegación, no estado activo. */
-  --surface-nav-translucent: rgba(36, 16, 43, 0.9);
+  --surface-hover-card: rgba(255, 255, 255, 0.14);   /* Hover de controles sobre tarjeta lavanda. */
+  --surface-nav-translucent: rgba(15, 34, 51, 0.92);
 
   /* ==========================================================================
      Texto (contraste AA verificado sobre cada superficie)
+     Sobre el fondo principal (degradado), las tarjetas lavanda y las
+     superficies oscuras la tinta es clara.
      ========================================================================== */
   --text-primary: #ffffff;
   --text-secondary: #eee4f2;
-  --text-muted: #cdbbd5;
+  --text-muted: #e7e0ec;
   --text-inverse: var(--palette-deep);
   --text-on-primary: #ffffff;
   --text-on-accent: #ffffff;      /* Sobre rellenos sólidos de acción. */
   --text-on-highlight: var(--palette-highlight-ink);
   --text-on-confirm: var(--palette-confirm-ink);
   --text-on-cancel: var(--palette-cancel-ink);
+  --text-on-secondary: var(--palette-secondary-ink);
   --text-on-modal: #ffffff;
   --text-on-modal-soft: #eee4f2;
 
   /* ==========================================================================
-     Bordes
+     Bordes (tinta clara: fondo principal y superficies oscuras)
      ========================================================================== */
   --border-subtle: rgba(255, 255, 255, 0.14);
   --border-default: rgba(255, 255, 255, 0.26);
-  --border-strong: rgba(255, 255, 255, 0.52);
+  --border-strong: rgba(255, 255, 255, 0.62);
   --border-input: rgba(255, 255, 255, 0.4);
   --border-card: rgba(255, 255, 255, 0.16);
   --border-modal: rgba(255, 255, 255, 0.18);
 
   /* ==========================================================================
-     Estados operativos semánticos
+     Estados operativos semánticos (superficies oscuras)
      ========================================================================== */
-  --success: #34d22b;
-  --success-bg: rgba(52, 210, 43, 0.2);
+  --success: #2BC100;
+  --success-bg: rgba(43, 193, 0, 0.2);
   --success-text: #b6f5c4;
-  --success-border: #34d22b;
+  --success-border: #2BC100;
+  --success-fill: #b6f5c4;        /* Relleno claro para discos/sellos con tinta inversa. */
 
-  --warning: #ffb300;
-  --warning-bg: rgba(255, 179, 0, 0.2);
+  --warning: #FF6F00;
+  --warning-bg: rgba(255, 111, 0, 0.2);
   --warning-text: #ffe08a;
-  --warning-border: #ffb300;
+  --warning-border: #FF6F00;
+  --warning-fill: #ffe08a;
 
-  --danger: #e30808;
-  --danger-bg: rgba(227, 8, 8, 0.22);
-  --danger-text: #ffd4d4;         /* 6.1:1 sobre #691578 */
-  --danger-border: #e30808;
-  --danger-hover: #b30606;        /* Hover de botón danger (blanco 7.1:1). */
+  --danger: #DC2626;
+  --danger-bg: rgba(220, 38, 38, 0.22);
+  --danger-text: #ffd4d4;
+  --danger-border: #DC2626;
+  --danger-hover: #B91C1C;        /* Hover de botón danger (blanco 6.5:1). */
+  --danger-fill: #ffd4d4;
 
-  --info: #3b82f6;
-  --info-bg: rgba(59, 130, 246, 0.22);
+  --info: #01B2D4;
+  --info-bg: rgba(1, 178, 212, 0.22);
   --info-text: #c9e2ff;
-  --info-border: #3b82f6;
+  --info-border: #01B2D4;
 
   /* ==========================================================================
      Capa predeterminada: Instrumento (alta concentración, sobriedad)
      ========================================================================== */
   --accent-primary: var(--palette-action-fill);
-  --accent-text: #c9e2ff;
-  --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --accent-text: #bce8f5;
+  --accent-hover: #A81F70;
+  --accent-subtle: rgba(1, 178, 212, 0.22);
   --accent-secondary: var(--palette-highlight);
   --accent-tertiary: var(--palette-modal);
   --accent-seal: var(--brand-seal);
@@ -178,7 +209,7 @@
      ========================================================================== */
   --primary-color: var(--accent-primary);
   --primary-dark: var(--accent-hover);
-  --accent-color: var(--warning-text); /* Texto de acento claro (4.9:1 sobre tarjeta). */
+  --accent-color: var(--warning-text); /* Texto de acento claro sobre superficies oscuras. */
   --danger-color: var(--danger);
   --success-color: var(--success);
   --bg-color: var(--surface-base);
@@ -196,14 +227,22 @@
 
   /* Alias de acción explícitos (relleno vs. borde) */
   --action-fill: var(--palette-action-fill);
-  --action-fill-hover: #1d4ed8;
+  --action-fill-hover: #A81F70;
   --action-ink: var(--palette-action-ink);
+  --secondary-fill: var(--palette-secondary-fill);
+  --secondary-fill-hover: var(--palette-secondary-hover);
+  --secondary-ink: var(--palette-secondary-ink);
+  --tertiary-fill: var(--palette-panel);
+  --tertiary-fill-hover: var(--palette-panel-strong);
   --confirm-fill: var(--palette-confirm);
-  --confirm-fill-hover: #2fbf22;
+  --confirm-fill-hover: #26A800;
   --confirm-ink: var(--palette-confirm-ink);
   --cancel-fill: var(--palette-cancel);
-  --cancel-fill-hover: #b30606;
+  --cancel-fill-hover: #B91C1C;
   --cancel-ink: var(--palette-cancel-ink);
+  --edit-fill: var(--palette-edit-fill);
+  --edit-fill-hover: var(--palette-edit-hover);
+  --edit-ink: var(--palette-edit-ink);
 
   /* ==========================================================================
      Documento oficial (acta): superficie de papel, independiente del cromo
@@ -222,16 +261,15 @@
      Tokens de estado extendidos (componentes, connection-status, anomalies)
      ========================================================================== */
   --state-success: #b6f5c4;
-  --state-success-subtle: rgba(52, 210, 43, 0.18);
+  --state-success-subtle: rgba(43, 193, 0, 0.18);
   --state-warning: #ffe08a;
-  --state-warning-subtle: rgba(255, 179, 0, 0.18);
+  --state-warning-subtle: rgba(255, 111, 0, 0.18);
   --state-danger: #ffd4d4;
-  --state-danger-subtle: rgba(227, 8, 8, 0.2);
+  --state-danger-subtle: rgba(220, 38, 38, 0.2);
 
   /* ==========================================================================
-     Escala de acción clara (texto y bordes sobre superficie púrpura)
+     Escala de acción clara (texto y bordes sobre superficie oscura)
      ========================================================================== */
-  --accent-text: #c9e2ff;
   --accent-light: #dbeafe;
   --accent-lighter: #e8f1fe;
 
@@ -244,8 +282,8 @@
 
   /* Tokens de Marca Carnaval (Spec 023) */
   --brand-gold: var(--palette-highlight);
-  --brand-magenta: var(--palette-card);
-  --brand-cyan: var(--palette-modal);
+  --brand-magenta: var(--palette-secondary-fill);
+  --brand-cyan: var(--palette-brand);
   --brand-seal: #8f2e22;    /* Sello notarial */
 
   /* ==========================================================================
@@ -272,14 +310,14 @@
   --modal-danger: var(--palette-cancel);
   --modal-danger-strong: var(--danger-hover);
   --modal-danger-ink: var(--palette-cancel-ink);
-  --modal-danger-soft: rgba(227, 8, 8, 0.18);
+  --modal-danger-soft: rgba(220, 38, 38, 0.18);
 
-  --modal-info: var(--palette-action-fill);
-  --modal-info-strong: var(--accent-hover);
-  --modal-info-ink: #ffffff;
-  --modal-info-soft: rgba(37, 99, 235, 0.18);
+  --modal-info: var(--palette-brand);
+  --modal-info-strong: #018BA6;
+  --modal-info-ink: #062230;
+  --modal-info-soft: rgba(1, 178, 212, 0.18);
 
-  /* Tinta legible para mensajes de estado sobre tarjetas púrpura */
+  /* Tinta legible para mensajes de estado sobre superficies oscuras */
   --modal-success-text: #b6f5c4;
   --modal-warning-text: #ffd8ab;
   --modal-danger-text: #ffd4d4;
@@ -292,8 +330,8 @@
    ========================================================================== */
 [data-layer="brand"] {
   --accent-primary: var(--palette-action-fill);
-  --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --accent-hover: #A81F70;
+  --accent-subtle: rgba(1, 178, 212, 0.22);
   --accent-secondary: var(--palette-highlight);
   --accent-tertiary: var(--palette-modal);
   --accent-seal: var(--brand-seal);
@@ -309,9 +347,9 @@
    ========================================================================== */
 [data-layer="instrument"] {
   --accent-primary: var(--palette-action-fill);
-  --accent-text: #c9e2ff; /* Azul claro para TEXTO (5.5:1 sobre tarjeta). */
-  --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(37, 99, 235, 0.24);
+  --accent-text: #bce8f5; /* Azul claro para TEXTO sobre superficies oscuras. */
+  --accent-hover: #A81F70;
+  --accent-subtle: rgba(1, 178, 212, 0.22);
   --focus-ring: var(--shadow-focus);
 
   --primary-color: var(--accent-primary);
@@ -345,8 +383,8 @@
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --surface-overlay: #1b0b22;
-    --surface-nav-translucent: #24102b;
+    --surface-overlay: #0a1a26;
+    --surface-nav-translucent: #0f2233;
   }
 }
 

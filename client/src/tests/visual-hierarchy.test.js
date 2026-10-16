@@ -12,10 +12,10 @@ describe("visual hierarchy system", () => {
   const competencia = source("../styles/competencia.css");
 
   it("uses restrained Carnaval surfaces and keeps turquoise as an accent, not a modal canvas", () => {
-    expect(tokens).toContain("--palette-page: #24102b;");
-    expect(tokens).toContain("--palette-card: #351744;");
-    expect(tokens).toContain("--palette-panel: #452252;");
-    expect(tokens).toContain("--surface-modal: var(--palette-card);");
+    expect(tokens).toContain("--palette-page: #036B8B;");
+    expect(tokens).toContain("--palette-card: #5e46be;");
+    expect(tokens).toContain("--palette-panel: #243A53;");
+    expect(tokens).toContain("--surface-modal: var(--palette-panel);");
     expect(tokens).toContain("--text-on-modal: #ffffff;");
   });
 

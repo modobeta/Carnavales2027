@@ -8,6 +8,8 @@ import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
+import { RubricIcon } from "../components/RubricIcon.jsx";
+import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
@@ -2144,6 +2146,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                     resolutionMethod: fd.get("resolutionMethod"),
                     evaluationObjective: fd.get("evaluationObjective") || null,
                     expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
+                    icon: fd.get("icon") || null,
                   });
                 }}
               >
@@ -2176,6 +2179,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                     </select>
                   </label>
                 </details>
+                <RubricIconPicker name="icon" />
                 <div className="form-actions">
                   <button type="submit">Crear rubro</button>
                   <button type="button" className="secondary" onClick={() => setShowCreateForm(false)}>Cancelar</button>
@@ -2213,6 +2217,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                       <div className="rubric-compact-header rubric-card-header">
                         <div className="rubric-compact-left">
                           <h3>
+                            <RubricIcon icon={rubric.icon} size="sm" className="rubric-icon-inline" />
                             {rubric.name}
                             {rubric.active === false && <small> · Inactivo</small>}
                           </h3>
@@ -2378,6 +2383,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                     rubricType: fd.get("rubricType"),
                                     resolutionMethod: fd.get("resolutionMethod"),
                                     evaluationObjective: fd.get("evaluationObjective") || null,
+                                    icon: fd.get("icon") || null,
                                     active: fd.get("active") === "on",
                                   };
                                   const desc = derived.length > 1
@@ -2421,6 +2427,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                     </select>
                                   </label>
                                 </details>
+                                <RubricIconPicker name="icon" defaultValue={rubric.icon} />
                                 <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
                                 <div className="form-actions">
                                   <button type="submit">Guardar rubro</button>

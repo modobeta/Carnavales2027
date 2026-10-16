@@ -7,8 +7,10 @@ import { Button } from "../components/Button.jsx";
 import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
+import { RubricIcon } from "../components/RubricIcon.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
+import { readableInk } from "../lib/brand-color.js";
 
 function groupScores(scores) {
   return scores.reduce((groups, score) => {
@@ -26,6 +28,7 @@ function groupScores(scores) {
       groups[key].rubrics[score.rubricId] = {
         rubricId: score.rubricId,
         rubricName: score.rubricName,
+        rubricIcon: score.rubricIcon ?? null,
         scores: [],
       };
     }
@@ -239,7 +242,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     .map((group) => {
       const search = readonlySearchFilter.trim().toLocaleLowerCase("es");
       const scores = Object.values(group.rubrics).flatMap((rubric) =>
-        rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
+        rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName, rubricIcon: score.rubricIcon ?? rubric.rubricIcon }))
       ).filter((score) =>
         (!readonlyRubricFilter || String(score.rubricId) === readonlyRubricFilter) &&
         (!search || [score.itemName, score.rubricName, score.participantName, group.troupeName]
@@ -696,7 +699,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             const currentGroup = groups.find((group) => group.nightScheduleId === activeScore.nightScheduleId);
             if (!currentGroup) return null;
             const troupeItems = Object.values(currentGroup.rubrics).flatMap((rubric) =>
-              rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName }))
+              rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName, rubricIcon: score.rubricIcon ?? rubric.rubricIcon }))
             );
             const troupeDone = troupeItems.filter((item) => item.evaluationState !== "PENDING").length;
             const troupePct = troupeItems.length ? Math.round((troupeDone / troupeItems.length) * 100) : 0;
@@ -737,6 +740,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                               onClick={() => goToScore(item.id)}
                             >
                               <span className={`ballot-summary-status ${statusClass}`} aria-hidden="true">{isNotPresented ? "⊘" : isResolved ? "✓" : "○"}</span>
+                              <RubricIcon
+                                icon={item.rubricIcon}
+                                color={currentGroup.brandColor}
+                                size="sm"
+                                label={item.rubricName ? `Rubro: ${item.rubricName}` : undefined}
+                              />
                               <span className="ballot-summary-name">{item.itemName}{item.participantName ? ` · ${item.participantName}` : ""}</span>
                             </button>
                           </li>
@@ -940,14 +949,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       className={`readonly-group${isSelected ? " is-selected" : ""}${isOpen ? " is-open" : " is-collapsed"}`}
                       aria-current={isSelected ? "true" : undefined}
                     >
-                      {group.brandColor && (
-                        <div
-                          className="troupe-brand-stripe"
-                          style={{ backgroundColor: group.brandColor }}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <header className="readonly-group-header">
+                      <header
+                        className={`readonly-group-header${group.brandColor ? " is-branded troupe-brand-panel" : ""}`}
+                        style={group.brandColor ? {
+                          "--troupe-brand": group.brandColor,
+                          "--troupe-brand-ink": readableInk(group.brandColor),
+                        } : undefined}
+                      >
                         <span className="readonly-order-badge" aria-hidden="true">{group.presentationOrder}</span>
                         <div className="readonly-group-titles">
                           <h2>
@@ -976,7 +984,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                   <span className="judge-list-check" aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
                                   <div className="judge-list-main">
                                     <h3>{score.itemName}</h3>
-                                    <p>{score.rubricName}</p>
+                                    <p className="readonly-item-rubric">
+                                      <RubricIcon icon={score.rubricIcon} color={group.brandColor} size="sm" />
+                                      {score.rubricName}
+                                    </p>
                                     {score.participantName && <p className="evaluation-context">{SUBJECT_LABELS[score.participantType] ?? "Participante"}: {score.participantName}</p>}
                                     {(score.evaluationObjective || score.expectedSubjectType) && <p className="evaluation-context">
                                       {score.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {score.evaluationObjective}</span>}
@@ -1006,14 +1017,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               );
               return (
                 <section ref={cardSectionRef} className="ballot-card-mode ballot-single" aria-label={`Evaluación: ${activeScore.troupeName} - ${activeScore.itemName}`}>
-                  <div className="ballot-card-header">
-                    {activeScore.brandColor && (
-                      <div
-                        className="troupe-brand-stripe"
-                        style={{ backgroundColor: activeScore.brandColor }}
-                        aria-hidden="true"
-                      />
-                    )}
+                  <div
+                    className={`ballot-card-header${activeScore.brandColor ? " is-branded troupe-brand-panel" : ""}`}
+                    style={activeScore.brandColor ? {
+                      "--troupe-brand": activeScore.brandColor,
+                      "--troupe-brand-ink": readableInk(activeScore.brandColor),
+                    } : undefined}
+                  >
                     <div className="ballot-troupe-heading">
                       <TroupeLogo
                         troupeId={activeScore.troupeId}
@@ -1021,6 +1031,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         sha256={activeScore.logoSha256}
                         alt={`Logo de ${activeScore.troupeName}`}
                         className="ballot-troupe-logo"
+                      />
+                      <RubricIcon
+                        icon={activeScore.rubricIcon}
+                        color={activeScore.brandColor}
+                        size="lg"
+                        onBrand={Boolean(activeScore.brandColor)}
                       />
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>

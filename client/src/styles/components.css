@@ -463,14 +463,14 @@
 }
 
 .app-button-secondary {
-  background: transparent;
-  border-color: var(--border-default);
-  color: var(--text-primary);
+  background: var(--secondary-fill);
+  border-color: transparent;
+  color: var(--text-on-secondary);
 }
 
 .app-button-secondary:hover:not(:disabled) {
-  background: var(--surface-raised);
-  border-color: var(--border-strong);
+  background: var(--secondary-fill-hover);
+  border-color: transparent;
 }
 
 .app-button-danger {
@@ -649,19 +649,19 @@
 .app-toast-success {
   border-color: var(--modal-success);
   border-inline-start: 4px solid var(--modal-success);
-  color: var(--modal-success-text);
+  color: var(--success-text);
 }
 
 .app-toast-warning {
   border-color: var(--modal-warning);
   border-inline-start: 4px solid var(--modal-warning);
-  color: var(--modal-warning-text);
+  color: var(--warning-text);
 }
 
 .app-toast-danger {
   border-color: var(--modal-danger);
   border-inline-start: 4px solid var(--modal-danger);
-  color: var(--modal-danger-text);
+  color: var(--danger-text);
 }
 
 .app-toast-stack {
@@ -716,11 +716,136 @@
 /* ==========================================================================
    Planilla del Jurado v3 (Spec 021)
    ========================================================================== */
-.troupe-brand-stripe {
+/* RubricIcon — ícono del rubro dentro de un círculo con el color de la comparsa
+   (Spec 029). El color de fondo lo fija el componente en línea. */
+.rubric-icon-circle {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  inline-size: 2.6rem;
+  block-size: 2.6rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.rubric-icon-circle.is-sm {
+  inline-size: 1.7rem;
+  block-size: 1.7rem;
+  padding: 0.22rem;
+}
+
+.rubric-icon-circle.is-lg {
+  inline-size: 3.1rem;
+  block-size: 3.1rem;
+  padding: 0.45rem;
+}
+
+/* Sobre un encabezado ya pintado con el color de la comparsa el círculo se
+   aclara para conservar la legibilidad del ícono. */
+.rubric-icon-circle.is-on-brand {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.rubric-icon {
   inline-size: 100%;
-  block-size: 5px;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  margin-block-end: var(--space-2);
+  block-size: 100%;
+}
+
+/* Encabezado de comparsa pintado con su color representativo (Spec 029).
+   El color y su tinta legible llegan por variables desde el componente. */
+.troupe-brand-panel {
+  background: var(--troupe-brand);
+  color: var(--troupe-brand-ink, var(--text-primary));
+}
+
+.troupe-brand-panel :where(h2, h3, p, .card-rubric-name) {
+  color: inherit;
+}
+
+/* RubricIconPicker — selector visual en Administración. */
+.rubric-icon-picker {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.rubric-icon-picker > legend {
+  padding: 0;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rubric-icon-picker-hint {
+  margin: 0.15rem 0 0.6rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.rubric-icon-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.25rem, 1fr));
+  gap: var(--space-2);
+}
+
+.rubric-icon-option {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.35rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  text-align: center;
+  cursor: pointer;
+}
+
+.rubric-icon-option:has(input:checked) {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.rubric-icon-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.rubric-icon-option input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: 0;
+  opacity: 0;
+}
+
+.rubric-icon-swatch {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+}
+
+.rubric-icon-swatch img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.rubric-icon-swatch.is-empty::before {
+  content: "—";
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.rubric-icon-option-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.15;
 }
 
 /* Spec 029: identidad de la comparsa en la tarjeta de votación del jurado. */
@@ -755,6 +880,15 @@
   padding-block-end: var(--space-4);
   margin-block-end: var(--space-4);
 }
+
+/* Encabezado de la tarjeta de votación pintado con el color de la comparsa. */
+.ballot-card-header.is-branded {
+  border-block-end: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.judge-ballot-page .ballot-card-header.is-branded .card-rubric-name { color: inherit; }
 
 .ballot-card-header h2 {
   margin: 0;
@@ -834,7 +968,7 @@
 
 .score-option-btn:hover:not(:disabled) {
   border-color: var(--accent-primary);
-  background: var(--surface-card);
+  background: var(--accent-primary);
 }
 
 /* Feedback táctil instantáneo al presionar (sin estado staged: Spec 007 RF-77). */
@@ -1053,7 +1187,7 @@
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: var(--surface-card);
+  background: var(--surface-raised-hover);
   border-color: var(--accent-primary);
 }
 
@@ -1090,7 +1224,7 @@
 }
 
 .faltantes-btn:hover {
-  background: var(--surface-card);
+  background: var(--surface-raised-hover);
   border-color: var(--accent-primary);
 }
 
@@ -1157,7 +1291,7 @@
 .pending-item-jump-btn:hover {
   border-color: var(--accent-primary);
   border-inline-start-color: var(--accent-primary);
-  background: var(--surface-card);
+  background: var(--surface-raised-hover);
 }
 
 .pending-item-jump-btn:focus-visible {
@@ -1597,7 +1731,7 @@
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
-  background: var(--surface-base);
+  background: var(--surface-raised);
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -1826,7 +1960,7 @@
 .rubric-kind-tag {
   font-size: var(--text-xs);
   padding: 2px 6px;
-  background: var(--surface-base);
+  background: var(--surface-raised);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-weight: 600;
@@ -1948,7 +2082,7 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-3);
-  background: var(--surface-base);
+  background: var(--surface-raised);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
 }
@@ -2232,7 +2366,7 @@
 }
 
 .refresh-runway-btn:hover:not(:disabled) {
-  background: var(--surface-card);
+  background: var(--surface-raised-hover);
   border-color: var(--accent-primary);
 }
 
@@ -2497,7 +2631,7 @@
 
 .assignment-type-card:hover {
   border-color: var(--border-hover);
-  background: var(--surface-raised);
+  background: var(--surface-hover-card);
 }
 
 .assignment-type-card.selected {

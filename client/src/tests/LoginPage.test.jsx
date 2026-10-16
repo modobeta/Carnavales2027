@@ -20,9 +20,19 @@ describe("LoginPage", () => {
   it("muestra el nuevo logo WebP como imagen decorativa junto al nombre del sitio", () => {
     const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
     const logo = container.querySelector(".login-emblem");
-    expect(logo).toHaveAttribute("src", "/icons/carnaval-logo.webp");
+    expect(logo).toHaveAttribute("src", "/icons/logo.webp");
     expect(logo).toHaveAttribute("alt", "");
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
+  });
+
+  it("coloca el confeti como decoración detrás de la tarjeta de login", () => {
+    const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
+    const confetti = container.querySelector(".login-page > .login-confetti img");
+    expect(confetti).toHaveAttribute("src", "/icons/06%20%E2%80%94%20Confeti.svg");
+    // El confeti precede a la tarjeta para quedar por detrás (z-index menor).
+    const page = container.querySelector(".login-page");
+    const order = Array.from(page.children).map((el) => el.className);
+    expect(order.indexOf("login-confetti")).toBeLessThan(order.indexOf("card login-card"));
   });
 
   it("enlaza información y privacidad sin requerir autenticación ni abrir otra pestaña", () => {

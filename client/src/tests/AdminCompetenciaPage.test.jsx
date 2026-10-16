@@ -271,9 +271,26 @@ describe("AdminCompetenciaPage", () => {
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/rubrics", {
       method: "POST",
-      body: JSON.stringify({ name: "Figura destacada", evaluationTarget: "NOMINATION", rubricType: "NOMINATIVE", resolutionMethod: "COMMITTEE", evaluationObjective: "Participante", expectedSubjectType: subjectType }),
+      body: JSON.stringify({ name: "Figura destacada", evaluationTarget: "NOMINATION", rubricType: "NOMINATIVE", resolutionMethod: "COMMITTEE", evaluationObjective: "Participante", expectedSubjectType: subjectType, icon: null }),
     });
     expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
+  });
+
+  it("permite elegir un ícono del catálogo para el rubro nuevo", async () => {
+    const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+    await screen.findByRole("button", { name: "Expandir Coreografia" });
+    const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
+    const fields = within(form);
+    fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Danza" } });
+    fireEvent.click(fields.getByLabelText("Batería"));
+    expect(fields.getByLabelText("Batería")).toBeChecked();
+    fireEvent.submit(form);
+    await screen.findByText("Rubro guardado.");
+    expect(JSON.parse(write.mock.calls[0][1].body).icon).toBe("Bateria");
   });
 
   it.each([
@@ -300,7 +317,7 @@ describe("AdminCompetenciaPage", () => {
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1", {
       method: "PATCH",
-      body: JSON.stringify({ name: "Coreografia", evaluationTarget: target, expectedSubjectType: subject, rubricType: "NOMINATIVE", resolutionMethod: "JURY", evaluationObjective: null, active: true }),
+      body: JSON.stringify({ name: "Coreografia", evaluationTarget: target, expectedSubjectType: subject, rubricType: "NOMINATIVE", resolutionMethod: "JURY", evaluationObjective: null, icon: null, active: true }),
     });
   });
 

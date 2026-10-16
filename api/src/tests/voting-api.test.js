@@ -196,6 +196,8 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(ballotData.status, "OPEN");
     assert.equal(ballotData.scores.length, 2);
     const [firstScore, secondScore] = ballotData.scores;
+    // El contrato del jurado expone el ícono del rubro (Spec 029 / migración 083).
+    assert.ok(Object.prototype.hasOwnProperty.call(firstScore, "rubricIcon"));
 
     // 6. A different judge cannot edit the ballot.
     const forbiddenSave = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${firstScore.id}`, {

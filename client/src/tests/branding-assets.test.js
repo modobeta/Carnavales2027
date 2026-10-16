@@ -6,15 +6,16 @@ const publicFile = (path) => readFileSync(resolve(__dirname, "../../public", pat
 
 describe("identidad del inicio de sesión", () => {
   it("sirve el logo del inicio de sesión en formato WebP", () => {
-    const logo = publicFile("icons/carnaval-logo.webp");
+    const logo = publicFile("icons/logo.webp");
     expect(logo.toString("ascii", 0, 4)).toBe("RIFF");
     expect(logo.toString("ascii", 8, 12)).toBe("WEBP");
   });
 
-  it("usa el nuevo emblema cuadrado como favicon PNG compatible", () => {
+  it("usa el logo como favicon WebP de la pestaña", () => {
     const html = readFileSync(resolve(__dirname, "../../index.html"), "utf8");
-    const favicon = publicFile("icons/carnaval-favicon.png");
-    expect(html).toMatch(/<link rel="icon" type="image\/png" href="\/icons\/carnaval-favicon\.png" \/>/);
-    expect(favicon.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const favicon = publicFile("icons/logo.webp");
+    expect(html).toMatch(/<link rel="icon" type="image\/webp" href="\/icons\/logo\.webp" \/>/);
+    expect(favicon.toString("ascii", 0, 4)).toBe("RIFF");
+    expect(favicon.toString("ascii", 8, 12)).toBe("WEBP");
   });
 });

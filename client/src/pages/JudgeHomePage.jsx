@@ -5,6 +5,7 @@ import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired } from "../auth/session-context.jsx";
+import { readableInk } from "../lib/brand-color.js";
 
 function summarizeTroupes(ballot, scores) {
   const groups = scores.reduce((result, score) => {
@@ -197,23 +198,24 @@ export function JudgeHomePage({ session }) {
                 <p className="eyebrow">Ahora</p>
                 <article className="judge-now-card">
                   <h2 className="sr-only">Comparsa actual</h2>
-                  {currentEntry.troupe.brandColor && (
-                    <div
-                      className="troupe-brand-stripe"
-                      style={{ backgroundColor: currentEntry.troupe.brandColor }}
-                      aria-hidden="true"
-                    />
-                  )}
                   <div className="judge-now-header">
                     <p className="eyebrow">{currentEntry.troupe.nightName} · {currentEntry.troupe.specialtyName}</p>
                     <StatusPill status={currentEntry.state.statusKey} label={currentEntry.state.label} />
                   </div>
-                  <h3>{currentEntry.troupe.troupeName}</h3>
-                  <ProgressBar
-                    value={currentEntry.troupe.resolved}
-                    max={currentEntry.troupe.total}
-                    sublabel={`${currentEntry.troupe.resolved} de ${currentEntry.troupe.total} ítems completados`}
-                  />
+                  <div
+                    className={`judge-now-brand${currentEntry.troupe.brandColor ? " is-branded" : ""}`}
+                    style={currentEntry.troupe.brandColor ? {
+                      "--troupe-brand": currentEntry.troupe.brandColor,
+                      "--troupe-brand-ink": readableInk(currentEntry.troupe.brandColor),
+                    } : undefined}
+                  >
+                    <h3>{currentEntry.troupe.troupeName}</h3>
+                    <ProgressBar
+                      value={currentEntry.troupe.resolved}
+                      max={currentEntry.troupe.total}
+                      sublabel={`${currentEntry.troupe.resolved} de ${currentEntry.troupe.total} ítems completados`}
+                    />
+                  </div>
                   {currentRemaining > 1 && <p className="judge-now-remaining">Faltan {currentRemaining} puntuaciones</p>}
                   {currentRemaining === 1 && <p className="judge-now-remaining">Falta 1 puntuación</p>}
                   {currentRemaining === 0 && <p className="judge-now-remaining">Todos los ítems puntuados. Revisá y confirmá la planilla.</p>}

@@ -574,7 +574,7 @@
   text-align: start;
 }
 
-.specialty-option:hover:not(:disabled) { background: var(--surface-raised); }
+.specialty-option:hover:not(:disabled) { background: var(--surface-hover-card); }
 .specialty-option:focus-visible { outline: 3px solid var(--palette-action); outline-offset: 2px; }
 .specialty-option.is-selected {
   border-color: var(--palette-action);

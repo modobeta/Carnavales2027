@@ -355,8 +355,57 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("button", { name: "Ocultar votaciones de Comparsa Dos" })).toBeInTheDocument();
   });
 
-  it("al entrar con troupeId aterriza en el primer pendiente, no en notas ya votadas", async () => {
-    const mixed = {
+  it("pinta el encabezado de la tarjeta activa con el color de la comparsa y muestra el ícono del rubro", async () => {
+    apiRequest.mockResolvedValue({
+      ...ballot,
+      scores: ballot.scores.map((s) => ({ ...s, brandColor: "#10B981", rubricIcon: "Reina" })),
+    });
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+
+    const header = document.querySelector(".ballot-card-header");
+    expect(header).toHaveClass("is-branded");
+    expect(header.style.getPropertyValue("--troupe-brand")).toBe("#10B981");
+    const circle = header.querySelector(".rubric-icon-circle.is-on-brand");
+    expect(circle).not.toBeNull();
+    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
+  });
+
+  it("muestra el ícono del rubro con el color de la comparsa en el resumen lateral", async () => {
+    apiRequest.mockResolvedValue({
+      ...ballot,
+      scores: ballot.scores.map((s) => ({ ...s, brandColor: "#10B981", rubricIcon: "Reina" })),
+    });
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+
+    fireEvent.click(screen.getByRole("button", { name: /mostrar detalle/ }));
+    const circle = document.querySelector(".ballot-summary-body .rubric-icon-circle");
+    expect(circle).not.toBeNull();
+    expect(circle.style.backgroundColor).toBe("rgb(16, 185, 129)");
+    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
+  });
+
+  it("en readonly pinta el encabezado y el ícono del rubro con el color de la comparsa", async () => {
+    const submitted = {
+      ...ballot,
+      status: "SUBMITTED",
+      scores: ballot.scores.map((s) => ({ ...s, evaluationState: "SCORED", score: 7, brandColor: "#3B82F6", rubricIcon: "Reina" })),
+    };
+    apiRequest.mockResolvedValue(submitted);
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("region", { name: "Resumen de la planilla" });
+
+    const header = document.getElementById("readonly-group-schedule-1").querySelector("header");
+    expect(header).toHaveClass("is-branded");
+    expect(header.style.getPropertyValue("--troupe-brand")).toBe("#3B82F6");
+    const circle = document.querySelector("#readonly-group-schedule-1 .rubric-icon-circle");
+    expect(circle).not.toBeNull();
+    expect(circle.style.backgroundColor).toBe("rgb(59, 130, 246)");
+    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
+  });
+
+  it("al entrar con troupeId aterriza en el primer pendiente, no en notas ya votadas", async () => {    const mixed = {
       ...ballot,
       scores: [
         { ...ballot.scores[0], id: "s1-a", itemName: "Ya votado", evaluationState: "SCORED", score: 8 },

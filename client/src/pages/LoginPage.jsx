@@ -276,8 +276,11 @@ export function LoginPage({ onAuthenticated }) {
     <PageShell layer="brand" className="login-page">
       <div className="login-orbit login-orbit-left" aria-hidden="true" />
       <div className="login-orbit login-orbit-right" aria-hidden="true" />
+      <div className="login-confetti" aria-hidden="true">
+        <img src="/icons/06%20%E2%80%94%20Confeti.svg" alt="" />
+      </div>
       <div className="card login-card">
-        <img className="login-emblem" src="/icons/carnaval-logo.webp" alt="" width="424" height="424" />
+        <img className="login-emblem" src="/icons/logo.webp" alt="" width="500" height="500" />
         <h1>Carnavales</h1>
         {sessionExpiredNotice && step === "credentials" && (
           <div className="login-expired-notice" role="status">

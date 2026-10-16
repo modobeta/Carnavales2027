@@ -7,7 +7,7 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   const css = readFileSync(tokensPath, "utf8");
 
   it("define superficies, textos, bordes y acentos en :root", () => {
-    expect(css).toContain("--surface-base: var(--palette-page);");
+    expect(css).toContain("--surface-base: linear-gradient(180deg, var(--palette-page) 0%, var(--palette-page-alt) 100%);");
     expect(css).toContain("--surface-card: var(--palette-card);");
     expect(css).toContain("--text-primary: #ffffff;");
     expect(css).toContain("--text-secondary: #eee4f2;");
@@ -16,21 +16,21 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   });
 
   it("expone la paleta Carnaval como unica fuente de color", () => {
-    expect(css).toContain("--palette-page: #24102b;");
-    expect(css).toContain("--palette-card: #351744;");
-    expect(css).toContain("--palette-panel: #452252;");
-    expect(css).toContain("--palette-input: #2a1534;");
-    expect(css).toContain("--palette-highlight: #e0b544;");
-    expect(css).toContain("--palette-confirm: #34d22b;");
-    expect(css).toContain("--palette-confirm-ink: #0b1f1c;");
-    expect(css).toContain("--palette-cancel: #e30808;");
-    expect(css).toContain("--palette-action: #3b82f6;");
-    expect(css).toContain("--palette-action-fill: #2563eb;");
-    expect(css).toContain("--palette-modal: #56bfb4;");
-    expect(css).toContain("--palette-modal-ink: #0b1f1c;");
+    expect(css).toContain("--palette-page: #036B8B;");
+    expect(css).toContain("--palette-card: #5e46be;");
+    expect(css).toContain("--palette-panel: #243A53;");
+    expect(css).toContain("--palette-input: #243A53;");
+    expect(css).toContain("--palette-highlight: #E0B544;");
+    expect(css).toContain("--palette-confirm: #2BC100;");
+    expect(css).toContain("--palette-confirm-ink: #0B2600;");
+    expect(css).toContain("--palette-cancel: #DC2626;");
+    expect(css).toContain("--palette-action: #01B2D4;");
+    expect(css).toContain("--palette-action-fill: #d22b8f;");
+    expect(css).toContain("--palette-modal: #A500B5;");
+    expect(css).toContain("--palette-modal-ink: #ffffff;");
     expect(css).toContain("--text-on-highlight: var(--palette-highlight-ink);");
     expect(css).toContain("--text-on-modal: #ffffff;");
-    expect(css).toContain("--surface-modal: var(--palette-card);");
+    expect(css).toContain("--surface-modal: var(--palette-panel);");
   });
 
   it("mantiene tinta oscura sobre los fondos claros de la paleta", () => {
