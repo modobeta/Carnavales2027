@@ -231,96 +231,13 @@ describe("AdminHomePage (Rediseño a Mis eventos)", () => {
   });
 });
 
-describe("AdminHomePage en modo ADMIN_EVENT (spec 039 T7)", () => {
-  const eventAdmin = (roles = []) => ({ status: "authenticated", user: { id: "u1", name: "Admin evento" }, roles, adminEvents: [{ id: "e1" }] });
-  const calledPaths = () => apiRequest.mock.calls.map(([path]) => path);
-
-  afterEach(() => {
-    cleanup();
-    vi.clearAllMocks();
-    window.localStorage.clear();
-    window.location.hash = "";
-  });
-
-  it("no ofrece funciones globales ni consulta endpoints reservados a ADMIN", async () => {
+describe("AdminHomePage global", () => {
+  it("ADMIN conserva funciones globales aunque tenga adminEvents", async () => {
     mockApi();
-    render(<AdminHomePage session={eventAdmin()} />);
-    const card = await screen.findByRole("article", { name: "Test-Prueba-01" });
-    expect(screen.queryByRole("button", { name: /Crear evento/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Administrar evento/ })).not.toBeInTheDocument();
-    await waitFor(() => expect(within(card).getByText("2 jornadas")).toBeInTheDocument());
-    expect(within(card).getByText("3 comparsas")).toBeInTheDocument();
-    expect(within(card).queryByText(/jurado/)).not.toBeInTheDocument();
-    expect(within(card).queryByText(/rubro/)).not.toBeInTheDocument();
-    expect(calledPaths()).not.toContain("/api/v1/judges");
-    expect(calledPaths().some((path) => path.endsWith("/rubrics"))).toBe(false);
-  });
-
-  it("sin roles propios no ofrece acciones por evento", async () => {
-    mockApi();
-    render(<AdminHomePage session={eventAdmin()} />);
-    await screen.findByRole("article", { name: "Carnaval cerrado" });
-    expect(screen.queryByRole("button", { name: /^Acciones de/ })).not.toBeInTheDocument();
-  });
-
-  it("las acciones por evento dependen solo de los roles propios", async () => {
-    mockApi();
-    render(<AdminHomePage session={eventAdmin(["VEEDOR", "SCRUTINEER"])} />);
-    await screen.findByRole("article", { name: "Carnaval cerrado" });
-    expect(screen.queryByRole("button", { name: "Acciones de Test-Prueba-01" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Acciones de Carnavales Goyanos 2027 – Evento Integral TEST" }));
-    let menu = screen.getByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ir a supervisión"]);
-    fireEvent.keyDown(document, { key: "Escape" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Acciones de Carnaval cerrado" }));
-    menu = screen.getByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Ver resultados"]);
-  });
-
-  it("el estado vacío informa sin invitar a crear", async () => {
-    mockApi({ events: [] });
-    render(<AdminHomePage session={eventAdmin()} />);
-    expect(await screen.findByRole("heading", { name: "No hay eventos activos asignados" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Crear/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Creá/)).not.toBeInTheDocument();
-  });
-
-  it("un único evento asignado inactivo es solo consulta y no se comunica como falta de permiso", async () => {
-    mockApi({ events: [{ id: "e9", name: "Asignado inactivo", status: "CONFIGURING", active: false }] });
-    render(<AdminHomePage session={eventAdmin()} />);
-    expect(await screen.findByRole("heading", { name: "No hay eventos activos asignados" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Ver eventos inactivos" }));
-    const card = await screen.findByRole("article", { name: "Asignado inactivo" });
-    expect(within(card).getByText("Inactivo")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Acciones de/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/permiso/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/reactivar/i)).not.toBeInTheDocument();
-  });
-
-  it("un fallo al cargar eventos se informa como error, no como falta de permiso", async () => {
-    apiRequest.mockRejectedValue(new Error("timeout"));
-    render(<AdminHomePage session={eventAdmin()} />);
-    expect(await screen.findByText("No se pudieron cargar los eventos.")).toBeInTheDocument();
-    expect(screen.queryByText(/permiso/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Crear/ })).not.toBeInTheDocument();
-  });
-
-  it("con el contexto de eventos, un fallo de carga no se muestra como lista vacía", async () => {
-    apiRequest.mockRejectedValue(new Error("timeout"));
-    const session = eventAdmin();
-    render(<AdminEventProvider session={session} eventAdminArea><AdminHomePage session={session} /></AdminEventProvider>);
-    expect(await screen.findByText("No se pudieron cargar los eventos.")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "No hay eventos activos asignados" })).not.toBeInTheDocument();
-  });
-
-  it("ADMIN con asignaciones conserva todas sus funciones", async () => {
-    mockApi();
-    render(<AdminHomePage session={{ ...eventAdmin(["ADMIN"]) }} />);
+    render(<AdminHomePage session={{ status: "authenticated", roles: ["ADMIN"], adminEvents: [{ id: "e1" }] }} />);
     await screen.findByRole("article", { name: "Test-Prueba-01" });
     expect(screen.getByRole("button", { name: /Crear evento/ })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Administrar evento/ })).toHaveLength(3);
-    await waitFor(() => expect(calledPaths()).toContain("/api/v1/judges"));
+    await waitFor(() => expect(apiRequest.mock.calls.map(([path]) => path)).toContain("/api/v1/judges"));
   });
 });

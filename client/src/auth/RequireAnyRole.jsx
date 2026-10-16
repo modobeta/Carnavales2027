@@ -51,7 +51,7 @@ export function RequireAnyRole({
     );
   }
 
-  // isAllowed permite guardias por capacidad (p. ej. ADMIN_EVENT) conservando el orden de estados previo.
+  // isAllowed permite guardias específicas conservando el orden de estados previo.
   const hasRole = typeof isAllowed === "function"
     ? isAllowed(session)
     : Array.isArray(allowedRoles) && allowedRoles.some((role) => session.roles?.includes(role));

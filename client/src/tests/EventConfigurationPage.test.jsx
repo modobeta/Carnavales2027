@@ -95,6 +95,8 @@ describe("EventConfigurationPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Editar jornada Noche 1" }));
     fireEvent.change(screen.getByLabelText("Nombre de jornada"), { target: { value: "Noche 1 Editada" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar jornada" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Confirmar cambios de jornada" }))
+      .getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/nights/n1",

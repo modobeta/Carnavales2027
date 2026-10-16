@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { hasEventAdminAccess } from "../auth/event-admin-access.js";
+import { hasAdminRole } from "../auth/admin-role-access.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
 
@@ -51,11 +51,10 @@ test("el resolvedor consulta asignaciones y roles vigentes en PostgreSQL", {
       [assignedAdminId, eventId, inactiveAdminId],
     );
 
-    assert.equal(await hasEventAdminAccess({ userId: globalAdminId, eventId, db: client }), true);
-    assert.equal(await hasEventAdminAccess({ userId: assignedAdminId, eventId, db: client }), true);
-    assert.equal(await hasEventAdminAccess({ userId: assignedAdminId, eventId: otherEventId, db: client }), false);
-    assert.equal(await hasEventAdminAccess({ userId: inactiveAdminId, eventId, db: client }), false);
-    assert.equal(await hasEventAdminAccess({ userId: randomUUID(), eventId, db: client }), false);
+    assert.equal(await hasAdminRole({ userId: globalAdminId, db: client }), true);
+    assert.equal(await hasAdminRole({ userId: assignedAdminId, db: client }), false);
+    assert.equal(await hasAdminRole({ userId: inactiveAdminId, db: client }), false);
+    assert.equal(await hasAdminRole({ userId: randomUUID(), db: client }), false);
   } finally {
     await client.query("ROLLBACK");
     client.release();

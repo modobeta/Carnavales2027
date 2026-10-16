@@ -97,7 +97,7 @@ export function sendKnownError(response, error) {
     response.status(422).json({ code: error.message });
     return true;
   }
-  if (error.message === "EVENT_LOCKED" || error.message === "LAST_ADMIN_REQUIRED") {
+  if (error.message === "EVENT_LOCKED" || error.message === "LAST_ADMIN_REQUIRED" || error.message === "PRIMARY_ADMIN_PROTECTED") {
     response.status(409).json({ code: error.message });
     return true;
   }

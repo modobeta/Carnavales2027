@@ -21,10 +21,8 @@ function storeEventId(eventId, key) {
   }
 }
 
-// eventAdminArea: la pantalla actual es del área de ADMIN_EVENT (Inicio y preparación); fuera de ella cada rol conserva su catálogo.
-export function AdminEventProvider({ children, session, judgeArea = false, eventAdminArea = false }) {
-  // ADMIN_EVENT guarda su selección aparte para que otro rol de la misma cuenta no la reemplace (spec 040, D3).
-  const storageArea = judgeArea ? "judge" : eventAdminArea ? "event-admin" : "operational";
+export function AdminEventProvider({ children, session, judgeArea = false }) {
+  const storageArea = judgeArea ? "judge" : "operational";
   const storageKey = session?.user?.id ? `carnavales.event.${session.user.id}.${storageArea}` : STORAGE_KEY;
   const [events, setEvents] = useState([]);
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
@@ -38,22 +36,16 @@ export function AdminEventProvider({ children, session, judgeArea = false, event
     const requestId = ++requestSequence.current;
     setLoading(true);
     try {
-      const loaded = await loadAvailableEvents(session?.roles, judgeArea, eventAdminArea ? session?.adminEvents : []);
+      const loaded = await loadAvailableEvents(session?.roles, judgeArea);
       const all = Array.isArray(loaded) ? loaded : [];
       const items = all.filter((event) => event.active !== false);
       if (requestId !== requestSequence.current) return [];
       const currentId = activeEventIdRef.current;
-      // Un inactivo guardado solo se readmite si /me lo informa como asignado (spec 040, D4).
-      const readmitted = eventAdminArea && currentId && !items.some((event) => event.id === currentId)
-        && (session?.adminEvents ?? []).some((event) => event.id === currentId)
-        ? all.find((event) => event.id === currentId) ?? null
-        : null;
-      const visible = readmitted ? [...items, readmitted] : items;
+      const visible = items;
       setEvents(visible);
       setError("");
       const storedEvent = visible.find((event) => event.id === currentId);
-      // Para ADMIN_EVENT, una selección guardada inválida no cae al primer evento (CA-2.2).
-      const fallbackId = eventAdminArea && currentId ? "" : items[0]?.id ?? "";
+      const fallbackId = items[0]?.id ?? "";
       const nextId = storedEvent?.id ?? fallbackId;
       if (nextId !== currentId) setActiveNightIdState("");
       activeEventIdRef.current = nextId;
@@ -80,8 +72,6 @@ export function AdminEventProvider({ children, session, judgeArea = false, event
   const setActiveEventId = (eventId) => {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
-    // Un inactivo readmitido solo se ofrece mientras está en contexto (spec 040, CA-6.2/CA-6.5).
-    if (eventAdminArea) setEvents((current) => current.filter((event) => event.active !== false || event.id === nextId));
     setActiveEventIdState(nextId);
     activeEventIdRef.current = nextId;
     setActiveNightIdState("");

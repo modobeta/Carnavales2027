@@ -123,7 +123,6 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
     });
     assert.equal(missingRole.status, 200);
     const missingRolePayload = await missingRole.json();
-    missingRolePayload.adminEvents.sort((left, right) => left.name.localeCompare(right.name));
     assert.deepEqual(missingRolePayload, {
       user: {
         id: userId,
@@ -132,10 +131,7 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
       },
       roles: [],
       judgeProfile: null,
-      adminEvents: [
-        { id: assignedEventId, name: "Assigned event", status: "CONFIGURING", active: true },
-        { id: inactiveEventId, name: "Inactive assigned event", status: "CONFIGURING", active: false },
-      ],
+      adminEvents: [],
     });
 
     const spoofedCapability = await fetch(
@@ -144,7 +140,6 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
     );
     assert.equal(spoofedCapability.status, 200);
     const spoofedCapabilityPayload = await spoofedCapability.json();
-    spoofedCapabilityPayload.adminEvents.sort((left, right) => left.name.localeCompare(right.name));
     assert.deepEqual(spoofedCapabilityPayload.adminEvents, missingRolePayload.adminEvents);
 
     const withoutAssignments = await fetch(`${baseUrl}/api/v1/me`, {
@@ -186,11 +181,11 @@ test("GET /api/v1/me exige sesión 2FA y devuelve roles sin exigir ADMIN", {
         }
         return originalQuery.apply(this, args);
       };
-      const failedCapability = await fetch(`${baseUrl}/api/v1/me`, {
+      const emptyCapability = await fetch(`${baseUrl}/api/v1/me`, {
         headers: { "x-test-session": "userWithoutAdmin" },
       });
-      assert.equal(failedCapability.status, 500);
-      assert.deepEqual(await failedCapability.json(), { code: "INTERNAL_ERROR" });
+      assert.equal(emptyCapability.status, 200);
+      assert.deepEqual((await emptyCapability.json()).adminEvents, []);
     } finally {
       pool.query = originalQuery;
     }

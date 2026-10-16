@@ -10,7 +10,6 @@ import { useUnsavedChanges, useFormDirty } from "../hooks/useUnsavedChanges.js";
 import { apiRequest } from "../api/http.js";
 import { EventReadinessPanel } from "../features/EventReadinessPanel.jsx";
 import { NightForm, nightKindLabel } from "../features/NightForm.jsx";
-import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 
 const EMPTY_LIST = [];
 const errorMessages = {
@@ -43,7 +42,6 @@ export function EventConfigurationPage({
   onBack,
   onCompetencia,
   onEventChange,
-  eventAdminMode = false,
 }) {
   const [currentEvent, setCurrentEvent] = useState(event);
   const [nights, setNights] = useState(initialNights);
@@ -58,20 +56,19 @@ export function EventConfigurationPage({
   const [votingStatuses, setVotingStatuses] = useState({});
   const [renameTarget, setRenameTarget] = useState(null);
   const [createNightTarget, setCreateNightTarget] = useState(null);
+  const [editNightTarget, setEditNightTarget] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const renameTriggerRef = useRef(null);
   const drawerTriggerRef = useRef(null);
   const deleteNightTriggerRef = useRef(null);
   const nightsSectionRef = useRef(null);
   const locked = currentEvent.status !== "CONFIGURING";
-  // Modo ADMIN_EVENT (spec 040): solo lectura hasta que T6–T9 habiliten cada operación;
-  // sin «Finalizar jornada» ni estado de votación (D-P2), y un evento inactivo es solo consulta.
-  const canMutate = !locked && !eventAdminMode;
-  const showNightActions = !eventAdminMode && (!locked || currentEvent.status === "OPEN");
-  // ADMIN_EVENT renombra solo eventos asignados activos en preparación (la API revalida).
-  const canRenameEvent = !locked && (!eventAdminMode || currentEvent.active !== false);
+  const canMutate = !locked;
+  const showNightActions = !locked || currentEvent.status === "OPEN";
+  const canRenameEvent = !locked;
   const canCreateNight = canRenameEvent;
-  const handleRejection = useEventAdminRejection(eventAdminMode);
+  const canEditNight = canRenameEvent;
+  const canDeleteNight = () => !locked;
   const { notify } = useNotify();
   const { dirty, markDirty } = useFormDirty(drawerMode);
   const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
@@ -79,7 +76,7 @@ export function EventConfigurationPage({
   useEffect(() => setNights(initialNights), [initialNights]);
 
   useEffect(() => {
-    if (currentEvent.status !== "OPEN" || eventAdminMode) {
+    if (currentEvent.status !== "OPEN") {
       setVotingStatuses({});
       return undefined;
     }
@@ -93,7 +90,7 @@ export function EventConfigurationPage({
       }
     })).then((entries) => { if (current) setVotingStatuses(Object.fromEntries(entries)); });
     return () => { current = false; };
-  }, [currentEvent.id, currentEvent.status, nights, eventAdminMode]);
+  }, [currentEvent.id, currentEvent.status, nights]);
 
   const save = async (path, body, { form, method = "POST", onSaved, reset = method === "POST" } = {}) => {
     try {
@@ -107,11 +104,14 @@ export function EventConfigurationPage({
       return saved;
     } catch (error) {
       // Un error sin código conocido (p. ej. de red) no muestra textos técnicos (spec 040, T6 obs. 2).
-      const apiMessage = error?.name === "ApiError" && error.message !== error.code ? error.message : null;
+      const apiMessage = error?.name === "ApiError"
+        && error.code !== "NETWORK_ERROR"
+        && error.message !== error.code
+        ? error.message
+        : null;
       const detail = errorMessages[error.code] ?? apiMessage ?? "No se pudo guardar. Reintentá.";
       setMessage(detail);
       notify({ message: detail, type: "error" });
-      void handleRejection(error, currentEvent.id);
       return null;
     }
   };
@@ -143,16 +143,29 @@ export function EventConfigurationPage({
     setSavingNight(true);
     try {
       if (drawerMode?.mode === "edit" && editingNight) {
-        const saved = await save(
-          `/api/v1/nights/${editingNight.id}`,
-          body,
-          { method: "PATCH", reset: false, onSaved: (entry) => setNights((current) => current.map((n) => n.id === entry.id ? { ...n, ...entry } : n)) },
-        );
-        if (saved) closeDrawer();
+        // E-1 (spec 040): los cambios sensibles requieren confirmación antes del PATCH.
+        setEditNightTarget({ nightId: editingNight.id, body });
       } else {
         // O-9 / E-1 (spec 040): el alta se confirma en un modal antes de la solicitud.
         setCreateNightTarget(body);
       }
+    } finally {
+      setSavingNight(false);
+    }
+  };
+
+  const confirmEditNight = async () => {
+    if (!editNightTarget || savingNight) return;
+    const { nightId, body } = editNightTarget;
+    setSavingNight(true);
+    try {
+      const saved = await save(
+        `/api/v1/nights/${nightId}`,
+        body,
+        { method: "PATCH", reset: false, onSaved: (entry) => setNights((current) => current.map((n) => n.id === entry.id ? { ...n, ...entry } : n)) },
+      );
+      setEditNightTarget(null);
+      if (saved) closeDrawer();
     } finally {
       setSavingNight(false);
     }
@@ -243,27 +256,21 @@ export function EventConfigurationPage({
         </>}
       />
       <EventStatusBanner status={currentEvent.status} />
-      {eventAdminMode && currentEvent.active === false && <p role="status" className="feedback">Evento inactivo: solo consulta.</p>}
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
-        {eventAdminMode && !canRenameEvent ? (
-          <p className="config-card"><strong>Nombre del evento:</strong> {currentEvent.name ?? "—"}</p>
-        ) : (
-          <form
-            className="config-card"
-            onSubmit={(formEvent) => {
-              formEvent.preventDefault();
-              // E-1 (spec 040): renombrar pide confirmación explícita antes de la solicitud.
-              renameTriggerRef.current = formEvent.nativeEvent?.submitter ?? null;
-              setRenameTarget(String(new FormData(formEvent.currentTarget).get("name") ?? ""));
-            }}
-          >
-            <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
-            <button disabled={locked}>Guardar evento</button>
-          </form>
-        )}
+        <form
+          className="config-card"
+          onSubmit={(formEvent) => {
+            formEvent.preventDefault();
+            renameTriggerRef.current = formEvent.nativeEvent?.submitter ?? null;
+            setRenameTarget(String(new FormData(formEvent.currentTarget).get("name") ?? ""));
+          }}
+        >
+          <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
+          <button disabled={locked}>Guardar evento</button>
+        </form>
       </section>
 
       <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
@@ -280,7 +287,7 @@ export function EventConfigurationPage({
                   <th scope="col">Jornada</th>
                   <th scope="col">Fecha</th>
                   <th scope="col">Tipo</th>
-                  {showNightActions && <th scope="col">Acción</th>}
+                  {(showNightActions || canEditNight) && <th scope="col">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -290,10 +297,10 @@ export function EventConfigurationPage({
                     <td><strong>{night.name}</strong>{night.status === "CLOSED" && <small> · Finalizada</small>}</td>
                     <td>{formatDate(night.eventDate)}</td>
                     <td>{nightKindLabel(night.kind)}</td>
-                    {showNightActions && (
+                    {(showNightActions || canEditNight) && (
                       <td>
-                        {!locked && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
-                        {!locked && <button
+                        {canEditNight && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
+                        {canDeleteNight(night) && <button
                           className="secondary danger-action"
                           type="button"
                           aria-label={`Eliminar jornada ${night.name}`}
@@ -320,7 +327,11 @@ export function EventConfigurationPage({
       </section>
 
       <EntityDrawer
-        isOpen={drawerMode !== null && (canMutate || (drawerMode.mode === "create" && canCreateNight))}
+        isOpen={drawerMode !== null && (
+          canMutate
+          || (drawerMode.mode === "create" && canCreateNight)
+          || (drawerMode.mode === "edit" && canEditNight)
+        )}
         onClose={requestCloseDrawer}
         title={drawerMode?.mode === "edit" ? `Editar jornada${editingNight ? ` — ${editingNight.name}` : ""}` : "Nueva jornada"}
         description={drawerMode?.mode === "edit" ? "Modificá los datos de la jornada." : "Completá los datos de la jornada."}
@@ -371,6 +382,17 @@ export function EventConfigurationPage({
       />
 
       <ConfirmDialog
+        isOpen={editNightTarget !== null}
+        onClose={() => { if (!savingNight) setEditNightTarget(null); }}
+        onConfirm={() => void confirmEditNight()}
+        title="Confirmar cambios de jornada"
+        description={`Se guardarán los cambios de «${editNightTarget?.body?.name ?? "jornada"}».`}
+        confirmLabel="Guardar cambios"
+        cancelLabel="Cancelar"
+        confirming={savingNight}
+      />
+
+      <ConfirmDialog
         isOpen={renameTarget !== null}
         onClose={() => { if (!renaming) setRenameTarget(null); }}
         onConfirm={async () => {
@@ -402,7 +424,6 @@ export function EventConfigurationPage({
       <EventReadinessPanel
         event={currentEvent}
         locked={locked}
-        eventAdminMode={eventAdminMode}
         refreshKey={readinessRevision}
           onOpened={(openedEvent) => {
             setCurrentEvent((current) => ({ ...current, ...openedEvent }));

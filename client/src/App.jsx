@@ -1,6 +1,5 @@
 import { RequireAdmin } from "./auth/RequireAdmin.jsx";
 import { RequireAdminArea } from "./auth/RequireAdminArea.jsx";
-import { hasEventAdminCapability } from "./auth/role-routes.js";
 import { RequireRole } from "./auth/RequireRole.jsx";
 import { RequireResultsRole } from "./auth/RequireResultsRole.jsx";
 import { RequirePenaltiesRole } from "./auth/RequirePenaltiesRole.jsx";
@@ -38,7 +37,7 @@ function ProtectedShell({ session, children }) {
   return <><AppNavigation session={session} />{children}</>;
 }
 
-function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "", eventAdminMode = false, ownRoles = [] }) {
+function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -65,7 +64,7 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
         </div>
       </main>
     );
-    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} initialTab={initialTab} eventAdminMode={eventAdminMode} ownRoles={ownRoles} onBack={() => { window.location.hash = "#/admin/events"; }} />;
+    return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => { window.location.hash = "#/admin/events"; }} />;
   }
 
   if (loading) return <main className="container"><p>Cargando eventos...</p></main>;
@@ -81,10 +80,8 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
     </main>
   );
 
-  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} eventAdminMode={eventAdminMode} ownRoles={ownRoles} onBack={() => setSelectedEvent(null)} />;
+  return <AdminCompetenciaPage event={selectedEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => setSelectedEvent(null)} />;
 }
-
-const EVENT_ADMIN_ROUTES = ["#/admin/home", "#/admin/events", "#/admin/competencia"];
 
 function RoleArea({ session, role, admin = false, adminArea = false, children }) {
   const content = adminArea
@@ -151,13 +148,13 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} adminArea><AdminHomePage session={session} /></RoleArea>;
   }
   if (route === "#/admin/events") {
-    return <RoleArea session={session} admin><AdminEventsPage eventAdminMode={hasEventAdminCapability(session)} /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminEventsPage /></RoleArea>;
   }
   if (route === "#/admin/competencia") {
     const params = new URLSearchParams(query);
     const initialStep = params.get("step") ?? "participantes";
     const initialTab = params.get("tab") ?? "";
-    return <RoleArea session={session} admin><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} eventAdminMode={hasEventAdminCapability(session)} ownRoles={session.roles ?? []} /></RoleArea>;
+    return <RoleArea session={session} adminArea><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
     return <RoleArea session={session} admin><AdminJudgesPage /></RoleArea>;
@@ -211,9 +208,7 @@ export default function App({ session: providedSession }) {
     </div>
   );
   if (session.status !== "authenticated") return content;
-  // El catálogo de ADMIN_EVENT se usa en sus pantallas (Inicio y preparación); el resto conserva el de cada rol (N4 de la spec 039, D3 de la 040).
-  const eventAdminArea = EVENT_ADMIN_ROUTES.includes(route) && hasEventAdminCapability(session);
   const judgeArea = path.startsWith("#/judge")
-    || (session.roles?.length === 1 && session.roles[0] === "JUDGE" && !eventAdminArea);
-  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}:${eventAdminArea}`} session={session} judgeArea={judgeArea} eventAdminArea={eventAdminArea}>{content}</AdminEventProvider>;
+    || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{content}</AdminEventProvider>;
 }

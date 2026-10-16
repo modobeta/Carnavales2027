@@ -11,18 +11,9 @@ export const ROLE_DEFAULT_ROUTES = {
   ESCRIBANO: "#/admin/results",
 };
 
-export function hasEventAdminCapability(session) {
-  const roles = Array.isArray(session?.roles) ? session.roles : [];
-  return session?.status === "authenticated"
-    && !roles.includes("ADMIN")
-    && Array.isArray(session.adminEvents)
-    && session.adminEvents.length > 0;
-}
-
 export function canAccessAdminArea(session) {
   const roles = Array.isArray(session?.roles) ? session.roles : [];
-  return session?.status === "authenticated"
-    && (roles.includes("ADMIN") || hasEventAdminCapability(session));
+  return session?.status === "authenticated" && roles.includes("ADMIN");
 }
 
 /**

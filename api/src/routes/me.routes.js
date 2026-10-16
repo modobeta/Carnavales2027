@@ -2,7 +2,6 @@ import { Router } from "express";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { getPool } from "../db/pool.js";
 import { getJudgeProfileByUserId } from "../modules/judges/judge-service.js";
-import { listEvents } from "../modules/events/event-service.js";
 
 export function createMeRouter({ requireSession }) {
   const router = Router();
@@ -21,7 +20,7 @@ export function createMeRouter({ requireSession }) {
         },
         roles: rows.map((row) => row.role_code),
         judgeProfile: await getJudgeProfileByUserId({ userId: request.user.id }),
-        adminEvents: await listEvents({ userId: request.user.id }),
+        adminEvents: [],
       });
     } catch (error) {
       next(error);

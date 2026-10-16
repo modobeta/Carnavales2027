@@ -1,6 +1,6 @@
 import express, { Router } from "express";
 import { auditEvent } from "../audit/audit-service.js";
-import { hasEventAdminAccess } from "../auth/event-admin-access.js";
+import { hasAdminRole } from "../auth/admin-role-access.js";
 import { requireAdmin } from "../auth/require-admin.js";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { getPool } from "../db/pool.js";
@@ -88,12 +88,7 @@ export function createEventsRouter({ requireSession }) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
         return response.status(400).json({ code: "VALIDATION_ERROR" });
       }
-      const { rows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      request.roles = rows.map((row) => row.role_code);
-      if (!request.roles.includes("ADMIN") && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
         return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
       const nights = await listNights({ eventId });
@@ -112,35 +107,12 @@ export function createEventsRouter({ requireSession }) {
   }, createWriteHandler(
     "EVENT_UPDATED",
     "carnival_event",
-    (client, request, role) => updateEvent({
+    (client, request) => updateEvent({
       client,
       eventId: request.params.eventId,
-      ...(role === "ADMIN_EVENT" ? { name: request.body?.name } : request.body),
+      ...request.body,
     }),
-    async (client, request) => {
-      const eventId = request.params.eventId;
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      const roles = roleRows.map((row) => row.role_code);
-      request.roles = roles;
-      if (roles.includes("ADMIN")) return "ADMIN";
-      if (Object.prototype.hasOwnProperty.call(request.body ?? {}, "active")) return false;
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.post("/events/:eventId/nights", requireSession, requireTwoFactor, (request, response, next) => {
@@ -161,29 +133,7 @@ export function createEventsRouter({ requireSession }) {
       });
       return night;
     },
-    async (client, request) => {
-      const eventId = request.params.eventId;
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      const roles = roleRows.map((row) => row.role_code);
-      request.roles = roles;
-      if (roles.includes("ADMIN")) return "ADMIN";
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.patch("/nights/:nightId", requireSession, requireTwoFactor, (request, response, next) => {
@@ -200,28 +150,7 @@ export function createEventsRouter({ requireSession }) {
       actorUserId: request.user.id,
       nightId: request.params.nightId,
     }),
-    async (client, request) => {
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      const roles = roleRows.map((row) => row.role_code);
-      request.roles = roles;
-      if (roles.includes("ADMIN")) return "ADMIN";
-      const { rowCount } = await client.query(
-        `SELECT night.id
-           FROM night
-           JOIN carnival_event AS event ON event.id = night.event_id
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE night.id = $1 AND event.active = TRUE
-          FOR UPDATE OF night, event, assignment`,
-        [request.params.nightId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.delete("/nights/:nightId", requireSession, requireTwoFactor, async (request, response, next) => {
@@ -234,43 +163,10 @@ export function createEventsRouter({ requireSession }) {
     try {
       await client.query("BEGIN");
       transactionOpen = true;
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      const roles = roleRows.map((row) => row.role_code);
-      request.roles = roles;
-
-      if (!roles.includes("ADMIN")) {
-        const { rows: owners } = await client.query(
-          `SELECT night.id, night.event_id AS "eventId", event.active AS "eventActive"
-             FROM night
-             JOIN carnival_event AS event ON event.id = night.event_id
-            WHERE night.id = $1
-            FOR UPDATE OF night, event`,
-          [request.params.nightId],
-        );
-        if (!owners[0]) {
-          await client.query("ROLLBACK");
-          transactionOpen = false;
-          return response.status(404).json({ code: "NIGHT_NOT_FOUND" });
-        }
-        if (!owners[0].eventActive) {
-          await client.query("ROLLBACK");
-          transactionOpen = false;
-          return response.status(403).json({ code: "ADMIN_REQUIRED" });
-        }
-        const { rowCount } = await client.query(
-          `SELECT 1 FROM admin_event_assignment
-            WHERE user_id = $1 AND event_id = $2 AND is_active = TRUE
-            FOR UPDATE`,
-          [request.user.id, owners[0].eventId],
-        );
-        if (rowCount !== 1) {
-          await client.query("ROLLBACK");
-          transactionOpen = false;
-          return response.status(403).json({ code: "ADMIN_REQUIRED" });
-        }
+      if (!await hasAdminRole({ userId: request.user.id, db: client })) {
+        await client.query("ROLLBACK");
+        transactionOpen = false;
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
 
       const deleted = await deleteNight({
@@ -318,17 +214,10 @@ export function createEventsRouter({ requireSession }) {
 
   router.get("/events", requireSession, requireTwoFactor, async (request, response, next) => {
     try {
-      const { rows: roleRows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) {
-        return response.json(await listEvents());
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
+        return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
-
-      const events = await listEvents({ userId: request.user.id });
-      if (events.length === 0) return response.status(403).json({ code: "ADMIN_REQUIRED" });
-      return response.json(events);
+      return response.json(await listEvents());
     } catch (error) {
       return next(error);
     }
@@ -340,12 +229,7 @@ export function createEventsRouter({ requireSession }) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
         return response.status(400).json({ code: "VALIDATION_ERROR" });
       }
-      const { rows: roleRows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (!roleRows.some((row) => row.role_code === "ADMIN")
-          && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
         return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
       const event = await getEvent({ eventId });
@@ -362,12 +246,7 @@ export function createEventsRouter({ requireSession }) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
         return response.status(400).json({ code: "VALIDATION_ERROR" });
       }
-      const { rows: roleRows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (!roleRows.some((row) => row.role_code === "ADMIN")
-          && !await hasEventAdminAccess({ userId: request.user.id, eventId, db: getPool() })) {
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
         return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
       return response.json(await getReadiness({ eventId }));
@@ -379,13 +258,7 @@ export function createEventsRouter({ requireSession }) {
 
   router.get("/events/:eventId/categories", requireSession, requireTwoFactor, async (request, response, next) => {
     try {
-      const { rows: roleRows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      const roles = roleRows.map((row) => row.role_code);
-      if (!roles.includes("ADMIN")
-          && !await hasEventAdminAccess({ userId: request.user.id, eventId: request.params.eventId, db: getPool() })) {
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
         return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
       return response.json(await listCategories({
@@ -405,72 +278,19 @@ export function createEventsRouter({ requireSession }) {
       if (!body.code) body.code = generateCode(body.name || "");
       return createCategory({ ...body, client, eventId: request.params.eventId });
     },
-    async (client, request) => {
-      const eventId = request.params.eventId;
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.patch("/categories/:categoryId", requireSession, requireTwoFactor, createWriteHandler(
     "CATEGORY_UPDATED",
     "event_category",
     (client, request) => updateCategory({ ...request.body, client, categoryId: request.params.categoryId }),
-    async (client, request) => {
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-      const { categoryId } = request.params;
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) return false;
-      // Keep the persisted owner stable until the update and its audit commit.
-      const { rows: owners } = await client.query(
-        'SELECT event_id AS "eventId" FROM event_category WHERE id = $1 FOR UPDATE',
-        [categoryId],
-      );
-      if (!owners[0]) return false;
-      const { eventId } = owners[0];
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.get("/events/:eventId/troupes", requireSession, requireTwoFactor, async (request, response, next) => {
     try {
-      const { rows: roleRows } = await getPool().query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (!roleRows.some((row) => row.role_code === "ADMIN")
-          && !await hasEventAdminAccess({ userId: request.user.id, eventId: request.params.eventId, db: getPool() })) {
+      if (!await hasAdminRole({ userId: request.user.id, db: getPool() })) {
         return response.status(403).json({ code: "ADMIN_REQUIRED" });
       }
       return response.json(await listTroupes({ eventId: request.params.eventId }));
@@ -488,62 +308,14 @@ export function createEventsRouter({ requireSession }) {
       eventId: request.params.eventId,
       actorUserId: request.user.id,
     }),
-    async (client, request) => {
-      const eventId = request.params.eventId;
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.patch("/troupes/:troupeId", requireSession, requireTwoFactor, createWriteHandler(
     "TROUPE_UPDATED",
     "event_troupe",
     (client, request) => updateTroupe({ ...request.body, client, troupeId: request.params.troupeId }),
-    async (client, request) => {
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-      const { troupeId } = request.params;
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
-      // Keep the persisted owner stable until the update and its audit commit.
-      const { rows: owners } = await client.query(
-        'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
-        [troupeId],
-      );
-      if (!owners[0]) return false;
-      const { eventId } = owners[0];
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   router.put(
@@ -559,70 +331,14 @@ export function createEventsRouter({ requireSession }) {
         troupeId: request.params.troupeId,
         data: Buffer.isBuffer(request.body) ? request.body : null,
         mime: request.get("content-type") || null,
-      }), async (client, request) => {
-        const { rows: roleRows } = await client.query(
-          "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-          [request.user.id],
-        );
-        if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-        const { troupeId } = request.params;
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
-        // Keep the persisted owner stable until the logo and its audit commit.
-        const { rows: owners } = await client.query(
-          'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
-          [troupeId],
-        );
-        if (!owners[0]) return false;
-        const { eventId } = owners[0];
-        if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-        const { rowCount } = await client.query(
-          `SELECT event.id
-             FROM carnival_event AS event
-             JOIN admin_event_assignment AS assignment
-               ON assignment.event_id = event.id
-              AND assignment.user_id = $2
-              AND assignment.is_active = TRUE
-            WHERE event.id = $1 AND event.active = TRUE
-            FOR UPDATE OF event, assignment`,
-          [eventId, request.user.id],
-        );
-        return rowCount === 1 ? "ADMIN_EVENT" : false;
-      }),
+      }), async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false),
   );
 
   router.delete("/troupes/:troupeId/logo", requireSession, requireTwoFactor, createWriteHandler(
     "TROUPE_LOGO_DELETED",
     "event_troupe",
     (client, request) => deleteTroupeLogo({ client, troupeId: request.params.troupeId }),
-    async (client, request) => {
-      const { rows: roleRows } = await client.query(
-        "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
-        [request.user.id],
-      );
-      if (roleRows.some((row) => row.role_code === "ADMIN")) return "ADMIN";
-      const { troupeId } = request.params;
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(troupeId)) return false;
-      // Keep the persisted owner stable until the deletion and its audit commit.
-      const { rows: owners } = await client.query(
-        'SELECT event_id AS "eventId" FROM event_troupe WHERE id = $1 FOR UPDATE',
-        [troupeId],
-      );
-      if (!owners[0]) return false;
-      const { eventId } = owners[0];
-      if (!await hasEventAdminAccess({ userId: request.user.id, eventId, db: client })) return false;
-      const { rowCount } = await client.query(
-        `SELECT event.id
-           FROM carnival_event AS event
-           JOIN admin_event_assignment AS assignment
-             ON assignment.event_id = event.id
-            AND assignment.user_id = $2
-            AND assignment.is_active = TRUE
-          WHERE event.id = $1 AND event.active = TRUE
-          FOR UPDATE OF event, assignment`,
-        [eventId, request.user.id],
-      );
-      return rowCount === 1 ? "ADMIN_EVENT" : false;
-    },
+    async (client, request) => await hasAdminRole({ userId: request.user.id, db: client }) ? "ADMIN" : false,
   ));
 
   for (const prefix of [

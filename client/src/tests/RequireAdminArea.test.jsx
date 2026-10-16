@@ -14,9 +14,10 @@ describe("RequireAdminArea", () => {
     expect(screen.getByText("Admin content")).toBeInTheDocument();
   });
 
-  it("permite ADMIN_EVENT vigente informado por /me", () => {
+  it("rechaza sesiones sin ADMIN aunque /me informe eventos asignados", () => {
     renderGuard({ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1", active: false }] });
-    expect(screen.getByText("Admin content")).toBeInTheDocument();
+    expect(screen.getByText("No tenés permisos de administración")).toBeInTheDocument();
+    expect(screen.queryByText("Admin content")).not.toBeInTheDocument();
   });
 
   it.each([

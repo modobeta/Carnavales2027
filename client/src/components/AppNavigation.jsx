@@ -4,7 +4,7 @@ import { clearUserOfflineData } from "../offline/ballot-store.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
-import { canAccessAdminArea, hasEventAdminCapability } from "../auth/role-routes.js";
+import { canAccessAdminArea } from "../auth/role-routes.js";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -85,10 +85,8 @@ export function AppNavigation({ session }) {
   const drawerOpen = isDesktop || open;
   const isAdmin = session.roles?.includes("ADMIN");
   const isJudge = session.roles?.includes("JUDGE");
-  const isEventAdmin = hasEventAdminCapability(session);
-  // El Jurado no tiene menú lateral, salvo que necesite volver a su Inicio de ADMIN_EVENT;
-  // las pantallas de votación (#/judge/*) conservan su diseño sin menú.
-  const hideDrawer = isJudge && (!isEventAdmin || currentRoute.startsWith("#/judge/"));
+  // El Jurado mantiene su pantalla de trabajo despejada; una cuenta ADMIN conserva navegación global.
+  const hideDrawer = isJudge && !isAdmin && currentRoute.startsWith("#/judge");
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
   // los demás roles tienen enlaces de solo texto que no caben en el rail.
   const canCollapse = isDesktop && isAdmin;
@@ -235,7 +233,7 @@ function getInitials(name) {
   const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
   const showHomeBreadcrumb = canAccessAdminArea(session) && currentRoute !== "#/veedor";
-  const roleLabels = [...(session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role), ...(isEventAdmin ? ["Administrador de evento"] : [])];
+  const roleLabels = (session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role);
 
   return (
     <>
@@ -405,9 +403,6 @@ function getInitials(name) {
               <span>Usuarios</span>
             </a>
           </>
-        )}
-        {isEventAdmin && (
-          <a href="#/admin/home" aria-current={currentRoute === "#/admin/home" ? "page" : undefined}>Inicio</a>
         )}
         {session.roles?.includes("COMISARIO") && !session.roles?.includes("ADMIN") && (
           <>

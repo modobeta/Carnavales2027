@@ -121,7 +121,7 @@ test("API ADMIN administra categorías y participaciones sin texto libre", { ski
   });
 });
 
-test("Spec 036 T4: GET comparsas limita lectura al evento asignado sin alterar contrato ni persistencia", {
+test("GET comparsas requiere ADMIN global y conserva contrato/persistencia", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -213,18 +213,19 @@ test("Spec 036 T4: GET comparsas limita lectura al evento asignado sin alterar c
       assert.deepEqual(await response.json(), body);
     };
     const initial = await snapshot();
-    // RED anchor: ADMIN catch-all currently returns 403 instead of the required 200.
-    await assertResponse(await request(ids.target, "assigned"), 200, expected.target);
+    await assertResponse(await request(ids.target, "admin"), 200, expected.target);
 
-    await context.test("ADMIN global prevalece con/sin asignación; delegado lee solo el evento exacto incluso inactivo o vacío", async () => {
+    await context.test("ADMIN global lee cualquier evento, con independencia de las asignaciones", async () => {
       for (const session of ["admin", "assignedAdmin"]) {
         for (const key of ["target", "otherEvent", "inactive", "empty"]) {
           await assertResponse(await request(ids[key], session), 200, expected[key]);
         }
       }
-      for (const key of ["inactive", "empty"]) await assertResponse(await request(ids[key], "assigned"), 200, expected[key]);
+      for (const key of ["target", "otherEvent", "inactive", "empty"]) {
+        await assertResponse(await request(ids[key], "assigned"), 403, { code: "ADMIN_REQUIRED" });
+      }
       // No new filtering, pagination or eligible semantics for this list.
-      await assertResponse(await request(ids.target, "assigned", "?eligible=true&active=true&limit=1&offset=1"), 200, expected.target);
+      await assertResponse(await request(ids.target, "admin", "?eligible=true&active=true&limit=1&offset=1"), 200, expected.target);
     });
 
     await context.test("sesión, 2FA y permiso exacto preceden datos; mantiene errores ADMIN y no divulga eventos ajenos", async () => {
@@ -245,7 +246,7 @@ test("Spec 036 T4: GET comparsas limita lectura al evento asignado sin alterar c
       for (const session of ["assigned", "judge", "unassigned"]) {
         await assertResponse(await request(ids.otherEvent, session, query, headers, spoof(ids.target)), 403, { code: "ADMIN_REQUIRED" });
       }
-      await assertResponse(await request(ids.target, "assigned", `?eventId=${ids.inactive}&role=ADMIN&userId=${ids.admin}`, {
+      await assertResponse(await request(ids.target, "admin", `?eventId=${ids.inactive}&role=ADMIN&userId=${ids.admin}`, {
         ...headers, "x-event-id": ids.inactive,
       }, spoof(ids.inactive)), 200, expected.target);
     });
@@ -274,11 +275,11 @@ test("Spec 036 T4: GET comparsas limita lectura al evento asignado sin alterar c
         return originalQuery.call(this, query, ...args);
       });
       try {
-        for (const session of ["assigned", "admin"]) {
+        for (const session of ["admin"]) {
           await assertResponse(await request(ids.empty, session), 500, { code: "INTERNAL_ERROR" });
         }
       } finally { failure.mock.restore(); }
-      await assertResponse(await request(ids.empty, "assigned"), 200, []);
+      await assertResponse(await request(ids.empty, "admin"), 200, []);
     });
     // Full rows include logo bytes/timestamps and audit/hash-chain contents, not just counts.
     assert.deepEqual(await snapshot(), initial);
@@ -288,7 +289,7 @@ test("Spec 036 T4: GET comparsas limita lectura al evento asignado sin alterar c
         [[ids.assigned, ids.assignedAdmin], ids.target]);
       const afterRevocation = await snapshot();
       await assertResponse(await request(ids.target, "assigned"), 403, { code: "ADMIN_REQUIRED" });
-      await assertResponse(await request(ids.inactive, "assigned"), 200, expected.inactive);
+      await assertResponse(await request(ids.inactive, "assigned"), 403, { code: "ADMIN_REQUIRED" });
       for (const session of ["admin", "assignedAdmin"]) await assertResponse(await request(ids.target, session), 200, expected.target);
       assert.deepEqual(await snapshot(), afterRevocation);
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
@@ -392,8 +393,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
     };
 
     // RED anchor: ADMIN-only catch-all rejects an assigned delegate with 403 instead of 201.
-    await assertCreated("target", "assigned", { name: " Comparsa delegada ", brandColor: " #aB12Ef " },
-      { name: "Comparsa delegada", brandColor: "#aB12Ef" });
+    await assertRejected(ids.target, "assigned", 403, { code: "ADMIN_REQUIRED" }, { name: " Comparsa delegada ", brandColor: " #aB12Ef " });
 
     await context.test("ADMIN global con/sin asignación prevalece y conserva las guardas de evento inactivo", async () => {
       for (const session of ["admin", "assignedAdmin"]) {
@@ -424,7 +424,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
     });
 
     await context.test("categoría ajena/inactiva/inexistente y campos inválidos conservan rechazo atómico", async () => {
-      for (const session of ["assigned", "admin"]) {
+      for (const session of ["admin"]) {
         for (const [payload, status, expected] of [
           [{ categoryId: categories.otherEvent }, 409, { code: "INVALID_REFERENCE" }],
           [{ categoryId: inactiveCategory.id }, 409, { code: "CATEGORY_INACTIVE" }],
@@ -444,7 +444,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
     });
 
     await context.test("ruta/client y actor de sesión prevalecen sobre spoof aun con ambos eventos asignados", async () => {
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES ($1,$2,true)",
           [ids.assigned, ids.otherEvent]);
         const beforeOther = (await pool.query("SELECT * FROM event_troupe WHERE event_id=$1 ORDER BY id", [ids.otherEvent])).rows;
@@ -461,7 +461,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
         });
         assert.deepEqual((await pool.query("SELECT * FROM event_troupe WHERE event_id=$1 ORDER BY id", [ids.otherEvent])).rows, beforeOther);
       }
-      await assertCreated("otherEvent", "assigned");
+      await assertRejected(ids.otherEvent, "assigned", 403, { code: "ADMIN_REQUIRED" });
     });
 
     await context.test("fallos después del INSERT real y durante auditoría revierten alta, evidencia y cabecera hash", async () => {
@@ -504,7 +504,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
         });
         let response;
         try {
-          response = await request(ids.target, "assigned", { name: "Rollback", categoryId: categories.target, client: null, actorUserId: ids.admin });
+          response = await request(ids.target, "admin", { name: "Rollback", categoryId: categories.target, client: null, actorUserId: ids.admin });
         } finally {
           connectMock.mock.restore();
           for (const restore of restores.reverse()) restore();
@@ -520,7 +520,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
     await context.test("revocación y cambio de rol rigen al próximo request sin afectar otra asignación ni ADMIN", async () => {
       await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.target]);
       await assertRejected(ids.target, "assigned", 403, { code: "ADMIN_REQUIRED" });
-      await assertCreated("otherEvent", "assigned");
+      await assertRejected(ids.otherEvent, "assigned", 403, { code: "ADMIN_REQUIRED" });
       await assertCreated("target", "admin");
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
       await assertRejected(ids.target, "assignedAdmin", 403, { code: "ADMIN_REQUIRED" }, { role: "ADMIN" });
@@ -529,7 +529,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
     await context.test("evento activo OPEN/CLOSED sigue bloqueado por lifecycle para ADMIN y delegado", async () => {
       const eventId = ids.lifecycle;
       const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
-      const troupe = await assertCreated("lifecycle", "assigned");
+      const troupe = await assertCreated("lifecycle", "admin");
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
       await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES ($1,$2,$3,'Item','ITEM')", [eventId, rubric.id, specialty.id]);
@@ -545,7 +545,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
           await pool.query("UPDATE carnival_event SET status='CLOSED' WHERE id=$1", [eventId]);
         }
         assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [eventId])).rows, [{ active: true, status }]);
-        for (const session of ["assigned", "admin"]) await assertRejected(eventId, session, 409, { code: "EVENT_LOCKED" }, { name: "Bloqueada", categoryId: categories.lifecycle });
+        for (const session of ["admin"]) await assertRejected(eventId, session, 409, { code: "EVENT_LOCKED" }, { name: "Bloqueada", categoryId: categories.lifecycle });
         await assertRejected(eventId, "other", 403, { code: "ADMIN_REQUIRED" });
       }
     });
@@ -660,17 +660,17 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
     };
 
     // RED anchor: the ADMIN-only catch-all returns 403 instead of the delegated 200.
-    await assertUpdated("target", "assigned", { name: " Editada ", categoryId: secondCategory.id, brandColor: " #aB12Ef ", active: false },
+    await assertUpdated("target", "admin", { name: " Editada ", categoryId: secondCategory.id, brandColor: " #aB12Ef ", active: false },
       { name: "Editada", categoryId: secondCategory.id, brandColor: "#aB12Ef", active: false });
 
     await context.test("active de comparsa y color opcional conservan semántica sin alterar evento ni logo", async () => {
-      await assertUpdated("target", "assigned", { active: true }, { active: true });
-      await assertUpdated("target", "assigned", {});
+      await assertUpdated("target", "admin", { active: true }, { active: true });
+      await assertUpdated("target", "admin", {});
       for (const brandColor of [null, "", "  "]) {
-        await assertUpdated("target", "assigned", { brandColor: "#123ABC" }, { brandColor: "#123ABC" });
-        await assertUpdated("target", "assigned", { brandColor }, { brandColor: null });
+        await assertUpdated("target", "admin", { brandColor: "#123ABC" }, { brandColor: "#123ABC" });
+        await assertUpdated("target", "admin", { brandColor }, { brandColor: null });
       }
-      await assertUpdated("target", "assigned", { name: "Sin color" }, { name: "Sin color" });
+      await assertUpdated("target", "admin", { name: "Sin color" }, { name: "Sin color" });
       assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [ids.target])).rows,
         [{ active: true, status: "CONFIGURING" }]);
     });
@@ -709,7 +709,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
     });
 
     await context.test("campos inválidos y categorías ajenas/inactivas/inexistentes no dejan cambios parciales", async () => {
-      for (const session of ["assigned", "admin"]) {
+      for (const session of ["admin"]) {
         for (const [payload, status, expected] of [
           [{ categoryId: categories.otherEvent }, 409, { code: "INVALID_REFERENCE" }],
           [{ categoryId: inactiveCategory.id }, 409, { code: "CATEGORY_INACTIVE" }],
@@ -722,15 +722,15 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
           [{ brandColor: 123 }, 400, { code: "VALIDATION_ERROR", message: "brandColor debe ser texto #RRGGBB o nulo." }],
         ]) await assertRejected(troupes.target.id, session, status, expected, payload);
       }
-      await assertUpdated("target", "assigned", { active: false }, { active: false });
+      await assertUpdated("target", "admin", { active: false }, { active: false });
       await pool.query("UPDATE event_category SET active=false WHERE id=$1", [secondCategory.id]);
-      await assertUpdated("target", "assigned", { name: "Inactiva conservada" }, { name: "Inactiva conservada" });
-      await assertRejected(troupes.target.id, "assigned", 409, { code: "CATEGORY_INACTIVE" }, { active: true });
-      await assertUpdated("target", "assigned", { categoryId: categories.target, active: true }, { categoryId: categories.target, active: true });
+      await assertUpdated("target", "admin", { name: "Inactiva conservada" }, { name: "Inactiva conservada" });
+      await assertRejected(troupes.target.id, "admin", 409, { code: "CATEGORY_INACTIVE" }, { active: true });
+      await assertUpdated("target", "admin", { categoryId: categories.target, active: true }, { categoryId: categories.target, active: true });
     });
 
     await context.test("ruta, cliente transaccional y actor de sesión prevalecen aun asignado a ambos eventos", async () => {
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES ($1,$2,true)", [ids.assigned, ids.otherEvent]);
         const beforeOther = (await pool.query("SELECT * FROM event_troupe WHERE event_id=$1 ORDER BY id", [ids.otherEvent])).rows;
         await assertUpdated("target", session, {
@@ -787,7 +787,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
         });
         let response;
         try {
-          response = await request(troupes.target.id, "assigned", { name: "Debe revertirse", client: null, actorUserId: ids.admin });
+          response = await request(troupes.target.id, "admin", { name: "Debe revertirse", client: null, actorUserId: ids.admin });
         } finally {
           connectMock.mock.restore();
           for (const restore of restores.reverse()) restore();
@@ -803,7 +803,8 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
     await context.test("revocación y cambio de rol rigen al siguiente request sin afectar otra asignación ni ADMIN", async () => {
       await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.target]);
       await assertRejected(troupes.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
-      await assertUpdated("otherEvent", "assigned", { name: "Independiente" }, { name: "Independiente" });
+      await assertRejected(ids.otherEvent, "assigned", 403, { code: "ADMIN_REQUIRED" });
+      await assertUpdated("otherEvent", "admin", { name: "Independiente" }, { name: "Independiente" });
       await assertUpdated("target", "admin", { name: "Global" }, { name: "Global" });
       await assertUpdated("target", "assignedAdmin", { name: "Global sin delegación" }, { name: "Global sin delegación" });
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
@@ -829,7 +830,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
           await pool.query("UPDATE carnival_event SET status='CLOSED' WHERE id=$1", [eventId]);
         }
         assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [eventId])).rows, [{ active: true, status }]);
-        for (const session of ["assigned", "admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
+        for (const session of ["admin"]) await assertRejected(troupes.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
         await assertRejected(troupes.lifecycle.id, "other", 403, { code: "ADMIN_REQUIRED" });
       }
     });
@@ -905,8 +906,8 @@ test("POST categorías limita el alta al evento de ruta con permiso vigente y au
     };
 
     // RED anchor: the former ADMIN catch-all rejects this authorized delegate.
-    await assertCreated(await request(ids.target, "assigned", { name: " Categoría juvenil ", displayOrder: 3 }),
-      ids.assigned, ids.target, { name: "Categoría juvenil", code: "CATEGORIA_JUVENIL", displayOrder: 3 });
+    await assertCreated(await request(ids.target, "admin", { name: " Categoría juvenil ", displayOrder: 3 }),
+      ids.admin, ids.target, { name: "Categoría juvenil", code: "CATEGORIA_JUVENIL", displayOrder: 3 });
 
     await context.test("ADMIN conserva alcance global con y sin asignación; prevalece sobre ADMIN_EVENT", async () => {
       for (const [index, session] of ["admin", "assignedAdmin"].entries()) {
@@ -931,17 +932,17 @@ test("POST categorías limita el alta al evento de ruta con permiso vigente y au
         [randomUUID(), "assigned", 403, { code: "ADMIN_REQUIRED" }],
         [ids.inactive, "assigned", 403, { code: "ADMIN_REQUIRED" }],
         [ids.inactive, "admin", 409, { code: "EVENT_LOCKED" }],
-        [ids.open, "assigned", 409, { code: "EVENT_LOCKED" }],
-        [ids.closed, "assigned", 409, { code: "EVENT_LOCKED" }],
+        [ids.open, "admin", 409, { code: "EVENT_LOCKED" }],
+        [ids.closed, "admin", 409, { code: "EVENT_LOCKED" }],
         [ids.open, "admin", 409, { code: "EVENT_LOCKED" }],
         [randomUUID(), "admin", 404, { code: "EVENT_NOT_FOUND" }],
         ["not-a-uuid", "admin", 400, { code: "VALIDATION_ERROR" }],
-        [ids.target, "assigned", 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }, { name: " " }],
-        [ids.target, "assigned", 400, { code: "VALIDATION_ERROR", message: "code debe ser texto no vacío." }, { name: "Valid", code: " " }],
-        [ids.target, "assigned", 400, { code: "VALIDATION_ERROR", message: "displayOrder debe ser entero positivo." }, { name: "Valid", displayOrder: 0 }],
-        [ids.target, "assigned", 400, { code: "VALIDATION_ERROR", message: "displayOrder debe ser entero positivo." }, { name: "Valid", displayOrder: 1.5 }],
-        [ids.target, "assigned", 409, { code: "RESOURCE_CONFLICT" }, { name: "Duplicada", code: "CATEGORIA_JUVENIL" }],
-        [ids.target, "assigned", 409, { code: "RESOURCE_CONFLICT" }, { name: "Duplicada orden", displayOrder: 3 }],
+        [ids.target, "admin", 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }, { name: " " }],
+        [ids.target, "admin", 400, { code: "VALIDATION_ERROR", message: "code debe ser texto no vacío." }, { name: "Valid", code: " " }],
+        [ids.target, "admin", 400, { code: "VALIDATION_ERROR", message: "displayOrder debe ser entero positivo." }, { name: "Valid", displayOrder: 0 }],
+        [ids.target, "admin", 400, { code: "VALIDATION_ERROR", message: "displayOrder debe ser entero positivo." }, { name: "Valid", displayOrder: 1.5 }],
+        [ids.target, "admin", 409, { code: "RESOURCE_CONFLICT" }, { name: "Duplicada", code: "CATEGORIA_JUVENIL" }],
+        [ids.target, "admin", 409, { code: "RESOURCE_CONFLICT" }, { name: "Duplicada orden", displayOrder: 3 }],
       ];
       for (const [eventId, session, status, expected, payload] of cases) {
         const response = await request(eventId, session, payload);
@@ -960,7 +961,7 @@ test("POST categorías limita el alta al evento de ruta con permiso vigente y au
     });
 
     await context.test("body/query no desplazan eventId/client ni actor, incluso con asignación a ambos eventos", async () => {
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query(
           "INSERT INTO admin_event_assignment (user_id,event_id,is_active) VALUES ($1,$2,true)",
           [ids.assigned, ids.otherEvent],
@@ -1007,7 +1008,7 @@ test("POST categorías limita el alta al evento de ruta con permiso vigente y au
         });
         let response;
         try {
-          response = await request(ids.target, "assigned", { name: `Rollback ${failingTable}`, client: null, actorUserId: ids.admin });
+          response = await request(ids.target, "admin", { name: `Rollback ${failingTable}`, client: null, actorUserId: ids.admin });
         } finally {
           connectMock.mock.restore();
           for (const restore of restoreQueries.reverse()) restore();
@@ -1027,8 +1028,8 @@ test("POST categorías limita el alta al evento de ruta con permiso vigente y au
       assert.equal(revoked.status, 403);
       assert.deepEqual(await revoked.json(), { code: "ADMIN_REQUIRED" });
       assert.deepEqual(await snapshot(), before);
-      await assertCreated(await request(ids.otherEvent, "assigned", { name: "Independiente" }),
-        ids.assigned, ids.otherEvent, { name: "Independiente", code: "INDEPENDIENTE", displayOrder: 3 });
+      await assertCreated(await request(ids.otherEvent, "admin", { name: "Independiente" }),
+        ids.admin, ids.otherEvent, { name: "Independiente", code: "INDEPENDIENTE", displayOrder: 3 });
       await assertCreated(await request(ids.target, "admin", { name: "Global vigente" }),
         ids.admin, ids.target, { name: "Global vigente", code: "GLOBAL_VIGENTE", displayOrder: 8 });
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
@@ -1128,13 +1129,13 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
     };
 
     // RED anchor: the ADMIN-only catch-all rejects the assigned delegate (403 instead of 200).
-    await assertUpdated("target", "assigned", { name: " Editada ", code: " EDITADA ", displayOrder: 3, active: false }, {
+    await assertUpdated("target", "admin", { name: " Editada ", code: " EDITADA ", displayOrder: 3, active: false }, {
       expected: { name: "Editada", code: "EDITADA", displayOrder: 3, active: false },
     });
 
     await context.test("active de categoría es editable en ambas direcciones sin cambiar el evento", async () => {
-      await assertUpdated("target", "assigned", { active: true }, { expected: { active: true } });
-      await assertUpdated("target", "assigned", {}, { expected: {} });
+      await assertUpdated("target", "admin", { active: true }, { expected: { active: true } });
+      await assertUpdated("target", "admin", {}, { expected: {} });
       assert.deepEqual((await pool.query("SELECT active,status FROM carnival_event WHERE id=$1", [ids.target])).rows,
         [{ active: true, status: "CONFIGURING" }]);
     });
@@ -1174,7 +1175,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
     });
 
     await context.test("validaciones y constraints conservan errores sin mutación ni auditoría parcial", async () => {
-      for (const session of ["assigned", "admin"]) {
+      for (const session of ["admin"]) {
         for (const [payload, status, expected] of [
           [{ name: " " }, 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }],
           [{ code: "" }, 400, { code: "VALIDATION_ERROR", message: "code debe ser texto no vacío." }],
@@ -1190,7 +1191,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
     });
 
     await context.test("ruta y client prevalecen sobre spoof, también si ambos eventos están asignados", async () => {
-      for (const [index, session] of ["assigned", "assigned", "admin"].entries()) {
+      for (const [index, session] of ["admin", "admin", "admin"].entries()) {
         if (index === 1) await pool.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES ($1,$2,true)",
           [ids.assigned, ids.otherEvent]);
         const beforeOther = (await pool.query("SELECT * FROM event_category WHERE id=$1", [categories.otherEvent.id])).rows;
@@ -1246,7 +1247,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
         });
         let response;
         try {
-          response = await request(categories.target.id, "assigned", { name: "Debe revertirse", client: null, actorUserId: ids.admin });
+          response = await request(categories.target.id, "admin", { name: "Debe revertirse", client: null, actorUserId: ids.admin });
         } finally {
           connectMock.mock.restore();
           for (const restore of restores.reverse()) restore();
@@ -1262,7 +1263,8 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
     await context.test("revocación y cambios de rol se reevalúan sin afectar otro evento ni ADMIN", async () => {
       await pool.query("UPDATE admin_event_assignment SET is_active=false WHERE user_id=$1 AND event_id=$2", [ids.assigned, ids.target]);
       await assertRejected(categories.target.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
-      await assertUpdated("otherEvent", "assigned", { name: "Independiente" }, { expected: { name: "Independiente" } });
+      await assertRejected(categories.otherEvent.id, "assigned", 403, { code: "ADMIN_REQUIRED" });
+      await assertUpdated("otherEvent", "admin", { name: "Independiente" }, { expected: { name: "Independiente" } });
       await assertUpdated("target", "admin", { name: "Global" }, { expected: { name: "Global" } });
       await pool.query("DELETE FROM user_role WHERE user_id=$1 AND role_code='ADMIN'", [ids.assignedAdmin]);
       await assertRejected(categories.target.id, "assignedAdmin", 403, { code: "ADMIN_REQUIRED" }, { role: "ADMIN" });
@@ -1288,7 +1290,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);
           await pool.query("UPDATE carnival_event SET status='CLOSED' WHERE id=$1", [eventId]);
         }
-        for (const session of ["assigned", "admin"]) {
+        for (const session of ["admin"]) {
           await assertRejected(categories.lifecycle.id, session, 409, { code: "EVENT_LOCKED" });
         }
         await assertRejected(categories.lifecycle.id, "other", 403, { code: "ADMIN_REQUIRED" });
@@ -1297,7 +1299,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
   });
 });
 
-test("GET categorías autoriza ADMIN global y ADMIN_EVENT solo para asignaciones vigentes", {
+test("GET categorías requiere ADMIN global y no concede acceso por asignación", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -1387,13 +1389,18 @@ test("GET categorías autoriza ADMIN global y ADMIN_EVENT solo para asignaciones
     assert.equal(missingForAdmin.status, 404);
     assert.deepEqual(await missingForAdmin.json(), { code: "EVENT_NOT_FOUND" });
 
-    const assignedRead = await fetch(activeUrl, { headers: { "x-test-session": "assigned" } });
-    assert.equal(assignedRead.status, 200);
-    assert.deepEqual(await assignedRead.json(), expectedActive);
-    const eligibleRead = await fetch(`${activeUrl}?eligible=true`, { headers: { "x-test-session": "assigned" } });
+    for (const [url, headers] of [[activeUrl, {}], [`${activeUrl}?eligible=true`, {}], [inactiveUrl, {}]]) {
+      const response = await fetch(url, { headers: { "x-test-session": "assigned", ...headers } });
+      assert.equal(response.status, 403);
+      assert.deepEqual(await response.json(), { code: "ADMIN_REQUIRED" });
+    }
+    const adminRead = await fetch(activeUrl, { headers: { "x-test-session": "admin" } });
+    assert.equal(adminRead.status, 200);
+    assert.deepEqual(await adminRead.json(), expectedActive);
+    const eligibleRead = await fetch(`${activeUrl}?eligible=true`, { headers: { "x-test-session": "admin" } });
     assert.equal(eligibleRead.status, 200);
     assert.deepEqual(await eligibleRead.json(), expectedActive.filter(({ active }) => active));
-    const inactiveRead = await fetch(inactiveUrl, { headers: { "x-test-session": "assigned" } });
+    const inactiveRead = await fetch(inactiveUrl, { headers: { "x-test-session": "admin" } });
     assert.equal(inactiveRead.status, 200);
     assert.deepEqual(await inactiveRead.json(), expectedInactive);
 
@@ -1430,8 +1437,8 @@ test("GET categorías autoriza ADMIN global y ADMIN_EVENT solo para asignaciones
     assert.equal(revokedAfterRead.status, 403);
     assert.deepEqual(await revokedAfterRead.json(), { code: "ADMIN_REQUIRED" });
     const independentAssignment = await fetch(inactiveUrl, { headers: { "x-test-session": "assigned" } });
-    assert.equal(independentAssignment.status, 200);
-    assert.deepEqual(await independentAssignment.json(), expectedInactive);
+    assert.equal(independentAssignment.status, 403);
+    assert.deepEqual(await independentAssignment.json(), { code: "ADMIN_REQUIRED" });
 
     const afterAudit = await pool.query("SELECT count(*)::int AS count FROM audit_event");
     assert.equal(afterAudit.rows[0].count, beforeAudit.rows[0].count);

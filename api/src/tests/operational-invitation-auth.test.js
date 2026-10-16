@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { toNodeHandler } from "better-auth/node";
 import { createApp } from "../app.js";
-import { createOrVerifyCredentialUser } from "../auth/account-service.js";
+import { createCredentialUser, createOrVerifyCredentialUser } from "../auth/account-service.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
 
@@ -44,6 +44,16 @@ test("una invitación operativa real exige OTP antes de habilitar el rol", {
   );
   await getPool().query("INSERT INTO user_role(user_id, role_code) VALUES($1,'ADMIN')", [adminId]);
 
+  const existingEmail = `existing-judge-${randomUUID()}@example.test`;
+  const existingPassword = "ExistingJudgePassword-2026!";
+  const existingUser = await createCredentialUser({
+    email: existingEmail,
+    name: "Existing JUDGE",
+    password: existingPassword,
+    authInstance: testAuth,
+  });
+  await getPool().query("INSERT INTO user_role(user_id, role_code) VALUES($1,'JUDGE')", [existingUser.id]);
+
   const app = createApp({
     authHandler: toNodeHandler(testAuth),
     getSession: async (input) => input.headers.get("x-test-session") === "admin"
@@ -56,6 +66,26 @@ test("una invitación operativa real exige OTP antes de habilitar el rol", {
   });
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
+    const adminInvitationResponse = await fetch(`${base}/api/v1/users/invitations`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-session": "admin" },
+      body: JSON.stringify({ email: existingEmail, roleCode: "ADMIN" }),
+    });
+    assert.equal(adminInvitationResponse.status, 201);
+    const adminInvitation = await adminInvitationResponse.json();
+    const existingAccountAcceptance = await fetch(`${base}/api/v1/invitations/role/accept`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: process.env.FRONTEND_URL },
+      body: JSON.stringify({ token: adminInvitation.token, password: existingPassword }),
+    });
+    assert.equal(existingAccountAcceptance.status, 400);
+    assert.deepEqual(await existingAccountAcceptance.json(), { code: "INVITATION_INVALID" });
+    const { rows: existingRoles } = await getPool().query(
+      "SELECT role_code FROM user_role WHERE user_id = $1 ORDER BY role_code",
+      [existingUser.id],
+    );
+    assert.deepEqual(existingRoles, [{ role_code: "JUDGE" }]);
+
     const invited = await fetch(`${base}/api/v1/users/invitations`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-test-session": "admin" },

@@ -7,8 +7,7 @@ import {
   reconcilePendingEventOpenOperation,
   resolvePendingEventOpenOperation,
 } from "./event-open-operation.js";
-import { eventAdminReadinessItems, isInterpretableReadiness } from "./readiness-presentation.js";
-import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
+import { isInterpretableReadiness } from "./readiness-presentation.js";
 
 const READINESS_LABELS = {
   COMPETITION_NIGHT: "Creá al menos una jornada de Competencia",
@@ -22,47 +21,47 @@ const READINESS_LABELS = {
   NIGHTS_WITHOUT_JURY: "Asigná al menos un jurado activo a cada jornada de Competencia",
 };
 
-// eventAdminMode (spec 040, CA-5.2b): bloqueos clasificados, sin apertura ni operación pendiente
-// (GET /open-operations es solo ADMIN y la operación guardada pertenece a quien la inició).
-export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, refreshKey = 0, eventAdminMode = false }) {
+export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onReadinessChange, refreshKey = 0 }) {
   const [readinessSnapshot, setReadinessSnapshot] = useState({ eventId: null, data: null });
   const [readinessUnavailable, setReadinessUnavailable] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [checkingOperation, setCheckingOperation] = useState(false);
-  const [pendingOperation, setPendingOperation] = useState(() => eventAdminMode ? null : readPendingEventOpenOperation(event.id));
+  const [pendingOperation, setPendingOperation] = useState(() => readPendingEventOpenOperation(event.id));
   const [opened, setOpened] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const openTriggerRef = useRef(null);
   const openingRef = useRef(false);
   const requestRevision = useRef(0);
-  const handleRejection = useEventAdminRejection(eventAdminMode);
 
   const load = useCallback(async ({ isCurrent = () => true } = {}) => {
     const revision = ++requestRevision.current;
     setLoading(true);
     setReadinessUnavailable(false);
     setReadinessSnapshot({ eventId: event.id, data: null });
+    onReadinessChange?.({ eventId: event.id, data: null });
     try {
       const nextReadiness = await apiRequest(`/api/v1/events/${encodeURIComponent(event.id)}/readiness`);
       if (isCurrent() && revision === requestRevision.current) {
         if (isInterpretableReadiness(nextReadiness)) {
           setReadinessSnapshot({ eventId: event.id, data: nextReadiness });
           setReadinessUnavailable(false);
+          onReadinessChange?.({ eventId: event.id, data: nextReadiness });
         } else {
           setReadinessUnavailable(true);
+          onReadinessChange?.({ eventId: event.id, data: null });
         }
       }
     } catch (error) {
       if (isCurrent() && revision === requestRevision.current) {
         setReadinessUnavailable(true);
-        void handleRejection(error, event.id);
+        onReadinessChange?.({ eventId: event.id, data: null });
       }
     } finally {
       if (isCurrent() && revision === requestRevision.current) setLoading(false);
     }
-  }, [event.id]);
+  }, [event.id, onReadinessChange]);
 
   const readiness = readinessSnapshot.eventId === event.id ? readinessSnapshot.data : null;
 
@@ -124,7 +123,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
 
   useEffect(() => {
     let current = true;
-    const storedOperation = eventAdminMode ? null : readPendingEventOpenOperation(event.id);
+    const storedOperation = readPendingEventOpenOperation(event.id);
     setPendingOperation(storedOperation);
     setOpened(false);
     if (storedOperation) {
@@ -188,25 +187,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
       <div className="section-heading">
         <h2>Requisitos para abrir el evento</h2>
       </div>
-      {readiness && eventAdminMode && (
-        <>
-          <div className="readiness-summary">
-            {readiness.ready
-              ? <p className="readiness-ok">Se cumplen los requisitos. La apertura la realiza el administrador general.</p>
-              : <p className="readiness-pending">{eventAdminReadinessItems(readiness).length > 0 ? `Requisitos pendientes para abrir: ${eventAdminReadinessItems(readiness).length}.` : "Hay requisitos pendientes para abrir."}</p>}
-          </div>
-          <ul className="readiness-checklist">
-            {eventAdminReadinessItems(readiness).map((item) => (
-              <li key={item.key} className="readiness-fail">
-                <span className="readiness-icon">&#x2717;</span>
-                {item.text}{" "}
-                {item.resolvableHere && onGoToNights && <button type="button" className="secondary" onClick={onGoToNights}>Ir al problema</button>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {readiness && !eventAdminMode && (
+      {readiness && (
         <>
           <div className="readiness-summary">
             {readiness.ready ? (
@@ -274,12 +255,12 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, ref
       {!loading && !readiness && readinessUnavailable && <p role="status">No se pudo revisar la configuración. No podemos confirmar si el evento está listo.</p>}
       {!loading && readinessUnavailable && <button type="button" className="secondary" onClick={() => void load()}>Volver a revisar</button>}
       <p role="status" aria-live="polite">{message}</p>
-      {!eventAdminMode && pendingOperation && (
+      {pendingOperation && (
         <button type="button" className="secondary" disabled={checkingOperation || opening} onClick={() => void checkOperation()}>
           {checkingOperation ? "Consultando operación…" : "Consultar resultado de apertura"}
         </button>
       )}
-      {!eventAdminMode && opened && <p><a href="#/admin/voting">Ir a Control de votación</a> para abrir una jornada y, por separado, su ventana de votación.</p>}
+      {opened && <p><a href="#/admin/voting">Ir a Control de votación</a> para abrir una jornada y, por separado, su ventana de votación.</p>}
     </section>
   );
 }

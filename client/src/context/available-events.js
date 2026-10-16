@@ -1,10 +1,7 @@
 import { apiRequest } from "../api/http.js";
-import { hasEventAdminCapability } from "../auth/role-routes.js";
 
-export async function loadAvailableEvents(roles = ["ADMIN"], judgeArea = false, adminEvents = []) {
+export async function loadAvailableEvents(roles = ["ADMIN"], judgeArea = false) {
   if (roles.includes("ADMIN") && !judgeArea) return apiRequest("/api/v1/events");
-  // La capacidad ADMIN_EVENT proviene de /me; /events solo aporta el catálogo autorizado.
-  if (!judgeArea && hasEventAdminCapability({ status: "authenticated", roles, adminEvents })) return apiRequest("/api/v1/events");
   if (roles.includes("JUDGE") && (judgeArea || !roles.some((role) => ["COMISARIO", "SCRUTINEER", "ESCRIBANO", "VEEDOR"].includes(role)))) {
     const profile = await apiRequest("/api/v1/judge/profile");
     return [...new Map((profile.assignments ?? [])

@@ -10,6 +10,9 @@ export function AdminUsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitationLink, setInvitationLink] = useState("");
+  const [invitationBusy, setInvitationBusy] = useState(false);
   const [adminRoleTarget, setAdminRoleTarget] = useState(null);
   const [roleBusy, setRoleBusy] = useState(false);
   const roleTriggerRef = useRef(null);
@@ -31,6 +34,41 @@ export function AdminUsersPage() {
     void refreshUsers();
   }, []);
 
+  const createAdminInvitation = async (event) => {
+    event.preventDefault();
+    if (invitationBusy) return;
+    setInvitationBusy(true);
+    setMessage("");
+    setInvitationLink("");
+    try {
+      const invitation = await apiRequest("/api/v1/users/invitations", {
+        method: "POST",
+        body: JSON.stringify({ email: inviteEmail, roleCode: "ADMIN" }),
+      });
+      if (!invitation?.token) throw new Error("INVITATION_RESPONSE_INVALID");
+      setInvitationLink(`${window.location.origin}${window.location.pathname}#/invitations/role/accept?token=${encodeURIComponent(invitation.token)}`);
+      setInviteEmail("");
+      setMessage("Invitación ADMIN creada. Compartí el enlace con la persona invitada para que complete su cuenta.");
+    } catch (error) {
+      setMessage(
+        error.code === "TWO_FACTOR_REQUIRED"
+          ? "Necesitás habilitar la verificación en dos pasos para invitar a otra persona administradora."
+          : "No se pudo crear la invitación ADMIN.",
+      );
+    } finally {
+      setInvitationBusy(false);
+    }
+  };
+
+  const copyInvitationLink = async () => {
+    try {
+      await navigator.clipboard.writeText(invitationLink);
+      setMessage("Enlace de invitación copiado.");
+    } catch {
+      setMessage("No se pudo copiar automáticamente. Seleccioná y copiá el enlace.");
+    }
+  };
+
   const changeAdminRole = async (user, grant) => {
     if (!user || roleBusy) return;
     setRoleBusy(true);
@@ -43,8 +81,10 @@ export function AdminUsersPage() {
       setAdminRoleTarget(null);
     } catch (error) {
       setMessage(
-        error.code === "LAST_ADMIN_REQUIRED"
-          ? "No se puede revocar al ultimo administrador."
+        error.code === "PRIMARY_ADMIN_PROTECTED"
+          ? "La cuenta principal está protegida y no se puede revocar su rol ADMIN."
+          : error.code === "LAST_ADMIN_REQUIRED"
+            ? "Debe quedar al menos un administrador activo."
           : "No se pudo modificar el rol.",
       );
     } finally {
@@ -73,6 +113,36 @@ export function AdminUsersPage() {
 
       <UserManagementNavigation current="admins" />
 
+      <section className="card user-admin" aria-labelledby="invite-admin-heading">
+        <div className="user-admin-heading">
+          <div>
+            <h2 id="invite-admin-heading">Invitar administrador</h2>
+            <p>La persona invitada creará una cuenta nueva con el rol ADMIN.</p>
+          </div>
+        </div>
+        <form className="judge-create-form" onSubmit={createAdminInvitation}>
+          <label>Correo del nuevo administrador
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              disabled={invitationBusy}
+            />
+          </label>
+          <button type="submit" disabled={invitationBusy}>{invitationBusy ? "Creando invitación…" : "Crear invitación ADMIN"}</button>
+        </form>
+        {invitationLink && (
+          <div className="invitation-link">
+            <p>Compartí este enlace con la persona invitada:</p>
+            <a href={invitationLink}>Abrir invitación</a>
+            <code>{invitationLink}</code>
+            <button className="secondary" type="button" onClick={() => void copyInvitationLink()}>Copiar enlace de invitación</button>
+          </div>
+        )}
+      </section>
+
       {message && <p className="feedback" role="status" aria-live="polite">{message}</p>}
 
       <section className="card user-admin" aria-label="Usuarios y administradores">
@@ -83,7 +153,7 @@ export function AdminUsersPage() {
           <span>Gestión de plataforma</span>
         </div>
         <p>
-          Gestioná quién puede administrar la plataforma. El último administrador siempre queda protegido.
+          Gestioná quién puede administrar la plataforma. La cuenta principal no se puede eliminar ni perder el rol ADMIN.
         </p>
         {loading ? (
           <p>Cargando usuarios…</p>
@@ -94,15 +164,17 @@ export function AdminUsersPage() {
             {users.map((user) => {
               const isAdmin = user.roles.includes("ADMIN");
               const isCurrentUser = user.id === session.user?.id;
+              const isProtectedPrimary = isAdmin && user.isPrimaryAdmin === true;
               return (
                 <li key={user.id}>
                   <span>
                     <strong>{user.name}</strong> · {user.email}
+                    {user.isPrimaryAdmin === true && <span className="primary-admin-badge">Administrador principal</span>}
                   </span>
                   <button
                     className="secondary"
                     type="button"
-                    disabled={(isCurrentUser && isAdmin) || roleBusy}
+                    disabled={isProtectedPrimary || (isCurrentUser && isAdmin) || roleBusy}
                     onClick={(event) => {
                       roleTriggerRef.current = event.currentTarget;
                       setAdminRoleTarget({ user, grant: !isAdmin });
@@ -110,7 +182,9 @@ export function AdminUsersPage() {
                   >
                     {isCurrentUser && isAdmin
                       ? "Sesión actual"
-                      : isAdmin
+                      : isProtectedPrimary
+                        ? "Cuenta principal protegida"
+                        : isAdmin
                         ? "Revocar administrador"
                         : "Promover a administrador"}
                   </button>

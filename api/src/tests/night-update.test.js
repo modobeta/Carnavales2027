@@ -23,7 +23,7 @@ function withServer(app, run) {
   });
 }
 
-test("PATCH jornada autoriza ADMIN_EVENT por owner persistido y mantiene auditoría", {
+test("PATCH jornada requiere ADMIN global y mantiene las reglas del recurso", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const previousDatabaseUrl = process.env.DATABASE_URL;
@@ -87,22 +87,25 @@ test("PATCH jornada autoriza ADMIN_EVENT por owner persistido y mantiene auditor
       name: "T6 authorized update", displayOrder: 2, kind: "COMPETITION", eventDate: "2027-02-06",
       eventId: ids.eventB, nightId: ids.nightB, actorUserId: ids.admin, role: "ADMIN", userId: ids.admin,
     };
-    const delegated = await request(ids.nightA, "assigned", update);
-    assert.equal(delegated.status, 200, `authorized ADMIN_EVENT unexpectedly received ${delegated.status}: ${await delegated.clone().text()}`);
-    const delegatedBody = await delegated.json();
-    assert.deepEqual(delegatedBody, {
+    const assignedDenied = await request(ids.nightA, "assigned", update);
+    assert.equal(assignedDenied.status, 403);
+    assert.deepEqual(await assignedDenied.json(), { code: "ADMIN_REQUIRED" });
+    const globalUpdate = await request(ids.nightA, "admin", update);
+    assert.equal(globalUpdate.status, 200, `ADMIN unexpectedly received ${globalUpdate.status}: ${await globalUpdate.clone().text()}`);
+    const updatedBody = await globalUpdate.json();
+    assert.deepEqual(updatedBody, {
       id: ids.nightA, eventId: ids.eventA, name: "T6 authorized update", displayOrder: 2,
       kind: "COMPETITION", status: "DRAFT", eventDate: "2027-02-06",
     });
     assert.deepEqual(
       (await pool.query(`SELECT id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate"
                            FROM night WHERE id=$1`, [ids.nightA])).rows,
-      [delegatedBody],
+      [updatedBody],
     );
     assert.deepEqual(
       (await pool.query(`SELECT actor_user_id AS "actorUserId", action, entity_type AS "entityType", entity_id AS "entityId"
                            FROM audit_event WHERE action='NIGHT_UPDATED' AND entity_id=$1 ORDER BY id DESC LIMIT 1`, [ids.nightA])).rows,
-      [{ actorUserId: ids.assigned, action: "NIGHT_UPDATED", entityType: "night", entityId: ids.nightA }],
+      [{ actorUserId: ids.admin, action: "NIGHT_UPDATED", entityType: "night", entityId: ids.nightA }],
     );
     assert.deepEqual(
       (await pool.query("SELECT id, name FROM night WHERE id = ANY($1::uuid[]) ORDER BY id", [[ids.nightA, ids.nightB]])).rows,
@@ -126,7 +129,7 @@ test("PATCH jornada autoriza ADMIN_EVENT por owner persistido y mantiene auditor
       ["not-a-uuid", "admin", update, 400, { code: "VALIDATION_ERROR" }],
       [randomUUID(), "admin", update, 404, { code: "NIGHT_NOT_FOUND" }],
       [randomUUID(), "assigned", update, 403, { code: "ADMIN_REQUIRED" }],
-      [ids.nightA, "assigned", { ...update, name: " " }, 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }],
+      [ids.nightA, "admin", { ...update, name: " " }, 400, { code: "VALIDATION_ERROR", message: "name debe ser texto no vacío." }],
     ];
     for (const [nightId, session, body, status, expected] of deniedCases) {
       const response = await request(nightId, session, body);
@@ -136,12 +139,12 @@ test("PATCH jornada autoriza ADMIN_EVENT por owner persistido y mantiene auditor
     const afterDenied = await snapshot();
     assert.deepEqual(afterDenied.map(({ rows }) => rows), beforeDenied.map(({ rows }) => rows));
 
-    const globalUpdate = await request(ids.nightB, "admin", {
+    const globalUpdateB = await request(ids.nightB, "admin", {
       name: "T6 ADMIN update", displayOrder: 3, kind: "AWARDS", eventDate: null,
       eventId: ids.eventA,
     });
-    assert.equal(globalUpdate.status, 200);
-    assert.deepEqual(await globalUpdate.json(), {
+    assert.equal(globalUpdateB.status, 200);
+    assert.deepEqual(await globalUpdateB.json(), {
       id: ids.nightB, eventId: ids.eventB, name: "T6 ADMIN update", displayOrder: 3,
       kind: "AWARDS", status: "DRAFT", eventDate: null,
     });
@@ -182,10 +185,9 @@ test("PATCH cierre final atribuye EVENT_CLOSED al usuario de sesión, no al body
       ($1, 'ADMIN_EVENT fixture', $2, true), ($3, 'ADMIN spoof fixture', $4, true)`,
     [actorId, `${actorId}@example.test`, spoofedAdminId, `${spoofedAdminId}@example.test`],
   );
-  await client.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN')", [spoofedAdminId]);
+  await client.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN'),($2,'ADMIN')", [actorId, spoofedAdminId]);
   const event = await createEvent({ client, name: eventName });
   const night = await createNight({ client, eventId: event.id, name: "T6 final night", displayOrder: 1, kind: "COMPETITION" });
-  await client.query("INSERT INTO admin_event_assignment(user_id,event_id,is_active) VALUES($1,$2,true)", [actorId, event.id]);
   const { rows: [category] } = await client.query(
     "INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'T6 close category',$2,1) RETURNING id",
     [event.id, `CAT_${randomUUID().replaceAll('-', '').slice(0, 12)}`],

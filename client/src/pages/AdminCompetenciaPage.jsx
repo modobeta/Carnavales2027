@@ -10,11 +10,10 @@ import { Button } from "../components/Button.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
-import { PREPARATION_STEPS, READINESS_STATE_LABELS, eventAdminReadinessItems, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
+import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
-import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 
@@ -39,21 +38,6 @@ function SaveForm({ onSubmit, resetOnSuccess = false, ...props }) {
   }} />;
 }
 
-// En modo ADMIN_EVENT, Participantes es solo consulta: la guía informa sin indicar acciones (spec 040, CA-5.2).
-function eventAdminParticipantsGuidance(readiness) {
-  const missing = new Set(readiness?.missing ?? []);
-  const messages = [];
-  if (missing.has("ACTIVE_TROUPE")) messages.push("No hay comparsas activas.");
-  for (const troupe of readiness?.incompleteTroupes ?? []) {
-    messages.push(`${troupe.name ?? "Una comparsa"} no tiene una categoría activa.`);
-  }
-  for (const nomination of readiness?.incompleteNominations ?? []) {
-    messages.push(`Falta el participante de ${nomination.rubricName ?? "un rubro"} en ${nomination.troupeName ?? "una comparsa"}; lo carga el administrador general.`);
-  }
-  if (messages.length === 0) messages.push("Hay datos de participantes pendientes.");
-  return messages.join(" ");
-}
-
 // Error de carga inicial con reintento: nunca se presenta como lista vacía (spec 040, E-2).
 function LoadErrorAlert({ message, onRetry }) {
   return (
@@ -64,9 +48,7 @@ function LoadErrorAlert({ message, onRetry }) {
   );
 }
 
-function incompleteStepGuidance(stepKey, readiness, eventAdminMode = false) {
-  if (eventAdminMode && stepKey === "participantes") return eventAdminParticipantsGuidance(readiness);
-  if (eventAdminMode && stepKey === "revision") return "La apertura la realiza el administrador general. Estos son los requisitos pendientes.";
+function incompleteStepGuidance(stepKey, readiness) {
   const missing = new Set(readiness?.missing ?? []);
   const messages = [];
 
@@ -102,11 +84,8 @@ function incompleteStepGuidance(stepKey, readiness, eventAdminMode = false) {
   return messages.join(" ");
 }
 
-// ADMIN_EVENT solo ve los pasos que la API le autoriza (spec 040, CA-4.3); el resto se oculta, no se deshabilita.
-const EVENT_ADMIN_STEP_KEYS = ["participantes", "revision"];
-
-export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "", eventAdminMode = false, ownRoles = [] }) {
-  const availableSteps = eventAdminMode ? PREPARATION_STEPS.filter((item) => EVENT_ADMIN_STEP_KEYS.includes(item.key)) : PREPARATION_STEPS;
+export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
+  const availableSteps = PREPARATION_STEPS;
   const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
@@ -125,7 +104,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [openEventMessage, setOpenEventMessage] = useState("");
   const writing = useRef(false);
   const progressRequest = useRef(0);
-  const handleRejection = useEventAdminRejection(eventAdminMode);
 
   useEffect(() => {
     setCurrentEvent(event);
@@ -161,10 +139,10 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     Promise.all([
       apiRequest(`/api/v1/events/${event.id}/troupes`),
       apiRequest(`/api/v1/events/${event.id}/categories`),
-      // Especialidades, rubros y criterios siguen reservados a ADMIN: en modo ADMIN_EVENT no se consultan.
-      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/specialties`),
-      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/rubrics`),
-      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`),
+      // Cargar los datos administrativos completos para preparar la competencia.
+      apiRequest(`/api/v1/events/${event.id}/specialties`),
+      apiRequest(`/api/v1/events/${event.id}/rubrics`),
+      apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`),
     ]).then(([troupes, categories, specialties, rubrics, orphaned]) => {
       if (request !== progressRequest.current) return;
       setProgress({ troupes, categories, specialties, rubrics, orphaned });
@@ -173,7 +151,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
       if (request !== progressRequest.current) return;
       setProgress(null);
       setProgressError(true);
-      void handleRejection(error, event.id);
     });
     return () => { progressRequest.current += 1; };
   };
@@ -188,7 +165,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     }).catch((error) => {
       if (!active) return;
       setReadinessState({ eventId: event.id, status: "unavailable", data: null });
-      void handleRejection(error, event.id);
     });
     return () => { active = false; };
   }, [event.id, dataRevision]);
@@ -270,7 +246,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const statusSummary = (key) => {
     const status = stepStatuses[key];
     if (status === "complete") return null;
-    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness, eventAdminMode);
+    if (status === "incomplete") return incompleteStepGuidance(key, currentReadiness);
     if (status === "unqueried") return "Todavía no se revisaron los requisitos de este paso.";
     return "No se pudieron revisar los requisitos de este paso.";
   };
@@ -334,7 +310,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
 
-              {!eventAdminMode && <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
+              <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
                 <button
                   type="button"
                   role="tab"
@@ -357,7 +333,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 >
                   Orden de pasada por jornada
                 </button>
-              </div>}
+              </div>
 
               <div
                 role="tabpanel"
@@ -366,14 +342,14 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
               >
                 <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
-                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} readOnly={eventAdminMode} />
+                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
                 </section>
                 <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
-                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} readOnly={eventAdminMode} />
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
                 </section>
               </div>
 
-              {!eventAdminMode && <div
+              <div
                 role="tabpanel"
                 id="panel-sub-orden"
                 aria-labelledby="tab-sub-orden"
@@ -382,7 +358,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
                   <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
                 </section>
-              </div>}
+              </div>
             </section>
           )}
           {step === "jurados" && (
@@ -444,16 +420,15 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Revisión final</h2>
 
-              {eventAdminMode && (isEventOpen || currentEvent?.status === "CLOSED") ? (
+              {(isEventOpen || currentEvent?.status === "CLOSED") ? (
                 <div className={`revision-status-banner ${isEventOpen ? "is-open" : "is-closed"}`} role="region" aria-label="Estado de la competencia">
                   <div className="revision-banner-content">
                     <h3>{isEventOpen ? "Competencia abierta" : "Competencia finalizada"}</h3>
-                    <p>{isEventOpen ? "El evento está abierto. La operación de las jornadas y la votación la realiza el administrador general." : "El evento finalizó."}</p>
-                    {ownRoles.some((role) => ["SCRUTINEER", "ESCRIBANO"].includes(role)) && (
-                      <div className="revision-banner-actions">
-                        <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
-                      </div>
-                    )}
+                    <p>{isEventOpen ? "El evento está abierto. La operación de las jornadas y la votación continúa desde Control de votación." : "El evento finalizó."}</p>
+                    <div className="revision-banner-actions">
+                      {isEventOpen && <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>}
+                      <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
+                    </div>
                   </div>
                 </div>
               ) : isEventOpen ? (
@@ -479,8 +454,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                         <div className="revision-banner-icon" aria-hidden="true">✅</div>
                         <div className="revision-banner-content">
                           <h3>Preparación completa</h3>
-                          <p className="readiness-ok">{eventAdminMode ? "Se cumplen los requisitos. La apertura la realiza el administrador general." : "Se cumplen los requisitos para abrir el evento."}</p>
-                          {!eventAdminMode && <div className="revision-banner-actions">
+                          <p className="readiness-ok">Se cumplen los requisitos para abrir el evento.</p>
+                          <div className="revision-banner-actions">
                             <button
                               type="button"
                               className="primary"
@@ -489,19 +464,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                             >
                               {openingEvent ? "Abriendo…" : "Abrir competencia"}
                             </button>
-                          </div>}
+                          </div>
                         </div>
                       </div>
-                    ) : eventAdminMode ? (
-                      <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
-                        {eventAdminReadinessItems(currentReadiness).map((item) => (
-                          <li key={item.key} className="readiness-fail">
-                            <span className="readiness-icon" aria-hidden="true">!</span>
-                            <span>{item.text}</span>
-                            {item.resolvableHere && <a href="#/admin/events">Ir a Jornadas</a>}
-                          </li>
-                        ))}
-                      </ul>
                     ) : (
                       <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
                         {officialIssues.map((issue) => (
@@ -555,7 +520,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     </button>
                   </div>
 
-                  {!eventAdminMode && <div className="revision-summary-card">
+                  <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Paso 2</span>
                       <h4>Jurados</h4>
@@ -573,9 +538,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ver jurados
                     </button>
-                  </div>}
+                  </div>
 
-                  {!eventAdminMode && <div className="revision-summary-card">
+                  <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Paso 3</span>
                       <h4>Evaluación</h4>
@@ -595,9 +560,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ver evaluación
                     </button>
-                  </div>}
+                  </div>
 
-                  {!eventAdminMode && <div className="revision-summary-card">
+                  <div className="revision-summary-card">
                     <div className="revision-card-header">
                       <span className="revision-card-badge">Operación</span>
                       <h4>Jornadas</h4>
@@ -614,7 +579,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     >
                       Ir a jornadas
                     </a>
-                  </div>}
+                  </div>
                 </div> : <p role="status">{progressError ? "Resumen no disponible." : "Cargando el resumen…"}</p>}
               </section>
 
@@ -638,7 +603,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             isEventOpen={isEventOpen}
             isReady={currentReadiness?.ready}
             onOpenEvent={() => setConfirmOpenEvent(true)}
-            allowOpen={!eventAdminMode}
+            allowOpen
             opening={openingEvent}
           />
         </fieldset>
@@ -877,7 +842,6 @@ function AdminTroupesSection({ event, readOnly = false }) {
     return () => { active = false; };
   }, [event.id, dataRevision, loadAttempt]);
 
-  // readOnly: modo consulta de ADMIN_EVENT hasta la spec 041.
   const locked = event.status === "OPEN" || readOnly;
   const activeCategories = categories.filter((c) => c.active !== false);
 
@@ -1362,7 +1326,6 @@ function AdminCategoriesSection({ event, readOnly = false }) {
     apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
   }, [event.id, dataRevision, loadAttempt]);
-  // readOnly: modo consulta de ADMIN_EVENT hasta la spec 041.
   const locked = event.status === "OPEN" || readOnly;
 
   const save = async (path, body, method = "POST") => {

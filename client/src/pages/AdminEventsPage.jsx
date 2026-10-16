@@ -3,11 +3,9 @@ import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
-import { useEventAdminRejection } from "../auth/useEventAdminRejection.js";
 
-export function AdminEventsPage({ eventAdminMode = false } = {}) {
+export function AdminEventsPage() {
   const adminEvent = useAdminEvent();
-  const handleRejection = useEventAdminRejection(eventAdminMode);
   const [localEvents, setLocalEvents] = useState([]);
   const [nights, setNights] = useState([]);
   const [configurationLoading, setConfigurationLoading] = useState(false);
@@ -40,11 +38,10 @@ export function AdminEventsPage({ eventAdminMode = false } = {}) {
     ]).then(([eventNights]) => {
       if (!current) return;
       setNights(Array.isArray(eventNights) ? eventNights : []);
-    }).catch((error) => {
+    }).catch(() => {
       if (!current) return;
       setNights([]);
       setConfigurationError(true);
-      void handleRejection(error, activeEvent.id);
     }).finally(() => {
       if (current) setConfigurationLoading(false);
     });
@@ -83,7 +80,6 @@ export function AdminEventsPage({ eventAdminMode = false } = {}) {
         onBack={() => { window.location.hash = "#/admin/home"; }}
         onCompetencia={() => { window.location.hash = "#/admin/competencia"; }}
         onEventChange={adminEvent?.updateEvent}
-        eventAdminMode={eventAdminMode}
       />
     );
   }

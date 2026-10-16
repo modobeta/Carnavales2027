@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAdmin } from "../auth/require-admin.js";
-import { grantAdminEventAssignment, listActiveAdminEventAssignments, revokeAdminEventAssignment } from "../auth/admin-event-assignment-service.js";
+import { listActiveAdminEventAssignments } from "../auth/admin-event-assignment-service.js";
 import { grantRole, revokeRole } from "../auth/role-service.js";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { sendKnownError } from "./http-errors.js";
@@ -29,37 +29,13 @@ export function createUsersRouter({ requireSession, createUser }) {
     }
   });
 
-  router.put("/events/:eventId/admin-assignments/:userId", ...admin, async (request, response, next) => {
-    try {
-      const result = await grantAdminEventAssignment({
-        actorUserId: request.user.id,
-        eventId: request.params.eventId,
-        userId: request.params.userId,
-      });
-      if (result.error === "VALIDATION_ERROR") return response.status(400).json({ code: result.error });
-      if (result.error) return response.status(404).json({ code: result.error });
-      return response.json(result);
-    } catch (error) {
-      if (sendKnownError(response, error)) return;
-      return next(error);
-    }
-  });
+  router.put("/events/:eventId/admin-assignments/:userId", ...admin, (_request, response) => (
+    response.status(410).json({ code: "ADMIN_EVENT_ASSIGNMENTS_RETIRED" })
+  ));
 
-  router.delete("/events/:eventId/admin-assignments/:userId", ...admin, async (request, response, next) => {
-    try {
-      const result = await revokeAdminEventAssignment({
-        actorUserId: request.user.id,
-        eventId: request.params.eventId,
-        userId: request.params.userId,
-      });
-      if (result.error === "VALIDATION_ERROR") return response.status(400).json({ code: result.error });
-      if (result.error) return response.status(404).json({ code: result.error });
-      return response.json(result);
-    } catch (error) {
-      if (sendKnownError(response, error)) return;
-      return next(error);
-    }
-  });
+  router.delete("/events/:eventId/admin-assignments/:userId", ...admin, (_request, response) => (
+    response.status(410).json({ code: "ADMIN_EVENT_ASSIGNMENTS_RETIRED" })
+  ));
 
   router.get("/users", ...admin, userController.listUsers);
   router.post("/users/invitations", ...admin, userController.inviteUser);

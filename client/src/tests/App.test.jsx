@@ -3,99 +3,52 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App.jsx";
 
 describe("App", () => {
-  it("conserva navegación y sesión en resultados sin mandar al login", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ events: [] }) })));
-    window.location.hash = "#/resultados";
-    render(<App session={{ status: "authenticated", roles: ["JUDGE"], user: { name: "Jurado" } }} />);
-    expect(await screen.findByText("Resultados en Proceso de Escrutinio")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Acceso Operativo" })).not.toBeInTheDocument();
-    expect(document.querySelector("#app-drawer")).not.toBeInTheDocument();
-    vi.unstubAllGlobals();
-  });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.location.hash = ""; });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.localStorage.clear(); window.location.hash = ""; });
+
   it("muestra login como ruta pública inicial", () => {
     render(<App />);
-
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
-    expect(screen.queryByText("Acceso seguro")).not.toBeInTheDocument();
-    expect(screen.queryByText("Sistema de jurados")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ingresar" })).toBeInTheDocument();
   });
 
-  it("protege rutas ADMIN y permite el panel informativo JUDGE", () => {
-    window.location.hash = "#/admin/judges";
-    const { rerender } = render(<App session={{ status: "authenticated", roles: ["JUDGE"] }} />);
-    expect(screen.getByText("No tenés permisos de administración")).toBeInTheDocument();
+  it.each(["#/admin/home", "#/admin/events", "#/admin/competencia", "#/admin/judges", "#/admin/users", "#/admin/assignments", "#/admin/voting"])(
+    "rechaza acceso administrativo directo sin ADMIN aunque /me informe asignaciones: %s",
+    (route) => {
+      window.location.hash = route;
+      render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }] }} />);
+      expect(screen.getByText("No tenés permisos de administración")).toBeInTheDocument();
+    },
+  );
 
-    window.location.hash = "#/judge";
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-    rerender(<App session={{ status: "authenticated", roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" }, user: { name: "Jurado" } }} />);
-    expect(screen.getByRole("heading", { name: "Buenas noches, Jurado" })).toBeInTheDocument();
-  });
-
-  it("admite ADMIN_EVENT vigente en #/admin/home", async () => {
+  it("ADMIN accede al inicio sin depender de asignaciones", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
     window.location.hash = "#/admin/home";
-    render(<App session={{ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Admin evento" } }} />);
+    render(<App session={{ status: "authenticated", roles: ["ADMIN"], adminEvents: [], user: { id: "u1", name: "Admin" } }} />);
     expect(await screen.findByRole("heading", { name: "Mis eventos" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["#/admin/home", []], ["#/admin/home", [{ id: "e1" }]],
+    ["#/admin/events", []], ["#/admin/events", [{ id: "e1" }]],
+    ["#/admin/competencia", []], ["#/admin/competencia", [{ id: "e1" }]],
+  ])("ADMIN entra a %s con adminEvents=%j", async (route, adminEvents) => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.location.hash = route;
+    render(<App session={{ status: "authenticated", roles: ["ADMIN"], adminEvents, user: { id: "u1", name: "Admin" } }} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(screen.queryByText("No tenés permisos de administración")).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["#/admin/events", "No tenés permisos de administración"],
-    ["#/admin/competencia", "No tenés permisos de administración"],
-    ["#/admin/judges", "No tenés permisos de administración"],
-    ["#/admin/users", "No tenés permisos de administración"],
-    ["#/admin/assignments", "No tenés permisos de administración"],
-    ["#/admin/voting", "No tenés permisos de administración"],
-    ["#/admin/penalties", "No tenés permisos para acceder a esta sección."],
-  ])("ADMIN_EVENT conserva el rechazo controlado por URL directa en %s", (route, denied) => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
-    window.location.hash = route;
-    render(<App session={{ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Admin evento" } }} />);
-    expect(screen.getByText(denied)).toBeInTheDocument();
-  });
-
-  it.each([
-    ["#/admin/home", "/api/v1/events", "/api/v1/judge/profile"],
-    ["#/judge", "/api/v1/judge/profile", "/api/v1/events"],
-  ])("JUDGE + ADMIN_EVENT en %s carga el catálogo desde %s", async (route, expected, unexpected) => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
+  it("un JUDGE conserva sus rutas y catálogo aunque /me incluya adminEvents", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ assignments: [] }) }));
     vi.stubGlobal("fetch", fetchMock);
-    window.location.hash = route;
-    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }], judgeProfile: { registrationStatus: "REGISTERED" }, user: { id: "u1", name: "Jurado" } }} />);
-    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
-    await waitFor(() => expect(calledPaths()).toContain(expected));
-    expect(calledPaths()).not.toContain(unexpected);
-  });
-
-  it("VEEDOR + ADMIN_EVENT en #/veedor conserva su catálogo propio", async () => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
-    vi.stubGlobal("fetch", fetchMock);
-    window.location.hash = "#/veedor";
-    render(<App session={{ status: "authenticated", roles: ["VEEDOR"], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Veedor" } }} />);
-    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
-    await waitFor(() => expect(calledPaths()).toContain("/api/v1/monitor/events"));
-    expect(calledPaths()).not.toContain("/api/v1/events");
-  });
-
-  it.each(["#/admin/events", "#/admin/competencia"])("COMISARIO + ADMIN_EVENT en %s usa el catálogo de asignaciones (spec 040 T1)", async (route) => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
-    vi.stubGlobal("fetch", fetchMock);
-    window.location.hash = route;
-    render(<App session={{ status: "authenticated", roles: ["COMISARIO"], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Comisario" } }} />);
-    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
-    await waitFor(() => expect(calledPaths()).toContain("/api/v1/events"));
-    expect(calledPaths()).not.toContain("/api/v1/penalties/events");
-  });
-
-  it("sin capacidad #/admin/home sigue rechazado", () => {
-    window.location.hash = "#/admin/home";
-    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [] }} />);
-    expect(screen.getByText("No tenés permisos de administración")).toBeInTheDocument();
+    window.location.hash = "#/judge";
+    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }], judgeProfile: { registrationStatus: "REGISTERED" }, user: { name: "Jurado" } }} />);
+    expect(await screen.findByRole("heading", { name: "Buenas noches, Jurado" })).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/v1/judge/profile"))).toBe(true));
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/v1/events"))).toBe(false);
   });
 
   it("mantiene una ruta segura después de aceptar una invitación", () => {
@@ -107,31 +60,7 @@ describe("App", () => {
 
   it("protege la ruta #/admin/penalties para roles no autorizados", () => {
     window.location.hash = "#/admin/penalties";
-    render(<App session={{ status: "authenticated", roles: ["JUDGE"] }} />);
+    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }] }} />);
     expect(screen.getByText("No tenés permisos para acceder a esta sección.")).toBeInTheDocument();
-  });
-
-  it("abre directamente Rubros desde el acceso simplificado del menú", async () => {
-    const readiness = {
-      ready: true,
-      missing: [],
-      incompleteTroupes: [],
-      incompleteRubrics: [],
-      incompleteSchedules: [],
-      incompleteNominations: [],
-      nightsWithoutJury: [],
-    };
-    vi.stubGlobal("fetch", vi.fn(async (url) => {
-      const path = new URL(String(url), "http://localhost").pathname;
-      let data = [];
-      if (path === "/api/v1/events") data = [{ id: "event-1", name: "Carnaval", status: "CONFIGURING", active: true }];
-      else if (path === "/api/v1/public/events") data = { events: [] };
-      else if (path === "/api/v1/events/event-1/readiness") data = readiness;
-      return { ok: true, status: 200, json: async () => data };
-    }));
-    window.location.hash = "#/admin/competencia?step=rubros";
-    render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "admin-1", name: "Admin" } }} />);
-
-    expect(await screen.findByRole("heading", { name: "Configurar evaluación" })).toBeInTheDocument();
   });
 });

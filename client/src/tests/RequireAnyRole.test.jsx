@@ -4,7 +4,6 @@ import { RequireAnyRole } from "../auth/RequireAnyRole.jsx";
 import {
   canAccessAdminArea,
   getDefaultRouteForRoles,
-  hasEventAdminCapability,
   ROLE_DEFAULT_ROUTES,
 } from "../auth/role-routes.js";
 
@@ -102,22 +101,11 @@ describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
     });
   });
 
-  describe("capacidad de administración de eventos", () => {
-    it("reconoce capacidad solo en sesión autenticada sin ADMIN global", () => {
-      const adminEventSession = { status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }] };
-      expect(hasEventAdminCapability(adminEventSession)).toBe(true);
-      expect(hasEventAdminCapability({ ...adminEventSession, roles: ["ADMIN"] })).toBe(false);
-      expect(hasEventAdminCapability({ ...adminEventSession, adminEvents: [] })).toBe(false);
-      for (const status of ["loading", "anonymous", "second-factor-required", "error"]) {
-        expect(hasEventAdminCapability({ ...adminEventSession, status })).toBe(false);
-      }
-      expect(hasEventAdminCapability(undefined)).toBe(false);
-    });
-
-    it("permite el área solo a sesión autenticada ADMIN o con capacidad ADMIN_EVENT", () => {
+  describe("acceso a administración", () => {
+    it("permite el área solo a una sesión autenticada con ADMIN global", () => {
       expect(canAccessAdminArea({ status: "authenticated", roles: ["ADMIN"] })).toBe(true);
-      expect(canAccessAdminArea({ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }] })).toBe(true);
-      expect(canAccessAdminArea({ status: "authenticated", roles: [], adminEvents: [] })).toBe(false);
+      expect(canAccessAdminArea({ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }] })).toBe(false);
+      expect(canAccessAdminArea({ status: "authenticated", roles: ["COMISARIO"], adminEvents: [{ id: "e1" }] })).toBe(false);
       for (const status of ["loading", "anonymous", "second-factor-required", "error"]) {
         expect(canAccessAdminArea({ status, roles: ["ADMIN"], adminEvents: [{ id: "e1" }] })).toBe(false);
       }

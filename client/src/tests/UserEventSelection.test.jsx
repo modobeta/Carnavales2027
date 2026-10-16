@@ -40,38 +40,26 @@ describe("identidad y selección de evento", () => {
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/judge/profile");
   });
 
-  it("usa el catálogo autorizado para ADMIN_EVENT cuando /me informa capacidad", async () => {
-    apiRequest.mockResolvedValue([{ id: "e1", name: "Asignado" }]);
-    expect(await loadAvailableEvents([], false, [{ id: "e1" }])).toEqual([{ id: "e1", name: "Asignado" }]);
-    expect(apiRequest).toHaveBeenCalledTimes(1);
-    expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
-  });
-
-  it("sin capacidad ADMIN_EVENT no consulta el catálogo ni la infiere", async () => {
-    expect(await loadAvailableEvents([], false, [])).toEqual([]);
+  it("no infiere acceso administrativo a partir de asignaciones", async () => {
+    expect(await loadAvailableEvents([])).toEqual([]);
     expect(await loadAvailableEvents([])).toEqual([]);
     expect(apiRequest).not.toHaveBeenCalled();
   });
 
-  it("un rechazo del catálogo con capacidad se propaga como error, no como lista vacía", async () => {
-    apiRequest.mockRejectedValue(Object.assign(new Error("forbidden"), { status: 403 }));
-    await expect(loadAvailableEvents([], false, [{ id: "e1" }])).rejects.toThrow("forbidden");
-  });
-
   it("ADMIN conserva el catálogo global con o sin asignaciones", async () => {
     apiRequest.mockResolvedValue([]);
-    await loadAvailableEvents(["ADMIN"], false, [{ id: "e1" }]);
+    await loadAvailableEvents(["ADMIN"]);
     expect(apiRequest).toHaveBeenCalledTimes(1);
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/events");
   });
 
   it.each([
-    [["JUDGE"], false, "/api/v1/events"],
+    [["JUDGE"], false, "/api/v1/judge/profile"],
     [["JUDGE"], true, "/api/v1/judge/profile"],
-    [["COMISARIO"], false, "/api/v1/events"],
-  ])("precedencia ADMIN_EVENT con roles %j y área de jurado %s usa %s", async (roles, judgeArea, endpoint) => {
+    [["COMISARIO"], false, "/api/v1/penalties/events"],
+  ])("roles %j y área de jurado %s usan su catálogo %s", async (roles, judgeArea, endpoint) => {
     apiRequest.mockResolvedValue({ assignments: [] });
-    await loadAvailableEvents(roles, judgeArea, [{ id: "e1" }]);
+    await loadAvailableEvents(roles, judgeArea);
     expect(apiRequest).toHaveBeenCalledTimes(1);
     expect(apiRequest).toHaveBeenCalledWith(endpoint);
   });
