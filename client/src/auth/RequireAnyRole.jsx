@@ -5,6 +5,7 @@
 export function RequireAnyRole({
   session,
   allowedRoles = [],
+  isAllowed,
   deniedMessage = "No tenés permisos para acceder a esta sección.",
   children,
 }) {
@@ -50,7 +51,10 @@ export function RequireAnyRole({
     );
   }
 
-  const hasRole = Array.isArray(allowedRoles) && allowedRoles.some((role) => session.roles?.includes(role));
+  // isAllowed permite guardias por capacidad (p. ej. ADMIN_EVENT) conservando el orden de estados previo.
+  const hasRole = typeof isAllowed === "function"
+    ? isAllowed(session)
+    : Array.isArray(allowedRoles) && allowedRoles.some((role) => session.roles?.includes(role));
 
   if (!hasRole) {
     return <p>{deniedMessage}</p>;

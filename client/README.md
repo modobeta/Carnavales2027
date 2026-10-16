@@ -89,7 +89,7 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/invitations/operational/accept?secret=...` | Aceptación de perfil operativo |
 | `#/invitations/accepted` | Confirmación de aceptación de jurado |
 | `#/cuenta` | Cuenta y cambio de contraseña; su pantalla usa el estado de sesión |
-| `#/admin/home` | Inicio operativo; resumen de eventos activos y accesos directos (ADMIN) |
+| `#/admin/home` | Inicio operativo; resumen de eventos activos y accesos directos (ADMIN o ADMIN_EVENT vigente) |
 | `#/admin/events` | Catálogo de eventos y gestión de jornadas (ADMIN) |
 | `#/admin/competencia?step=...` | Asistente de preparación de competencia en 4 pasos (ADMIN) |
 | `#/admin/judges`, `#/admin/assignments` | Personas/jurados y asignaciones (ADMIN) |

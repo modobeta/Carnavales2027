@@ -36,6 +36,35 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Buenas noches, Jurado" })).toBeInTheDocument();
   });
 
+  it("admite ADMIN_EVENT vigente en #/admin/home", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
+    window.location.hash = "#/admin/home";
+    render(<App session={{ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Admin evento" } }} />);
+    expect(await screen.findByRole("heading", { name: "Mis eventos" })).toBeInTheDocument();
+    expect(screen.queryByText("No tenés permisos de administración")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["#/admin/events", "No tenés permisos de administración"],
+    ["#/admin/competencia", "No tenés permisos de administración"],
+    ["#/admin/judges", "No tenés permisos de administración"],
+    ["#/admin/users", "No tenés permisos de administración"],
+    ["#/admin/assignments", "No tenés permisos de administración"],
+    ["#/admin/voting", "No tenés permisos de administración"],
+    ["#/admin/penalties", "No tenés permisos para acceder a esta sección."],
+  ])("ADMIN_EVENT conserva el rechazo controlado por URL directa en %s", (route, denied) => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
+    window.location.hash = route;
+    render(<App session={{ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Admin evento" } }} />);
+    expect(screen.getByText(denied)).toBeInTheDocument();
+  });
+
+  it("sin capacidad #/admin/home sigue rechazado", () => {
+    window.location.hash = "#/admin/home";
+    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [] }} />);
+    expect(screen.getByText("No tenés permisos de administración")).toBeInTheDocument();
+  });
+
   it("mantiene una ruta segura después de aceptar una invitación", () => {
     window.location.hash = "#/invitations/accepted";
     render(<App />);
