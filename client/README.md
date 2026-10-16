@@ -113,9 +113,9 @@ La cabecera muestra nombre, roles en español y evento activo. **Evento activo**
 
 ### Navegación y preparación de la competencia (ADMIN)
 
-El panel administrativo organiza la gestión en momentos claros de uso:
+El panel administrativo organiza la gestión en momentos claros de uso. Una cuenta sin ADMIN con ADMIN_EVENT vigente solo accede a **Inicio**; las demás pantallas de esta sección siguen reservadas a ADMIN y responden con el rechazo controlado de su guardia aunque se abran por URL directa.
 
-1. **Inicio (`#/admin/home`)**: Vista ejecutiva de eventos activos con accesos rápidos para continuar la preparación de competencia o ingresar a la mesa de control según el estado de cada evento.
+1. **Inicio (`#/admin/home`)**: Vista ejecutiva de eventos activos con accesos rápidos para continuar la preparación de competencia o ingresar a la mesa de control según el estado de cada evento. Admite ADMIN y ADMIN_EVENT vigente.
 2. **Eventos y jornadas (`#/admin/events`)**: Gestión de alta, edición y estado de eventos y sus jornadas correspondientes.
 3. **Preparación del evento (`#/admin/competencia`)**: Asistente secuencial de cuatro pasos con navegación superior e inferior:
    - **Paso 1 — Participantes / Comparsas (`?step=participantes`)**: Configuración de tipos de participación (categorías), alta y edición de comparsas (con carga y remoción de logos y colores distintivos) y orden de pasada por jornada.

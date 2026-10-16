@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App.jsx";
 
@@ -57,6 +57,19 @@ describe("App", () => {
     window.location.hash = route;
     render(<App session={{ status: "authenticated", roles: [], adminEvents: [{ id: "e1" }], user: { id: "u1", name: "Admin evento" } }} />);
     expect(screen.getByText(denied)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["#/admin/home", "/api/v1/events", "/api/v1/judge/profile"],
+    ["#/judge", "/api/v1/judge/profile", "/api/v1/events"],
+  ])("JUDGE + ADMIN_EVENT en %s carga el catálogo desde %s", async (route, expected, unexpected) => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.location.hash = route;
+    render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }], judgeProfile: { registrationStatus: "REGISTERED" }, user: { id: "u1", name: "Jurado" } }} />);
+    const calledPaths = () => fetchMock.mock.calls.map(([url]) => new URL(url, "http://localhost").pathname);
+    await waitFor(() => expect(calledPaths()).toContain(expected));
+    expect(calledPaths()).not.toContain(unexpected);
   });
 
   it("sin capacidad #/admin/home sigue rechazado", () => {

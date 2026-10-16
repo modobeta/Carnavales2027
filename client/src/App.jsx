@@ -1,5 +1,6 @@
 import { RequireAdmin } from "./auth/RequireAdmin.jsx";
 import { RequireAdminArea } from "./auth/RequireAdminArea.jsx";
+import { hasEventAdminCapability } from "./auth/role-routes.js";
 import { RequireRole } from "./auth/RequireRole.jsx";
 import { RequireResultsRole } from "./auth/RequireResultsRole.jsx";
 import { RequirePenaltiesRole } from "./auth/RequirePenaltiesRole.jsx";
@@ -208,6 +209,8 @@ export default function App({ session: providedSession }) {
     </div>
   );
   if (session.status !== "authenticated") return content;
-  const judgeArea = path.startsWith("#/judge") || (session.roles?.length === 1 && session.roles[0] === "JUDGE");
+  // Un JUDGE con ADMIN_EVENT vigente solo usa el contexto de jurado dentro de #/judge (N4 de la spec 039).
+  const judgeArea = path.startsWith("#/judge")
+    || (session.roles?.length === 1 && session.roles[0] === "JUDGE" && !hasEventAdminCapability(session));
   return <AdminEventProvider key={`${session.user?.id ?? ""}:${session.roles?.join(",")}:${judgeArea}`} session={session} judgeArea={judgeArea}>{content}</AdminEventProvider>;
 }
