@@ -74,8 +74,12 @@ function incompleteStepGuidance(stepKey, readiness) {
   return messages.join(" ");
 }
 
-export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
-  const validInitialStep = PREPARATION_STEPS.some((item) => item.key === initialStep) ? initialStep : "participantes";
+// ADMIN_EVENT solo ve los pasos que la API le autoriza (spec 040, CA-4.3); el resto se oculta, no se deshabilita.
+const EVENT_ADMIN_STEP_KEYS = ["participantes", "revision"];
+
+export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "", eventAdminMode = false }) {
+  const availableSteps = eventAdminMode ? PREPARATION_STEPS.filter((item) => EVENT_ADMIN_STEP_KEYS.includes(item.key)) : PREPARATION_STEPS;
+  const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "participantes";
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
@@ -127,9 +131,10 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     Promise.all([
       apiRequest(`/api/v1/events/${event.id}/troupes`).catch(() => []),
       apiRequest(`/api/v1/events/${event.id}/categories`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/specialties`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => []),
-      apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`).catch(() => []),
+      // Especialidades, rubros y criterios siguen reservados a ADMIN: en modo ADMIN_EVENT no se consultan.
+      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/specialties`).catch(() => []),
+      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/rubrics`).catch(() => []),
+      eventAdminMode ? Promise.resolve([]) : apiRequest(`/api/v1/events/${event.id}/orphaned-criteria`).catch(() => []),
     ]).then(([troupes, categories, specialties, rubrics, orphaned]) => {
       if (request === progressRequest.current) setProgress({ troupes, categories, specialties, rubrics, orphaned });
     });
@@ -153,7 +158,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const currentReadiness = readinessState.eventId === event.id ? readinessState.data : null;
   const currentReadinessStatus = readinessState.eventId === event.id ? readinessState.status : "unqueried";
   const stepStatuses = readinessStepStates(currentReadiness, currentReadinessStatus);
-  const steps = PREPARATION_STEPS.map((item) => ({ ...item, label: item.key === "rubros" ? "Evaluación" : item.label }));
+  const steps = availableSteps.map((item) => ({ ...item, label: item.key === "rubros" ? "Evaluación" : item.label }));
   const officialIssues = readinessIssues(currentReadiness);
   const activeIndex = Math.max(0, steps.findIndex((item) => item.key === step));
 
@@ -288,7 +293,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
               <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
 
-              <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
+              {!eventAdminMode && <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
                 <button
                   type="button"
                   role="tab"
@@ -311,7 +316,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 >
                   Orden de pasada por jornada
                 </button>
-              </div>
+              </div>}
 
               <div
                 role="tabpanel"
@@ -320,14 +325,14 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
               >
                 <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
-                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
+                  <AdminCategoriesSection key={`categories-${event.id}`} event={event} readOnly={eventAdminMode} />
                 </section>
                 <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
-                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} readOnly={eventAdminMode} />
                 </section>
               </div>
 
-              <div
+              {!eventAdminMode && <div
                 role="tabpanel"
                 id="panel-sub-orden"
                 aria-labelledby="tab-sub-orden"
@@ -336,7 +341,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
                   <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
                 </section>
-              </div>
+              </div>}
             </section>
           )}
           {step === "jurados" && (
@@ -570,6 +575,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             isEventOpen={isEventOpen}
             isReady={currentReadiness?.ready}
             onOpenEvent={() => setConfirmOpenEvent(true)}
+            allowOpen={!eventAdminMode}
             opening={openingEvent}
           />
         </fieldset>
@@ -588,7 +594,7 @@ function StepSummary({ stepLabel, recommendation }) {
   );
 }
 
-function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening }) {
+function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isReady, onOpenEvent, opening, allowOpen = true }) {
   const hasPrev = activeIndex > 0;
   const hasNext = activeIndex < steps.length - 1;
   const nextStep = hasNext ? steps[activeIndex + 1] : null;
@@ -627,12 +633,12 @@ function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isRead
             Continuar a {STEP_BUTTON_LABELS[nextStep.key] ?? nextStep.label.toLowerCase()} →
           </button>
         )}
-        {isLastStep && isEventOpen && (
+        {allowOpen && isLastStep && isEventOpen && (
           <a href="#/admin/voting" className="button-link primary">
             Ir a Control de votación →
           </a>
         )}
-        {isLastStep && !isEventOpen && isReady && (
+        {allowOpen && isLastStep && !isEventOpen && isReady && (
           <button
             type="button"
             className="primary"
@@ -782,7 +788,7 @@ function EvaluationStepSummary({ progress, readiness, readinessStatus }) {
   );
 }
 
-function AdminTroupesSection({ event }) {
+function AdminTroupesSection({ event, readOnly = false }) {
   const [troupes, setTroupes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [drawerMode, setDrawerMode] = useState(null);
@@ -804,7 +810,8 @@ function AdminTroupesSection({ event }) {
     return () => { active = false; };
   }, [event.id, dataRevision]);
 
-  const locked = event.status === "OPEN";
+  // readOnly: modo consulta de ADMIN_EVENT hasta la spec 041.
+  const locked = event.status === "OPEN" || readOnly;
   const activeCategories = categories.filter((c) => c.active !== false);
 
   const save = async (path, body, method = "POST") => {
@@ -1262,7 +1269,7 @@ function TroupeScheduleSection({ event }) {
   );
 }
 
-function AdminCategoriesSection({ event }) {
+function AdminCategoriesSection({ event, readOnly = false }) {
   const [categories, setCategories] = useState([]);
   const [drawerMode, setDrawerMode] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -1278,7 +1285,8 @@ function AdminCategoriesSection({ event }) {
     apiRequest(`/api/v1/events/${event.id}/categories`).then((loaded) => { if (active) setCategories(loaded); }).catch(() => {});
     return () => { active = false; };
   }, [event.id, dataRevision]);
-  const locked = event.status === "OPEN";
+  // readOnly: modo consulta de ADMIN_EVENT hasta la spec 041.
+  const locked = event.status === "OPEN" || readOnly;
 
   const save = async (path, body, method = "POST") => {
     try {
