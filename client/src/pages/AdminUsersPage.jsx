@@ -4,70 +4,35 @@ import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { UserManagementNavigation } from "../components/UserManagementNavigation.jsx";
+import { AdminAccessList } from "../components/AdminAccessList.jsx";
+import { AdminPromotionSearch } from "../components/AdminPromotionSearch.jsx";
+import { AdminInvitationForm } from "../components/AdminInvitationForm.jsx";
 
 export function AdminUsersPage() {
   const session = useSession();
-  const [users, setUsers] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [invitationLink, setInvitationLink] = useState("");
-  const [invitationBusy, setInvitationBusy] = useState(false);
-  const [adminRoleTarget, setAdminRoleTarget] = useState(null);
+  const [roleTarget, setRoleTarget] = useState(null);
   const [roleBusy, setRoleBusy] = useState(false);
+  const [searchRefreshKey, setSearchRefreshKey] = useState(0);
   const roleTriggerRef = useRef(null);
 
-  const refreshUsers = async () => {
+  const refreshAdmins = async () => {
     setLoading(true);
     try {
-      const data = await apiRequest("/api/v1/users");
-      setUsers(data);
-      setMessage("");
+      const data = await apiRequest("/api/v1/users?role=ADMIN");
+      setAdmins(data);
     } catch {
-      setMessage("No se pudieron cargar los usuarios.");
+      setMessage("No se pudieron cargar los administradores.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void refreshUsers();
+    void refreshAdmins();
   }, []);
-
-  const createAdminInvitation = async (event) => {
-    event.preventDefault();
-    if (invitationBusy) return;
-    setInvitationBusy(true);
-    setMessage("");
-    setInvitationLink("");
-    try {
-      const invitation = await apiRequest("/api/v1/users/invitations", {
-        method: "POST",
-        body: JSON.stringify({ email: inviteEmail, roleCode: "ADMIN" }),
-      });
-      if (!invitation?.token) throw new Error("INVITATION_RESPONSE_INVALID");
-      setInvitationLink(`${window.location.origin}${window.location.pathname}#/invitations/role/accept?token=${encodeURIComponent(invitation.token)}`);
-      setInviteEmail("");
-      setMessage("Invitación ADMIN creada. Compartí el enlace con la persona invitada para que complete su cuenta.");
-    } catch (error) {
-      setMessage(
-        error.code === "TWO_FACTOR_REQUIRED"
-          ? "Necesitás habilitar la verificación en dos pasos para invitar a otra persona administradora."
-          : "No se pudo crear la invitación ADMIN.",
-      );
-    } finally {
-      setInvitationBusy(false);
-    }
-  };
-
-  const copyInvitationLink = async () => {
-    try {
-      await navigator.clipboard.writeText(invitationLink);
-      setMessage("Enlace de invitación copiado.");
-    } catch {
-      setMessage("No se pudo copiar automáticamente. Seleccioná y copiá el enlace.");
-    }
-  };
 
   const changeAdminRole = async (user, grant) => {
     if (!user || roleBusy) return;
@@ -76,21 +41,26 @@ export function AdminUsersPage() {
       await apiRequest(`/api/v1/users/${user.id}/roles/admin`, {
         method: grant ? "POST" : "DELETE",
       });
-      await refreshUsers();
+      setRoleTarget(null);
       setMessage(grant ? "Administrador promovido." : "Rol ADMIN revocado.");
-      setAdminRoleTarget(null);
+      setSearchRefreshKey((key) => key + 1);
+      await refreshAdmins();
     } catch (error) {
+      setRoleTarget(null);
       setMessage(
         error.code === "PRIMARY_ADMIN_PROTECTED"
           ? "La cuenta principal está protegida y no se puede revocar su rol ADMIN."
           : error.code === "LAST_ADMIN_REQUIRED"
             ? "Debe quedar al menos un administrador activo."
-          : "No se pudo modificar el rol.",
+            : "No se pudo modificar el rol.",
       );
     } finally {
       setRoleBusy(false);
     }
   };
+
+  const isGranting = Boolean(roleTarget?.grant);
+  const targetName = roleTarget?.user.name;
 
   return (
     <PageShell layer="instrument" className="container admin-users-page">
@@ -99,112 +69,58 @@ export function AdminUsersPage() {
           <p className="eyebrow">Administración de acceso</p>
           <h1>Administradores</h1>
         </div>
-        <div className="event-actions">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => void refreshUsers()}
-            disabled={loading || roleBusy}
-          >
-            Actualizar
-          </button>
-        </div>
       </header>
 
       <UserManagementNavigation current="admins" />
 
-      <section className="card user-admin" aria-labelledby="invite-admin-heading">
+      <section className="card user-admin access-section" aria-labelledby="active-admins-heading">
         <div className="user-admin-heading">
-          <div>
-            <h2 id="invite-admin-heading">Invitar administrador</h2>
-            <p>La persona invitada creará una cuenta nueva con el rol ADMIN.</p>
-          </div>
+          <h2 id="active-admins-heading">Administradores activos</h2>
+          {!loading && <span className="access-count">{admins.length} {admins.length === 1 ? "activo" : "activos"}</span>}
         </div>
-        <form className="judge-create-form" onSubmit={createAdminInvitation}>
-          <label>Correo del nuevo administrador
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={inviteEmail}
-              onChange={(event) => setInviteEmail(event.target.value)}
-              disabled={invitationBusy}
-            />
-          </label>
-          <button type="submit" disabled={invitationBusy}>{invitationBusy ? "Creando invitación…" : "Crear invitación ADMIN"}</button>
-        </form>
-        {invitationLink && (
-          <div className="invitation-link">
-            <p>Compartí este enlace con la persona invitada:</p>
-            <a href={invitationLink}>Abrir invitación</a>
-            <code>{invitationLink}</code>
-            <button className="secondary" type="button" onClick={() => void copyInvitationLink()}>Copiar enlace de invitación</button>
-          </div>
+        <p>La cuenta principal no puede perder el rol ADMIN. Al revocar un administrador, deja de aparecer en esta lista.</p>
+        {message && <p className="feedback" role="status" aria-live="polite">{message}</p>}
+        {loading ? (
+          <p>Cargando administradores…</p>
+        ) : admins.length === 0 ? (
+          <p className="empty-state">No hay administradores registrados.</p>
+        ) : (
+          <AdminAccessList
+            admins={admins}
+            currentUserId={session.user?.id}
+            busy={roleBusy}
+            triggerRef={roleTriggerRef}
+            onRevoke={(user) => setRoleTarget({ user, grant: false })}
+          />
         )}
       </section>
 
-      {message && <p className="feedback" role="status" aria-live="polite">{message}</p>}
-
-      <section className="card user-admin" aria-label="Usuarios y administradores">
+      <section className="card user-admin access-section" aria-labelledby="add-admin-heading">
         <div className="user-admin-heading">
-          <div>
-            <h2>Privilegios de administración</h2>
-          </div>
-          <span>Gestión de plataforma</span>
+          <h2 id="add-admin-heading">Agregar administrador</h2>
         </div>
-        <p>
-          Gestioná quién puede administrar la plataforma. La cuenta principal no se puede eliminar ni perder el rol ADMIN.
-        </p>
-        {loading ? (
-          <p>Cargando usuarios…</p>
-        ) : users.length === 0 ? (
-          <p className="empty-state">No se encontraron usuarios registrados.</p>
-        ) : (
-          <ul>
-            {users.map((user) => {
-              const isAdmin = user.roles.includes("ADMIN");
-              const isCurrentUser = user.id === session.user?.id;
-              const isProtectedPrimary = isAdmin && user.isPrimaryAdmin === true;
-              return (
-                <li key={user.id}>
-                  <span>
-                    <strong>{user.name}</strong> · {user.email}
-                    {user.isPrimaryAdmin === true && <span className="primary-admin-badge">Administrador principal</span>}
-                  </span>
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={isProtectedPrimary || (isCurrentUser && isAdmin) || roleBusy}
-                    onClick={(event) => {
-                      roleTriggerRef.current = event.currentTarget;
-                      setAdminRoleTarget({ user, grant: !isAdmin });
-                    }}
-                  >
-                    {isCurrentUser && isAdmin
-                      ? "Sesión actual"
-                      : isProtectedPrimary
-                        ? "Cuenta principal protegida"
-                        : isAdmin
-                        ? "Revocar administrador"
-                        : "Promover a administrador"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <p>Promové a un usuario existente o invitá una cuenta nueva con rol ADMIN.</p>
+        <AdminPromotionSearch
+          busy={roleBusy}
+          refreshKey={searchRefreshKey}
+          triggerRef={roleTriggerRef}
+          onPromote={(user) => setRoleTarget({ user, grant: true })}
+        />
+        <div className="access-divider" role="separator">o invitar una cuenta nueva</div>
+        <AdminInvitationForm />
       </section>
 
       <Dialog
-        isOpen={Boolean(adminRoleTarget)}
+        isOpen={Boolean(roleTarget)}
         onClose={() => {
-          if (!roleBusy) setAdminRoleTarget(null);
+          if (!roleBusy) setRoleTarget(null);
         }}
-        title={adminRoleTarget?.grant ? "Promover a administrador" : "Revocar administrador"}
+        title={isGranting ? "Promover a administrador" : "Revocar administrador"}
+        tone={isGranting ? "default" : "danger"}
         description={
-          adminRoleTarget?.grant
-            ? `¿Confirmás que ${adminRoleTarget.user.name} tendrá permisos de administración de la plataforma?`
-            : `¿Confirmás que ${adminRoleTarget?.user.name} dejará de tener permisos de administración?`
+          isGranting
+            ? `¿Confirmás que ${targetName} tendrá permisos de administración de la plataforma?`
+            : `¿Confirmás que ${targetName} dejará de tener permisos de administración?`
         }
         focusReturnRef={roleTriggerRef}
       >
@@ -213,19 +129,19 @@ export function AdminUsersPage() {
             type="button"
             className="secondary"
             disabled={roleBusy}
-            onClick={() => setAdminRoleTarget(null)}
+            onClick={() => setRoleTarget(null)}
           >
             Cancelar
           </button>
           <button
             type="button"
-            className={adminRoleTarget?.grant ? "" : "danger-action"}
+            className={isGranting ? "" : "danger-action"}
             disabled={roleBusy}
-            onClick={() => void changeAdminRole(adminRoleTarget?.user, adminRoleTarget?.grant)}
+            onClick={() => void changeAdminRole(roleTarget?.user, roleTarget?.grant)}
           >
             {roleBusy
               ? "Guardando…"
-              : adminRoleTarget?.grant
+              : isGranting
                 ? "Confirmar promoción"
                 : "Confirmar revocación"}
           </button>

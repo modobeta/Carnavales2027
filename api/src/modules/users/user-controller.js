@@ -1,8 +1,40 @@
 import * as userService from "./user-service.js";
 
+const roleCodePattern = /^[A-Z_]{2,40}$/;
+const maxSearchLength = 100;
+const maxListLimit = 50;
+
+function readOptionalString(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") throw new TypeError("parámetro inválido");
+  return value.trim();
+}
+
+function parseUserListQuery(query) {
+  const role = readOptionalString(query.role);
+  const excludeRole = readOptionalString(query.excludeRole);
+  const search = readOptionalString(query.q);
+  const rawLimit = readOptionalString(query.limit);
+  const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+
+  if (role !== undefined && !roleCodePattern.test(role)) throw new TypeError("role inválido");
+  if (excludeRole !== undefined && !roleCodePattern.test(excludeRole)) throw new TypeError("excludeRole inválido");
+  if (search !== undefined && (search.length < 2 || search.length > maxSearchLength)) throw new TypeError("q inválido");
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > maxListLimit)) {
+    throw new TypeError("limit inválido");
+  }
+  return { role, excludeRole, search, limit };
+}
+
 export const listUsers = async (req, res, next) => {
+  let filters;
   try {
-    const users = await userService.listUsers();
+    filters = parseUserListQuery(req.query);
+  } catch {
+    return res.status(400).json({ code: "VALIDATION_ERROR" });
+  }
+  try {
+    const users = await userService.listUsers(filters);
     res.json(users);
   } catch (error) {
     next(error);
