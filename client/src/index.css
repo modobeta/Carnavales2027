@@ -747,54 +747,122 @@ label { color: var(--text-secondary); }
   min-block-size: calc(100dvb - 2rem);
   place-items: center;
   overflow: hidden;
+  padding-block: var(--space-6);
 }
 .login-card {
   position: relative;
   z-index: 1;
-  inline-size: min(100%, 40rem);
+  inline-size: min(100%, 60rem);
   max-inline-size: 100%;
-  padding: clamp(1.25rem, 5vw, 4rem);
+  padding: 0;
   border: 2px solid var(--border-input);
-  background: color-mix(in srgb, var(--surface-card) 78%, transparent);
+  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  text-align: start;
+  display: grid;
+  grid-template-columns: 45fr 55fr;
+  overflow: hidden;
+}
+
+/* Columna izquierda — identidad visual del Carnaval con textura de confeti */
+.login-brand-column {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  text-align: center;
+  background: var(--surface-raised);
+  border-inline-end: 1px solid var(--border-subtle);
+}
+.login-brand-column::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: url("/icons/06%20%E2%80%94%20Confeti.svg") center / cover no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  user-select: none;
+}
+.login-brand-column > * {
+  position: relative;
+  z-index: 1;
+}
+.login-brand-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.login-brand-kicker {
+  margin: 0;
+  color: var(--brand-cyan);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.login-brand-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Columna derecha — formulario de ingreso */
+.login-form-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+.login-form-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.login-form-help {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+.login-info-note {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
   text-align: center;
 }
-.login-card h1 {
-  margin: 0 auto 1.75rem;
-  max-inline-size: 11ch;
-  font-size: clamp(2.5rem, 9vw, 5rem);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
-}
-.login-card h1 span { color: var(--accent-text); }
-.login-emblem { display: block; inline-size: clamp(8rem, 26vw, 12rem); block-size: auto; margin: 0 auto 1rem; border-radius: 1.25rem; }
+
+.login-emblem { display: block; inline-size: clamp(7rem, 22vw, 11rem); block-size: auto; margin: 0 auto .5rem; border-radius: 1.25rem; }
 .login-kicker { margin: 0 0 .7rem; color: var(--text-secondary); font-size: .82rem; font-weight: 700; letter-spacing: .03em; }
 .login-subtitle { margin: 1rem 0 2.2rem; color: var(--text-muted); font-size: .95rem; letter-spacing: .01em; }
-.login-card form { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: clamp(0.75rem, 3vw, 2rem); text-align: start; }
+.login-card form { display: flex; flex-direction: column; gap: var(--space-3); border: none; padding: 0; text-align: start; }
 .login-card label { gap: .6rem; color: var(--text-secondary); font-size: .9rem; letter-spacing: 0; }
 .login-card input { min-block-size: 4rem; border: 2px solid var(--border-input); border-radius: .55rem; background: var(--surface-login-input); font-size: 1.1rem; color: var(--text-primary); }
-.primary-action { margin-block-start: .75rem; min-block-size: 4rem; font-size: 1.2rem; letter-spacing: .08em; }
-.login-public-link { margin: 1.5rem 0 0; text-align: center; }
+.primary-action { margin-block-start: .25rem; min-block-size: 4rem; font-size: 1.2rem; letter-spacing: .08em; }
+.login-public-link { margin: 1.25rem 0 0; text-align: center; }
 .login-orbit { position: absolute; border: 1px solid var(--accent-subtle); border-radius: 50%; }
 .login-orbit-left { inline-size: 40rem; block-size: 40rem; inset-inline-start: -27rem; inset-block-start: -18rem; }
 .login-orbit-right { inline-size: 26rem; block-size: 26rem; inset-inline-end: -15rem; inset-block-end: -12rem; border-color: var(--warning-bg); }
 
-/* Confeti detrás de la tarjeta de login: asoma por detrás de la tarjeta
-   (z-index menor) y queda recortado por el overflow del contenedor. */
-.login-confetti {
-  position: absolute;
-  z-index: 0;
-  inset-block-start: 50%;
-  inset-inline-start: 50%;
-  inline-size: min(175vw, 78rem);
-  translate: -50% -50%;
-  pointer-events: none;
-  user-select: none;
-}
-
-.login-confetti img {
-  display: block;
-  inline-size: 100%;
-  block-size: auto;
+/* Celulares y tabletas angostas: apilar columnas y reducir el logo */
+@media (max-width: 48rem) {
+  .login-card { grid-template-columns: 1fr; }
+  .login-brand-column {
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border-subtle);
+    padding-block: clamp(1.25rem, 5vw, 2rem);
+    gap: var(--space-2);
+  }
+  .login-emblem { inline-size: clamp(5rem, 20vw, 7rem); }
 }
 
 .judge-operation-shell { max-inline-size: 1160px; margin-inline: auto; }

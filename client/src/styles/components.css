@@ -1423,7 +1423,7 @@
 
 [data-layer="brand"] .login-card {
   border-color: var(--border-default);
-  box-shadow: none;
+  box-shadow: var(--shadow-lg);
 }
 
 [data-layer="brand"] .login-kicker {
