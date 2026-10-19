@@ -63,7 +63,37 @@ export const listOperationalUsers = async () => {
   return rows;
 };
 
-export const listUsers = async ({ client = getPool() } = {}) => {
+function escapeLikePattern(value) {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+export const listUsers = async ({
+  client = getPool(),
+  role,
+  excludeRole,
+  search,
+  limit,
+} = {}) => {
+  const conditions = [];
+  const params = [];
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  if (role) {
+    conditions.push(`EXISTS (SELECT 1 FROM user_role r WHERE r.user_id = u.id AND r.role_code = ${addParam(role)})`);
+  }
+  if (excludeRole) {
+    conditions.push(`NOT EXISTS (SELECT 1 FROM user_role r WHERE r.user_id = u.id AND r.role_code = ${addParam(excludeRole)})`);
+  }
+  if (search) {
+    const pattern = addParam(`%${escapeLikePattern(search)}%`);
+    conditions.push(`(u.name ILIKE ${pattern} OR u.email ILIKE ${pattern})`);
+  }
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limitClause = limit ? `LIMIT ${addParam(limit)}` : "";
+
   const { rows } = await client.query(`
     SELECT u.id, u.name, u.email,
       COALESCE(array_agg(ur.role_code ORDER BY ur.role_code)
@@ -72,9 +102,11 @@ export const listUsers = async ({ client = getPool() } = {}) => {
     FROM "user" u
     LEFT JOIN user_role ur ON ur.user_id = u.id
     LEFT JOIN bootstrap_state bs ON bs.singleton
+    ${whereClause}
     GROUP BY u.id, u.name, u.email, bs.initial_admin_user_id
     ORDER BY u.name ASC, u.email ASC
-  `);
+    ${limitClause}
+  `, params);
   return rows;
 };
 
