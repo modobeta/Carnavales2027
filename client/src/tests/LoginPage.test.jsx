@@ -25,14 +25,10 @@ describe("LoginPage", () => {
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
   });
 
-  it("coloca el confeti como decoración detrás de la tarjeta de login", () => {
+  it("integra el confeti como textura de la columna de marca, sin elemento detrás de la tarjeta", () => {
     const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
-    const confetti = container.querySelector(".login-page > .login-confetti img");
-    expect(confetti).toHaveAttribute("src", "/icons/06%20%E2%80%94%20Confeti.svg");
-    // El confeti precede a la tarjeta para quedar por detrás (z-index menor).
-    const page = container.querySelector(".login-page");
-    const order = Array.from(page.children).map((el) => el.className);
-    expect(order.indexOf("login-confetti")).toBeLessThan(order.indexOf("card login-card"));
+    expect(container.querySelector(".login-page > .login-confetti")).toBeNull();
+    expect(container.querySelector(".login-brand-column")).toBeInTheDocument();
   });
 
   it("enlaza información y privacidad sin requerir autenticación ni abrir otra pestaña", () => {
@@ -51,9 +47,9 @@ describe("LoginPage", () => {
     apiRequest.mockResolvedValue({});
     render(<LoginPage onAuthenticated={onAuthenticated} />);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "local-password" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenNthCalledWith(1, "/api/auth/sign-in/email", {
       method: "POST",
@@ -85,9 +81,9 @@ describe("LoginPage", () => {
       .mockResolvedValueOnce({ status: true });
     render(<LoginPage onAuthenticated={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "local-password" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     expect(await screen.findByLabelText("Código de verificación")).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledTimes(2);
@@ -102,9 +98,9 @@ describe("LoginPage", () => {
     apiRequest.mockResolvedValue({});
     render(<LoginPage onAuthenticated={onAuthenticated} />);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "local-password" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     const group = await screen.findByLabelText("Código de verificación");
     const inputs = group.querySelectorAll("input");
 
@@ -126,9 +122,9 @@ describe("LoginPage", () => {
       .mockRejectedValueOnce({ code: "OTP_HAS_EXPIRED" });
     render(<LoginPage onAuthenticated={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "local-password" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
@@ -150,9 +146,9 @@ describe("LoginPage", () => {
     });
     render(<SessionProvider><LoginPage /></SessionProvider>);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "judge@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "judge@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "JudgePassword-2026!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
@@ -174,9 +170,9 @@ describe("LoginPage", () => {
     });
     render(<SessionProvider><LoginPage /></SessionProvider>);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "veedor@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "veedor@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "VeedorPassword-2026!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
@@ -197,9 +193,9 @@ describe("LoginPage", () => {
       return Promise.resolve({});
     });
     render(<SessionProvider><LoginPage /></SessionProvider>);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "judge@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "judge@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "JudgePassword-2026!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
@@ -229,9 +225,9 @@ describe("LoginPage", () => {
       return Promise.resolve({});
     });
     render(<SessionProvider><LoginPage /></SessionProvider>);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "judge@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "judge@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "JudgePassword-2026!" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
@@ -259,9 +255,9 @@ describe("LoginPage", () => {
     apiRequest.mockResolvedValueOnce({ twoFactorRedirect: true }).mockResolvedValueOnce({});
     render(<LoginPage onAuthenticated={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
     fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "local-password" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     await screen.findByLabelText("Código de verificación");
     for (let i = 1; i <= 6; i++) {

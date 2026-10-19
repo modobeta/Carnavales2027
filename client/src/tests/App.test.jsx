@@ -8,7 +8,7 @@ describe("App", () => {
   it("muestra login como ruta pública inicial", () => {
     render(<App />);
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
     expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
   });
 

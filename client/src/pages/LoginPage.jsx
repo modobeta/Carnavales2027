@@ -276,122 +276,128 @@ export function LoginPage({ onAuthenticated }) {
     <PageShell layer="brand" className="login-page">
       <div className="login-orbit login-orbit-left" aria-hidden="true" />
       <div className="login-orbit login-orbit-right" aria-hidden="true" />
-      <div className="login-confetti" aria-hidden="true">
-        <img src="/icons/06%20%E2%80%94%20Confeti.svg" alt="" />
-      </div>
       <div className="card login-card">
-        <img className="login-emblem" src="/icons/logo.webp" alt="" width="500" height="500" />
-        <h1>Carnavales</h1>
-        {sessionExpiredNotice && step === "credentials" && (
-          <div className="login-expired-notice" role="status">
-            <p>Tu sesión ya no está activa. Iniciá sesión nuevamente para continuar.</p>
-          </div>
-        )}
-        {eventEndedNotice && step === "credentials" && (
-          <div className="login-expired-notice" role="status">
-            <p>El evento finalizó y tu sesión de jurado se cerró.</p>
-          </div>
-        )}
-        {step === "credentials" ? (
-          <form onSubmit={submitCredentials}>
-            <label className="login-field-label">
-              Email
-              <div className="login-input-wrapper">
-                <span className="login-input-icon" aria-hidden="true"><UserIcon /></span>
-                <input name="email" type="email" autoComplete="username" placeholder="Ingrese su email" required />
-              </div>
-            </label>
-            <label className="login-field-label">
-              Contraseña
-              <div className="login-password-wrapper">
-                <span className="login-input-icon" aria-hidden="true"><LockIcon /></span>
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  className="login-password-toggle"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  onClick={() => setShowPassword((prev) => !prev)}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              </div>
-            </label>
-            <button className="primary-action" disabled={loading}>
-              {loading ? "Verificando…" : "Ingresar"}
-            </button>
-          </form>
-        ) : step === "otp" ? (
-          <form onSubmit={submitOtp}>
-            <div className="otp-header">
-              <h2>Verificá tu identidad</h2>
-              <p>Te enviamos un código de 6 números a <strong>{maskEmail(userEmail)}</strong></p>
-              <p className="otp-subtext">Ingresalo para continuar.</p>
-            </div>
-            <div className="otp-input-group" role="group" aria-label="Código de verificación" onPaste={handleOtpPaste}>
-              {otpValues.map((val, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { otpRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]"
-                  maxLength="1"
-                  autoComplete={i === 0 ? "one-time-code" : "off"}
-                  value={val}
-                  onChange={(e) => handleOtpChange(i, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  disabled={loading}
-                  required
-                  aria-label={`Dígito ${i + 1} de 6`}
-                />
-              ))}
-            </div>
-            <button disabled={loading}>Verificar código</button>
-            <p className="resend-cooldown">
-              {resendCooldown > 0 ? (
-                <>¿No recibiste el código? Reenviar código en {resendCooldown} s</>
-              ) : (
-                <button type="button" className="resend-link" disabled={loading} onClick={resendOtp}>Reenviar código</button>
-              )}
-            </p>
-            <button
-              className="secondary"
-              type="button"
-              disabled={loading}
-              onClick={() => { setStep("credentials"); setMessage(""); setOtpValues(Array(OTP_LENGTH).fill("")); }}
-            >
-              Volver
-            </button>
-          </form>
-        ) : (
-          <div className="verified-session">
-            <p>La verificación en dos pasos ya fue completada.</p>
-            <button type="button" disabled={loading} onClick={finishAuthentication}>
-              Cargar mi perfil
-            </button>
-          </div>
-        )}
-        {message && (
-          <div className="login-footer-info">
-            <p className="login-message-alert" role="status" aria-live="polite">{message}</p>
-          </div>
-        )}
-        <div className="login-public-link">
-          <a href="#/resultados" className="public-results-link">
-            🏆 Ver Resultados Oficiales Públicos
-          </a>
+        <div className="login-brand-column">
+          <img className="login-emblem" src="/icons/logo.webp" alt="" width="500" height="500" />
+          <h1 className="login-brand-title">Carnavales</h1>
+          <p className="login-brand-kicker">Portal de Jurados</p>
+          <p className="login-brand-note">Sistema oficial de votación</p>
         </div>
-        <nav className="login-public-link" aria-label="Información pública">
-          <a href="/acerca.html">Acerca de Carnavales2027</a>
-          {" · "}
-          <a href="/privacidad.html">Política de privacidad</a>
-        </nav>
+        <div className="login-form-column">
+          <h2 className="login-form-title">Ingresar al portal</h2>
+          <p className="login-form-help">Ingresá tus datos para continuar</p>
+          {sessionExpiredNotice && step === "credentials" && (
+            <div className="login-expired-notice" role="status">
+              <p>Tu sesión ya no está activa. Iniciá sesión nuevamente para continuar.</p>
+            </div>
+          )}
+          {eventEndedNotice && step === "credentials" && (
+            <div className="login-expired-notice" role="status">
+              <p>El evento finalizó y tu sesión de jurado se cerró.</p>
+            </div>
+          )}
+          {step === "credentials" ? (
+            <form onSubmit={submitCredentials}>
+              <label className="login-field-label">
+                Correo electrónico
+                <div className="login-input-wrapper">
+                  <span className="login-input-icon" aria-hidden="true"><UserIcon /></span>
+                  <input name="email" type="email" autoComplete="username" placeholder="Ingrese su correo electrónico" required />
+                </div>
+              </label>
+              <label className="login-field-label">
+                Contraseña
+                <div className="login-password-wrapper">
+                  <span className="login-input-icon" aria-hidden="true"><LockIcon /></span>
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="login-password-toggle"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              </label>
+              <button className="primary-action" disabled={loading}>
+                {loading ? "Verificando…" : "Continuar"}
+              </button>
+              <p className="login-info-note">Recibirás un PIN de confirmación por correo electrónico</p>
+            </form>
+          ) : step === "otp" ? (
+            <form onSubmit={submitOtp}>
+              <div className="otp-header">
+                <h2>Verificá tu identidad</h2>
+                <p>Te enviamos un código de 6 números a <strong>{maskEmail(userEmail)}</strong></p>
+                <p className="otp-subtext">Ingresalo para continuar.</p>
+              </div>
+              <div className="otp-input-group" role="group" aria-label="Código de verificación" onPaste={handleOtpPaste}>
+                {otpValues.map((val, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]"
+                    maxLength="1"
+                    autoComplete={i === 0 ? "one-time-code" : "off"}
+                    value={val}
+                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                    disabled={loading}
+                    required
+                    aria-label={`Dígito ${i + 1} de 6`}
+                  />
+                ))}
+              </div>
+              <button disabled={loading}>Verificar código</button>
+              <p className="resend-cooldown">
+                {resendCooldown > 0 ? (
+                  <>¿No recibiste el código? Reenviar código en {resendCooldown} s</>
+                ) : (
+                  <button type="button" className="resend-link" disabled={loading} onClick={resendOtp}>Reenviar código</button>
+                )}
+              </p>
+              <button
+                className="secondary"
+                type="button"
+                disabled={loading}
+                onClick={() => { setStep("credentials"); setMessage(""); setOtpValues(Array(OTP_LENGTH).fill("")); }}
+              >
+                Volver
+              </button>
+            </form>
+          ) : (
+            <div className="verified-session">
+              <p>La verificación en dos pasos ya fue completada.</p>
+              <button type="button" disabled={loading} onClick={finishAuthentication}>
+                Cargar mi perfil
+              </button>
+            </div>
+          )}
+          {message && (
+            <div className="login-footer-info">
+              <p className="login-message-alert" role="status" aria-live="polite">{message}</p>
+            </div>
+          )}
+          <div className="login-public-link">
+            <a href="#/resultados" className="public-results-link">
+              🏆 Ver Resultados Oficiales Públicos
+            </a>
+          </div>
+          <nav className="login-public-link" aria-label="Información pública">
+            <a href="/acerca.html">Acerca de Carnavales2027</a>
+            {" · "}
+            <a href="/privacidad.html">Política de privacidad</a>
+          </nav>
+        </div>
       </div>
     </PageShell>
   );
