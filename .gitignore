@@ -1,13 +1,11 @@
 # Dependencies
 node_modules/
 
-# Local documentation and agent instructions (not published)
-/docs/
+# Local/generated documentation; maintained docs/ is versioned
 /graphify-out/
 /specs/*
 !/specs/029-piloto-produccion/
 !/specs/038-roles-escrutinio-publicacion/
-MEMORY.md
 
 api/.env.pilot
 api/.env.pilot*
@@ -31,7 +29,10 @@ backups/
 /.opencode/
 opencode.json
 skills-lock.json
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/documentacion-carnavales/
 
 # Build and coverage
 coverage/

@@ -1,5 +1,7 @@
 # Google OAuth — preparación de verificación
 
+> **Archivo histórico.** Los estados y fechas siguientes son observaciones del momento, no una comprobación actual. Ver [seguridad](../seguridad.md) y [despliegue](../despliegue-y-respaldo.md) antes de cambiar OAuth.
+
 Estado: OAuth **En producción**, **propiedad del sitio verificada**, pero **marca y acceso a datos no verificados**. No se ha enviado una solicitud completa de revisión. El token de Gmail fue renovado el 06/10/2026 y actualizado en Render; correo de prueba aceptado por Gmail. Falta confirmar login + OTP público. Recuperación e incidente de despliegue documentados en `DEPLOYMENT.md`.
 
 ## Hallazgos de la consola

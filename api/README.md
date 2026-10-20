@@ -2,9 +2,9 @@
 
 Backend HTTP de la plataforma. Implementa autenticación, autorización, configuración del carnaval, votación, supervisión, penalizaciones, resultados y actas sobre PostgreSQL.
 
-[Proyecto](../README.md) · [Cliente](../client/README.md)
+[Proyecto](../README.md) · [Cliente](../client/README.md) · [Documentación](../docs/README.md)
 
-Para instrucciones destinadas a usuarios, consultar la [guía de uso](../README.md#guía-de-uso). Para la infraestructura y el traslado de datos, consultar [DEPLOYMENT.md](../DEPLOYMENT.md). Este documento describe el backend implementado, no redefine el reglamento.
+Para usuarios, consultar [flujos y pantallas](../docs/flujos-y-pantallas.md). Para la operación vigente, consultar [despliegue y respaldo](../docs/despliegue-y-respaldo.md); [DEPLOYMENT.md](../docs/historico/DEPLOYMENT.md) conserva antecedentes. Este documento describe el backend implementado, no redefine el reglamento.
 
 ## Stack y requisitos
 
@@ -111,7 +111,7 @@ Todos se ejecutan desde `api/`.
 
 - `src/db/migrate.js` ordena los archivos SQL, usa advisory lock, aplica cada migración en una transacción y registra versión/checksum SHA-256 en `schema_migrations`.
 - **No editar migraciones aplicadas:** el runner rechaza cambios con `MIGRATION_CHECKSUM_MISMATCH`. Agregá una nueva migración incremental.
-- El árbol contiene 89 archivos SQL numerados de `001` a `095`; no están presentes `071` ni `090`–`094`. No renumerar las migraciones para cerrar esos saltos históricos.
+- El árbol contiene 90 archivos SQL numerados de `001` a `095`; no están presentes `071` ni `091`–`094`. No renumerar las migraciones para cerrar esos saltos históricos.
 - El piloto conserva el checksum original de `084_legacy_nomination_scope.sql`, aplicado con finales de línea mixtos antes de la normalización de Git. El runner acepta únicamente ese SHA-256 histórico si el contenido SQL normalizado de `084` coincide exactamente con el original; no cambia `schema_migrations` ni permite editar la migración.
 - Las tablas incluyen roles, eventos/jornadas, catálogos de competencia, perfiles e invitaciones, asignaciones, planillas/puntajes, ventanas de votación, penalizaciones, liberaciones, snapshots y actas.
 - Triggers y restricciones protegen historia, pertenencia al evento, cambios de estado e inmutabilidad. No son validaciones opcionales que pueda reemplazar el cliente.
@@ -377,7 +377,7 @@ Los scripts Bash no cargan `.env`: requieren variables exportadas/argumentos. Us
 - **Limitación actual:** `restore.sh` continúa si falta el checksum o si su validación falla, y extrae/interpola el nombre de base desde la URL. No usarlo con entradas no confiables ni asumir que el checksum aborta la restauración. Verificarlo por separado antes de autorizar cualquier ejecución.
 - Después de una restauración autorizada, validar datos y cadena general con `audit:verify`; ese comando por sí solo no certifica todos los hashes de actas, snapshots y cadena ceremonial.
 
-El runbook versionado es [DEPLOYMENT.md](../DEPLOYMENT.md). Este README no autoriza una restauración sobre un destino real.
+El runbook vigente es [despliegue y respaldo](../docs/despliegue-y-respaldo.md); [DEPLOYMENT.md](../docs/historico/DEPLOYMENT.md) conserva el historial. Este README no autoriza una restauración sobre un destino real.
 
 ## Autenticación, permisos y límites
 
@@ -419,7 +419,7 @@ Para el piloto, autorizar solamente `https://www.googleapis.com/auth/gmail.send`
 | `EMAIL_DELIVERY_FAILED` | Proveedor, remitente autorizado, Gmail API habilitada, credenciales y cuotas; no imprimir la respuesta sensible del proveedor |
 | OTP no recibido | Verificar Spam, dirección y límites; aceptación de Gmail no garantiza recepción en bandeja principal |
 
-En Testing, el refresh token para este permiso caduca a los siete días. Revisar los requisitos de publicación/verificación antes de uso continuado. Nunca pedir contraseñas, OTP o tokens por tickets públicos. Detalles y referencias oficiales: [DEPLOYMENT.md](../DEPLOYMENT.md#correo-sin-brevo-gmail-api-por-https).
+En Testing, el refresh token para este permiso caduca a los siete días. Revisar los requisitos de publicación/verificación antes de uso continuado. Nunca pedir contraseñas, OTP o tokens por tickets públicos. Antecedentes y referencias: [DEPLOYMENT.md](../docs/historico/DEPLOYMENT.md#correo-sin-brevo-gmail-api-por-https).
 
 ## Operación de producción y recuperación
 

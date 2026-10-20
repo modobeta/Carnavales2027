@@ -1,5 +1,7 @@
 # Piloto gratuito — Render + Neon + Gmail API
 
+> **Archivo histórico.** Antes de operar, seguir la [guía vigente de despliegue y respaldo](../despliegue-y-respaldo.md) y verificar el estado real de GitHub, Render y Neon. Los comandos y estados de este archivo corresponden a etapas anteriores.
+
 Repositorio: modobeta/Carnavales2027. Un proceso Node 22, cliente/API del mismo origen, PostgreSQL 18. Piloto hasta 30 usuarios; no certifica operación de una votación real.
 
 ## Preparación privada
