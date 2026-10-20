@@ -7,7 +7,7 @@
 | API + PostgreSQL descartable | `npm test --prefix api` con `TEST_DATABASE_URL` y `DATABASE_URL` de **la misma base descartable**, tras `npm run auth:migrate --prefix api` y `npm run db:migrate --prefix api` | Votos 1–10/ausente, ownership, permisos 401/403, replay idempotente, concurrencia, inmutabilidad, cierres, resultados, actas |
 | Auditoría | `npm run audit:verify --prefix api` contra base de prueba/restauración | Cadena íntegra, cabecera, evidencia conservada |
 | Cliente | `npm test --prefix client` | Login/OTP UI, guards, carga/error/empty, PWA/reintento manual, planilla y filtros, responsive/accesibilidad |
-| CI | `Pilot checks` en GitHub Actions | Instala dependencias, migra DB test, API+cliente, auditoría, build y diff limpio |
+| CI | `Pilot checks` / job `verify` en GitHub Actions | Instala dependencias, migra DB test dos veces (la segunda sin pendientes), prueba API+cliente, audita, construye cliente y comprueba enlaces relativos de Markdown y diff limpio |
 | Release | Backup+SHA-256, restauración en DB vacía, ensayo de migraciones dos pasadas, smoke público | No votación activa, `main` fijo, Render LIVE mismo SHA, `/health`, assets, login+OTP, roles y datos sin votos de prueba |
 
 **Nunca** ejecutar suites destructivas contra Neon/una copia con valor operativo; `api/src/scripts/assert-test-database-url.js` es una defensa, no permiso para apuntar a producción. Las pruebas manuales de jurado deben usar un evento de ensayo identificado o ser solo lectura.
