@@ -50,7 +50,7 @@ El orden de migración importa: Better Auth antes de las tablas del dominio. Cli
 
 - Cliente: `npm test --prefix client`. Por `client/AGENTS.md`, **no ejecutar build local** para validar cambios; CI sí lo ejecuta.
 - API: `npm test --prefix api` solo con `DATABASE_URL` y `TEST_DATABASE_URL` apuntando a una base descartable ya migrada; ver [plan de pruebas](docs/plan-de-pruebas.md).
-- CI: `.github/workflows/ci.yml` instala, migra y prueba en PostgreSQL descartable; el resultado de CI **no** aplica migraciones a Neon.
+- CI: `.github/workflows/ci.yml` instala, migra dos veces y prueba en PostgreSQL descartable; también comprueba enlaces de Markdown. El resultado de CI **no** aplica migraciones a Neon ni despliega Render.
 - Tras un cambio, revisar tests pertinentes, `git diff --check`, contratos/docs afectados y secretos ausentes. Commits convencionales, sin atribución automática.
 
 ## Producción piloto

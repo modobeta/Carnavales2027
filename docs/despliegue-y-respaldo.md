@@ -6,6 +6,10 @@
 
 `autoDeploy` está apagado. Cambiar `render.yaml` no modifica automáticamente el servicio existente (fue creado directamente). El build instala API/cliente y crea `client/dist`; start solo inicia API. **Render no aplica migraciones al arrancar**. En Free no hay pre-deploy command. No activar On Commit/After CI Checks Pass sin automatizar gate de esquema, backup y votación; CI actual usa solo DB descartable.
 
+El job `verify` de GitHub Actions es un control de integración: prueba API/cliente, audita una base descartable, ejecuta migraciones dos veces y comprueba enlaces locales de Markdown. Un PR verde **no autoriza** desplegar ni implica que Neon esté preparado. `main` debe protegerse con PR, una aprobación y el check `verify` actualizado y obligatorio; esa configuración la realiza el propietario con permisos de administración en GitHub. Hasta comprobarla, no afirmar que GitHub impide pushes directos.
+
+**Configuración pendiente del propietario en GitHub:** `Settings → Branches → Add branch protection rule` para `main`: exigir pull request antes de merge, una aprobación, status check `verify` exitoso, rama actualizada antes de merge, sin bypass ordinario, force-push ni borrado. Mantener el nombre del job `verify`; si cambia, actualizar la regla. Comprobar con un PR que el merge queda bloqueado cuando falla el check. Esta protección no cambia el estado de Auto-Deploy en Render.
+
 ## Procedimiento antes de cada release
 
 1. Fijar SHA de `main` remoto y comprobar CI del **mismo SHA**. Revisar diff, migraciones y compatibilidad con código anterior. No iniciar durante votación activa.
@@ -15,6 +19,21 @@
 5. Volver a fijar SHA/estado de votación. Aplicar migraciones a Neon con conexión directa y `api/src/db/migrate.js`; verificar segunda pasada, datos y auditoría. Nunca correr `npm test --prefix api` en Neon.
 6. Desplegar manualmente desde Render; confirmar `live` con **ese SHA**, no solo «deploy triggered». Verificar `/health`, assets, login+OTP, 401/403, pantallas por rol y flujos críticos de solo lectura. Sin votos de prueba en eventos reales.
 7. Registrar SHA, deploy ID, fecha, hash/ubicación privada del backup, migraciones, resultados de smoke y responsables. Usuarios de PWA deben cerrar/reabrir pestañas **cuando sea seguro**, no durante planilla abierta.
+
+## Lista registrable para cada publicación
+
+Copiar esta lista al registro de release **sin secretos, URLs de conexión ni rutas privadas del dump**. Conservar la ubicación del backup y cualquier credencial solo en un registro privado autorizado. Cada casilla requiere evidencia fechada; si falla o no se puede comprobar, **detenerse**.
+
+- [ ] Responsable, ventana sin escrituras y SHA exacto de `main` anotados; PR aprobado y job `verify` verde para ese SHA.
+- [ ] Neon sin `voting_window` en `OPEN`; conteos de votos/auditoría y estado/checksums de migraciones registrados.
+- [ ] Dump nuevo por conexión directa TLS verificada; SHA-256 e inventario comprobados, con identificador de resguardo privado.
+- [ ] Dump restaurado en base **vacía y descartable**; conteos, auditoría y datos clave verificados.
+- [ ] Migraciones pendientes ensayadas en la restauración; segunda ejecución sin pendientes y sin regresión de datos.
+- [ ] SHA y ausencia de votación activa reconfirmados; migraciones aplicadas a Neon con conexión directa y segunda ejecución sin pendientes.
+- [ ] Render desplegado manualmente con **ese SHA**, estado `live`; `/health`, recursos estáticos, login+OTP, permisos por rol y flujos críticos de solo lectura comprobados.
+- [ ] Resultado, deploy ID, fecha, responsables y eventual contingencia registrados; aviso PWA emitido solo cuando no interrumpa una planilla.
+
+No ejecutar tests de API ni votos de prueba sobre Neon o eventos reales. Un deploy fallido no habilita revertir migraciones ni sobrescribir la base: seguir la contingencia siguiente.
 
 ## Contingencia
 
