@@ -29,4 +29,4 @@ El sandbox inicialmente bloqueó procesos hijos con `spawn EPERM`. Las ejecucion
 | Bloqueo | Cambios sin commit/push/merge por la instrucción de publicación manual. Render no puede desplegar esta revisión desde main. |
 | Bloqueo | Sin corte definitivo, importación a Neon ni URL pública. No se verificaron entrega real, cookies HTTPS, proxy real, reinicio Render ni recorridos públicos. |
 
-No se declara el piloto publicado. Pasos, comandos de Git y plantilla de PR en `DEPLOYMENT.md`.
+Esta validación histórica no declara el piloto publicado. Pasos, comandos de Git y plantilla de PR de esa etapa en [`docs/historico/DEPLOYMENT.md`](../../docs/historico/DEPLOYMENT.md); para el estado actual consultar [`docs/despliegue-y-respaldo.md`](../../docs/despliegue-y-respaldo.md).

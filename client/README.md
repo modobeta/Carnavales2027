@@ -2,11 +2,11 @@
 
 Aplicación React para administración, jurados, supervisión, comisariato, escrutinio y consulta pública de resultados.
 
-[Proyecto](../README.md) · [API](../api/README.md)
+[Proyecto](../README.md) · [API](../api/README.md) · [Documentación](../docs/README.md)
 
-**Piloto:** https://carnavales2027-piloto.onrender.com/#/login. Usuarios y responsables de operación pueden comenzar por la [guía de uso](../README.md#guía-de-uso); este documento explica además cómo mantener la interfaz.
+**Piloto:** https://carnavales2027-piloto.onrender.com/#/login. Usuarios y responsables de operación pueden comenzar por [flujos y pantallas](../docs/flujos-y-pantallas.md); este documento explica además cómo mantener la interfaz.
 
-> El stack que sigue está comprobado en `package.json` y el código. Algunas instrucciones históricas locales describen otra arquitectura y otro flujo de puntuación. Consultar las [diferencias pendientes](../README.md#diferencias-funcionales-pendientes-de-conciliación): no cambiar reglas de negocio para hacerlas coincidir con una captura o un README.
+> El stack que sigue está comprobado en `package.json` y el código. Algunas instrucciones históricas locales describen otra arquitectura y otro flujo de puntuación. Consultar [reglas de negocio](../docs/reglas-de-negocio.md) y [decisiones pendientes](../docs/decisiones.md): no cambiar reglas de negocio para hacerlas coincidir con una captura o un README.
 
 ## Stack
 
@@ -179,7 +179,7 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 
 La suite del cliente (`npm test`) cuenta con **576 pruebas pasando en 71 archivos**, incluyendo la verificación completa de los design tokens (`src/tests/tokens.test.js`, 45 tests), identidad visual y branding WebP/PNG, y las cuatro etapas del asistente de preparación de competencia. No hace falta una base PostgreSQL para las pruebas de cliente, ya que operan sobre mocks de API y entorno DOM aislado.
 
-En el piloto, **Express sirve el bundle `client/dist` y `/api` desde un mismo servicio Render HTTPS**; no se despliega una segunda aplicación estática. La configuración vive en [render.yaml](../render.yaml) y la [guía de despliegue](../DEPLOYMENT.md). `npm run preview` es una vista previa local, no el servidor productivo ni un reemplazo del backend.
+En el piloto, **Express sirve el bundle `client/dist` y `/api` desde un mismo servicio Render HTTPS**; no se despliega una segunda aplicación estática. La configuración vive en [render.yaml](../render.yaml); la [guía vigente](../docs/despliegue-y-respaldo.md) y el [antecedente histórico](../docs/historico/DEPLOYMENT.md) explican el despliegue. `npm run preview` es una vista previa local, no el servidor productivo ni un reemplazo del backend.
 
 En producción, no definir `VITE_API_URL` para el despliegue estándar. Mantener sesiones, fetch y SSE en el mismo origen. Las URL absolutas del manifest/worker asumen publicación desde `/`, no desde una subcarpeta.
 

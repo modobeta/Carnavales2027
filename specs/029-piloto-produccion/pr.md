@@ -10,4 +10,4 @@ Consultar `specs/029-piloto-produccion/validation.md`: pruebas API/BD y cliente,
 
 ## Operación pendiente
 
-Configurar OAuth del remitente, destino Neon vacío y secretos en Render. Publicar y verificar HTTPS, correo real, reinicio y recorridos del piloto. No ejecutar seeds ni bootstrap en datos importados. Despliegues manuales; una instancia SSE. Procedimiento completo en `DEPLOYMENT.md`.
+Configurar OAuth del remitente, destino Neon vacío y secretos en Render. Publicar y verificar HTTPS, correo real, reinicio y recorridos del piloto. No ejecutar seeds ni bootstrap en datos importados. Despliegues manuales; una instancia SSE. Antecedente de esa etapa en [`docs/historico/DEPLOYMENT.md`](../../docs/historico/DEPLOYMENT.md); procedimiento vigente en [`docs/despliegue-y-respaldo.md`](../../docs/despliegue-y-respaldo.md).
