@@ -1967,6 +1967,34 @@
   margin-block-start: 1rem;
 }
 
+/* Celdas de acción: los botones quedan en fila con separación suficiente para
+   que el canto 3D y la sombra de contacto no se solapen. Se activa para
+   cualquier celda de la tabla que contenga más de un botón, sin exigir una
+   clase adicional en el marcado (los nodos de texto, como el espacio entre
+   botones, se ignoran en los combinadores de hermanos). */
+.data-table td:has(> button + button),
+.data-table td:has(> .button-link + button),
+.data-table td:has(> button + .button-link) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Botones sueltos en celdas de acción: sin margen propio; la separación la
+   aporta el `gap` del contenedor. */
+.data-table td:has(> button) > button,
+.data-table td:has(> button) > .button-link {
+  margin: 0;
+}
+
+/* Avisos de texto dentro de una celda de acción (p. ej. "Abrí y cerrá la
+   votación antes de finalizar"): ocupan toda la fila y quedan debajo de los
+   botones. */
+.data-table td:has(> button + button) > :is(small, p, span):not(.button-link) {
+  flex-basis: 100%;
+}
+
 .data-table {
   inline-size: 100%;
   border-collapse: collapse;
