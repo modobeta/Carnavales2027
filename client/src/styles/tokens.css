@@ -322,6 +322,60 @@
   --modal-warning-text: #ffd8ab;
   --modal-danger-text: #ffd4d4;
   --modal-info-text: #c9e2ff;
+
+  /* ==========================================================================
+     Botones 3D (STYLES.md §3): reflejo, volumen y canto inferior
+     El reflejo y la sombra interna se confinan a los bordes verticales del
+     botón (0–26% / 70–100%) para no alterar el contraste AA verificado de la
+     tinta en la zona de texto central. Los cantos (--btn-face-edge) son hex
+     más oscuros que la cara respectiva; quedan debajo del botón, sin tinta
+     encima, por lo que son decorativos.
+     ========================================================================== */
+  --btn-highlight: rgba(255, 255, 255, 0.18);        /* brillo superior base */
+  --btn-highlight-strong: rgba(255, 255, 255, 0.3);  /* brillo superior en hover */
+  --btn-highlight-soft: rgba(255, 255, 255, 0.1);    /* reflejo tenue en reposo */
+  --btn-shade: rgba(4, 14, 24, 0.16);                /* sombra interna inferior */
+  --btn-shade-press: rgba(4, 14, 24, 0.32);          /* hundimiento al pulsar */
+  --btn-drop: rgba(4, 14, 24, 0.34);                 /* sombra exterior de contacto */
+  --btn-drop-hover: rgba(4, 14, 24, 0.46);
+  --btn-lift: 3px;      /* grosor del canto inferior en reposo */
+  --btn-lift-hover: 4px;
+  --btn-lift-press: 2px;
+  --transition-btn: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Cantos por cara (hex más oscuros que la cara de STYLES.md §3.x). */
+  --btn-face-action-edge: #a42270;    /* cara acción  #d22b8f (§3.1) */
+  --btn-face-secondary-edge: #ae2f8d; /* cara secund. #DF3CB5 (§3.2) */
+  --btn-face-panel-edge: #1d2f42;     /* cara panel   #243A53 (§3.3) */
+  --btn-face-violet-edge: #81008b;    /* cara edición #A500B5 (§3.4) */
+  --btn-face-success-edge: #239e00;   /* cara éxito   #2BC100 (§3.5) */
+  --btn-face-warning-edge: #d15b00;   /* cara aviso   #FF6F00 (§3.6) */
+  --btn-face-danger-edge: #b01e1e;    /* cara destructivo #DC2626 (§3.7) */
+
+  /* Reflejo superior por cara: tinte claro de la MISMA tonalidad que la cara
+     (§3.1–§3.7), para que el brillo del hover coincida con el color del botón
+     en lugar de un blanco neutro. Misma alpha que los --btn-highlight* base. */
+  --btn-hl-action: rgba(255, 143, 212, 0.2);      /* sobre acción  #d22b8f */
+  --btn-hl-action-strong: rgba(255, 143, 212, 0.34);
+  --btn-hl-action-soft: rgba(255, 143, 212, 0.12);
+  --btn-hl-secondary: rgba(255, 170, 226, 0.2);   /* sobre secund. #DF3CB5 */
+  --btn-hl-secondary-strong: rgba(255, 170, 226, 0.34);
+  --btn-hl-secondary-soft: rgba(255, 170, 226, 0.12);
+  --btn-hl-panel: rgba(158, 196, 232, 0.2);       /* sobre panel   #243A53 */
+  --btn-hl-panel-strong: rgba(158, 196, 232, 0.34);
+  --btn-hl-panel-soft: rgba(158, 196, 232, 0.12);
+  --btn-hl-violet: rgba(238, 156, 255, 0.2);      /* sobre edición #A500B5 */
+  --btn-hl-violet-strong: rgba(238, 156, 255, 0.34);
+  --btn-hl-violet-soft: rgba(238, 156, 255, 0.12);
+  --btn-hl-success: rgba(154, 255, 126, 0.2);     /* sobre éxito   #2BC100 */
+  --btn-hl-success-strong: rgba(154, 255, 126, 0.34);
+  --btn-hl-success-soft: rgba(154, 255, 126, 0.12);
+  --btn-hl-warning: rgba(255, 190, 120, 0.2);     /* sobre aviso   #FF6F00 */
+  --btn-hl-warning-strong: rgba(255, 190, 120, 0.34);
+  --btn-hl-warning-soft: rgba(255, 190, 120, 0.12);
+  --btn-hl-danger: rgba(255, 150, 150, 0.2);      /* sobre destructivo #DC2626 */
+  --btn-hl-danger-strong: rgba(255, 150, 150, 0.34);
+  --btn-hl-danger-soft: rgba(255, 150, 150, 0.12);
 }
 
 /* ==========================================================================

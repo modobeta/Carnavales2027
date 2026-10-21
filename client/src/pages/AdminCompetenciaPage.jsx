@@ -1032,7 +1032,7 @@ function AdminTroupesSection({ event, readOnly = false }) {
                     <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
                     {!locked && (
                       <td>
-                        <button className="secondary" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
+                        <button className="secondary edit-action" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
                           Editar
                         </button>{" "}
                         {troupe.active !== false ? (
@@ -1454,7 +1454,7 @@ function AdminCategoriesSection({ event, readOnly = false }) {
                   <td><StatusPill status={category.active ? "ACTIVE" : "SUSPENDED"} label={category.active ? "Activa" : "Inactiva"} /></td>
                   {!locked && (
                     <td>
-                      <button className="secondary" type="button" aria-label={`Editar tipo ${category.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", categoryId: category.id }); }}>
+                      <button className="secondary edit-action" type="button" aria-label={`Editar tipo ${category.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", categoryId: category.id }); }}>
                         Editar
                       </button>{" "}
                       {category.active !== false ? (
@@ -1660,7 +1660,7 @@ function AdminSpecialtiesSection({ event }) {
                   <td><StatusPill status={spec.active ? "ACTIVE" : "SUSPENDED"} label={spec.active ? "Activa" : "Inactiva"} /></td>
                   {!locked && (
                     <td>
-                      <button className="secondary" type="button" aria-label={`Editar especialidad ${spec.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", specialtyId: spec.id }); }}>
+                      <button className="secondary edit-action" type="button" aria-label={`Editar especialidad ${spec.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", specialtyId: spec.id }); }}>
                         Editar
                       </button>{" "}
                       {spec.active !== false ? (
@@ -2560,7 +2560,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                         <strong>{item.name}</strong>
                                         <span>{item.specialtyName}</span>
                                         <span className="mono-text">Orden: {item.displayOrder}</span>
-                                        {!locked && <button className="secondary" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
+                                        {!locked && <button className="secondary edit-action" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
                                         {!locked && (
                                           <>
                                             <button className="secondary" type="button" aria-label={`Subir item ${item.name}`} disabled={itemIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden de ${item.name}.`, () => reorder(rubric.id, "items", item, orderedItems[itemIndex - 1], "UP"), true)}>Subir</button>
@@ -2601,7 +2601,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                             <div className="subrecord-summary">
                                               <span>{crit.description}</span>
                                               <span className="mono-text">#{crit.displayOrder}</span>
-                                              {!locked && <button className="secondary" type="button" aria-label={`Editar criterio ${crit.description}`} onClick={() => setEditingCriterion(crit.id)}>Editar</button>}
+                                              {!locked && <button className="secondary edit-action" type="button" aria-label={`Editar criterio ${crit.description}`} onClick={() => setEditingCriterion(crit.id)}>Editar</button>}
                                               {!locked && (
                                                 <>
                                                   <button className="secondary" type="button" aria-label={`Subir criterio ${crit.description}`} disabled={criterionIndex === 0 || !!editingItem || !!editingCriterion} onClick={() => requestMutationConfirmation("Confirmar cambio de orden", `Se cambiará el orden del criterio ${crit.description}.`, () => reorder(rubric.id, "criteria", crit, siblings[criterionIndex - 1], "UP"), true)}>Subir</button>

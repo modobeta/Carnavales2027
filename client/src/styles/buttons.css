@@ -1,0 +1,547 @@
+/**
+ * buttons.css — Botones 3D (STYLES.md §3)
+ *
+ * Capa aditiva. No redefine el color de cara de cada botón (sigue viniendo de
+ * index.css / components.css) sino que añade:
+ *
+ *   - reflejo superior y sombra interna inferior (gradientes superpuestos);
+ *   - canto inferior sólido por cara (--btn-face-edge) como volumen físico;
+ *   - reflejo superior tintado con la MISMA tonalidad de cada cara (--btn-hl-*),
+ *     de modo que el brillo del hover coincida con el color del botón;
+ *   - sombra exterior de contacto;
+ *   - hundimiento físico al pulsar (translateY + sombra recortada);
+ *   - hover con más brillo y canto, sin cambiar el color de la cara;
+ *   - disabled aplanado y aria-busy conservando la cara.
+ *
+ * Los gradientes se confinan a los bordes verticales (0–26% / 70–100%), de
+ * modo que la zona de texto mantiene el contraste AA verificado de cada cara.
+ *
+ * ORDEN DEL BUNDLE (Vite): los archivos `@import` (tokens…buttons) se emiten
+ * ANTES del contenido propio de index.css. Por eso las reglas base de
+ * index.css (`button { box-shadow: none }`, `button:hover { background }`)
+ * caen DESPUÉS de este archivo. Para que el volumen 3D prevalezca, todos los
+ * selectores que compiten con esas reglas se anclan con `body` y suben un
+ * nivel de especificidad (p. ej. `body button` = (0,0,2) > `button` = (0,0,1)).
+ * Las cadenas :not(...) van envueltas en :where() para no inflar más de lo
+ * necesario.
+ *
+ * Quedan planos a propósito (cromo/pestañas/enlaces-botón, no acciones):
+ * pestañas y stepper de competencia, pestañas de monitor, nav-toggle,
+ * cierre de diálogos, acciones de toast, toggle de login y de resumen,
+ * botón fantasma y la selección limpia de puntaje.
+ */
+
+/* ==========================================================================
+   1. Volumen base en reposo
+   ========================================================================== */
+body button:where(:not(.competencia-nav button):not(.competencia-tabs button):not(.competencia-subtab-btn):not(.competencia-stepper-btn):not(.matrix-rubric-btn):not(.monitor-night-tab):not(.monitor-tab-btn):not(.nav-toggle):not(.app-dialog-close-btn):not(.app-toast-action-btn):not(.app-toast-close-btn):not(.login-password-toggle):not(.my-events-deleted-toggle):not(.readonly-group-toggle):not(.ballot-summary-toggle):not(.action-menu-item):not(.event-picker-option):not(.specialty-option):not(.evaluation-specialty-btn):not(.readonly-troupe-chip)),
+html body .button-link,
+body .app-button,
+body .score-option-btn,
+body .score-grid button,
+body .nav-btn,
+body .faltantes-btn,
+body .copy-hash-button,
+body .pending-item-jump-btn,
+body .pending-dialog-list li button,
+body .not-presented-action,
+body .troupe-absent-btn,
+body .item-retry-btn {
+  --btn-face-edge: var(--btn-face-action-edge);
+  --btn-face-fill: var(--action-fill);
+  --btn-highlight: var(--btn-hl-action);
+  --btn-highlight-strong: var(--btn-hl-action-strong);
+  --btn-highlight-soft: var(--btn-hl-action-soft);
+
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+  transition:
+    background-color var(--transition-btn),
+    border-color var(--transition-btn),
+    box-shadow var(--transition-btn),
+    transform var(--transition-btn),
+    opacity var(--transition-btn);
+}
+
+/* ==========================================================================
+   2. Cara por variante (el canto inferior expresa el volumen)
+   Asignan --btn-face-edge (canto), --btn-face-fill (color de cara que los
+   estados hover/active re-afirman) y el reflejo superior con el tinte de la
+   MISMA tonalidad que la cara (--btn-hl-*), de modo que el brillo del hover
+   coincida con el color del botón. Se anclan con `body` para superar en
+   especificidad a la regla base (`body .app-button` / `body button`, que fijan
+   la cara de acción por defecto). No tocan fondo ni sombra en reposo.
+   ========================================================================== */
+body .app-button-violet,
+body .edit-action,
+body .app-button-edit {
+  --btn-face-edge: var(--btn-face-violet-edge);
+  --btn-face-fill: var(--modal-violet);
+  --btn-highlight: var(--btn-hl-violet);
+  --btn-highlight-strong: var(--btn-hl-violet-strong);
+  --btn-highlight-soft: var(--btn-hl-violet-soft);
+}
+
+body .app-button-success,
+body .app-button-confirm {
+  --btn-face-edge: var(--btn-face-success-edge);
+  --btn-face-fill: var(--modal-success);
+  --btn-highlight: var(--btn-hl-success);
+  --btn-highlight-strong: var(--btn-hl-success-strong);
+  --btn-highlight-soft: var(--btn-hl-success-soft);
+}
+
+body .app-button-warning {
+  --btn-face-edge: var(--btn-face-warning-edge);
+  --btn-face-fill: var(--modal-warning);
+  --btn-highlight: var(--btn-hl-warning);
+  --btn-highlight-strong: var(--btn-hl-warning-strong);
+  --btn-highlight-soft: var(--btn-hl-warning-soft);
+}
+
+body .app-button-danger,
+body .app-button-cancel,
+body button.danger-action,
+body .button-link.danger-action,
+body .item-retry-btn {
+  --btn-face-edge: var(--btn-face-danger-edge);
+  --btn-face-fill: var(--cancel-fill);
+  --btn-highlight: var(--btn-hl-danger);
+  --btn-highlight-strong: var(--btn-hl-danger-strong);
+  --btn-highlight-soft: var(--btn-hl-danger-soft);
+}
+
+body .app-button-secondary {
+  --btn-face-edge: var(--btn-face-secondary-edge);
+  --btn-face-fill: var(--secondary-fill);
+  --btn-highlight: var(--btn-hl-secondary);
+  --btn-highlight-strong: var(--btn-hl-secondary-strong);
+  --btn-highlight-soft: var(--btn-hl-secondary-soft);
+}
+
+body .score-option-btn,
+body .score-grid button,
+body .nav-btn,
+body .faltantes-btn,
+body .copy-hash-button,
+body .pending-item-jump-btn,
+body .pending-dialog-list li button {
+  --btn-face-edge: var(--btn-face-panel-edge);
+  --btn-face-fill: var(--tertiary-fill);
+  --btn-highlight: var(--btn-hl-panel);
+  --btn-highlight-strong: var(--btn-hl-panel-strong);
+  --btn-highlight-soft: var(--btn-hl-panel-soft);
+}
+
+/* Hover/press/selección de puntaje: la cara pasa a acción (§3.1). */
+body .score-option-btn:hover:not(:disabled),
+body .score-option-btn:active:not(:disabled),
+body .score-option-btn.is-staged,
+body .score-grid button:hover:not(:disabled) {
+  --btn-face-edge: var(--btn-face-action-edge);
+  --btn-face-fill: var(--action-fill);
+  --btn-highlight: var(--btn-hl-action);
+  --btn-highlight-strong: var(--btn-hl-action-strong);
+  --btn-highlight-soft: var(--btn-hl-action-soft);
+}
+
+/* ==========================================================================
+   3. Caras transparentes: permanecen planas (sin volumen)
+   ========================================================================== */
+body .app-button-ghost,
+body .score-actions .score-clear,
+body .score-actions button.is-selected {
+  background-image: none;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   3.b Cara terciaria (§3.3): el botón secundario deja de ser un contorno
+   transparente y pasa a volumen sólido. Se le asigna cara opaca de panel
+   (--tertiary-fill, tinta clara 11.6:1) para que el reflejo y el canto
+   tengan una superficie sobre la que leerse.
+   ========================================================================== */
+body button.secondary,
+body .button-link.secondary {
+  --btn-face-edge: var(--btn-face-panel-edge);
+  --btn-face-fill: var(--tertiary-fill);
+  --btn-highlight: var(--btn-hl-panel);
+  --btn-highlight-strong: var(--btn-hl-panel-strong);
+  --btn-highlight-soft: var(--btn-hl-panel-soft);
+
+  background-color: var(--btn-face-fill);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* Edición (§3.4): botón violeta de edición con volumen.
+   Aplica a la clase suelta .edit-action (botones `<button class="secondary">`
+   de edición) y a la variante .app-button-edit del componente Button. */
+html body .edit-action,
+html body .app-button-edit {
+  --btn-face-edge: var(--btn-face-violet-edge);
+  --btn-face-fill: var(--palette-edit-fill);
+
+  background-color: var(--btn-face-fill);
+  color: var(--palette-edit-ink);
+  border-color: transparent;
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* Destructivo (§3.7): gana sobre .secondary para que eliminar/revocar muestre
+   siempre su cara roja con volumen, incluso con class="secondary danger-action". */
+body button.danger-action,
+body .button-link.danger-action {
+  --btn-face-edge: var(--btn-face-danger-edge);
+  --btn-face-fill: var(--palette-cancel);
+
+  background-color: var(--btn-face-fill);
+  color: var(--palette-cancel-ink);
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* ==========================================================================
+   4. Hover: más brillo y volumen; el color de cara no cambia
+   ========================================================================== */
+body button:where(:not(.competencia-nav button):not(.competencia-tabs button):not(.competencia-subtab-btn):not(.competencia-stepper-btn):not(.matrix-rubric-btn):not(.monitor-night-tab):not(.monitor-tab-btn):not(.nav-toggle):not(.app-dialog-close-btn):not(.app-toast-action-btn):not(.app-toast-close-btn):not(.login-password-toggle):not(.my-events-deleted-toggle):not(.readonly-group-toggle):not(.ballot-summary-toggle):not(.action-menu-item):not(.event-picker-option):not(.specialty-option):not(.evaluation-specialty-btn):not(.readonly-troupe-chip)):hover:not(:disabled),
+html body .button-link:hover:not(:disabled),
+body .app-button:hover:not(:disabled),
+body .score-option-btn:hover:not(:disabled),
+body .score-grid button:hover:not(:disabled),
+body .nav-btn:hover:not(:disabled),
+body .faltantes-btn:hover:not(:disabled),
+body .copy-hash-button:hover:not(:disabled),
+body .pending-item-jump-btn:hover:not(:disabled),
+body .pending-dialog-list li button:hover:not(:disabled),
+body .not-presented-action:hover:not(:disabled),
+body .troupe-absent-btn:hover:not(:disabled),
+body .item-retry-btn:hover:not(:disabled) {
+  background-color: var(--btn-face-fill);
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-strong) 0%, transparent 30%),
+    linear-gradient(180deg, transparent 66%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight-strong),
+    0 var(--btn-lift-hover) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-hover) + 4px) var(--btn-drop-hover);
+}
+/* Controles de cara translúcida: en hover conservan su propio fondo
+   (transparente o de superficie) en lugar de adoptar el rosa de index.css. */
+body .app-button-ghost:hover:not(:disabled) {
+  background-color: var(--surface-raised);
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+body .score-actions .score-clear:hover {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+body .score-actions button.is-selected:hover {
+  background-color: var(--accent-color);
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Cara terciaria/edición/destructiva: hover con más brillo y canto (§3.3/§3.4/§3.7).
+   `background-color` re-afirma la cara del botón para que el hover de index.css
+   (`button:hover { background: var(--accent-hover) }`) no la tiña de rosa. */
+body button.secondary:hover:not(:disabled),
+body .button-link.secondary:hover:not(:disabled),
+html body .edit-action:hover:not(:disabled),
+html body .app-button-edit:hover:not(:disabled),
+body button.danger-action:hover:not(:disabled),
+body .button-link.danger-action:hover:not(:disabled) {
+  background-color: var(--btn-face-fill);
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-strong) 0%, transparent 30%),
+    linear-gradient(180deg, transparent 66%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight-strong),
+    0 var(--btn-lift-hover) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-hover) + 4px) var(--btn-drop-hover);
+}
+
+/* Variantes .app-button-*: re-afirman su cara en hover/press para que
+   components.css (`.app-button-primary:hover { background: var(--accent-hover) }`,
+   etc.) no sustituya el color propio por otro. `html body` sube la especificidad
+   por encima del empate con components.css y de `button:hover` de index.css.
+   Se excluye el botón fantasma, que tiene cara translúcida propia. */
+html body .app-button:not(.app-button-ghost):hover:not(:disabled),
+html body .app-button:not(.app-button-ghost):active:not(:disabled) {
+  background-color: var(--btn-face-fill);
+}
+
+/* ==========================================================================
+   5. Active: hundimiento físico (2px) con sombra recortada
+   ========================================================================== */
+body button:where(:not(.competencia-nav button):not(.competencia-tabs button):not(.competencia-subtab-btn):not(.competencia-stepper-btn):not(.matrix-rubric-btn):not(.monitor-night-tab):not(.monitor-tab-btn):not(.nav-toggle):not(.app-dialog-close-btn):not(.app-toast-action-btn):not(.app-toast-close-btn):not(.login-password-toggle):not(.my-events-deleted-toggle):not(.readonly-group-toggle):not(.ballot-summary-toggle):not(.action-menu-item):not(.event-picker-option):not(.specialty-option):not(.evaluation-specialty-btn):not(.readonly-troupe-chip)):active:not(:disabled),
+html body .button-link:active:not(:disabled),
+body .app-button:active:not(:disabled),
+body .score-option-btn:active:not(:disabled),
+body .score-grid button:active:not(:disabled),
+body .nav-btn:active:not(:disabled),
+body .faltantes-btn:active:not(:disabled),
+body .copy-hash-button:active:not(:disabled),
+body .pending-item-jump-btn:active:not(:disabled),
+body .pending-dialog-list li button:active:not(:disabled),
+body .not-presented-action:active:not(:disabled),
+body .troupe-absent-btn:active:not(:disabled),
+body .item-retry-btn:active:not(:disabled) {
+  background-color: var(--btn-face-fill);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 var(--btn-shade-press),
+    0 var(--btn-lift-press) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-press) + 2px) var(--btn-drop);
+}
+
+body .app-button-ghost:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Cara terciaria/edición/destructiva: hundimiento físico al pulsar.
+   Re-afirma la cara para no heredar el rosa de index.css. */
+body button.secondary:active:not(:disabled),
+body .button-link.secondary:active:not(:disabled),
+html body .edit-action:active:not(:disabled),
+html body .app-button-edit:active:not(:disabled),
+body button.danger-action:active:not(:disabled),
+body .button-link.danger-action:active:not(:disabled) {
+  background-color: var(--btn-face-fill);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 var(--btn-shade-press),
+    0 var(--btn-lift-press) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-press) + 2px) var(--btn-drop);
+}
+
+/* ==========================================================================
+   6. Focus-visible: anillo + volumen conservado
+   ========================================================================== */
+body button:focus-visible,
+body .button-link:focus-visible,
+body .app-button:focus-visible,
+body .score-option-btn:focus-visible,
+body .score-grid button:focus-visible,
+body .nav-btn:focus-visible,
+body .faltantes-btn:focus-visible,
+body .copy-hash-button:focus-visible,
+body .pending-item-jump-btn:focus-visible,
+body .pending-dialog-list li button:focus-visible,
+body .not-presented-action:focus-visible,
+body .troupe-absent-btn:focus-visible,
+body .item-retry-btn:focus-visible {
+  box-shadow:
+    var(--focus-ring),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* Controles planos: solo el anillo, sin canto. */
+body .app-button-ghost:focus-visible,
+body .competencia-nav button:focus-visible,
+body .competencia-tabs button:focus-visible,
+body .competencia-subtab-btn:focus-visible,
+body .competencia-stepper-btn:focus-visible,
+body .matrix-rubric-btn:focus-visible,
+body .monitor-night-tab:focus-visible,
+body .monitor-tab-btn:focus-visible,
+body .nav-toggle:focus-visible,
+body .app-dialog-close-btn:focus-visible,
+body .app-toast-action-btn:focus-visible,
+body .app-toast-close-btn:focus-visible,
+body .login-password-toggle:focus-visible,
+body .my-events-deleted-toggle:focus-visible,
+body .readonly-group-toggle:focus-visible,
+body .ballot-summary-toggle:focus-visible,
+body .action-menu-item:focus-visible,
+body .event-picker-option:focus-visible,
+body .specialty-option:focus-visible,
+body .evaluation-specialty-btn:focus-visible,
+body .readonly-troupe-chip:focus-visible,
+body .score-actions .score-clear:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Selección staged: anillo + volumen de la cara de acción. */
+body .score-option-btn.is-staged {
+  box-shadow:
+    var(--focus-ring),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* ==========================================================================
+   7. Espejos de alta especificidad
+   index.css aplasta fondo/base de estos controles en desktop (>=80rem) con
+   selectores .judge-ballot-page:not(.is-readonly) ...; se replican aquí para
+   conservar el volumen donde esa capa deja la cara de puntaje opaca y para
+   aplanar los controles que pasan a cara transparente (contorno).
+   (Estos selectores ya superan en especificidad a index.css.)
+   ========================================================================== */
+.judge-ballot-page:not(.is-readonly) .score-option-btn {
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:hover:not(:disabled) {
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-strong) 0%, transparent 30%),
+    linear-gradient(180deg, transparent 66%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight-strong),
+    0 var(--btn-lift-hover) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-hover) + 4px) var(--btn-drop-hover);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 var(--btn-shade-press),
+    0 var(--btn-lift-press) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-press) + 2px) var(--btn-drop);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:focus-visible {
+  box-shadow:
+    var(--focus-ring),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* En desktop estos controles pasan a cara transparente (contorno): planos. */
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn,
+.judge-ballot-page:not(.is-readonly) .not-presented-btn,
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn {
+  background-image: none;
+  box-shadow: none;
+}
+
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn:hover:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .not-presented-btn:hover:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn:hover:not(:disabled) {
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn:active:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .not-presented-btn:active:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   8. Disabled: sin volumen ni apariencia interactiva
+   ========================================================================== */
+body button:disabled,
+body .button-link:disabled,
+body .app-button:disabled,
+body .score-option-btn:disabled,
+body .score-grid button:disabled,
+body .nav-btn:disabled,
+body .faltantes-btn:disabled,
+body .copy-hash-button:disabled,
+body .pending-item-jump-btn:disabled,
+body .pending-dialog-list li button:disabled,
+body .not-presented-action:disabled,
+body .troupe-absent-btn:disabled,
+body .item-retry-btn:disabled {
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Cara terciaria/edición/destructiva: también planas al deshabilitarse
+   (especificidad explícita para ganar a sus reglas base). */
+body button.secondary:disabled,
+body .button-link.secondary:disabled,
+html body .edit-action:disabled,
+html body .app-button-edit:disabled,
+body button.danger-action:disabled,
+body .button-link.danger-action:disabled {
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Busy (cargando): conserva cara y volumen; el spinner vive en components. */
+body button[aria-busy="true"]:disabled,
+body .button-link[aria-busy="true"]:disabled,
+body .app-button[aria-busy="true"]:disabled,
+body button.secondary[aria-busy="true"]:disabled,
+html body .edit-action[aria-busy="true"]:disabled,
+html body .app-button-edit[aria-busy="true"]:disabled,
+body button.danger-action[aria-busy="true"]:disabled {
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* ==========================================================================
+   9. prefers-reduced-motion: sin desplazamiento físico
+   (las transiciones ya las neutraliza el bloque global de tokens.css)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  body button:where(:not(.competencia-nav button):not(.competencia-tabs button):not(.competencia-subtab-btn):not(.competencia-stepper-btn):not(.matrix-rubric-btn):not(.monitor-night-tab):not(.monitor-tab-btn):not(.nav-toggle):not(.app-dialog-close-btn):not(.app-toast-action-btn):not(.app-toast-close-btn):not(.login-password-toggle):not(.my-events-deleted-toggle):not(.readonly-group-toggle):not(.ballot-summary-toggle):not(.action-menu-item):not(.event-picker-option):not(.specialty-option):not(.evaluation-specialty-btn):not(.readonly-troupe-chip)):active:not(:disabled),
+  body .button-link:active:not(:disabled),
+  body .app-button:active:not(:disabled),
+  body .score-option-btn:active:not(:disabled),
+  body .score-grid button:active:not(:disabled),
+  body .nav-btn:active:not(:disabled),
+  body .faltantes-btn:active:not(:disabled),
+  body .copy-hash-button:active:not(:disabled),
+  body .pending-item-jump-btn:active:not(:disabled),
+  body .pending-dialog-list li button:active:not(:disabled),
+  body .not-presented-action:active:not(:disabled),
+  body .troupe-absent-btn:active:not(:disabled),
+  body .item-retry-btn:active:not(:disabled),
+  body button.secondary:active:not(:disabled),
+  html body .edit-action:active:not(:disabled),
+html body .app-button-edit:active:not(:disabled),
+  body button.danger-action:active:not(:disabled),
+  .judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
+    transform: none;
+  }
+}
