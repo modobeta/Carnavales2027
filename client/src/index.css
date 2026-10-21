@@ -7,6 +7,7 @@
 @import "./styles/competencia.css";
 @import "./styles/utilities.css";
 @import "./styles/legibility.css";
+@import "./styles/buttons.css";
 
 .sr-only {
   position: absolute;
