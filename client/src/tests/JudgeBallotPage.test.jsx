@@ -75,9 +75,10 @@ describe("JudgeBallotPage", () => {
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
     expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
-    expect(screen.getAllByRole("progressbar")).toHaveLength(2);
+    // Una sola barra en pantalla: el total de la planilla se lee como dato compacto.
+    expect(screen.getAllByRole("progressbar")).toHaveLength(1);
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
-    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuemax", "2");
+    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 0/2");
 
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
@@ -89,7 +90,7 @@ describe("JudgeBallotPage", () => {
     // Modelo un-ítem-por-vez (Fase 1): el banner de continuidad es la única vía
     // a la siguiente comparsa (sin Siguiente duplicado mientras está abierto).
     await waitFor(() => expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1"));
-    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuenow", "1");
+    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 1/2");
     expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
     const continuity = await screen.findByRole("region", { name: "Pasada completada" });
     fireEvent.click(within(continuity).getByRole("button", { name: /Comenzar siguiente pasada/i }));
@@ -103,7 +104,7 @@ describe("JudgeBallotPage", () => {
     ));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeEnabled());
-    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuenow", "2");
+    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 2/2");
     // Sello de puntaje confirmado en grande + indicador de guardado en servidor.
     expect(screen.getByText("8", { selector: ".sealed-score-value" })).toBeInTheDocument();
     expect(screen.getByText("☁✓")).toBeInTheDocument();
@@ -131,8 +132,8 @@ describe("JudgeBallotPage", () => {
     expect(document.querySelector("h1.ballot-header-support")).toBeInTheDocument();
     // Etiquetas de progreso neutras, sin repetir el nombre de la comparsa.
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toBeInTheDocument();
-    expect(screen.getByText("Ítem a evaluar")).toBeInTheDocument();
+    // El ítem se anuncia una sola vez: sin etiqueta "Ítem a evaluar" duplicada.
+    expect(screen.queryByText("Ítem a evaluar")).not.toBeInTheDocument();
     expect(screen.getByText("A quién se evalúa")).toBeInTheDocument();
     expect(screen.getByText("Maria")).toBeInTheDocument();
 
@@ -158,7 +159,7 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
-    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuenow", "0");
+    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 0/2");
     expect(screen.getByRole("group", { name: "Comparsa Uno: Presencia" })).toBeInTheDocument();
   });
 
