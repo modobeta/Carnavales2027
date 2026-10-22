@@ -1,5 +1,7 @@
 # Integración y validación de cambios remotos — 06/10/2026
 
+> **Archivo histórico.** Esta revisión describe ramas y defectos de octubre de 2026; no debe usarse como estado actual de `main`. Ver [decisiones](../decisiones.md) y comprobar código/CI vigentes.
+
 Revisión de `origin/main` en `f7cc69300206607fbd0cf3ebb18cb39280ead62a`, comparada con la rama local de recuperación (`9164e47`, código publicado `2e4cb3c`). La revisión inicial se conserva debajo como antecedente. Posteriormente se integraron ambos trabajos en `integration/estilos-privacidad-20261006` (merge `0618efb`); no se publicó en Render ni se modificó Neon.
 
 ## Hallazgos de la revisión inicial

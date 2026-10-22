@@ -21,7 +21,7 @@ La descripción de stack debe mantenerse sincronizada con `client/package.json`,
 
 ## Estado de implementación y diferencias
 
-Estas instrucciones definen requisitos del cliente, no garantizan que el código actual ya los cumpla. `README.md` documenta diferencias funcionales pendientes: no las consideres aprobadas ni cambies reglas del producto para hacerlas coincidir con la implementación. Antes de tocar un flujo con discrepancias, confirma el comportamiento actual en código y las reglas normativas en el `AGENTS.md` raíz/spec aprobada; si el cambio requiere decidir una regla pendiente, detente y consulta.
+Estas instrucciones definen requisitos del cliente, no garantizan que el código actual ya los cumpla. `../docs/reglas-de-negocio.md` y `../docs/decisiones.md` documentan reglas confirmadas, implementación y pendientes: no las consideres aprobadas ni cambies reglas del producto para hacerlas coincidir con la implementación. Antes de tocar un flujo con discrepancias, confirma el comportamiento actual en código y las reglas normativas en el `AGENTS.md` raíz/spec aprobada; si el cambio requiere decidir una regla pendiente, detente y consulta.
 
 ## Jurado
 

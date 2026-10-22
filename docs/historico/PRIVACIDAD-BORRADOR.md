@@ -1,5 +1,7 @@
 # Carnavales2027 — textos públicos propuestos
 
+> **Archivo histórico.** El texto público vigente se sirve desde [`client/public/privacidad.html`](../../client/public/privacidad.html). Ver [privacidad y retención](../privacidad-y-retencion.md); este antecedente no fija plazos de conservación ni sustituye una revisión legal.
+
 **Texto aprobado por Martín Juncos el 05/10/2026. Páginas publicables: `client/public/acerca.html` y `client/public/privacidad.html`.**
 
 Este documento prepara la página de presentación y la política de privacidad para la configuración de Google OAuth. No constituye una verificación de Google ni una certificación de cumplimiento legal.

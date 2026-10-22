@@ -32,14 +32,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.23.4"
           cache: npm
           cache-dependency-path: |
             api/package-lock.json
             client/package-lock.json
+      - run: node --test scripts/check-doc-links.test.mjs
+      - run: node scripts/check-doc-links.mjs
       - run: npm ci --prefix api
       - run: npm run auth:migrate --prefix api -- --yes
+        env:
+          npm_config_legacy_peer_deps: "true"
       - run: npm run db:migrate --prefix api
+      - name: Verify migrations have no pending second pass
+        run: |
+          output="$(npm run db:migrate --prefix api)"
+          printf '%s\n' "$output"
+          grep -Fqx 'No pending migrations' <<< "$output"
       - run: npm test --prefix api
       - run: npm run audit:verify --prefix api
       - run: npm ci --prefix client

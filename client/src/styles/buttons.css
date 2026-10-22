@@ -25,12 +25,6 @@
  * Las cadenas :not(...) van envueltas en :where() para no inflar más de lo
  * necesario.
  *
- * IMPORTANTE: `button:hover:not(:disabled) { background: var(--accent-hover) }`
- * de index.css usa el shorthand `background` y resetea el color de cara de
- * CUALQUIER botón en hover (los teñiría de rosa). Por eso los estados
- * hover/active re-afirman explícitamente `background-color: var(--btn-face-fill)`
- * con especificidad suficiente para ganarle.
- *
  * Quedan planos a propósito (cromo/pestañas/enlaces-botón, no acciones):
  * pestañas y stepper de competencia, pestañas de monitor, nav-toggle,
  * cierre de diálogos, acciones de toast, toggle de login y de resumen,
@@ -255,7 +249,6 @@ body .item-retry-btn:hover:not(:disabled) {
     0 var(--btn-lift-hover) 0 var(--btn-face-edge),
     0 calc(var(--btn-lift-hover) + 4px) var(--btn-drop-hover);
 }
-
 /* Controles de cara translúcida: en hover conservan su propio fondo
    (transparente o de superficie) en lugar de adoptar el rosa de index.css. */
 body .app-button-ghost:hover:not(:disabled) {
@@ -397,21 +390,82 @@ body .event-picker-option:focus-visible,
 body .specialty-option:focus-visible,
 body .evaluation-specialty-btn:focus-visible,
 body .readonly-troupe-chip:focus-visible,
-body .score-actions .score-clear:focus-visible,
-body .score-actions button.is-selected:focus-visible {
+body .score-actions .score-clear:focus-visible {
   box-shadow: var(--focus-ring);
+}
+
+/* Selección staged: anillo + volumen de la cara de acción. */
+body .score-option-btn.is-staged {
+  box-shadow:
+    var(--focus-ring),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
 }
 
 /* ==========================================================================
    7. Espejos de alta especificidad
-   (garantizan el volumen frente a reglas de index.css que usan `button` a secas)
+   index.css aplasta fondo/base de estos controles en desktop (>=80rem) con
+   selectores .judge-ballot-page:not(.is-readonly) ...; se replican aquí para
+   conservar el volumen donde esa capa deja la cara de puntaje opaca y para
+   aplanar los controles que pasan a cara transparente (contorno).
+   (Estos selectores ya superan en especificidad a index.css.)
    ========================================================================== */
-body button,
-html body .button-link {
+.judge-ballot-page:not(.is-readonly) .score-option-btn {
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),
+    linear-gradient(180deg, transparent 70%, var(--btn-shade) 100%);
   box-shadow:
     inset 0 1px 0 var(--btn-highlight),
     0 var(--btn-lift) 0 var(--btn-face-edge),
     0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:hover:not(:disabled) {
+  background-image:
+    linear-gradient(180deg, var(--btn-highlight-strong) 0%, transparent 30%),
+    linear-gradient(180deg, transparent 66%, var(--btn-shade) 100%);
+  box-shadow:
+    inset 0 1px 0 var(--btn-highlight-strong),
+    0 var(--btn-lift-hover) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-hover) + 4px) var(--btn-drop-hover);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 var(--btn-shade-press),
+    0 var(--btn-lift-press) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift-press) + 2px) var(--btn-drop);
+}
+
+.judge-ballot-page:not(.is-readonly) .score-option-btn:focus-visible {
+  box-shadow:
+    var(--focus-ring),
+    0 var(--btn-lift) 0 var(--btn-face-edge),
+    0 calc(var(--btn-lift) + 3px) var(--btn-drop);
+}
+
+/* En desktop estos controles pasan a cara transparente (contorno): planos. */
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn,
+.judge-ballot-page:not(.is-readonly) .not-presented-btn,
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn {
+  background-image: none;
+  box-shadow: none;
+}
+
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn:hover:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .not-presented-btn:hover:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn:hover:not(:disabled) {
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.judge-ballot-page:not(.is-readonly) .troupe-absent-btn:active:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .not-presented-btn:active:not(:disabled),
+.judge-ballot-page:not(.is-readonly) .ballot-item-nav .faltantes-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
 }
 
 /* ==========================================================================
@@ -471,7 +525,7 @@ body button.danger-action[aria-busy="true"]:disabled {
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   body button:where(:not(.competencia-nav button):not(.competencia-tabs button):not(.competencia-subtab-btn):not(.competencia-stepper-btn):not(.matrix-rubric-btn):not(.monitor-night-tab):not(.monitor-tab-btn):not(.nav-toggle):not(.app-dialog-close-btn):not(.app-toast-action-btn):not(.app-toast-close-btn):not(.login-password-toggle):not(.my-events-deleted-toggle):not(.readonly-group-toggle):not(.ballot-summary-toggle):not(.action-menu-item):not(.event-picker-option):not(.specialty-option):not(.evaluation-specialty-btn):not(.readonly-troupe-chip)):active:not(:disabled),
-  html body .button-link:active:not(:disabled),
+  body .button-link:active:not(:disabled),
   body .app-button:active:not(:disabled),
   body .score-option-btn:active:not(:disabled),
   body .score-grid button:active:not(:disabled),
@@ -479,11 +533,13 @@ body button.danger-action[aria-busy="true"]:disabled {
   body .faltantes-btn:active:not(:disabled),
   body .copy-hash-button:active:not(:disabled),
   body .pending-item-jump-btn:active:not(:disabled),
+  body .pending-dialog-list li button:active:not(:disabled),
   body .not-presented-action:active:not(:disabled),
   body .troupe-absent-btn:active:not(:disabled),
   body .item-retry-btn:active:not(:disabled),
   body button.secondary:active:not(:disabled),
   html body .edit-action:active:not(:disabled),
+html body .app-button-edit:active:not(:disabled),
   body button.danger-action:active:not(:disabled),
   .judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
     transform: none;
