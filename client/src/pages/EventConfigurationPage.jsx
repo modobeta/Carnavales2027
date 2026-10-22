@@ -299,7 +299,7 @@ export function EventConfigurationPage({
                     <td>{nightKindLabel(night.kind)}</td>
                     {(showNightActions || canEditNight) && (
                       <td>
-                        {canEditNight && <button className="secondary" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
+                        {canEditNight && <button className="secondary edit-action" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
                         {canDeleteNight(night) && <button
                           className="secondary danger-action"
                           type="button"

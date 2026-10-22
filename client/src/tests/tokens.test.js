@@ -113,8 +113,9 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     const competencia = readFileSync(resolve(__dirname, "../styles/competencia.css"), "utf8");
     const utilities = readFileSync(resolve(__dirname, "../styles/utilities.css"), "utf8");
     const legibility = readFileSync(resolve(__dirname, "../styles/legibility.css"), "utf8");
+    const buttons = readFileSync(resolve(__dirname, "../styles/buttons.css"), "utf8");
     expect(index).toMatch(
-      /^@import "\.\/styles\/tokens\.css";\s*@import "\.\/styles\/components\.css";\s*@import "\.\/styles\/ceremony\.css";\s*@import "\.\/styles\/penalties\.css";\s*@import "\.\/styles\/scrutiny\.css";\s*@import "\.\/styles\/admin\.css";\s*@import "\.\/styles\/competencia\.css";\s*@import "\.\/styles\/utilities\.css";\s*@import "\.\/styles\/legibility\.css";/
+      /^@import "\.\/styles\/tokens\.css";\s*@import "\.\/styles\/components\.css";\s*@import "\.\/styles\/ceremony\.css";\s*@import "\.\/styles\/penalties\.css";\s*@import "\.\/styles\/scrutiny\.css";\s*@import "\.\/styles\/admin\.css";\s*@import "\.\/styles\/competencia\.css";\s*@import "\.\/styles\/utilities\.css";\s*@import "\.\/styles\/legibility\.css";\s*@import "\.\/styles\/buttons\.css";/
     );
     expect(/:root\s*\{/.test(index)).toBe(false);
     expect(/:root\s*\{/.test(components)).toBe(false);
@@ -125,8 +126,10 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(/:root\s*\{/.test(competencia)).toBe(false);
     expect(/:root\s*\{/.test(utilities)).toBe(false);
     expect(/:root\s*\{/.test(legibility)).toBe(false);
+    expect(/:root\s*\{/.test(buttons)).toBe(false);
     expect(utilities).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(legibility).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(buttons).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
   it("mantiene tokens.css como unico archivo con colores literales", () => {
