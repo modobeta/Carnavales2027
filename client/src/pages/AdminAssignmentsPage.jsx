@@ -253,7 +253,7 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
                 </div>
                 <div className="event-actions">
                   {!quota && <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Configurar cupo</button>}
-                  {quota && <button className="secondary" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
+                  {quota && <button className="secondary edit-action" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
                   <button type="button" disabled={Boolean(busy) || (selectedEvent?.status !== "CONFIGURING" && selectedEvent?.status !== "OPEN")} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
                 </div>
               </div>
