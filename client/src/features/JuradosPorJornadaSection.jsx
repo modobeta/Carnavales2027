@@ -23,6 +23,7 @@ export function JuradosPorJornadaSection({
   event,
   onOpenSpecialties,
   onDataChanged,
+  refreshSignal = 0,
 }) {
   const [nights, setNights] = useState([]);
   const [selectedNightId, setSelectedNightId] = useState("");
@@ -91,6 +92,15 @@ export function JuradosPorJornadaSection({
   useEffect(() => {
     void loadData();
   }, [event.id]);
+
+  // Las especialidades se crean arriba, en este mismo paso: cuando cambian,
+  // la tabla de asignaciones debe mostrarlas sin recargar la página.
+  const lastRefreshSignal = useRef(refreshSignal);
+  useEffect(() => {
+    if (lastRefreshSignal.current === refreshSignal) return;
+    lastRefreshSignal.current = refreshSignal;
+    void loadData(selectedNightId);
+  }, [refreshSignal]);
 
   const handleNightChange = (newNightId) => {
     setLoadingNight(true);
@@ -368,19 +378,7 @@ export function JuradosPorJornadaSection({
 
       {/* Encabezado del paso */}
       <div className="competencia-step-header-row">
-        <div>
-          <h2>Jurados por jornada</h2>
-        </div>
-        <div>
-          <button
-            type="button"
-            className="secondary"
-            onClick={onOpenSpecialties}
-            aria-label="Gestionar especialidades"
-          >
-            ⚙ Gestionar especialidades
-          </button>
-        </div>
+        <h2>Jurados por jornada</h2>
       </div>
 
       {/* Selector de jornada */}

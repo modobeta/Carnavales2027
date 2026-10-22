@@ -29,10 +29,12 @@ const rubric = {
 
 function mockCompetitionData({ orphaned = [], rubrics = [rubric], specialties = [{ id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true }], readiness = { ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [] }, write = vi.fn().mockRejectedValue(new Error("Escritura inesperada")) } = {}) {
   const liveRubrics = rubrics.map((entry) => ({ ...entry }));
+  const liveSpecialties = specialties.map((entry) => ({ ...entry }));
   apiRequest.mockImplementation(async (path, options) => {
     if (options?.method) {
       const result = await write(path, options);
       if (options.method === "POST" && path.endsWith("/rubrics") && result?.id) liveRubrics.push({ ...result, items: [], criteria: [], specialties: [] });
+      if (options.method === "POST" && path.endsWith("/specialties") && result?.id) liveSpecialties.push({ active: true, ...result });
       return result;
     }
     if (path.endsWith("/readiness")) {
@@ -41,7 +43,7 @@ function mockCompetitionData({ orphaned = [], rubrics = [rubric], specialties = 
     }
     if (path.endsWith("/troupes")) return [{ id: "troupe-1", name: "Estrella", categoryId: "category-1", active: true }];
     if (path.endsWith("/categories")) return [{ id: "category-1", name: "Comparsa", code: "COMPARSA", displayOrder: 1, active: true }];
-    if (path.endsWith("/specialties")) return specialties;
+    if (path.endsWith("/specialties")) return liveSpecialties;
     if (path.endsWith("/rubrics")) return liveRubrics.map((entry) => ({ ...entry }));
     if (path.startsWith("/api/v1/rubrics/")) return rubrics.find((entry) => path.endsWith(`/${entry.id}`));
     if (path.endsWith("/orphaned-criteria")) return orphaned;
@@ -1056,6 +1058,97 @@ describe("AdminCompetenciaPage", () => {
   });
 
   describe("asistente de configuración (wizard)", () => {
+    // Readiness mutable: permite simular que una mutación cambia los requisitos
+    // del asistente y comprobar que el stepper se actualiza sin recargar.
+    function mockStepperData({ readinessRef, scheduleRef = { current: [] }, write }) {
+      apiRequest.mockImplementation(async (path, options) => {
+        if (options?.method) return write(path, options);
+        if (path.endsWith("/readiness")) return readinessRef.current;
+        if (path.endsWith("/nights")) return [{ id: "night-1", name: "Noche 1", kind: "COMPETITION" }];
+        if (path.startsWith("/api/v1/events/event-1/schedule")) return scheduleRef.current.map((row) => ({ ...row }));
+        if (path.endsWith("/troupes")) return [{ id: "troupe-1", name: "Estrella", categoryId: "category-1", categoryName: "Comparsa", active: true }];
+        if (path.endsWith("/categories")) return [{ id: "category-1", name: "Comparsa", code: "COMPARSA", displayOrder: 1, active: true }];
+        if (path.endsWith("/specialties")) return [{ id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true }];
+        if (path.endsWith("/rubrics")) return [rubric];
+        if (path.startsWith("/api/v1/rubrics/")) return rubric;
+        if (path.endsWith("/orphaned-criteria")) return [];
+        throw new Error(`Solicitud inesperada: ${path}`);
+      });
+    }
+
+    function readinessWith(overrides) {
+      return {
+        ready: false,
+        missing: [],
+        incompleteTroupes: [],
+        incompleteRubrics: [],
+        incompleteSchedules: [],
+        incompleteNominations: [],
+        nightsWithoutJury: [],
+        ...overrides,
+      };
+    }
+
+    it("actualiza Revisión final al programar una comparsa sin recargar", async () => {
+      const readinessRef = { current: readinessWith({
+        missing: ["INCOMPLETE_SCHEDULES"],
+        incompleteSchedules: [{ nightId: "night-1", nightName: "Noche 1" }],
+      }) };
+      const scheduleRef = { current: [] };
+      const write = vi.fn().mockImplementation(async (path, options) => {
+        if (path.endsWith("/schedule") && options.method === "POST") {
+          const saved = { id: "s-9", nightId: "night-1", troupeId: "troupe-1", presentationOrder: 1, status: "SCHEDULED" };
+          scheduleRef.current = [saved];
+          readinessRef.current = readinessWith({ ready: true });
+          return saved;
+        }
+        throw new Error("Escritura inesperada");
+      });
+      mockStepperData({ readinessRef, scheduleRef, write });
+
+      render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
+      expect(await screen.findByRole("button", { name: /Revisión final\. Incompleto/ })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /Participantes/ }));
+      fireEvent.change(screen.getByRole("combobox", { name: "Comparsa para programar en la jornada" }), { target: { value: "troupe-1" } });
+      fireEvent.click(screen.getByRole("button", { name: "Programar comparsa" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+      await screen.findByText("Comparsa programada en la jornada.");
+
+      expect(await screen.findByRole("button", { name: /Revisión final\. Completo/ })).toBeInTheDocument();
+    });
+
+    it("actualiza Evaluación al crear un ítem sin recargar", async () => {
+      const readinessRef = { current: readinessWith({
+        missing: ["INCOMPLETE_RUBRICS"],
+        incompleteRubrics: [{ id: "rubric-1", name: "Coreografia" }],
+      }) };
+      const write = vi.fn().mockImplementation(async (path, options) => {
+        if (options.method === "POST" && path.endsWith("/items")) {
+          readinessRef.current = readinessWith({ ready: true });
+          return { id: "item-9", name: "Nuevo", specialtyId: "specialty-1", displayOrder: 1, active: true };
+        }
+        throw new Error("Escritura inesperada");
+      });
+      mockStepperData({ readinessRef, write });
+
+      render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} initialStep="rubros" />);
+      expect(await screen.findByRole("button", { name: /Evaluación\. Incompleto/ })).toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Expandir Coreografia" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+      fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
+      const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Coreografia" });
+      const form = dialog.querySelector("form");
+      fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
+      fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" }), { target: { value: "specialty-1" } });
+      fireEvent.submit(form);
+      fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+      await screen.findByText("Item guardado.");
+
+      expect(await screen.findByRole("button", { name: /Evaluación\. Completo/ })).toBeInTheDocument();
+    });
+
     it("muestra 4 pasos en orden de dependencia con progreso no bloqueante", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
@@ -1139,6 +1232,49 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getByRole("button", { name: /Paso 2 de 4: Jurados y especialidades\. Completo/ })).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Resumen del paso Jurados y especialidades" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Jurados" })).toHaveAttribute("href", "#/admin/judges");
+    });
+
+    it("presenta especialidades antes de asignar jurados en el paso 2", async () => {
+      mockCompetitionData();
+      const request = apiRequest.getMockImplementation();
+      apiRequest.mockImplementation((path, options) => {
+        if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION" }]);
+        if (path === "/api/v1/judges") return Promise.resolve([]);
+        if (path.endsWith("/judge-assignments")) return Promise.resolve({ quotas: [], assignments: [] });
+        return request(path, options);
+      });
+
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Paso 2 de 4: Jurados y especialidades/ }));
+
+      expect(await screen.findByRole("heading", { name: "Jurados y especialidades" })).toBeInTheDocument();
+      const specialties = screen.getByRole("region", { name: "Gestión de especialidades" });
+      const assignments = await screen.findByRole("heading", { name: "Jurados por jornada" });
+      expect(specialties.compareDocumentPosition(assignments) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Gestionar especialidades" })).not.toBeInTheDocument();
+    });
+
+    it("al crear una especialidad queda disponible para asignar jurados sin recargar", async () => {
+      const write = vi.fn().mockResolvedValue({ id: "specialty-2", name: "Danza nueva", code: "DANZA-N", displayOrder: 2 });
+      mockCompetitionData({ write });
+      const request = apiRequest.getMockImplementation();
+      apiRequest.mockImplementation((path, options) => {
+        if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+        if (path === "/api/v1/judges") return Promise.resolve([{ id: "j-1", name: "Jurado Uno", registrationStatus: "REGISTERED" }]);
+        if (path.endsWith("/judge-assignments")) return Promise.resolve({ quotas: [], assignments: [] });
+        return request(path, options);
+      });
+
+      render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
+      fireEvent.click(screen.getByRole("button", { name: /Paso 2 de 4: Jurados y especialidades/ }));
+      expect(await screen.findByRole("button", { name: "Asignar jurados Danza" })).toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole("button", { name: "+ Nueva especialidad" }));
+      const form = screen.getByRole("button", { name: "Agregar especialidad" }).closest("form");
+      fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Danza nueva" } });
+      fireEvent.submit(form);
+
+      expect(await screen.findByRole("button", { name: "Asignar jurados Danza nueva" })).toBeInTheDocument();
     });
 
     it("mueve el foco al título del paso al navegar y no usa el copy anterior", async () => {

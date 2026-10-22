@@ -100,6 +100,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const [progressError, setProgressError] = useState(false);
   const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
+  const [readinessRevision, setReadinessRevision] = useState(0);
   const [currentEvent, setCurrentEvent] = useState(event);
   const [openingEvent, setOpeningEvent] = useState(false);
   const [confirmOpenEvent, setConfirmOpenEvent] = useState(false);
@@ -169,7 +170,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
       setReadinessState({ eventId: event.id, status: "unavailable", data: null });
     });
     return () => { active = false; };
-  }, [event.id, dataRevision]);
+  }, [event.id, dataRevision, readinessRevision]);
 
   const specialtiesActive = (progress?.specialties ?? []).filter((s) => s.active !== false);
   const currentReadiness = readinessState.eventId === event.id ? readinessState.data : null;
@@ -255,7 +256,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
   const eventStatusLabel = uxStatusLabel(currentEvent?.status, "No disponible");
 
   return (
-    <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1) }}>
+    <WriteContext.Provider value={{ writing, setPending, reloadProgress, dataRevision, incRevision: () => setDataRevision((r) => r + 1), refreshReadiness: () => setReadinessRevision((r) => r + 1) }}>
       <PageShell layer="instrument" className="admin-shell" aria-busy={pending}>
         <fieldset aria-label="Configuracion de competencia" disabled={pending} className="fieldset-reset">
           <header className="event-header competencia-header">
@@ -365,30 +366,30 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
           )}
           {step === "jurados" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Jurados y especialidades">Jurados por jornada</h2>
-              <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
               <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
 
+              <section
+                id="seccion-especialidades"
+                className="competencia-subblock"
+                aria-label="Gestión de especialidades"
+              >
+                <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
+              </section>
+
+              <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
               <JuradosPorJornadaSection
                 event={event}
+                refreshSignal={dataRevision}
                 onOpenSpecialties={() => {
                   const el = document.getElementById("seccion-especialidades");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
                 onDataChanged={() => {
                   if (incRevision) incRevision();
                   if (reloadProgress) reloadProgress();
                 }}
               />
-
-              <section
-                id="seccion-especialidades"
-                className="competencia-subblock"
-                aria-label="Gestión de especialidades"
-                style={{ marginBlockStart: "2.5rem" }}
-              >
-                <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
-              </section>
             </section>
           )}
           {step === "rubros" && (
@@ -1111,7 +1112,7 @@ function TroupeScheduleSection({ event }) {
   const [reorderTarget, setReorderTarget] = useState(null);
   const [scheduleAddTarget, setScheduleAddTarget] = useState(null);
   const [message, setMessage] = useState("");
-  const { writing, setPending, dataRevision } = useContext(WriteContext);
+  const { writing, setPending, dataRevision, refreshReadiness } = useContext(WriteContext);
   const locked = event.status === "OPEN";
 
   const [loadError, setLoadError] = useState(false);
@@ -1158,6 +1159,8 @@ function TroupeScheduleSection({ event }) {
       setSchedule((prev) => [...prev, { ...saved, nightId, troupeId, troupeName: troupe?.name ?? "", troupeBrandColor: troupe?.brandColor ?? null }]);
       setTroupeToAdd("");
       setMessage("Comparsa programada en la jornada.");
+      // Programar o quitar comparsas cambia los requisitos de la revisión final.
+      if (refreshReadiness) refreshReadiness();
     } catch (error) {
       setMessage(error.code === "SCHEDULE_CONFLICT"
         ? "Esa comparsa ya está programada en la jornada."
@@ -1291,6 +1294,7 @@ function TroupeScheduleSection({ event }) {
                   scheduleRequest.current += 1;
                   setSchedule((prev) => prev.filter((s) => s.id !== target.id));
                   setMessage("Comparsa quitada de la jornada.");
+                  if (refreshReadiness) refreshReadiness();
                 } catch {
                   setMessage("No se pudo quitar la comparsa de la jornada.");
                 } finally {
