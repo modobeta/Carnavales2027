@@ -112,6 +112,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "087_admin_event_assignments.sql"
           || filename === "088_voting_incidents.sql"
           || filename === "089_ballot_custody.sql"
+          || filename === "090_reconcile_schema_drift.sql"
           || filename === "095_primary_admin_protection.sql"
   )));
 
@@ -551,6 +552,11 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "089_ballot_custody.sql",
       version: "089",
+      applied: true,
+    },
+    {
+      filename: "090_reconcile_schema_drift.sql",
+      version: "090",
       applied: true,
     },
     {

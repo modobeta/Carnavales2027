@@ -4,7 +4,14 @@ import { webcrypto } from "node:crypto";
 
 if (!globalThis.crypto?.subtle) globalThis.crypto = webcrypto;
 
-if (typeof window !== "undefined" && !window.localStorage) {
+const hasStorageApi = (storage) =>
+  storage &&
+  typeof storage.getItem === "function" &&
+  typeof storage.setItem === "function" &&
+  typeof storage.removeItem === "function" &&
+  typeof storage.clear === "function";
+
+if (typeof window !== "undefined" && !hasStorageApi(window.localStorage)) {
   const store = new Map();
   Object.defineProperty(window, "localStorage", {
     value: {
@@ -17,6 +24,19 @@ if (typeof window !== "undefined" && !window.localStorage) {
     },
     configurable: true,
   });
+}
+
+// Node >= 22 puede exponer un `globalThis.localStorage` incompleto que Vitest no
+// reemplaza al montar jsdom. Los tests usan tanto `localStorage` como
+// `window.localStorage`, así que ambos deben apuntar al mismo Storage real.
+if (typeof window !== "undefined" && hasStorageApi(window.localStorage)) {
+  if (!hasStorageApi(globalThis.localStorage)) {
+    Object.defineProperty(globalThis, "localStorage", {
+      value: window.localStorage,
+      configurable: true,
+      writable: true,
+    });
+  }
 }
 
 if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
