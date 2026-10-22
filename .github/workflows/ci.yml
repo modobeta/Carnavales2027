@@ -41,6 +41,8 @@ jobs:
       - run: node scripts/check-doc-links.mjs
       - run: npm ci --prefix api
       - run: npm run auth:migrate --prefix api -- --yes
+        env:
+          npm_config_legacy_peer_deps: "true"
       - run: npm run db:migrate --prefix api
       - name: Verify migrations have no pending second pass
         run: |
