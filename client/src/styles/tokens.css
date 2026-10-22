@@ -324,8 +324,7 @@
   --modal-info-text: #c9e2ff;
 
   /* ==========================================================================
-     Volumen 3D de botones (STYLES.md §3)
-     Capa decorativa: la cara sigue viniendo de index.css / components.css.
+     Botones 3D (STYLES.md §3): reflejo, volumen y canto inferior
      El reflejo y la sombra interna se confinan a los bordes verticales del
      botón (0–26% / 70–100%) para no alterar el contraste AA verificado de la
      tinta en la zona de texto central. Los cantos (--btn-face-edge) son hex
