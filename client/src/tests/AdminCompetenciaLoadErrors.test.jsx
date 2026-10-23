@@ -89,10 +89,20 @@ describe("AdminCompetenciaPage: errores de carga con Reintentar (spec 040 T3)", 
     expect(await within(block).findByText("Danza")).toBeInTheDocument();
   });
 
-  it("Evaluación: un fallo al cargar comparsas también se informa", async () => {
+  it("Evaluación: un fallo de comparsas se informa sin ocultar el editor de rubros", async () => {
     mockApi("/troupes");
     render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
-    expect(await screen.findByText("No se pudo cargar la configuración de evaluación.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Crear primer rubro" })).toBeInTheDocument();
+    expect(screen.getByText(/No se pudieron cargar datos complementarios: comparsas/)).toBeInTheDocument();
+    expect(screen.queryByText("No se pudo cargar la configuración de evaluación.")).not.toBeInTheDocument();
+  });
+
+  it("resumen de Evaluación no cuenta huérfanos como cero cuando falla su lectura", async () => {
+    mockApi("/orphaned-criteria");
+    render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+    const summary = await screen.findByRole("region", { name: "Resumen de evaluación" });
+    expect(within(summary).getByText("Criterios descriptivos por comprobar.")).toBeInTheDocument();
+    expect(within(summary).queryByText(/No hay criterios descriptivos pendientes/)).not.toBeInTheDocument();
   });
 
   it("Orden de pasada: un fallo al cargar jornadas no queda como «Cargando» ni vacío", async () => {

@@ -32,6 +32,7 @@ import { apiRequest } from "./api/http.js";
 import { EventCard } from "./components/EventCard.jsx";
 import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.jsx";
 import { useEffect, useState } from "react";
+import { markHashHistoryEntry } from "./features/hash-history.js";
 
 function ProtectedShell({ session, children }) {
   return <><AppNavigation session={session} />{children}</>;
@@ -99,7 +100,11 @@ export default function App({ session: providedSession }) {
   const session = providedSession ?? contextSession;
   const [path, setPath] = useState(window.location.hash || "#/login");
   useEffect(() => {
-    const updatePath = () => setPath(window.location.hash || "#/login");
+    markHashHistoryEntry();
+    const updatePath = () => {
+      markHashHistoryEntry();
+      setPath(window.location.hash || "#/login");
+    };
     window.addEventListener("hashchange", updatePath);
     return () => window.removeEventListener("hashchange", updatePath);
   }, []);

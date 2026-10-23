@@ -42,10 +42,11 @@ it("conserva el tipo creado y su opción en comparsas frente a lecturas anterior
   expect(within(screen.getByRole("dialog")).getByRole("option", { name: "Invitadas" })).toBeInTheDocument();
 });
 
-it("conserva el rubro nuevo cuando termina una lectura anterior vacía", async () => {
+it("conserva el rubro nuevo aunque el GET iniciado antes del POST termine último", async () => {
   const release = setup("rubrics");
   fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
-  fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+  expect(screen.queryByText(/Especialidades listas:/)).not.toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
@@ -106,7 +107,7 @@ it("actualiza la comparsa y el selector de programación aunque termine una cons
 it("muestra un rubro y su ítem recién creados sin recargar y conserva el resumen actualizado", async () => {
   const release = setup("rubrics");
   fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
-  fireEvent.click(await screen.findByRole("button", { name: "+ Agregar rubro" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
@@ -122,5 +123,5 @@ it("muestra un rubro y su ítem recién creados sin recargar y conserva el resum
   expect(screen.getAllByText("Colorido").length).toBeGreaterThan(0);
   const summary = screen.getByRole("region", { name: "Resumen de evaluación" });
   expect(within(summary).getByText("Ítems activos").nextElementSibling).toHaveTextContent("1");
-  expect(within(summary).getByText("No hay requisitos pendientes en rubros ni nominaciones.")).toBeInTheDocument();
+  expect(within(summary).getByText(/Sin bloqueos oficiales de evaluación\./)).toBeInTheDocument();
 });
