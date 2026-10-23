@@ -10,7 +10,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "pretest": "node --import=dotenv/config src/scripts/assert-test-database-url.js",
-    "test": "node --import=dotenv/config --test --test-concurrency=1 src/tests/*.test.js src/db/tests/*.test.js src/modules/results/*.test.js",
+    "test": "node --import=dotenv/config --import=./src/scripts/test-environment.js --test --test-concurrency=1 src/tests/*.test.js src/db/tests/*.test.js src/modules/results/*.test.js",
     "db:migrate": "node src/db/migrate.js",
     "db:backup": "bash scripts/backup.sh",
     "db:restore": "bash scripts/restore.sh",
@@ -18,7 +18,7 @@
     "bootstrap:admin": "node src/scripts/bootstrap-admin.js",
     "seed:event:full": "node src/scripts/seed-full-event.js",
     "predb:test": "node --import=dotenv/config src/scripts/assert-test-database-url.js",
-    "db:test": "node --import=dotenv/config --test src/db/tests/*.test.js",
+    "db:test": "node --import=dotenv/config --import=./src/scripts/test-environment.js --test src/db/tests/*.test.js",
     "audit:verify": "node src/scripts/verify-audit-chain.js",
     "db:reconcile:deploy": "node src/scripts/reconcile-deploy-migrations.js"
   },
