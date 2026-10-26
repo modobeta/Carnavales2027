@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { EventConfigurationPage } from "./EventConfigurationPage.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
 export function AdminEventsPage() {
@@ -52,7 +53,7 @@ export function AdminEventsPage() {
     if (configurationLoading) {
       return (
         <PageShell layer="instrument" className="container">
-          <p>Cargando configuracion...</p>
+          <SkeletonLoader variant="cards" rows={3} label="Cargando configuracion..." />
         </PageShell>
       );
     }

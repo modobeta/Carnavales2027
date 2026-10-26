@@ -4,7 +4,7 @@ import { webcrypto } from "node:crypto";
 
 if (!globalThis.crypto?.subtle) globalThis.crypto = webcrypto;
 
-if (typeof window !== "undefined" && !window.localStorage) {
+if (typeof window !== "undefined" && (!window.localStorage || typeof window.localStorage.clear !== "function")) {
   const store = new Map();
   Object.defineProperty(window, "localStorage", {
     value: {

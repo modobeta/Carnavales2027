@@ -8,6 +8,8 @@ import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
+import { LoadingOverlay } from "../components/LoadingOverlay.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
 import { readableInk } from "../lib/brand-color.js";
@@ -483,9 +485,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   if (!ballot) {
     return (
       <PageShell layer="instrument" className="container">
-        <div className="card">
+        <div className="card ballot-loading-card">
           <h1>Planilla de evaluación</h1>
-          <p role="status">{message || "Cargando planilla…"}</p>
+          {message ? (
+            <p className="feedback" role="status">{message}</p>
+          ) : (
+            <SkeletonLoader variant="ballot" rows={2} label="Cargando planilla…" />
+          )}
         </div>
       </PageShell>
     );
@@ -582,7 +588,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
 
     return (
-      <div className="score-actions" role="group" aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}`}>
+      <div
+        className="score-actions"
+        role="group"
+        aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}`}
+        aria-busy={isItemSaving ? "true" : undefined}
+      >
         <div className="score-copy">
           <span className="score-copy-name">{scoreItem.itemName}</span>
           {scoreItem.participantName && <span className="score-copy-name">{SUBJECT_LABELS[scoreItem.participantType] ?? "Participante"}: {scoreItem.participantName}</span>}
@@ -627,9 +638,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         </div>
 
         {/* Granular per-item network status & retry */}
-        {isItemSaving && (
-          <p className="item-saving-copy" role="status">Guardando decisión…</p>
-        )}
+        <LoadingOverlay
+          inline
+          active={isItemSaving}
+          label="Guardando decisión…"
+          detail="Esperando confirmación del servidor."
+        />
         {itemError && (
           <div className="item-status-error" role="alert">
             <span>Fallo al guardar ítem</span>
@@ -1425,6 +1439,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           </DialogFooter>
         </div>
       </Dialog>
+
+      <LoadingOverlay
+        active={markingAbsent}
+        blocking
+        label="Registrando comparsa no presentada…"
+        detail="Esperando confirmación del servidor."
+      />
+      <LoadingOverlay
+        active={isSubmitting}
+        blocking
+        label="Confirmando planilla…"
+        detail="Esperando confirmación del servidor."
+      />
     </PageShell>
   );
 }

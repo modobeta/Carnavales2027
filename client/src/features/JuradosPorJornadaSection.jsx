@@ -3,6 +3,7 @@ import { apiRequest } from "../api/http.js";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 const TYPE_LABELS = {
   PRIMARY: "Titular",
@@ -410,9 +411,7 @@ export function JuradosPorJornadaSection({
         </div>
 
         {loadingNight ? (
-          <p style={{ padding: "var(--space-6)", color: "var(--text-secondary)" }}>
-            Cargando asignaciones de la jornada…
-          </p>
+          <SkeletonLoader variant="table" rows={3} label="Cargando asignaciones de la jornada…" />
         ) : (
           <div className="table-wrapper">
             <table className="data-table">

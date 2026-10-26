@@ -3,6 +3,7 @@ import { apiRequest } from "../api/http.js";
 import { PageShell } from "../components/PageShell.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { ActionMenu } from "../components/ActionMenu.jsx";
 import { EVENT_STATUS_LABELS } from "../components/event-status-labels.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
@@ -218,7 +219,7 @@ export function AdminHomePage() {
       <p className="feedback" role="status" aria-live="polite">{effectiveMessage}</p>
 
       {loading ? (
-        <p>Cargando eventos…</p>
+        <SkeletonLoader variant="cards" rows={3} label="Cargando eventos…" />
       ) : adminEvent?.error && visibleEvents.length === 0 ? null : visibleEvents.length === 0 && !showDeleted ? (
         <section className="my-events-empty card" aria-label="Catálogo de eventos vacío">
           <h2>Todavía no hay eventos</h2>

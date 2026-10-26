@@ -12,6 +12,7 @@ Aplicación React para administración, jurados, supervisión, comisariato, escr
 
 - React 19 y React DOM, JavaScript ESM/JSX.
 - Vite 7 con `@vitejs/plugin-react`.
+- Anime.js 4 (ESM) para transiciones de entrada y esperas; las animaciones son cosméticas y se desactivan con `prefers-reduced-motion`.
 - CSS propio, tokens semánticos y estilos por área; sin Tailwind ni librería externa de componentes.
 - Navegación por hash implementada en `src/App.jsx`; no usa React Router.
 - Estado mediante hooks/contextos; no hay Redux ni una biblioteca externa de consultas.
@@ -69,7 +70,8 @@ Nunca coloques secretos en variables `VITE_*`: sus valores forman parte del clie
 | `src/context/AdminEventContext.jsx` | Evento activo administrativo compartido; selección persistida en localStorage |
 | `src/pages/` | Pantallas de acceso, administración, jurado, monitor y resultados |
 | `src/features/` | Formularios, readiness, asignaciones, penalizaciones y sorteo ceremonial |
-| `src/components/` | Botones, diálogos, drawers, headers, shell, estados, progreso y navegación |
+| `src/components/` | Botones, diálogos, drawers, headers, shell, estados, progreso, navegación y componentes de carga/movimiento |
+| `src/motion/` | Hooks de Anime.js, scopes y detección de `prefers-reduced-motion` |
 | `src/i18n/errors.js` | Traducción de códigos de API a mensajes de interfaz |
 | `src/index.css`, `src/styles/` | Entrada de estilos, tokens y reglas por dominio |
 | `src/offline/ballot-store.js` | Persistencia IndexedDB histórica; no es el flujo operativo de votación |

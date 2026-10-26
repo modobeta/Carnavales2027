@@ -8,6 +8,7 @@
 @import "./styles/utilities.css";
 @import "./styles/legibility.css";
 @import "./styles/buttons.css";
+@import "./styles/animations.css";
 
 .sr-only {
   position: absolute;
@@ -964,7 +965,7 @@ button.button-link:disabled {
   border-radius: var(--radius-full);
   background: var(--troupe-brand);
 }
-.judge-now-brand.is-branded h3 { color: #ffffff; }
+.judge-now-brand.is-branded h3 { color: var(--text-on-primary); }
 .judge-now-color-dot {
   inline-size: clamp(2.75rem, 8vw, 3.5rem);
   block-size: clamp(2.75rem, 8vw, 3.5rem);

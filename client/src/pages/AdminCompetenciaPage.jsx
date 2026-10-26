@@ -7,6 +7,7 @@ import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
@@ -582,7 +583,11 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                       Ir a jornadas
                     </a>
                   </div>
-                </div> : <p role="status">{progressError ? "Resumen no disponible." : "Cargando el resumen…"}</p>}
+                </div> : progressError ? (
+                  <p role="status">Resumen no disponible.</p>
+                ) : (
+                  <SkeletonLoader variant="text" rows={3} label="Cargando el resumen…" />
+                )}
               </section>
 
               <ConfirmDialog
@@ -732,7 +737,7 @@ function CompetenciaOverview({ event }) {
   };
 
   if (message && !data) return <p role="status">{message}</p>;
-  if (!data) return <p>Cargando resumen...</p>;
+  if (!data) return <SkeletonLoader variant="text" rows={3} label="Cargando resumen..." />;
   if (data.orphaned.length === 0) return null;
 
   return (
@@ -800,7 +805,11 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
         <div><dt>Especialidades con rubros</dt><dd>{specialties.filter((specialty) => coveredSpecialtyIds.has(specialty.id)).length} de {specialties.length}</dd></div>
         <div><dt>Rubros activos</dt><dd>{rubrics.length}</dd></div>
         <div><dt>Ítems activos</dt><dd>{items.length}</dd></div>
-      </dl> : <p role="status">{progressError ? "Resumen de evaluación no disponible." : "Cargando el resumen de evaluación…"}</p>}
+      </dl> : progressError ? (
+        <p role="status">Resumen de evaluación no disponible.</p>
+      ) : (
+        <SkeletonLoader variant="text" rows={3} label="Cargando el resumen de evaluación…" />
+      )}
       {readinessStatus === "available" ? (
         pendingRubrics.length || missingActiveRubrics || pendingNominations.length || pendingCriteria ? (
           <div className="evaluation-summary-pending" role="status">
@@ -1207,7 +1216,7 @@ function TroupeScheduleSection({ event }) {
       </div>
       <p className="feedback" role="status">{message}</p>
       {loadError && <LoadErrorAlert message="No se pudieron cargar las jornadas." onRetry={() => setLoadAttempt((n) => n + 1)} />}
-      {!loadError && nights.length === 0 && <p>Cargando jornadas...</p>}
+      {!loadError && nights.length === 0 && <SkeletonLoader variant="list" rows={2} label="Cargando jornadas..." />}
       {nights.length > 0 && (
         <label>Jornada<select value={nightId} onChange={(e) => setNightId(e.target.value)} aria-label="Jornada para el orden de pasada">
           {nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}

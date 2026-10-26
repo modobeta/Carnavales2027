@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
@@ -153,7 +154,7 @@ export function OfficialRecordPage() {
         {error && <p className="feedback-message is-error" role="alert">{error}</p>}
       </section>
 
-      {loading && <p className="record-loading" role="status">Cargando datos del acta…</p>}
+      {loading && <SkeletonLoader variant="text" rows={4} label="Cargando datos del acta…" />}
 
       {/* Estado si aún no fue emitida el acta */}
       {!loading && selectedEventId && !recordData && (

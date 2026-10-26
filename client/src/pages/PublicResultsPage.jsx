@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { apiRequest } from "../api/http.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
@@ -279,7 +280,7 @@ export function PublicResultsPage({ initialEventId = null, embedded = false }) {
         {/* Estado de Carga */}
         {loading && (
           <div className="public-state-card" role="status">
-            <p>Cargando resultados oficiales...</p>
+            <SkeletonLoader variant="table" rows={3} label="Cargando resultados oficiales..." />
           </div>
         )}
 

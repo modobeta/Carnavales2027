@@ -1,6 +1,7 @@
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { apiRequest } from "../api/http.js";
 import {
   getPendingIncidents,
@@ -475,7 +476,7 @@ export function VeedorMonitorPage() {
           {message}
         </p>
       )}
-      {loading && <p role="status">Cargando supervisión…</p>}
+      {loading && <SkeletonLoader variant="cards" rows={3} label="Cargando supervisión…" />}
       {!loading && events.length === 0 && !message && (
         <section className="empty-state">
           <h2>Sin actividad de votación</h2>
