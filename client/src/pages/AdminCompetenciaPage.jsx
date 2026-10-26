@@ -8,6 +8,7 @@ import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
@@ -816,7 +817,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     </a>
                   </div>
                   </div>
-                </> : <p role="status">{evaluationStatus === "unreflected" ? "Estado por comprobar: el catálogo todavía no refleja cambios confirmados." : progressError || evaluationStatus === "error" ? "Resumen no disponible." : "Cargando el resumen…"}</p>}
+                </> : evaluationStatus === "unreflected" ? (
+                  <p role="status">Estado por comprobar: el catálogo todavía no refleja cambios confirmados.</p>
+                ) : progressError || evaluationStatus === "error" ? (
+                  <p role="status">Resumen no disponible.</p>
+                ) : (
+                  <SkeletonLoader variant="text" rows={3} label="Cargando el resumen…" />
+                )}
               </section>
 
               <ConfirmDialog
@@ -950,7 +957,8 @@ function CompetenciaOverview({ event, catalog, evaluationStatus }) {
     }
   };
 
-  if (!data) return message ? <p role="status">{message}</p> : evaluationStatus === "error" ? null : <p>Cargando resumen...</p>;
+  if (message && !data) return <p role="status">{message}</p>;
+  if (!data) return evaluationStatus === "error" ? null : <SkeletonLoader variant="text" rows={3} label="Cargando resumen…" />;
   if (orphanedUnavailable) return <p role="status">Criterios descriptivos por comprobar. Reintentá la consulta antes de revisarlos.</p>;
   if (data.orphaned.length === 0) return message ? <p role="status">{message}</p> : null;
 
@@ -1022,12 +1030,14 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
         {evaluation?.progress.total > 0 && <p className={`evaluation-summary-readiness${evaluation.progress.readyCount === evaluation.progress.total ? " is-ready" : ""}`}>Especialidades listas: {evaluation.progress.readyCount} de {evaluation.progress.total}</p>}
         {evaluation?.progress.total === 0 && <p className="evaluation-summary-readiness">No hay especialidades activas.</p>}
       </header>
-      {!evaluation && <p role="status">{progressError ? "Estado por comprobar" : "Cargando evaluación…"}</p>}
+      {!evaluation && (progressError
+        ? <p role="status">Estado por comprobar</p>
+        : <SkeletonLoader variant="text" rows={2} label="Cargando evaluación…" />)}
       {progress ? <dl className="evaluation-summary-stats">
         <div className="evaluation-summary-stat"><dt>Especialidades con rubros</dt><dd>{specialties.filter((specialty) => coveredSpecialtyIds.has(specialty.id)).length} de {specialties.length}</dd></div>
         <div className="evaluation-summary-stat"><dt>Rubros activos</dt><dd>{rubrics.length}</dd></div>
         <div className="evaluation-summary-stat"><dt>Ítems activos</dt><dd>{items.length}</dd></div>
-      </dl> : <p role="status">{progressError ? "Resumen de evaluación no disponible." : "Cargando el resumen de evaluación…"}</p>}
+      </dl> : progressError ? <p role="status">Resumen de evaluación no disponible.</p> : <SkeletonLoader variant="text" rows={3} label="Cargando el resumen de evaluación…" />}
       {evaluation && visualPending.length > 0 && <div className="evaluation-summary-guidance">
         <strong>Orientación por especialidad (no bloquea el avance):</strong>
         <ul>{visualPending.map((specialty) => <li key={specialty.id}>{specialty.name}: {specialty.status}. Revisá sus rubros e ítems.</li>)}</ul>
@@ -1447,7 +1457,7 @@ function TroupeScheduleSection({ event }) {
       </div>
       <p className="feedback" role="status">{message}</p>
       {loadError && <LoadErrorAlert message="No se pudieron cargar las jornadas." onRetry={() => setLoadAttempt((n) => n + 1)} />}
-      {!loadError && nights.length === 0 && <p>Cargando jornadas...</p>}
+      {!loadError && nights.length === 0 && <SkeletonLoader variant="list" rows={2} label="Cargando jornadas..." />}
       {nights.length > 0 && (
         <label>Jornada<select value={nightId} onChange={(e) => setNightId(e.target.value)} aria-label="Jornada para el orden de pasada">
           {nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}

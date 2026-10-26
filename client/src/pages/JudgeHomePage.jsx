@@ -5,7 +5,8 @@ import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired } from "../auth/session-context.jsx";
-import { readableInk } from "../lib/brand-color.js";
+import { TroupeLogo } from "../components/TroupeLogo.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 function summarizeTroupes(ballot, scores) {
   const groups = scores.reduce((result, score) => {
@@ -13,8 +14,11 @@ function summarizeTroupes(ballot, scores) {
     if (!result[id]) result[id] = {
       ballotId: ballot.id,
       troupeId: id,
+      eventTroupeId: score.troupeId ?? null,
       troupeName: score.troupeName ?? ballot.nightName,
       brandColor: score.brandColor || null,
+      hasLogo: score.hasLogo === true,
+      logoSha256: score.logoSha256 || null,
       nightName: ballot.nightName,
       specialtyName: ballot.specialtyName,
       eventName: ballot.eventName,
@@ -80,8 +84,11 @@ export function JudgeHomePage({ session }) {
             troupes: (ballot.troupes || []).map((t) => ({
               ballotId: ballot.id,
               troupeId: t.troupeId ?? `ballot-${ballot.id}`,
+              eventTroupeId: t.eventTroupeId ?? null,
               troupeName: t.troupeName ?? ballot.nightName,
               brandColor: t.brandColor || null,
+              hasLogo: t.hasLogo === true,
+              logoSha256: t.logoSha256 || null,
               nightName: ballot.nightName,
               specialtyName: ballot.specialtyName,
               eventName: ballot.eventName,
@@ -189,7 +196,9 @@ export function JudgeHomePage({ session }) {
       <section className="judge-home-content">
         {!profile && <p>Tu cuenta tiene rol JUDGE, pero no está vinculada a un perfil del padrón. Contactá a un administrador.</p>}
         {profile?.registrationStatus === "SUSPENDED" && <div className="suspension-notice" role="alert"><h2>Acceso suspendido</h2><p>Tus sesiones operativas fueron revocadas. Contactá a la administración para revisar tu estado.</p></div>}
-        {profile?.registrationStatus === "REGISTERED" && loading && <p role="status">Cargando tus planillas…</p>}
+        {profile?.registrationStatus === "REGISTERED" && loading && (
+          <SkeletonLoader variant="cards" rows={2} label="Cargando tus planillas…" />
+        )}
         {profile?.registrationStatus === "REGISTERED" && !loading && visibleBallots.length === 0 && <div className="empty-state"><h2>Registro completo</h2><p>Todavía no tenés planillas habilitadas para el evento seleccionado. Una asignación no abre votación por sí sola.</p></div>}
         {profile?.registrationStatus === "REGISTERED" && troupes.length > 0 && (
           <>
@@ -206,10 +215,22 @@ export function JudgeHomePage({ session }) {
                     className={`judge-now-brand${currentEntry.troupe.brandColor ? " is-branded" : ""}`}
                     style={currentEntry.troupe.brandColor ? {
                       "--troupe-brand": currentEntry.troupe.brandColor,
-                      "--troupe-brand-ink": readableInk(currentEntry.troupe.brandColor),
                     } : undefined}
                   >
-                    <h3>{currentEntry.troupe.troupeName}</h3>
+                    <div className="judge-now-name">
+                      {(currentEntry.troupe.hasLogo && currentEntry.troupe.eventTroupeId) ? (
+                        <TroupeLogo
+                          troupeId={currentEntry.troupe.eventTroupeId}
+                          hasLogo
+                          sha256={currentEntry.troupe.logoSha256}
+                          alt={`Logo de ${currentEntry.troupe.troupeName}`}
+                          className="judge-now-logo"
+                        />
+                      ) : currentEntry.troupe.brandColor ? (
+                        <span className="judge-now-color-dot" aria-hidden="true" />
+                      ) : null}
+                      <h3>{currentEntry.troupe.troupeName}</h3>
+                    </div>
                     <ProgressBar
                       value={currentEntry.troupe.resolved}
                       max={currentEntry.troupe.total}

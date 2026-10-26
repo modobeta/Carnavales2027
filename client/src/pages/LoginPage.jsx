@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
+import { LoadingOverlay } from "../components/LoadingOverlay.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 
@@ -112,6 +113,7 @@ export function LoginPage({ onAuthenticated }) {
   const [message, setMessage] = useState("");
   const [{ sessionExpiredNotice, eventEndedNotice }] = useState(getLoginParams);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(28);
@@ -133,6 +135,7 @@ export function LoginPage({ onAuthenticated }) {
     submittingRef.current = true;
     const form = event.currentTarget;
     const data = new FormData(form);
+    setLoadingMessage("Verificando credenciales…");
     setLoading(true);
     setMessage("");
     const email = data.get("email");
@@ -188,6 +191,7 @@ export function LoginPage({ onAuthenticated }) {
       return;
     }
     submittingRef.current = true;
+    setLoadingMessage("Verificando código…");
     setLoading(true);
     setMessage("");
     try {
@@ -226,6 +230,7 @@ export function LoginPage({ onAuthenticated }) {
   const resendOtp = async () => {
     if (resendCooldown > 0 || submittingRef.current) return;
     submittingRef.current = true;
+    setLoadingMessage("Reenviando código…");
     setLoading(true);
     setMessage("");
     try {
@@ -398,6 +403,13 @@ export function LoginPage({ onAuthenticated }) {
             <a href="/privacidad.html">Política de privacidad</a>
           </nav>
         </div>
+        <LoadingOverlay
+          active={loading}
+          blocking
+          label={loadingMessage || "Verificando…"}
+          detail="Esperando respuesta del servidor."
+          className="login-loading-overlay"
+        />
       </div>
     </PageShell>
   );
