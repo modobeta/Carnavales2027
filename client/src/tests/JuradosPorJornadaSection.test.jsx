@@ -94,10 +94,7 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     // Encabezado
     expect(await screen.findByRole("heading", { name: "Jurados por jornada" })).toBeInTheDocument();
 
-    const specBtn = screen.getByRole("button", { name: "Gestionar especialidades" });
-    expect(specBtn).toBeInTheDocument();
-    fireEvent.click(specBtn);
-    expect(onOpenSpecialties).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Gestionar especialidades" })).not.toBeInTheDocument();
 
     // Selector de jornada con etiqueta visible
     expect(screen.getByLabelText("Jornada")).toBeInTheDocument();
@@ -107,6 +104,27 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     const table = screen.getByRole("table");
     const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent.trim());
     expect(headers).toEqual(["Especialidad", "Jurados asignados", "Puestos cubiertos", "Acción"]);
+  });
+
+  it("muestra una especialidad creada arriba sin recargar la página", async () => {
+    const liveSpecialties = [...specialties];
+    apiRequest.mockImplementation(async (url) => {
+      if (url === `/api/v1/events/${event.id}/nights`) return nights;
+      if (url === `/api/v1/events/${event.id}/specialties`) return liveSpecialties;
+      if (url === "/api/v1/judges") return judges;
+      if (url === `/api/v1/events/${event.id}/judge-assignments`) return { quotas, assignments };
+      throw new Error(`Unhandled apiRequest: ${url}`);
+    });
+
+    const { rerender } = render(<JuradosPorJornadaSection event={event} refreshSignal={0} />);
+    expect(await screen.findByText("Baile")).toBeInTheDocument();
+    expect(screen.queryByText("Danza nueva")).not.toBeInTheDocument();
+
+    liveSpecialties.push({ id: "spec-4", name: "Danza nueva", active: true, displayOrder: 4 });
+    rerender(<JuradosPorJornadaSection event={event} refreshSignal={1} />);
+
+    expect(await screen.findByText("Danza nueva")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Asignar jurados Danza nueva" })).toBeInTheDocument();
   });
 
   it("calcula la cobertura real y adapta el mensaje y la acción por fila", async () => {
@@ -132,8 +150,8 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     expect(within(rowBateria).getByText("Sin jurados asignados")).toBeInTheDocument();
   });
 
-  it("no cuenta suplentes como titulares para el cupo de cobertura", async () => {
-    // Especialidad con 1 titular y 1 suplente para un cupo de 2: falta 1 titular
+  it("cuenta titulares y suplentes para completar el cupo de asignaciones", async () => {
+    // Especialidad con 1 titular y 1 suplente para un cupo de 2: ambas asignaciones cubren el cupo
     const customAssignments = [
       {
         id: "a-1",
@@ -169,8 +187,8 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     render(<JuradosPorJornadaSection event={event} />);
 
     const rowBaile = (await screen.findByText("Baile")).closest("tr");
-    expect(within(rowBaile).getByText(/Falta 1 jurado · 1 de 2/)).toBeInTheDocument();
-    expect(within(rowBaile).getByRole("button", { name: /Completar asignación Baile/ })).toBeInTheDocument();
+    expect(within(rowBaile).getByText(/Completa · 2 de 2/)).toBeInTheDocument();
+    expect(within(rowBaile).getByRole("button", { name: /Editar asignación Baile/ })).toBeInTheDocument();
   });
 
   it("muestra el historial de la jornada desplegable cerrado inicialmente y el resumen de cobertura", async () => {

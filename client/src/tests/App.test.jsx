@@ -28,6 +28,19 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Mis eventos" })).toBeInTheDocument();
   });
 
+  it("mantiene el menú lateral como hijo directo del shell y fuera de la transición de ruta", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
+    window.location.hash = "#/admin/home";
+    render(<App session={{ status: "authenticated", roles: ["ADMIN"], adminEvents: [], user: { id: "u1", name: "Admin" } }} />);
+
+    const shell = document.querySelector(".app-shell");
+    const drawer = document.querySelector("#app-drawer");
+    const transition = document.querySelector(".motion-transition");
+
+    expect(drawer.parentElement).toBe(shell);
+    expect(transition.contains(drawer)).toBe(false);
+  });
+
   it.each([
     ["#/admin/home", []], ["#/admin/home", [{ id: "e1" }]],
     ["#/admin/events", []], ["#/admin/events", [{ id: "e1" }]],

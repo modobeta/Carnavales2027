@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../App.jsx";
 import { apiRequest } from "../api/http.js";
@@ -44,5 +44,14 @@ describe("ruta de Competencia con evento activo", () => {
 
     expect(await screen.findByRole("heading", { name: "Primero seleccioná un evento" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Seleccionar evento" })).toHaveAttribute("href", "#/admin/events");
+  });
+
+  it("navega desde Evaluación a Revisión sin efectuar apertura al entrar por hash", async () => {
+    window.location.hash = "#/admin/competencia?step=rubros";
+    mockApi([{ id: "e1", name: "Carnaval 2027", status: "CONFIGURING" }]);
+    render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { name: "Admin" } }} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Continuar a revisión/ }));
+    expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
+    expect(apiRequest.mock.calls.some(([path, options]) => path.endsWith("/open") && options?.method === "POST")).toBe(false);
   });
 });

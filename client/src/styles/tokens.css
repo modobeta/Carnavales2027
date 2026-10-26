@@ -117,6 +117,14 @@
   --palette-modal: #A500B5;       /* Acento de modal informativo (§4.1) */
   --palette-modal-ink: #ffffff;
   --palette-admin-nav-active: #d22b8f; /* Navegación Admin activa = acción principal (§3.1) */
+  /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
+  --rubric-form-panel: #4f3fa6;
+  --rubric-form-field: #3a2b7a;
+  --rubric-form-line: #6a5bc0;
+  --rubric-form-field-line: #8c7fe0;
+  --rubric-form-muted: #e4e0f7;
+  --rubric-form-placeholder: #cfc8f0;
+  --rubric-form-check: #c4246f;
 
   /* ==========================================================================
      Superficies

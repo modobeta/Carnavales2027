@@ -8,6 +8,8 @@ import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
+import { LoadingOverlay } from "../components/LoadingOverlay.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
 import { readableInk } from "../lib/brand-color.js";
@@ -483,9 +485,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   if (!ballot) {
     return (
       <PageShell layer="instrument" className="container">
-        <div className="card">
+        <div className="card ballot-loading-card">
           <h1>Planilla de evaluación</h1>
-          <p role="status">{message || "Cargando planilla…"}</p>
+          {message ? (
+            <p className="feedback" role="status">{message}</p>
+          ) : (
+            <SkeletonLoader variant="ballot" rows={2} label="Cargando planilla…" />
+          )}
         </div>
       </PageShell>
     );
@@ -524,7 +530,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
   const resolved = ballot.scores.filter((score) => score.evaluationState !== "PENDING").length;
   const total = ballot.scores.length;
-  const progress = total > 0 ? Math.round((resolved / total) * 100) : 0;
   const scoreTotal = ballot.scores.reduce((sum, score) => sum + (typeof score.score === "number" ? score.score : 0), 0);
   const pendingScores = ballot.scores.filter((score) => score.evaluationState === "PENDING");
   const effectiveIndex = Math.min(Math.max(0, activeItemIndex), Math.max(0, total - 1));
@@ -582,14 +587,22 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
 
     return (
-      <div className="score-actions" role="group" aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}`}>
+      <div
+        className="score-actions"
+        role="group"
+        aria-label={`${troupeName}${scoreItem.participantName ? `, ${scoreItem.participantName}` : ""}: ${scoreItem.itemName}`}
+        aria-busy={isItemSaving ? "true" : undefined}
+      >
+        <p id="score-shortcuts-hint" className="sr-only">
+          Atajos de teclado: las teclas 1 a 9 eligen la nota; la tecla 0 equivale a 10.
+        </p>
         <div className="score-copy">
           <span className="score-copy-name">{scoreItem.itemName}</span>
           {scoreItem.participantName && <span className="score-copy-name">{SUBJECT_LABELS[scoreItem.participantType] ?? "Participante"}: {scoreItem.participantName}</span>}
         </div>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
-        <div role="group" aria-label={`Puntuación para ${scoreItem.itemName}`} className="score-grid-v3">
+        <div role="group" aria-label={`Puntuación para ${scoreItem.itemName}`} aria-describedby="score-shortcuts-hint" className="score-grid-v3">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
             <button
               key={val}
@@ -606,7 +619,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
 
         {/* Segregated "No se presentó" */}
         <div className="not-presented-section">
-          <p className="not-presented-hint">Esta decisión se registra para este rubro{scoreItem.participantName ? ` y participante (${scoreItem.participantName})` : " de la comparsa"}.</p>
           <button
             type="button"
             className="not-presented-btn"
@@ -627,9 +639,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         </div>
 
         {/* Granular per-item network status & retry */}
-        {isItemSaving && (
-          <p className="item-saving-copy" role="status">Guardando decisión…</p>
-        )}
+        <LoadingOverlay
+          inline
+          active={isItemSaving}
+          label="Guardando decisión…"
+          detail="Esperando confirmación del servidor."
+        />
         {itemError && (
           <div className="item-status-error" role="alert">
             <span>Fallo al guardar ítem</span>
@@ -702,7 +717,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               rubric.scores.map((score) => ({ ...score, rubricName: rubric.rubricName, rubricIcon: score.rubricIcon ?? rubric.rubricIcon }))
             );
             const troupeDone = troupeItems.filter((item) => item.evaluationState !== "PENDING").length;
-            const troupePct = troupeItems.length ? Math.round((troupeDone / troupeItems.length) * 100) : 0;
             return (
               <section className={`ballot-summary${summaryOpen ? " is-open" : " is-collapsed"}`} aria-label="Resumen de la comparsa">
                 <button
@@ -715,10 +729,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   <span className="ballot-summary-heading">
                     <span className="judge-section-title">Resumen</span>
                     <span className="ballot-summary-chevron" aria-hidden="true" />
-                    <span className="ballot-summary-count" aria-hidden="true">{troupeDone}/{troupeItems.length}</span>
-                  </span>
-                  <span className="ballot-summary-progress" aria-hidden="true">
-                    <span style={{ inlineSize: `${troupePct}%` }} />
                   </span>
                 </button>
                 <p className="eyebrow">{currentGroup.troupeName}</p>
@@ -752,7 +762,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                         );
                       })}
                     </ul>
-                    <p className="judge-note">{troupeDone} / {troupeItems.length} completos · {troupePct}%</p>
                   </div>
                 )}
               </section>
@@ -772,22 +781,22 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
             </div>
             <div className="ballot-header-status">
+              <span
+                className="ballot-planilla-meter"
+                aria-label={`Avance de la planilla: ${resolved} de ${total} decisiones registradas`}
+              >
+                Planilla <strong>{resolved}/{total}</strong>
+              </span>
               <StatusPill status={ballot.status} />
             </div>
           </header>
 
-          <section className="ballot-progress ballot-progress-stack" aria-label="Progreso de la votación">
+          <section className="ballot-progress" aria-label="Progreso de la votación">
             <ProgressBar
               value={troupeResolved}
               max={troupeScores.length}
               label="Avance de la comparsa"
-              sublabel={`${activeScore?.troupeName ?? "Sin comparsa"} · ${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
-            />
-            <ProgressBar
-              value={resolved}
-              max={total}
-              label="Avance de la planilla"
-              sublabel={`${resolved} de ${total} puntuaciones completadas · ${progress}%`}
+              sublabel={`${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
             />
           </section>
 
@@ -1044,23 +1053,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     </div>
                   </div>
 
-                  {!readonly && !isCardScoreLocked && activeTroupePending > 0 && troupeResolved === 0 && (
-                    <div className="troupe-absent-actions">
-                      <button
-                        type="button"
-                        className="troupe-absent-btn"
-                        disabled={markingAbsent}
-                        onClick={() => setTroupeAbsentConfirm({
-                          nightScheduleId: activeScore.nightScheduleId,
-                          troupeName: activeScore.troupeName,
-                          pendingCount: activeTroupePending,
-                        })}
-                      >
-                        <span aria-hidden="true">⚠</span> {markingAbsent ? "Marcando…" : "Comparsa completa no se presentó"}
-                      </button>
-                    </div>
-                  )}
-
                   <div className="card-item-body">
                     {isCardScoreLocked ? (
                       <div className="troupe-locked-card">
@@ -1072,20 +1064,32 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       </div>
                     ) : (
                       <>
-                        <p className="ballot-target-label">Ítem a evaluar</p>
                         <h2 className="card-item-title">{activeScore.itemName}</h2>
-                        {activeScore.participantName && (
-                          <div className="ballot-subject">
-                            <span>A quién se evalúa</span>
-                            <strong>{activeScore.participantName}</strong>
-                          </div>
-                        )}
-                        <p className="rubric-instruction">Elegí una puntuación para este ítem.</p>
+                        <div className="ballot-subject">
+                          <span>{activeScore.participantName ? "Participante" : "Comparsa"}</span>
+                          <strong>{activeScore.participantName ?? activeScore.troupeName}</strong>
+                        </div>
                         {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
                           {activeScore.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {activeScore.evaluationObjective}</span>}
                           {activeScore.expectedSubjectType && <span><strong>Sujeto esperado:</strong> {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
                         </p>}
                         {renderScoreDecision(activeScore, activeScore.troupeName, activeScore.rubricName)}
+                        {!readonly && activeTroupePending > 0 && troupeResolved === 0 && (
+                          <div className="troupe-absent-actions">
+                            <button
+                              type="button"
+                              className="troupe-absent-btn"
+                              disabled={markingAbsent}
+                              onClick={() => setTroupeAbsentConfirm({
+                                nightScheduleId: activeScore.nightScheduleId,
+                                troupeName: activeScore.troupeName,
+                                pendingCount: activeTroupePending,
+                              })}
+                            >
+                              <span aria-hidden="true">⚠</span> {markingAbsent ? "Marcando…" : "Comparsa completa no se presentó"}
+                            </button>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1130,7 +1134,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       )}
                     </div>
                   </nav>
-                  <p className="ballot-shortcuts-hint">Atajos: 1–9 · 0 = 10</p>
                 </section>
               );
             })())}
@@ -1146,7 +1149,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           )}
 
           <footer className="ballot-footer">
-            <a className="secondary button-link" href="#/judge">← Comparsas</a>
             <span className="save-indicator" role="status" aria-live="polite">
               {message === "Decisión confirmada en el servidor." ? (
                 <><span aria-hidden="true">☁✓</span> Guardado</>
@@ -1425,6 +1427,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           </DialogFooter>
         </div>
       </Dialog>
+
+      <LoadingOverlay
+        active={markingAbsent}
+        blocking
+        label="Registrando comparsa no presentada…"
+        detail="Esperando confirmación del servidor."
+      />
+      <LoadingOverlay
+        active={isSubmitting}
+        blocking
+        label="Confirmando planilla…"
+        detail="Esperando confirmación del servidor."
+      />
     </PageShell>
   );
 }

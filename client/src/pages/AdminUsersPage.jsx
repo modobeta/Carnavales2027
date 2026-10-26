@@ -7,6 +7,7 @@ import { UserManagementNavigation } from "../components/UserManagementNavigation
 import { AdminAccessList } from "../components/AdminAccessList.jsx";
 import { AdminPromotionSearch } from "../components/AdminPromotionSearch.jsx";
 import { AdminInvitationForm } from "../components/AdminInvitationForm.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 export function AdminUsersPage() {
   const session = useSession();
@@ -81,7 +82,7 @@ export function AdminUsersPage() {
         <p>La cuenta principal no puede perder el rol ADMIN. Al revocar un administrador, deja de aparecer en esta lista.</p>
         {message && <p className="feedback" role="status" aria-live="polite">{message}</p>}
         {loading ? (
-          <p>Cargando administradores…</p>
+          <SkeletonLoader variant="list" rows={3} label="Cargando administradores…" />
         ) : admins.length === 0 ? (
           <p className="empty-state">No hay administradores registrados.</p>
         ) : (

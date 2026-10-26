@@ -201,6 +201,11 @@ test("API jurado: include=progress y brand_color de comparsa", {
     assert.equal(listProgData[0].troupes.length, 2);
     assert.equal(listProgData[0].troupes[0].troupeName, "Comparsa Verde");
     assert.equal(listProgData[0].troupes[0].brandColor, "#10B981");
+    assert.equal(listProgData[0].troupes[0].eventTroupeId, troupe1.id);
+    assert.equal(listProgData[0].troupes[0].hasLogo, true);
+    assert.equal(listProgData[0].troupes[0].logoSha256, logoSha256);
+    assert.equal(listProgData[0].troupes[1].hasLogo, false);
+    assert.equal(listProgData[0].troupes[1].logoSha256, null);
     assert.equal(listProgData[0].troupes[0].total, 2);
     assert.equal(listProgData[0].troupes[0].resolved, 0);
 

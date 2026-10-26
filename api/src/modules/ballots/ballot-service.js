@@ -562,8 +562,11 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
                 json_agg(
                   json_build_object(
                     'troupeId', t.schedule_id,
+                    'eventTroupeId', t.event_troupe_id,
                     'troupeName', t.troupe_name,
                     'brandColor', t.brand_color,
+                    'hasLogo', t.has_logo,
+                    'logoSha256', t.logo_sha256,
                     'presentationOrder', t.presentation_order,
                     'total', t.total,
                     'resolved', t.resolved
@@ -581,8 +584,11 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
          LEFT JOIN LATERAL (
            SELECT
              nts.id AS schedule_id,
+             et.id AS event_troupe_id,
              et.name AS troupe_name,
              et.brand_color AS brand_color,
+             (et.logo_data IS NOT NULL) AS has_logo,
+             et.logo_sha256 AS logo_sha256,
              nts.presentation_order,
              COUNT(bs.id)::INTEGER AS total,
              COUNT(CASE WHEN bs.evaluation_state <> 'PENDING' THEN 1 END)::INTEGER AS resolved
@@ -590,7 +596,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
            JOIN event_troupe et ON et.id = nts.event_troupe_id
            LEFT JOIN ballot_score bs ON bs.ballot_id = b.id AND bs.night_schedule_id = nts.id
            WHERE nts.night_id = b.night_id AND nts.event_id = b.event_id AND nts.status = 'SCHEDULED'
-           GROUP BY nts.id, et.name, et.brand_color, nts.presentation_order
+           GROUP BY nts.id, et.id, et.name, et.brand_color, et.logo_data, et.logo_sha256, nts.presentation_order
          ) t ON true
         WHERE jp.user_id = $1
         GROUP BY b.id, b.status, b.night_id, b.submitted_at, b.reopened_at, e.name, n.name, s.name, n.event_date, n.display_order

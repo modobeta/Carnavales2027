@@ -3,6 +3,7 @@ import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { UserManagementNavigation } from "../components/UserManagementNavigation.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 const statusLabels = {
   INVITED: "Invitado",
@@ -175,7 +176,7 @@ export function AdminJudgesPage() {
         </select></label>
         <span className="filter-count" role="status">{visibleJudges.length + visibleOperational.length} de {judges.length + operationalProfiles.length} personas</span>
       </div>
-      {loading ? <p>Cargando padrón…</p> : loadError && judges.length === 0 && operationalProfiles.length === 0 ? (
+      {loading ? <SkeletonLoader variant="table" rows={4} label="Cargando padrón…" /> : loadError && judges.length === 0 && operationalProfiles.length === 0 ? (
         <p className="empty-state">No se pudieron cargar las personas y accesos. <button type="button" className="secondary" onClick={() => void refresh()} disabled={loading}>Reintentar</button></p>
       ) : judges.length === 0 ? <p className="empty-state">Todavía no hay jurados registrados.</p> : visibleJudges.length === 0 ? <p className="empty-state">Sin jurados para los filtros actuales.</p> : (
         <section className="judge-grid" aria-label="Padrón de jurados">

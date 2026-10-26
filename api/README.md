@@ -326,6 +326,8 @@ La escala vigente para esta versión es `SCORED` entero 1–10, `NOT_PRESENTED` 
 
 Usá una terminal exclusiva de pruebas y una base ya creada, **aislada y descartable**. El guard solo comprueba presencia de la variable, no que el destino sea seguro. Los tests crean/modifican datos y algunos ejercitan migraciones o deshabilitan triggers dentro de escenarios controlados.
 
+`npm test` y `npm run db:test` precargan `src/scripts/test-environment.js`, que fuerza `DATABASE_URL=TEST_DATABASE_URL` y `NODE_ENV=test` en cada proceso hijo para que una `.env` de desarrollo no desvíe la suite. Aun así, la responsabilidad de que `TEST_DATABASE_URL` apunte a una base descartable sigue siendo del operador.
+
 ```powershell
 # Desde api/. Reemplazar únicamente con la URL de la base descartable.
 $env:DATABASE_URL = "postgres://USER:PASSWORD@localhost:5432/carnavales2027_v2_test"

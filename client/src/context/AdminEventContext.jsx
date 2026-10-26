@@ -31,10 +31,24 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
+  // Registered only by the active admin editor; a picker must decide before
+  // changing either React context or the persisted event preference.
+  const eventChangeGuard = useRef(null);
+  const registerEventChangeGuard = (guard) => {
+    eventChangeGuard.current = guard;
+    return () => { if (eventChangeGuard.current === guard) eventChangeGuard.current = null; };
+  };
+  const requestEventChange = (nextId, commit) => {
+    if (nextId !== activeEventIdRef.current && eventChangeGuard.current?.(commit)) return false;
+    commit();
+    return true;
+  };
 
   const refreshEvents = async () => {
     const requestId = ++requestSequence.current;
-    setLoading(true);
+    // Do not unmount the dirty editor while checking a new catalog: it must
+    // remain mounted until the user decides whether to leave its event.
+    if (!eventChangeGuard.current) setLoading(true);
     try {
       const loaded = await loadAvailableEvents(session?.roles, judgeArea);
       const all = Array.isArray(loaded) ? loaded : [];
@@ -42,22 +56,33 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
       if (requestId !== requestSequence.current) return [];
       const currentId = activeEventIdRef.current;
       const visible = items;
-      setEvents(visible);
-      setError("");
       const storedEvent = visible.find((event) => event.id === currentId);
       const fallbackId = items[0]?.id ?? "";
       const nextId = storedEvent?.id ?? fallbackId;
-      if (nextId !== currentId) setActiveNightIdState("");
-      activeEventIdRef.current = nextId;
-      setActiveEventIdState(nextId);
-      storeEventId(nextId, storageKey);
+      const commit = () => {
+        if (requestId !== requestSequence.current) return;
+        setEvents(visible);
+        setError("");
+        if (nextId !== activeEventIdRef.current) setActiveNightIdState("");
+        activeEventIdRef.current = nextId;
+        setActiveEventIdState(nextId);
+        storeEventId(nextId, storageKey);
+      };
+      if (!requestEventChange(nextId, commit)) {
+        setError("El evento activo ya no figura en el catálogo actualizado. Revisá el borrador antes de cambiar de evento.");
+      }
       return visible;
     } catch {
       if (requestId !== requestSequence.current) return [];
-      setEvents([]);
-      activeEventIdRef.current = "";
-      setActiveEventIdState("");
-      setActiveNightIdState("");
+      const commit = () => {
+        if (requestId !== requestSequence.current) return;
+        setEvents([]);
+        activeEventIdRef.current = "";
+        setActiveEventIdState("");
+        setActiveNightIdState("");
+        storeEventId("", storageKey);
+      };
+      requestEventChange("", commit);
       setError("No se pudieron cargar los eventos.");
       return [];
     } finally {
@@ -72,22 +97,29 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
   const setActiveEventId = (eventId) => {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
-    setActiveEventIdState(nextId);
-    activeEventIdRef.current = nextId;
-    setActiveNightIdState("");
-    storeEventId(nextId, storageKey);
+    if (nextId === activeEventIdRef.current) return;
+    const commit = () => {
+      setActiveEventIdState(nextId);
+      activeEventIdRef.current = nextId;
+      setActiveNightIdState("");
+      storeEventId(nextId, storageKey);
+    };
+    return requestEventChange(nextId, commit);
   };
 
   const setActiveEvent = (event) => {
-    if (event?.id) {
-      setEvents((current) => current.some((entry) => entry.id === event.id)
-        ? current.map((entry) => entry.id === event.id ? { ...entry, ...event } : entry)
-        : [...current, event]);
-    }
-    setActiveEventIdState(event?.id ?? "");
-    activeEventIdRef.current = event?.id ?? "";
-    setActiveNightIdState("");
-    storeEventId(event?.id ?? "", storageKey);
+    const nextId = event?.id ?? "";
+    return requestEventChange(nextId, () => {
+      if (event?.id) {
+        setEvents((current) => current.some((entry) => entry.id === event.id)
+          ? current.map((entry) => entry.id === event.id ? { ...entry, ...event } : entry)
+          : [...current, event]);
+      }
+      if (nextId !== activeEventIdRef.current) setActiveNightIdState("");
+      setActiveEventIdState(nextId);
+      activeEventIdRef.current = nextId;
+      storeEventId(nextId, storageKey);
+    });
   };
 
   const setActiveNightId = (nightId) => setActiveNightIdState(nightId ?? "");
@@ -108,6 +140,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     refreshEvents,
     setActiveEvent,
     setActiveEventId,
+    registerEventChangeGuard,
     setActiveNightId,
     updateEvent,
   }), [events, activeEvent, activeEventId, activeNightId, loading, error]);

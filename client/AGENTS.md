@@ -11,6 +11,7 @@ El Jurado es PWA responsive y opera **online-first**: si no hay conexión/API di
 ## Stack
 
 - React 19 + React DOM, JavaScript ESM/JSX y Vite 7.
+- Anime.js 4 (ESM) para transiciones cosméticas y estados de carga; no define estados de negocio y respeta `prefers-reduced-motion`.
 - Navegación hash implementada en `src/App.jsx`; no usa React Router.
 - CSS propio con tokens/estilos por área; no usa Tailwind ni librería externa de componentes.
 - Estado mediante hooks/contextos; no se usa una biblioteca externa de queries.

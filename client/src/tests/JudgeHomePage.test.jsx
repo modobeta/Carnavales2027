@@ -91,6 +91,74 @@ describe("JudgeHomePage", () => {
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/judge/ballots?include=progress");
   });
 
+  it("muestra un círculo con el color asignado cuando no hay logo", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/judge/ballots?include=progress") {
+        return Promise.resolve([
+          {
+            id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Música",
+            status: "OPEN", totalScores: 2, resolvedScores: 0,
+            troupes: [{ troupeId: "sched-1", eventTroupeId: "troupe-1", troupeName: "Ara Berá", brandColor: "#10B981", hasLogo: false, logoSha256: null, presentationOrder: 1, total: 2, resolved: 0 }],
+          },
+        ]);
+      }
+      return Promise.reject(new Error(`Llamada inesperada: ${path}`));
+    });
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    expect(await screen.findByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Logo de/ })).not.toBeInTheDocument();
+    expect(document.querySelector(".judge-now-color-dot")).not.toBeNull();
+    expect(document.querySelector(".judge-now-brand")).toHaveClass("is-branded");
+  });
+
+  it("muestra solo el nombre cuando no hay color ni logo", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/judge/ballots?include=progress") {
+        return Promise.resolve([
+          {
+            id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Música",
+            status: "OPEN", totalScores: 2, resolvedScores: 0,
+            troupes: [{ troupeId: "sched-1", eventTroupeId: "troupe-1", troupeName: "Ara Berá", brandColor: null, hasLogo: false, logoSha256: null, presentationOrder: 1, total: 2, resolved: 0 }],
+          },
+        ]);
+      }
+      return Promise.reject(new Error(`Llamada inesperada: ${path}`));
+    });
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    expect(await screen.findByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Logo de/ })).not.toBeInTheDocument();
+    expect(document.querySelector(".judge-now-color-dot")).toBeNull();
+    expect(document.querySelector(".judge-now-brand")).not.toHaveClass("is-branded");
+  });
+
+  it("muestra el logo de la comparsa dentro del círculo con su color", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/judge/ballots?include=progress") {
+        return Promise.resolve([
+          {
+            id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Música",
+            status: "OPEN", totalScores: 2, resolvedScores: 0,
+            troupes: [{ troupeId: "sched-1", eventTroupeId: "troupe-1", troupeName: "Ara Berá", brandColor: "#10B981", hasLogo: true, logoSha256: "hash-logo", presentationOrder: 1, total: 2, resolved: 0 }],
+          },
+        ]);
+      }
+      return Promise.reject(new Error(`Llamada inesperada: ${path}`));
+    });
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    expect(await screen.findByRole("img", { name: "Logo de Ara Berá" })).toHaveAttribute(
+      "src",
+      "/api/v1/troupes/troupe-1/logo?v=hash-logo",
+    );
+    expect(document.querySelector(".judge-now-logo")).not.toBeNull();
+    expect(document.querySelector(".judge-now-color-dot")).toBeNull();
+  });
+
   it("renderiza bajo la capa de instrumento data-layer='instrument'", () => {
     const { container } = render(<JudgeHomePage session={{ user: { id: "judge-1" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
     expect(container.querySelector("main.judge-home")).toHaveAttribute("data-layer", "instrument");

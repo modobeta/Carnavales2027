@@ -76,7 +76,8 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
 
     // La cabecera conserva el rubro y la tarjeta destaca el ítem a puntuar.
     expect(await screen.findByText("Rubro: Batería")).toBeInTheDocument();
-    expect(screen.getByText("Ítem a evaluar")).toBeInTheDocument();
+    // Sin etiqueta redundante: el ítem se anuncia una sola vez como título.
+    expect(screen.queryByText("Ítem a evaluar")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ritmo y Cadencia", level: 2 })).toBeInTheDocument();
 
     // La lista completa ya no es el flujo principal
@@ -352,7 +353,9 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     const summary = screen.getByRole("region", { name: "Resumen de la comparsa" });
     expect(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ })).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(within(summary).getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
-    expect(summary).toHaveTextContent("0 / 2 completos");
+    // Sin contador duplicado: el avance ya se lee en la barra y en cada comparsa.
+    expect(within(summary).queryByText(/completos/)).not.toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: /Ir al ítem Ritmo y Cadencia/ })).toBeInTheDocument();
   });
 
   it("navega al ítem desde el resumen lateral (Fase 3)", async () => {

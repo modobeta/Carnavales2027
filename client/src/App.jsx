@@ -30,12 +30,11 @@ import { AccountPage } from "./pages/AccountPage.jsx";
 import { PublicResultsPage } from "./pages/PublicResultsPage.jsx";
 import { apiRequest } from "./api/http.js";
 import { EventCard } from "./components/EventCard.jsx";
+import { SkeletonLoader } from "./components/SkeletonLoader.jsx";
+import { TransitionWrapper } from "./components/TransitionWrapper.jsx";
 import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.jsx";
 import { useEffect, useState } from "react";
-
-function ProtectedShell({ session, children }) {
-  return <><AppNavigation session={session} />{children}</>;
-}
+import { markHashHistoryEntry } from "./features/hash-history.js";
 
 function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "" }) {
   const adminEvent = useAdminEvent();
@@ -53,7 +52,7 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
   }, [adminEvent]);
 
   if (adminEvent) {
-    if (adminEvent.loading) return <main className="container"><p>Cargando evento activo...</p></main>;
+    if (adminEvent.loading) return <main className="container"><div className="card"><SkeletonLoader variant="cards" rows={2} label="Cargando evento activo..." /></div></main>;
     if (!adminEvent.activeEvent) return (
       <main className="container">
         <div className="card admin-empty-context">
@@ -67,7 +66,7 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
     return <AdminCompetenciaPage event={adminEvent.activeEvent} initialStep={initialStep} initialTab={initialTab} onBack={() => { window.location.hash = "#/admin/events"; }} />;
   }
 
-  if (loading) return <main className="container"><p>Cargando eventos...</p></main>;
+  if (loading) return <main className="container"><div className="card"><SkeletonLoader variant="cards" rows={2} label="Cargando eventos..." /></div></main>;
   if (!selectedEvent) return (
     <main className="container">
       <div className="card">
@@ -84,14 +83,11 @@ function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab
 }
 
 function RoleArea({ session, role, admin = false, adminArea = false, children }) {
-  const content = adminArea
+  return adminArea
     ? <RequireAdminArea session={session}>{children}</RequireAdminArea>
     : admin
       ? <RequireAdmin session={session}>{children}</RequireAdmin>
       : <RequireRole session={session} role={role}>{children}</RequireRole>;
-  return session.status === "authenticated"
-    ? <ProtectedShell session={session}>{content}</ProtectedShell>
-    : content;
 }
 
 export default function App({ session: providedSession }) {
@@ -99,7 +95,11 @@ export default function App({ session: providedSession }) {
   const session = providedSession ?? contextSession;
   const [path, setPath] = useState(window.location.hash || "#/login");
   useEffect(() => {
-    const updatePath = () => setPath(window.location.hash || "#/login");
+    markHashHistoryEntry();
+    const updatePath = () => {
+      markHashHistoryEntry();
+      setPath(window.location.hash || "#/login");
+    };
     window.addEventListener("hashchange", updatePath);
     return () => window.removeEventListener("hashchange", updatePath);
   }, []);
@@ -117,9 +117,7 @@ export default function App({ session: providedSession }) {
     if (route === "#/resultados") {
       const eventId = new URLSearchParams(query).get("eventId") ?? null;
       const content = <PublicResultsPage initialEventId={eventId} embedded={session.status === "authenticated"} />;
-      return session.status === "authenticated"
-        ? <ProtectedShell session={session}>{content}</ProtectedShell>
-        : content;
+      return content;
     }
     if (route === "#/invitations/accept") {
       const secret = new URLSearchParams(query).get("secret") ?? "";
@@ -170,27 +168,19 @@ export default function App({ session: providedSession }) {
   }
   if (route === "#/admin/penalties") {
     const content = <RequirePenaltiesRole session={session}><AdminPenaltiesPage /></RequirePenaltiesRole>;
-    return session.status === "authenticated"
-      ? <ProtectedShell session={session}>{content}</ProtectedShell>
-      : content;
+    return content;
   }
   if (route === "#/admin/results") {
     const content = <RequireResultsRole session={session}><AdminResultsPage /></RequireResultsRole>;
-    return session.status === "authenticated"
-      ? <ProtectedShell session={session}>{content}</ProtectedShell>
-      : content;
+    return content;
   }
   if (route === "#/admin/record") {
     const content = <RequireResultsRole session={session}><OfficialRecordPage /></RequireResultsRole>;
-    return session.status === "authenticated"
-      ? <ProtectedShell session={session}>{content}</ProtectedShell>
-      : content;
+    return content;
   }
   if (route === "#/veedor") {
     const content = <RequireVotingObserverRole session={session}><VeedorMonitorPage /></RequireVotingObserverRole>;
-    return session.status === "authenticated"
-      ? <ProtectedShell session={session}>{content}</ProtectedShell>
-      : content;
+    return content;
   }
   if (route === "#/judge") {
     return <RoleArea session={session} role="JUDGE"><JudgeHomePage session={session} /></RoleArea>;
@@ -202,9 +192,18 @@ export default function App({ session: providedSession }) {
   };
 
   const isAdminArea = route.startsWith("#/admin/");
+  const showNavigation = session.status === "authenticated" && (
+    isAdminArea ||
+    route.startsWith("#/judge") ||
+    route === "#/veedor" ||
+    route === "#/resultados"
+  );
   const content = (
     <div className={`app-shell${isAdminArea ? " is-admin" : ""}`} data-layer={currentLayer}>
-      {renderContent()}
+      {showNavigation && <AppNavigation session={session} />}
+      <TransitionWrapper motionKey={route}>
+        {renderContent()}
+      </TransitionWrapper>
     </div>
   );
   if (session.status !== "authenticated") return content;

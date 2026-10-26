@@ -1,0 +1,421 @@
+/**
+ * animations.css — movimiento, espera y esqueletos de carga.
+ *
+ * Capa aditiva del sistema de diseño. Usa solo transform/opacity, respeta
+ * `prefers-reduced-motion` (tokens.css neutraliza las animaciones CSS y los
+ * componentes JS consultan la misma preferencia) y no modifica reglas de
+ * negocio ni estados de votación.
+ */
+
+/* ==========================================================================
+   LoadingScreen — espera de página completa
+   ========================================================================== */
+.loading-screen {
+  display: grid;
+  place-items: center;
+  min-block-size: 100dvh;
+  padding: var(--space-6);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.loading-screen.is-compact {
+  min-block-size: 38vh;
+  background: transparent;
+  padding: var(--space-4);
+}
+
+.loading-screen-panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  inline-size: min(100%, 28rem);
+  padding: var(--space-8) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: rgba(6, 20, 30, 0.18);
+  border: 1px solid var(--border-subtle);
+}
+
+.loading-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 8rem;
+  block-size: 8rem;
+}
+
+.loading-orbit-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+.loading-orbit-ring-outer {
+  inset: 0;
+  border-color: rgba(1, 178, 212, 0.26);
+  border-block-start-color: var(--palette-brand);
+  border-inline-end-color: var(--palette-brand);
+}
+
+.loading-orbit-ring-middle {
+  inset: 1rem;
+  border-color: rgba(255, 255, 255, 0.16);
+  border-block-end-color: var(--palette-highlight);
+  border-inline-start-color: rgba(224, 181, 68, 0.5);
+}
+
+.loading-orbit-ring-inner {
+  inset: 2rem;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-block-start-color: rgba(223, 60, 181, 0.85);
+  border-inline-end-color: rgba(223, 60, 181, 0.4);
+}
+
+.loading-orbit-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background: rgba(1, 178, 212, 0.14);
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 6px rgba(1, 178, 212, 0.08);
+}
+
+.loading-orbit-mark-line {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  inline-size: 1px;
+  block-size: 1.15rem;
+  background: var(--palette-brand);
+}
+
+.loading-orbit-mark-line:last-child {
+  transform: rotate(90deg);
+}
+
+.loading-orbit-dots {
+  position: absolute;
+  inset-block-end: -0.35rem;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.loading-orbit-dots span {
+  inline-size: 0.3rem;
+  block-size: 0.3rem;
+  border-radius: 50%;
+  background: var(--palette-brand);
+}
+
+.loading-screen-label {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.loading-screen-detail {
+  max-inline-size: 24rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* ==========================================================================
+   LoadingOverlay — operación en curso
+   ========================================================================== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.loading-overlay.is-blocking {
+  pointer-events: auto;
+  background: var(--surface-overlay);
+}
+
+.loading-overlay.is-inline {
+  position: static;
+  display: flex;
+  justify-content: flex-start;
+  padding: 0;
+  background: transparent;
+}
+
+.loading-overlay-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-inline-size: min(92vw, 24rem);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.loading-overlay.is-inline .loading-overlay-panel {
+  padding: var(--space-2) var(--space-3);
+  border-color: var(--border-subtle);
+  background: var(--surface-hover-subtle);
+  box-shadow: none;
+}
+
+.loading-overlay-spinner {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.loading-overlay-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--palette-brand);
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+}
+
+.loading-overlay-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.loading-overlay-dot {
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: 50%;
+  background: var(--palette-brand);
+}
+
+.loading-overlay-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-inline-size: 0;
+}
+
+.loading-overlay-copy strong {
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+}
+
+.loading-overlay-copy span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.login-card {
+  position: relative;
+}
+
+.loading-overlay.login-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border-radius: inherit;
+  background: rgba(6, 20, 30, 0.6);
+}
+
+/* ==========================================================================
+   SkeletonLoader — espera de listas, tablas y planillas
+   ========================================================================== */
+.skeleton-loader {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.skeleton-label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.skeleton-body {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.skeleton-block {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.22) 48%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+}
+
+.skeleton-line {
+  block-size: 0.78rem;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-line.is-soft {
+  opacity: 0.72;
+}
+
+.skeleton-circle {
+  flex: 0 0 auto;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+}
+
+.skeleton-text,
+.skeleton-list,
+.skeleton-cards,
+.skeleton-table,
+.skeleton-ballot {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.skeleton-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.skeleton-list-row:last-child {
+  border-block-end: 0;
+}
+
+.skeleton-list-copy {
+  display: grid;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.skeleton-table {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.skeleton-table-head,
+.skeleton-table-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+}
+
+.skeleton-table-head {
+  background: var(--surface-hover-subtle);
+}
+
+.skeleton-table-row {
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.skeleton-cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+
+.skeleton-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.skeleton-card-head,
+.skeleton-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.skeleton-card-foot {
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.skeleton-ballot {
+  gap: var(--space-4);
+}
+
+.skeleton-ballot-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.skeleton-ballot-item {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover-subtle);
+}
+
+.skeleton-score-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.skeleton-score {
+  block-size: 2.75rem;
+  border-radius: var(--radius-md);
+}
+
+/* ==========================================================================
+   Transiciones de ruta y diálogos
+   ========================================================================== */
+.motion-transition {
+  display: block;
+  min-inline-size: 0;
+}
+
+.app-dialog[open]::backdrop {
+  animation: app-dialog-backdrop-in 220ms ease-out both;
+}
+
+@keyframes app-dialog-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.app-button.is-busy,
+.app-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+@media (max-width: 32rem) {
+  .skeleton-score-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .loading-screen-panel {
+    padding: var(--space-6) var(--space-4);
+  }
+}
