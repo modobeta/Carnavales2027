@@ -150,8 +150,8 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     expect(within(rowBateria).getByText("Sin jurados asignados")).toBeInTheDocument();
   });
 
-  it("no cuenta suplentes como titulares para el cupo de cobertura", async () => {
-    // Especialidad con 1 titular y 1 suplente para un cupo de 2: falta 1 titular
+  it("cuenta titulares y suplentes para completar el cupo de asignaciones", async () => {
+    // Especialidad con 1 titular y 1 suplente para un cupo de 2: ambas asignaciones cubren el cupo
     const customAssignments = [
       {
         id: "a-1",
@@ -187,8 +187,8 @@ describe("JuradosPorJornadaSection — Rediseño Paso 2", () => {
     render(<JuradosPorJornadaSection event={event} />);
 
     const rowBaile = (await screen.findByText("Baile")).closest("tr");
-    expect(within(rowBaile).getByText(/Falta 1 jurado · 1 de 2/)).toBeInTheDocument();
-    expect(within(rowBaile).getByRole("button", { name: /Completar asignación Baile/ })).toBeInTheDocument();
+    expect(within(rowBaile).getByText(/Completa · 2 de 2/)).toBeInTheDocument();
+    expect(within(rowBaile).getByRole("button", { name: /Editar asignación Baile/ })).toBeInTheDocument();
   });
 
   it("muestra el historial de la jornada desplegable cerrado inicialmente y el resumen de cobertura", async () => {
