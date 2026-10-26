@@ -1065,12 +1065,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     ) : (
                       <>
                         <h2 className="card-item-title">{activeScore.itemName}</h2>
-                        {activeScore.participantName && (
-                          <div className="ballot-subject">
-                            <span>A quién se evalúa</span>
-                            <strong>{activeScore.participantName}</strong>
-                          </div>
-                        )}
+                        <div className="ballot-subject">
+                          <span>{activeScore.participantName ? "Participante" : "Comparsa"}</span>
+                          <strong>{activeScore.participantName ?? activeScore.troupeName}</strong>
+                        </div>
                         {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
                           {activeScore.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {activeScore.evaluationObjective}</span>}
                           {activeScore.expectedSubjectType && <span><strong>Sujeto esperado:</strong> {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
