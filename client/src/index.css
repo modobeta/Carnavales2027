@@ -951,20 +951,27 @@ button.button-link:disabled {
   letter-spacing: -0.03em;
   text-transform: none;
 }
-/* Nombre de la comparsa + barra de progreso pintados con su color
-   representativo, en reemplazo de la franja fina anterior. */
+/* Nombre de la comparsa con su logo. El color de marca se usa como fondo del
+   círculo del logo; si no hay logo, un círculo con ese color lo representa.
+   Sin logo ni color, se muestra sólo el nombre en blanco. */
 .judge-now-brand { display: grid; gap: 0.6rem; }
-.judge-now-brand.is-branded {
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
+.judge-now-name { display: flex; align-items: center; gap: 0.75rem; min-inline-size: 0; }
+.judge-now-name h3 { min-inline-size: 0; }
+.judge-now-logo {
+  inline-size: clamp(2.75rem, 8vw, 3.5rem);
+  block-size: clamp(2.75rem, 8vw, 3.5rem);
+  padding: 0.25rem;
+  border-radius: var(--radius-full);
   background: var(--troupe-brand);
-  color: var(--troupe-brand-ink, var(--text-primary));
 }
-.judge-now-brand.is-branded h3 { color: inherit; }
-.judge-now-brand.is-branded .app-progress-header,
-.judge-now-brand.is-branded .app-progress-sublabel { color: inherit; }
-.judge-now-brand.is-branded .app-progress-track { background: rgba(255, 255, 255, 0.35); }
-.judge-now-remaining { margin: 0; color: var(--text-secondary); font-weight: 700; }
+.judge-now-brand.is-branded h3 { color: #ffffff; }
+.judge-now-color-dot {
+  inline-size: clamp(2.75rem, 8vw, 3.5rem);
+  block-size: clamp(2.75rem, 8vw, 3.5rem);
+  border-radius: var(--radius-full);
+  background: var(--troupe-brand);
+  flex-shrink: 0;
+}
 .judge-now-cta {
   display: inline-flex;
   align-items: center;
