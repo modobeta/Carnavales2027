@@ -36,7 +36,7 @@ import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.j
 import { useEffect, useState } from "react";
 import { markHashHistoryEntry } from "./features/hash-history.js";
 
-function AdminCompetenciaPageWrapper({ initialStep = "participantes", initialTab = "" }) {
+function AdminCompetenciaPageWrapper({ initialStep = "catalogo", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -150,7 +150,7 @@ export default function App({ session: providedSession }) {
   }
   if (route === "#/admin/competencia") {
     const params = new URLSearchParams(query);
-    const initialStep = params.get("step") ?? "participantes";
+    const initialStep = params.get("step") ?? "catalogo";
     const initialTab = params.get("tab") ?? "";
     return <RoleArea session={session} adminArea><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }

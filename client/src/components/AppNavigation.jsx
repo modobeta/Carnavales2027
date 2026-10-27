@@ -63,7 +63,7 @@ function isCurrentNavItem(currentLocation, href) {
   const currentStep = currentParams.get("step");
   const hrefStep = hrefParams.get("step");
 
-  if (currentStep || hrefStep) return (currentStep ?? "participantes") === (hrefStep ?? "participantes");
+  if (currentStep || hrefStep) return (currentStep ?? "catalogo") === (hrefStep ?? "catalogo");
   return true;
 }
 
@@ -207,10 +207,12 @@ function getBreadcrumbData(location) {
   let label = ROUTE_LABELS[route];
   if (route === "#/admin/competencia") {
     const params = new URLSearchParams(query);
-    const step = params.get("step");
-    if (step === "participantes") label = "Comparsas";
+    const step = params.get("step") ?? "catalogo";
+    if (step === "catalogo") label = "Rubros";
+    else if (step === "participantes") label = "Comparsas";
     else if (step === "jurados") label = "Jurados y especialidades";
     else if (step === "rubros") label = "Evaluación";
+    else if (step === "revision") label = "Revisión final";
   }
   if (!label) {
     const stripped = route.replace(/^#\/(admin\/)?/, "").replace(/-/g, " ");
@@ -364,6 +366,7 @@ function getInitials(name) {
                 <span>Comparsas y jurados</span>
               </summary>
               <div className="nav-group-links">
+                {navLink("#/admin/competencia?step=catalogo", "Rubros")}
                 {navLink("#/admin/competencia?step=participantes", "Comparsas")}
                 {navLink("#/admin/competencia?step=jurados", "Jurados y especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}
