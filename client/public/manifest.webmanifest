@@ -4,8 +4,8 @@
   "description": "Plataforma oficial de gestión y votación para Carnavales 2027",
   "start_url": "/#/login",
   "display": "standalone",
-  "background_color": "#036B8B",
-  "theme_color": "#036B8B",
+  "background_color": "#FFFFFF",
+  "theme_color": "#E91683",
   "icons": [
     {
       "src": "/icons/logo.webp",

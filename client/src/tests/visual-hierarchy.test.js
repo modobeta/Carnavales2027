@@ -11,12 +11,15 @@ describe("visual hierarchy system", () => {
   const admin = source("../styles/admin.css");
   const competencia = source("../styles/competencia.css");
 
-  it("uses restrained Carnaval surfaces and keeps turquoise as an accent, not a modal canvas", () => {
-    expect(tokens).toContain("--palette-page: #036B8B;");
-    expect(tokens).toContain("--palette-card: #5e46be;");
-    expect(tokens).toContain("--palette-panel: #243A53;");
-    expect(tokens).toContain("--surface-modal: var(--palette-panel);");
-    expect(tokens).toContain("--text-on-modal: #ffffff;");
+  it("uses restrained Carnaval surfaces with the official palette and theme-aware modals", () => {
+    expect(tokens).toContain("--palette-pink: #E91683;");
+    expect(tokens).toContain("--palette-blue: #3F51B5;");
+    expect(tokens).toContain("--palette-page: #FFFFFF;");
+    expect(tokens).toContain("--palette-card: #FFFFFF;");
+    expect(tokens).toContain("--palette-panel: #F8FAFC;");
+    expect(tokens).toContain("--surface-modal: var(--palette-card);");
+    expect(tokens).toContain("--text-on-modal: #111827;");
+    expect(tokens).toContain(':root[data-theme="dark"]');
   });
 
   it("removes decorative page texture and heavy elevation from the shared shell", () => {

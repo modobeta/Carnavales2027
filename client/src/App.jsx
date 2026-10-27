@@ -31,6 +31,7 @@ import { PublicResultsPage } from "./pages/PublicResultsPage.jsx";
 import { apiRequest } from "./api/http.js";
 import { EventCard } from "./components/EventCard.jsx";
 import { SkeletonLoader } from "./components/SkeletonLoader.jsx";
+import { ThemeToggle } from "./components/ThemeToggle.jsx";
 import { TransitionWrapper } from "./components/TransitionWrapper.jsx";
 import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.jsx";
 import { useEffect, useState } from "react";
@@ -196,6 +197,7 @@ export default function App({ session: providedSession }) {
   const content = (
     <div className={`app-shell${isAdminArea ? " is-admin" : ""}`} data-layer={currentLayer}>
       {showNavigation && <AppNavigation session={session} />}
+      {!showNavigation && <ThemeToggle iconOnly floating className="theme-toggle--page" />}
       <TransitionWrapper motionKey={route}>
         {renderContent()}
       </TransitionWrapper>

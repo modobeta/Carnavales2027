@@ -132,7 +132,7 @@ body .copy-hash-button,
 body .pending-item-jump-btn,
 body .pending-dialog-list li button {
   --btn-face-edge: var(--btn-face-panel-edge);
-  --btn-face-fill: var(--tertiary-fill);
+  --btn-face-fill: var(--surface-raised-hover);
   --btn-highlight: var(--btn-hl-panel);
   --btn-highlight-strong: var(--btn-hl-panel-strong);
   --btn-highlight-soft: var(--btn-hl-panel-soft);
@@ -162,20 +162,20 @@ body .score-actions button.is-selected {
 
 /* ==========================================================================
    3.b Cara terciaria (§3.3): el botón secundario deja de ser un contorno
-   transparente y pasa a volumen sólido. Se le asigna cara opaca de panel
-   (--tertiary-fill, tinta clara 11.6:1) para que el reflejo y el canto
-   tengan una superficie sobre la que leerse.
+   transparente y pasa a volumen sólido. Se le asigna cara opaca azul
+   (--tertiary-fill) con tinta clara para que el reflejo y el canto tengan
+   una superficie sobre la que leerse en ambos temas.
    ========================================================================== */
 body button.secondary,
 body .button-link.secondary {
-  --btn-face-edge: var(--btn-face-panel-edge);
+  --btn-face-edge: var(--btn-face-secondary-edge);
   --btn-face-fill: var(--tertiary-fill);
-  --btn-highlight: var(--btn-hl-panel);
-  --btn-highlight-strong: var(--btn-hl-panel-strong);
-  --btn-highlight-soft: var(--btn-hl-panel-soft);
+  --btn-highlight: var(--btn-hl-secondary);
+  --btn-highlight-strong: var(--btn-hl-secondary-strong);
+  --btn-highlight-soft: var(--btn-hl-secondary-soft);
 
   background-color: var(--btn-face-fill);
-  color: var(--text-primary);
+  color: var(--palette-secondary-ink);
   border-color: var(--border-default);
   background-image:
     linear-gradient(180deg, var(--btn-highlight-soft) 0%, transparent 26%),

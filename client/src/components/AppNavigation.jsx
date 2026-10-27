@@ -5,6 +5,7 @@ import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 import { canAccessAdminArea } from "../auth/role-routes.js";
+import { ThemeToggle } from "./ThemeToggle.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -305,6 +306,7 @@ function getInitials(name) {
             )}
           </div>
         </div>
+        <ThemeToggle iconOnly className="theme-toggle--nav" />
         <span className="session-divider" aria-hidden="true" />
         <button className="session-signout secondary" type="button" disabled={closing} onClick={signOut}>
           <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -345,6 +347,7 @@ function getInitials(name) {
           <span aria-hidden="true">✕</span>
         </button>
       </div>
+      {/* Tema removido según solicitud */}
         {session.roles?.includes("ADMIN") && (
           <>
             <span className="nav-section-label">Inicio</span>
