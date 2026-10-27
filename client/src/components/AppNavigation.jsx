@@ -210,8 +210,10 @@ function getBreadcrumbData(location) {
     const params = new URLSearchParams(query);
     const step = params.get("step") ?? "catalogo";
     if (step === "catalogo") label = "Rubros";
+    else if (step === "especialidades") label = "Especialidades";
     else if (step === "participantes") label = "Comparsas";
-    else if (step === "jurados") label = "Jurados y especialidades";
+    else if (step === "jurados") label = params.get("tab") === "asignaciones" ? "Asignación de jurados" : "Especialidades";
+    else if (step === "asignaciones") label = "Asignación de jurados";
     else if (step === "rubros") label = "Evaluación";
     else if (step === "revision") label = "Revisión final";
   }
@@ -364,15 +366,16 @@ function getInitials(name) {
               <span>Jornadas</span>
             </a>
             <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
-              <summary className="nav-group-summary" title={railTitle("Comparsas y jurados")} onClick={expandRail}>
+              <summary className="nav-group-summary" title={railTitle("Preparación de competencia")} onClick={expandRail}>
                 <NavigationIcon name="people" />
-                <span>Comparsas y jurados</span>
+                <span>Preparación de competencia</span>
               </summary>
               <div className="nav-group-links">
                 {navLink("#/admin/competencia?step=catalogo", "Rubros")}
-                {navLink("#/admin/competencia?step=participantes", "Comparsas")}
-                {navLink("#/admin/competencia?step=jurados", "Jurados y especialidades")}
+                {navLink("#/admin/competencia?step=especialidades", "Especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}
+                {navLink("#/admin/competencia?step=participantes", "Comparsas")}
+                {navLink("#/admin/competencia?step=asignaciones", "Asignación de jurados")}
               </div>
             </details>
             <span className="nav-section-label">En vivo</span>

@@ -37,6 +37,9 @@ import { AdminEventProvider, useAdminEvent } from "./context/AdminEventContext.j
 import { useEffect, useState } from "react";
 import { markHashHistoryEntry } from "./features/hash-history.js";
 
+function ProtectedShell({ session, children }) {
+  return <><AppNavigation session={session} />{children}</>;
+}
 function AdminCompetenciaPageWrapper({ initialStep = "catalogo", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const [events, setEvents] = useState([]);

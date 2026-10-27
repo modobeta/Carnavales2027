@@ -36,12 +36,13 @@ it("nombra stepper y controles de evaluación con el texto visible más su conte
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const first = await within(nav).findByRole("button", { name: "Comparsas Completo" });
-  expect(first).toHaveAccessibleDescription(/Paso 2 de 5/);
-  expect(within(nav).getByRole("button", { name: "Jurados Completo" })).toHaveAccessibleDescription(/Paso 3 de 5.*Jurados y especialidades/);
+  expect(first).toHaveAccessibleDescription(/Paso 4 de 6/);
+  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 6/);
+  expect(within(nav).getByRole("button", { name: "Asignar jurados Completo" })).toHaveAccessibleDescription(/Paso 5 de 6.*Asignación de jurados/);
   const current = within(nav).getByRole("button", { name: "Evaluación Completo" });
   expect(current).toHaveAttribute("aria-current", "step");
-  expect(current).toHaveAccessibleDescription(/Paso 4 de 5/);
-  expect(within(nav).getAllByRole("button")).toHaveLength(5);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
+  expect(within(nav).getAllByRole("button")).toHaveLength(6);
   const card = await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
   expect(card).toHaveAttribute("aria-expanded", "false");
   expect(within(card).getByText("▾")).toHaveAttribute("aria-hidden", "true");
@@ -65,7 +66,7 @@ it("stepper distingue falta de readiness sin perder nombre visible ni posición 
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const current = await within(nav).findByRole("button", { name: "Evaluación No se pudo revisar" });
-  expect(current).toHaveAccessibleDescription(/Paso 4 de 5/);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
   expect(current).toHaveAttribute("aria-current", "step");
 });
 
@@ -200,7 +201,8 @@ it("separa orientación incompleta y criterios descriptivos de bloqueos oficiale
   expect(within(summary).getByText(/1 criterio descriptivo sin asociar/)).toBeInTheDocument();
   expect(within(summary).getByText(/Sin bloqueos oficiales de evaluación/)).toBeInTheDocument();
   expect(within(summary).queryByText(/criterio.*sin asociar/, { selector: ".evaluation-summary-official *" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Continuar a revisión/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Continuar a comparsas/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
   expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Requisitos para abrir el evento" })).getByRole("button", { name: "Abrir competencia" })).toBeEnabled();
   const review = screen.getByRole("region", { name: "Resumen de la preparación" });
@@ -217,7 +219,8 @@ it("readiness bloquea la apertura aunque la orientación visual esté completa",
   const summary = await screen.findByRole("region", { name: "Resumen de evaluación" });
   expect(within(summary).getByText("Especialidades listas: 1 de 1")).toBeInTheDocument();
   expect(within(summary).getByText(/Sin bloqueos oficiales de evaluación/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Continuar a revisión/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Continuar a comparsas/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
   expect(await screen.findByRole("list", { name: "Requisitos pendientes para abrir el evento" })).toHaveTextContent("comparsa");
   expect(screen.queryByRole("button", { name: "Abrir competencia" })).not.toBeInTheDocument();
   expect(posts()).toHaveLength(0);

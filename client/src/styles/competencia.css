@@ -782,44 +782,48 @@
   margin-block-end: 1.5rem;
 }
 
-.competencia-stepper-line {
+.competencia-stepper .competencia-stepper-line {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-1);
   list-style: none;
   margin: 0;
   padding: 0;
   overflow-x: auto;
+  border-block-end: 1px solid var(--border-default);
+  scrollbar-width: thin;
 }
 
-.competencia-stepper-item {
+.competencia-stepper .competencia-stepper-item {
   display: flex;
-  align-items: center;
-  flex: 1;
-}
-
-.competencia-stepper-item:last-child {
+  align-items: stretch;
   flex: 0 0 auto;
+  min-inline-size: max-content;
 }
 
-.competencia-stepper-btn {
+.competencia-stepper .competencia-stepper-btn {
+  inline-size: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   background: transparent;
   border: none;
-  padding: var(--space-2);
+  border-block-end: 3px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 600;
-  border-radius: var(--radius-md);
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
   white-space: nowrap;
 }
 
-.competencia-stepper-btn:hover {
+.competencia-stepper .competencia-stepper-btn:hover {
   color: var(--text-primary);
+  background: var(--surface-hover-subtle);
 }
 
 .competencia-stepper-circle {
@@ -844,26 +848,17 @@
   color: var(--text-on-accent);
 }
 
-.competencia-stepper-btn.is-active {
+.competencia-stepper .competencia-stepper-btn.is-active {
   color: var(--palette-action);
   font-weight: 700;
-  border-block-end: 3px solid var(--palette-action);
-  border-radius: 0;
-  padding-block-end: var(--space-2);
+  border-block-end-color: var(--palette-action);
+  background: var(--surface-raised);
 }
 
 .competencia-stepper-btn.is-complete .competencia-stepper-circle {
   background: var(--surface-card);
   border-color: var(--success-text);
   color: var(--success-text);
-}
-
-.competencia-stepper-divider {
-  flex: 1;
-  block-size: 2px;
-  background: var(--border-subtle);
-  margin-inline: var(--space-3);
-  min-inline-size: 1.5rem;
 }
 
 /* Sub-pestañas: [Comparsas] [Orden de pasada] */
@@ -1206,7 +1201,8 @@
 }
 
 .assigned-judge-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 12.5rem) max-content;
   align-items: baseline;
   gap: var(--space-2);
 }

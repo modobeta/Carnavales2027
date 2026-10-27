@@ -93,13 +93,18 @@ function incompleteStepGuidance(stepKey, readiness) {
     if (messages.length === 0) messages.push("Revisá los participantes y completá los datos que faltan para continuar.");
   }
 
-  if (stepKey === "jurados") {
-    if (missing.has("ACTIVE_SPECIALTY")) messages.push("No hay especialidades activas. Creá o activá una especialidad antes de asignar jurados.");
+  if (stepKey === "especialidades") {
+    if (missing.has("ACTIVE_SPECIALTY")) messages.push("No hay especialidades activas. Creá o activá las especialidades que se usarán en la evaluación.");
+    if (messages.length === 0) messages.push("Revisá las especialidades que se usarán para configurar los ítems de evaluación.");
+  }
+
+  if (stepKey === "asignaciones") {
+    if (missing.has("ACTIVE_SPECIALTY")) messages.push("Primero creá al menos una especialidad en el paso Especialidades.");
     for (const night of readiness?.nightsWithoutJury ?? []) {
       messages.push(`Asigná un jurado activo a ${night.nightName ?? "esta jornada"}.`);
     }
     if (missing.has("NIGHTS_WITHOUT_JURY") && messages.length === 0) messages.push("Revisá las asignaciones y asegurate de que cada jornada tenga un jurado activo.");
-    if (messages.length === 0) messages.push("Revisá las especialidades y las asignaciones de jurados para completar este paso.");
+    if (messages.length === 0) messages.push("Revisá las asignaciones de jurados para cada jornada y especialidad.");
   }
 
   if (stepKey === "catalogo") return "Creá o activá los rubros e indicá si evalúan comparsas o participantes. Los ítems se configuran después, en Evaluación.";
@@ -189,10 +194,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
     };
   }, [hasDraftGuard]);
   const availableSteps = PREPARATION_STEPS;
-  const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "catalogo";
-  const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
-  const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
+  const requestedTab = initialTab || getTabFromHash();
+  const requestedStep = initialStep === "jurados"
+    ? requestedTab === "asignaciones" ? "asignaciones" : "especialidades"
+    : initialStep;
+  const validInitialStep = availableSteps.some((item) => item.key === requestedStep) ? requestedStep : "catalogo";
+  const [step, setStep] = useState(validInitialStep);
   const [troupeTab, setTroupeTab] = useState("comparsas");
   const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
@@ -252,28 +260,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   useEffect(() => { setPending(false); }, [event.id]);
   useEffect(() => { setOpeningEvent(false); setConfirmOpenEvent(false); setOpenEventMessage(""); }, [event.id]);
 
-  useEffect(() => {
-    setStep(validInitialStep);
-    const targetTab = initialTab || getTabFromHash();
-    if (targetTab === "asignaciones") {
-      setJuryTab("asignaciones");
-    } else if (targetTab === "especialidades") {
-      setJuryTab("especialidades");
-    }
-  }, [validInitialStep, initialTab]);
-
-  useEffect(() => {
-    const onHashChange = () => {
-      const targetTab = getTabFromHash();
-      if (targetTab === "asignaciones") {
-        setJuryTab("asignaciones");
-      } else if (targetTab === "especialidades") {
-        setJuryTab("especialidades");
-      }
-    };
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+  useEffect(() => { setStep(validInitialStep); }, [validInitialStep]);
 
   // Conteo liviano para el progreso del asistente (solo lectura; el detalle
   // y las mutaciones siguen en cada sección). Guía sin bloquear (T05 intacta).
@@ -403,22 +390,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
     if (key !== step && availableSteps.some((item) => item.key === key)) requestLeave(() => setStep(key));
   };
 
-  const selectJuryTab = (newTab) => {
-    setJuryTab(newTab);
-    const search = window.location.hash.split("?")[1] ?? "";
-    const params = new URLSearchParams(search);
-    params.set("step", "jurados");
-    if (newTab === "asignaciones") {
-      params.set("tab", "asignaciones");
-    } else {
-      params.delete("tab");
-    }
-    const newHash = `#/admin/competencia?${params.toString()}`;
-    if (window.location.hash !== newHash) {
-      window.history.replaceState(window.history.state, "", newHash);
-    }
-  };
-
   const isEventOpen = currentEvent?.status === "OPEN";
 
   const handleOpenEvent = async () => {
@@ -492,9 +463,10 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 const stateLabel = READINESS_STATE_LABELS[state];
                 const shortLabels = {
                   catalogo: "Rubros",
-                  participantes: "Comparsas",
-                  jurados: "Jurados",
+                  especialidades: "Especialidades",
                   rubros: "Evaluación",
+                  participantes: "Comparsas",
+                  asignaciones: "Asignar jurados",
                   revision: "Revisión final",
                 };
                 return (
@@ -504,7 +476,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                     </span>
                     <button
                       type="button"
-                      className={`competencia-stepper-btn ${isCurrent ? "is-active active" : "secondary"} ${isComplete ? "is-complete" : ""}`}
+                      className={`competencia-stepper-btn ${isCurrent ? "is-active active" : ""} ${isComplete ? "is-complete" : ""}`}
                       aria-current={isCurrent ? "step" : undefined}
                       aria-describedby={`competencia-step-${item.key}-context`}
                       onClick={() => goStep(item.key)}
@@ -517,7 +489,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                         <span className="competencia-step-state">{stateLabel}</span>
                       </span>
                     </button>
-                    {index < steps.length - 1 && <span className="competencia-stepper-divider" aria-hidden="true" />}
                   </li>
                 );
               })}
@@ -603,27 +574,24 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
               </div>
             </section>
           )}
-          {step === "jurados" && (
+          {step === "especialidades" && (
             <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Jurados y especialidades</h2>
-              <StepSummary stepLabel="Jurados y especialidades" recommendation={statusSummary("jurados")} />
-
-              <section
-                id="seccion-especialidades"
-                className="competencia-subblock"
-                aria-label="Gestión de especialidades"
-              >
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Especialidades</h2>
+              <StepSummary stepLabel="Especialidades" recommendation={statusSummary("especialidades")} />
+              <section className="competencia-subblock" aria-label="Gestión de especialidades">
                 <AdminSpecialtiesSection key={`specialties-${event.id}`} event={event} />
               </section>
-
+            </section>
+          )}
+          {step === "asignaciones" && (
+            <section aria-labelledby="competencia-step-title">
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Asignación de jurados</h2>
+              <StepSummary stepLabel="Asignación de jurados" recommendation={statusSummary("asignaciones")} />
               <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
               <JuradosPorJornadaSection
                 event={event}
                 refreshSignal={dataRevision}
-                onOpenSpecialties={() => {
-                  const el = document.getElementById("seccion-especialidades");
-                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
+                onOpenSpecialties={() => goStep("especialidades")}
                 onDataChanged={() => {
                   if (incRevision) incRevision();
                   if (reloadProgress) reloadProgress();
@@ -659,7 +627,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 editorSpecialties={editorSpecialties.eventId === event.id ? editorSpecialties.data : []}
                 onRetryEvaluation={retryEvaluation}
                 registerDraftGuard={registerDraftGuard}
-                onBack={() => goStep("jurados")}
+                onBack={() => goStep("especialidades")}
                 onConfigure={() => goStep("catalogo")}
                 tab={rubricTab}
               />
@@ -761,68 +729,38 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                   </div>
                   <div className="revision-summary-grid">
                   <div className="revision-summary-card">
-                    <div className="revision-card-header">
-                      <span className="revision-card-badge">Paso 1</span>
-                      <h4>Comparsas</h4>
-                    </div>
-                    <p className="revision-card-value">
-                      {progress?.troupes?.filter((t) => t.active !== false).length ?? 0} comparsas
-                    </p>
-                    <p className="revision-card-detail">
-                      {progress?.categories?.filter((c) => c.active !== false).length ?? 0} tipos de participación
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary revision-card-link"
-                      onClick={() => goStep("participantes")}
-                    >
-                      Ver comparsas
-                    </button>
+                    <div className="revision-card-header"><span className="revision-card-badge">Paso 1</span><h4>Rubros</h4></div>
+                    <p className="revision-card-value">{progress?.rubrics?.filter((r) => r.active !== false).length ?? 0} rubros</p>
+                    <p className="revision-card-detail">Definición de qué se evalúa</p>
+                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("catalogo")}>Ver rubros</button>
                   </div>
 
                   <div className="revision-summary-card">
-                    <div className="revision-card-header">
-                      <span className="revision-card-badge">Paso 2</span>
-                      <h4>Jurados</h4>
-                    </div>
-                    <p className="revision-card-value">
-                      {specialtiesActive.length} especialidades
-                    </p>
-                    <p className="revision-card-detail">
-                      Asignaciones por jornada
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary revision-card-link"
-                      onClick={() => goStep("jurados")}
-                    >
-                      Ver jurados
-                    </button>
+                    <div className="revision-card-header"><span className="revision-card-badge">Paso 2</span><h4>Especialidades</h4></div>
+                    <p className="revision-card-value">{specialtiesActive.length} especialidades</p>
+                    <p className="revision-card-detail">Áreas de evaluación</p>
+                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("especialidades")}>Ver especialidades</button>
                   </div>
 
                   <div className="revision-summary-card">
-                    <div className="revision-card-header">
-                      <span className="revision-card-badge">Paso 3</span>
-                      <h4>Evaluación</h4>
-                    </div>
-                    <p className="revision-card-value">
-                      {progress?.rubrics?.filter((r) => r.active !== false).length ?? 0} rubros
-                    </p>
-                    <p className="revision-card-detail">
-                      {(progress?.rubrics ?? [])
-                        .filter((r) => r.active !== false)
-                        .reduce((acc, r) => acc + (r.items ?? []).filter((item) => item.active !== false).length, 0)} ítems puntuables
-                    </p>
-                    <p className="revision-card-detail">
-                      {reviewCriteriaCount} criterio{reviewCriteriaCount === 1 ? "" : "s"} descriptivo{reviewCriteriaCount === 1 ? "" : "s"}
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary revision-card-link"
-                      onClick={() => goStep("rubros")}
-                    >
-                      Ver evaluación
-                    </button>
+                    <div className="revision-card-header"><span className="revision-card-badge">Paso 3</span><h4>Evaluación</h4></div>
+                    <p className="revision-card-value">{(progress?.rubrics ?? []).filter((r) => r.active !== false).reduce((acc, r) => acc + (r.items ?? []).filter((item) => item.active !== false).length, 0)} ítems puntuables</p>
+                    <p className="revision-card-detail">{reviewCriteriaCount} criterio{reviewCriteriaCount === 1 ? "" : "s"} descriptivo{reviewCriteriaCount === 1 ? "" : "s"}</p>
+                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("rubros")}>Ver evaluación</button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header"><span className="revision-card-badge">Paso 4</span><h4>Comparsas</h4></div>
+                    <p className="revision-card-value">{progress?.troupes?.filter((t) => t.active !== false).length ?? 0} comparsas</p>
+                    <p className="revision-card-detail">{progress?.categories?.filter((c) => c.active !== false).length ?? 0} tipos de participación</p>
+                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("participantes")}>Ver comparsas</button>
+                  </div>
+
+                  <div className="revision-summary-card">
+                    <div className="revision-card-header"><span className="revision-card-badge">Paso 5</span><h4>Asignación de jurados</h4></div>
+                    <p className="revision-card-value">Por jornada y especialidad</p>
+                    <p className="revision-card-detail">Jurados responsables de evaluar</p>
+                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("asignaciones")}>Ver asignaciones</button>
                   </div>
 
                   <div className="revision-summary-card">
@@ -901,7 +839,8 @@ function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isRead
 
   const STEP_BUTTON_LABELS = {
     participantes: "comparsas",
-    jurados: "jurados",
+    especialidades: "especialidades",
+    asignaciones: "asignación de jurados",
     rubros: "evaluación",
     revision: "revisión",
   };
@@ -2603,7 +2542,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
               <div className="evaluation-empty-state">
                 <strong>Todavía no hay especialidades activas</strong>
                 <p>Los rubros se organizan según la especialidad que evalúa cada jurado. Primero agregá una especialidad.</p>
-                <button className="secondary" type="button" onClick={onBack}>Volver a Jurados y especialidades</button>
+                <button className="secondary" type="button" onClick={onBack}>Volver a Especialidades</button>
               </div>
             )}
           </aside>}

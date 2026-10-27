@@ -1,8 +1,9 @@
 export const PREPARATION_STEPS = [
   { key: "catalogo", label: "Rubros", href: "#/admin/competencia?step=catalogo" },
-  { key: "participantes", label: "Comparsas", href: "#/admin/competencia?step=participantes" },
-  { key: "jurados", label: "Jurados y especialidades", href: "#/admin/competencia?step=jurados" },
+  { key: "especialidades", label: "Especialidades", href: "#/admin/competencia?step=especialidades" },
   { key: "rubros", label: "Evaluación", href: "#/admin/competencia?step=rubros" },
+  { key: "participantes", label: "Comparsas", href: "#/admin/competencia?step=participantes" },
+  { key: "asignaciones", label: "Asignación de jurados", href: "#/admin/competencia?step=asignaciones" },
   { key: "revision", label: "Revisión final", href: "#/admin/events" },
 ];
 
@@ -16,7 +17,7 @@ export const READINESS_STATE_LABELS = {
 const MISSING_INFO = {
   COMPETITION_NIGHT: ["Creá al menos una jornada de Competencia", "#/admin/events", "Configurar jornadas"],
   ACTIVE_TROUPE: ["Creá o activá al menos una comparsa", "#/admin/competencia?step=participantes", "Configurar comparsas"],
-  ACTIVE_SPECIALTY: ["Creá o activá al menos una especialidad", "#/admin/competencia?step=jurados", "Configurar especialidades"],
+  ACTIVE_SPECIALTY: ["Creá o activá al menos una especialidad", "#/admin/competencia?step=especialidades", "Configurar especialidades"],
   ACTIVE_RUBRIC: ["Creá o activá al menos un rubro", "#/admin/competencia?step=catalogo", "Configurar rubros"],
 };
 
@@ -35,9 +36,10 @@ export function readinessStepStates(readiness, availability = "unqueried") {
   const has = (code) => readiness.missing.includes(code);
   const states = {
     catalogo: has("ACTIVE_RUBRIC") ? "incomplete" : "complete",
-    participantes: has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
-    jurados: has("ACTIVE_SPECIALTY") || readiness.nightsWithoutJury.length > 0 ? "incomplete" : "complete",
+    especialidades: has("ACTIVE_SPECIALTY") ? "incomplete" : "complete",
     rubros: has("ACTIVE_RUBRIC") || readiness.incompleteRubrics.length > 0 ? "incomplete" : "complete",
+    participantes: has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
+    asignaciones: readiness.nightsWithoutJury.length > 0 ? "incomplete" : "complete",
     revision: readiness.ready ? "complete" : "incomplete",
   };
   return states;
@@ -64,7 +66,7 @@ export function readinessIssues(readiness) {
     key: `nomination-${item.rubricId}-${item.troupeId}`, title: `Falta un participante para ${item.rubricName} en ${item.troupeName}`, description: "Cargá al menos un participante para este rubro y esta comparsa.", href: "#/admin/competencia?step=participantes", action: "Cargar participante", kind: "blocking",
   }));
   readiness.nightsWithoutJury.forEach((night) => issues.push({
-    key: `jury-${night.nightId}`, title: `${night.nightName} no tiene jurados asignados`, description: "Asigná al menos un jurado activo a esta jornada de Competencia.", href: "#/admin/assignments", action: "Asignar jurado", kind: "blocking",
+    key: `jury-${night.nightId}`, title: `${night.nightName} no tiene jurados asignados`, description: "Asigná al menos un jurado activo a esta jornada de Competencia.", href: "#/admin/competencia?step=asignaciones", action: "Asignar jurado", kind: "blocking",
   }));
   return issues;
 }

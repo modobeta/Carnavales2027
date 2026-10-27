@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { AdminCompetenciaPage } from "../pages/AdminCompetenciaPage.jsx";
+import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
 import { apiRequest, ApiError } from "../api/http.js";
 import { readinessStepStates, readinessIssues } from "../features/readiness-presentation.js";
 
 vi.mock("../api/http.js", async (importOriginal) => ({ ...(await importOriginal()), apiRequest: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="catalogo" {...props} />; }
 const event = { id: "e1", name: "Carnaval", status: "CONFIGURING" };
 const ready = { ready: false, missing: ["ACTIVE_RUBRIC"], incompleteTroupes: [], incompleteRubrics: [], incompleteNominations: [], incompleteSchedules: [], nightsWithoutJury: [] };
 const queen = { id: "r1", name: "Reina", active: true, evaluationTarget: "NOMINATION", expectedSubjectType: "PERSON", rubricType: "NOMINATIVE", resolutionMethod: "JURY", items: [], criteria: [], nominations: [{ id: "n1", rubricId: "r1", eventTroupeId: "t1", troupeName: "Estrella", displayName: "Ana", active: true }] };
@@ -27,14 +28,14 @@ function setup(overrides = {}) {
   return data;
 }
 
-it("inicia con Rubros y ofrece los cinco pasos en el orden aprobado", async () => {
+it("inicia con Rubros y ofrece los seis pasos en el orden aprobado", async () => {
   setup();
   render(<AdminCompetenciaPage event={event} />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   expect(within(nav).getAllByRole("button").map((button) => button.textContent.replace(/^\d/, "").replace(/Completo|Incompleto|Pendiente de revisión|No se pudo revisar/g, "").trim()))
-    .toEqual(["Rubros", "Comparsas", "Jurados", "Evaluación", "Revisión final"]);
+    .toEqual(["Rubros", "Especialidades", "Evaluación", "Comparsas", "Asignar jurados", "Revisión final"]);
   expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
-  expect(screen.getByText("Paso 1 de 5")).toBeInTheDocument();
+  expect(screen.getByText("Paso 1 de 6")).toBeInTheDocument();
 });
 
 it("crea un rubro de participantes sin especialidades ni ítems y lo ofrece dentro de la comparsa", async () => {
@@ -79,10 +80,22 @@ it("el catálogo permite completar Rubros aunque todavía falten sus ítems de E
   const states = readinessStepStates({ ...ready, missing: [], incompleteRubrics: [{ id: "r1", name: "Reina" }] }, "available");
   expect(states.catalogo).toBe("complete");
   expect(states.rubros).toBe("incomplete");
+  expect(states.especialidades).toBe("complete");
+  expect(states.asignaciones).toBe("complete");
   expect(states.revision).toBe("incomplete");
   const issues = readinessIssues({ ...ready, incompleteRubrics: [{ id: "r1", name: "Reina" }] });
   expect(issues.find((issue) => issue.key === "missing-ACTIVE_RUBRIC").href).toBe("#/admin/competencia?step=catalogo");
   expect(issues.find((issue) => issue.key === "rubric-r1").href).toBe("#/admin/competencia?step=rubros");
+});
+
+it("separa bloqueos por especialidades de los bloqueos por asignación de jurados", () => {
+  const readiness = { ...ready, missing: ["ACTIVE_SPECIALTY"], nightsWithoutJury: [{ nightId: "n1", nightName: "Noche 1" }] };
+  const states = readinessStepStates(readiness, "available");
+  expect(states.especialidades).toBe("incomplete");
+  expect(states.asignaciones).toBe("incomplete");
+  const issues = readinessIssues(readiness);
+  expect(issues.find((issue) => issue.key === "missing-ACTIVE_SPECIALTY").href).toBe("#/admin/competencia?step=especialidades");
+  expect(issues.find((issue) => issue.key === "jury-n1").href).toBe("#/admin/competencia?step=asignaciones");
 });
 
 it.each(["red", "5xx", "sin ID"])("un POST de rubro incierto (%s) no se reenvía ni se confirma por coincidencia en GET", async (failure) => {

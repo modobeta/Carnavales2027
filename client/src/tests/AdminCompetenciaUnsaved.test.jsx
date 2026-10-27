@@ -81,9 +81,9 @@ it.each(["stepper", "footer", "back"])('el control %s advierte antes de salir y 
   render(<AdminCompetenciaPage event={event} initialStep="catalogo" onBack={onBack} />);
   await draft();
   const target = () => control === "stepper"
-    ? within(screen.getByRole("navigation", { name: "Pasos de configuración de competencia" })).getByRole("button", { name: /Jurados/ })
+    ? within(screen.getByRole("navigation", { name: "Pasos de configuración de competencia" })).getByRole("button", { name: /Especialidades/ })
     : control === "back" ? screen.getByRole("button", { name: "Volver", exact: true })
-      : screen.getByRole("button", { name: /Continuar a comparsas/i });
+      : screen.getByRole("button", { name: /Continuar a especialidades/i });
   fireEvent.click(target()); stay();
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
   fireEvent.click(target()); discard();
@@ -128,7 +128,7 @@ it("intercepta un enlace de navegación y un hash del mismo asistente antes de c
   mockApi(); render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await draft();
   fireEvent.click(screen.getByRole("button", { name: "Abrir menu de navegacion" }));
-  const link = screen.getByRole("link", { name: /Jurados/ });
+  const link = screen.getByRole("link", { name: /Especialidades/ });
   fireEvent.click(link);
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
   expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");

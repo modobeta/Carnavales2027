@@ -76,7 +76,7 @@ describe("AppNavigation", () => {
     expect(screen.getByText("Rubros", { selector: ".breadcrumb-current" })).toBeInTheDocument();
   });
 
-  it("marca activo el ítem Evaluación dentro de Comparsas y jurados al navegar por step=rubros", () => {
+  it("marca activo el ítem Evaluación dentro de Preparación de competencia al navegar por step=rubros", () => {
     window.location.hash = "#/admin/competencia?step=rubros";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
@@ -85,13 +85,20 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("marca activo el ítem Jurados y especialidades al navegar por step=jurados", () => {
-    window.location.hash = "#/admin/competencia?step=jurados";
+  it("separa Especialidades y Asignación de jurados en la navegación de preparación", () => {
+    window.location.hash = "#/admin/competencia?step=especialidades";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
-    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("href", "#/admin/competencia?step=jurados");
-    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Especialidades" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Asignación de jurados" })).toHaveAttribute("href", "#/admin/competencia?step=asignaciones");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("mantiene el breadcrumb de enlaces antiguos de jurados según su pestaña", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/competencia?step=jurados&tab=asignaciones";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    expect(screen.getByText("Asignación de jurados", { selector: ".breadcrumb-current" })).toBeInTheDocument();
   });
 
   it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {
