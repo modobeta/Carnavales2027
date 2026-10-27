@@ -3,6 +3,7 @@ import { apiRequest } from "../api/http.js";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 const TYPE_LABELS = {
   PRIMARY: "Titular",
@@ -128,7 +129,6 @@ export function JuradosPorJornadaSection({
         activeAssignments: [],
         titulares: [],
         suplentes: [],
-        titularesCount: 0,
         status: "empty",
         message: "Sin asignar · 0 de 1",
         actionLabel: "Asignar jurados",
@@ -144,20 +144,21 @@ export function JuradosPorJornadaSection({
 
     const titulares = activeAssignments.filter((a) => a.assignmentType === "PRIMARY");
     const suplentes = activeAssignments.filter((a) => a.assignmentType === "SUBSTITUTE");
-    const titularesCount = titulares.length;
+    const activeAssignmentsCount = activeAssignments.length;
 
     let status = "empty";
     let message = "";
     let actionLabel = "";
 
-    if (titularesCount >= maxAssignments) {
+    if (activeAssignmentsCount >= maxAssignments) {
       status = "complete";
-      message = `Completa · ${titularesCount} de ${maxAssignments}`;
+      message = `Completa · ${activeAssignmentsCount} de ${maxAssignments}`;
       actionLabel = "Editar asignación";
-    } else if (titularesCount > 0) {
+    } else if (activeAssignmentsCount > 0) {
       status = "partial";
-      const diff = maxAssignments - titularesCount;
-      message = `Falta ${diff} jurado · ${titularesCount} de ${maxAssignments}`;
+      const diff = maxAssignments - activeAssignmentsCount;
+      const assignmentLabel = diff === 1 ? "asignación" : "asignaciones";
+      message = `Falta ${diff} ${assignmentLabel} · ${activeAssignmentsCount} de ${maxAssignments}`;
       actionLabel = "Completar asignación";
     } else {
       status = "empty";
@@ -171,7 +172,6 @@ export function JuradosPorJornadaSection({
       activeAssignments,
       titulares,
       suplentes,
-      titularesCount,
       status,
       message,
       actionLabel,
@@ -408,9 +408,7 @@ export function JuradosPorJornadaSection({
         </div>
 
         {loadingNight ? (
-          <p style={{ padding: "var(--space-6)", color: "var(--text-secondary)" }}>
-            Cargando asignaciones de la jornada…
-          </p>
+          <SkeletonLoader variant="table" rows={3} label="Cargando asignaciones de la jornada…" />
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
@@ -549,7 +547,7 @@ export function JuradosPorJornadaSection({
             {/* Bloque de Cupo */}
             <div className="assignment-quota-box">
               <div>
-                <strong>Cupo de titulares:</strong> {activeCov.maxAssignments} puesto(s)
+                <strong>Cupo de asignaciones (titulares y suplentes):</strong> {activeCov.maxAssignments} puesto(s)
               </div>
               {canConfigure && !isEditingQuota && (
                 <button

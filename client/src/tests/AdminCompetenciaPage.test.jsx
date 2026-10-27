@@ -1,7 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { AdminCompetenciaPage } from "../pages/AdminCompetenciaPage.jsx";
+import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
+
+function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="participantes" {...props} />; }
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
@@ -156,7 +158,7 @@ describe("AdminCompetenciaPage", () => {
 
   it("oculta el formulario de rubro hasta que se solicite y adapta el sujeto al objetivo", async () => {
     mockCompetitionData();
-    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="rubros" />);
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="catalogo" />);
 
     expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
@@ -267,9 +269,9 @@ describe("AdminCompetenciaPage", () => {
     const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
     fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
-    await screen.findByRole("button", { name: "Ver criterios de Coreografia" });
+    await screen.findByRole("button", { name: "Ver opciones de Coreografia" });
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
     fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
@@ -292,9 +294,9 @@ describe("AdminCompetenciaPage", () => {
     const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
     fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
-    await screen.findByRole("button", { name: "Ver criterios de Coreografia" });
+    await screen.findByRole("button", { name: "Ver opciones de Coreografia" });
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
     fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Danza" } });
@@ -419,7 +421,7 @@ describe("AdminCompetenciaPage", () => {
     expect(await screen.findByText("Rubro Coreografia desactivado.")).toBeInTheDocument();
   });
   it.each([
-      [/Evaluación/, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
+    [/^Rubros /, "Crear rubro", null, "/api/v1/events/event-1/rubrics"],
     [/Evaluación/, "Guardar rubro", "Ver criterios de Coreografia", "/api/v1/rubrics/rubric-1"],
     [/Evaluación/, "Crear ítem en Coreografia", null, "/api/v1/rubrics/rubric-1/items"],
     [/Evaluación/, "Guardar item", "Editar item Interpretacion", "/api/v1/evaluation-items/item-1"],
@@ -434,10 +436,11 @@ describe("AdminCompetenciaPage", () => {
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} onBack={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: section }));
-    if (String(section) === String(/Evaluación/)) {
+    if (action === "Crear rubro") {
+      fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+    } else if (String(section) === String(/Evaluación/)) {
       const itemAction = ["Crear ítem en Coreografia", "Guardar item", "Agregar criterio a Interpretacion", "Guardar criterio Precision"].includes(action);
       if (itemAction) fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
-      if (action === "Crear rubro") fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
       if (action === "Crear ítem en Coreografia") fireEvent.click(await screen.findByRole("button", { name: action }));
       const expand = await screen.findByRole("button", { name: "Ver criterios de Coreografia" });
       if (edit) fireEvent.click(expand);
@@ -1052,7 +1055,7 @@ describe("AdminCompetenciaPage", () => {
 
       expect(screen.getByRole("tab", { name: "Rubros" })).toHaveAttribute("aria-selected", "true");
       expect(screen.getByRole("button", { name: "Editar rubro" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Crear ítem en Coreografia" })).toBeEnabled();
 
       fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
       expect(screen.getByRole("button", { name: "Crear ítem en Coreografia" })).toBeInTheDocument();
@@ -1172,19 +1175,19 @@ describe("AdminCompetenciaPage", () => {
       expect(await screen.findByRole("button", { name: /^Evaluación Completo$/ })).toBeInTheDocument();
     });
 
-    it("muestra 4 pasos en orden de dependencia con progreso no bloqueante", async () => {
+    it("muestra 5 pasos en orden de dependencia con progreso no bloqueante", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(4);
+      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByText("Completo según readiness de la API.")).not.toBeInTheDocument();
-      for (const step of [/^Comparsas /, /^Jurados /, /^Evaluación /, /^Revisión final /]) {
+      for (const step of [/^Rubros /, /^Comparsas /, /^Jurados /, /^Evaluación /, /^Revisión final /]) {
         expect(screen.getByRole("button", { name: step })).toBeInTheDocument();
       }
       // Los estados desconocidos no se convierten en progreso ni porcentaje.
       expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-      expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(4);
+      expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByRole("region", { name: "Configuración de la competencia" })).not.toBeInTheDocument();
-      // Paso 1 por defecto: tipos y comparsas juntos, sin resumen suelto
+      // Paso Comparsas: tipos y comparsas juntos, sin resumen suelto.
       expect(screen.getByRole("heading", { name: "Tipos de participación" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Comparsas" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Resumen de competencia" })).not.toBeInTheDocument();
@@ -1198,10 +1201,12 @@ describe("AdminCompetenciaPage", () => {
       const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "rubric-new", ...JSON.parse(options.body) }));
       mockCompetitionData({ write, rubrics: [] });
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
-      fireEvent.click(await screen.findByRole("button", { name: "Crear primer rubro" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
+      fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
       fireEvent.change(screen.getByRole("textbox", { name: "Nombre del rubro" }), { target: { value: "Nuevo Rubro" } });
       fireEvent.click(screen.getByRole("button", { name: "Crear rubro" }));
+      expect(await screen.findByRole("button", { name: "Ocultar opciones de Nuevo Rubro" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Configurar ítems en Evaluación" }));
       expect(await screen.findByRole("button", { name: "Ocultar criterios de Nuevo Rubro" })).toBeInTheDocument();
       fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
       fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Nuevo Rubro" }));
@@ -1216,19 +1221,19 @@ describe("AdminCompetenciaPage", () => {
       render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} onBack={onBack} />);
       expect(screen.getByText("Competencia")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Carnaval", level: 1 })).toBeInTheDocument();
-      expect(screen.getByText(/Paso 1 de 4/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
+      expect(screen.getByText(/Paso 2 de 5/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
       expect(screen.queryByText(/% completado/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Volver" }));
       expect(onBack).toHaveBeenCalledTimes(1);
       fireEvent.click(screen.getByRole("button", { name: /^Jurados / }));
-      expect(await screen.findByText(/Paso 2 de 4/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
+      expect(await screen.findByText(/Paso 3 de 5/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
     });
 
-    it("el stepper expone 4 pasos accionables con estado y marca el actual", async () => {
+    it("el stepper expone 5 pasos accionables con estado y marca el actual", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
       const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
-      expect(within(nav).getAllByRole("button")).toHaveLength(4);
+      expect(within(nav).getAllByRole("button")).toHaveLength(5);
       expect(screen.getByRole("button", { name: /^Comparsas / })).toHaveAttribute("aria-current", "step");
       expect(screen.getByRole("button", { name: /^Revisión final / })).not.toHaveAttribute("aria-current");
       fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
@@ -1243,7 +1248,7 @@ describe("AdminCompetenciaPage", () => {
       for (const block of ["Bloque 1 de 3: Tipos de participación", "Bloque 2 de 3: Comparsas", "Bloque 3 de 3: Orden de pasada por jornada"]) {
         expect(screen.getByRole("region", { name: block })).toBeInTheDocument();
       }
-      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(4);
+      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByRole("region", { name: "Resumen del paso Participantes" })).not.toBeInTheDocument();
     });
 

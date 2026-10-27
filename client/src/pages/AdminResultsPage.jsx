@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "../components/PageShell.jsx";
 import { apiRequest } from "../api/http.js";
 import { CeremonialDrawModal } from "../features/results/CeremonialDrawModal.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useSession } from "../auth/session-context.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
@@ -141,7 +142,7 @@ export function AdminResultsPage() {
       </header>
 
       <p className="feedback" role="status" aria-live="polite">{message}</p>
-      {loading && <p>Cargando resultados…</p>}
+      {loading && <SkeletonLoader variant="table" rows={4} label="Cargando resultados…" />}
       {!loading && selectedEvent && (
         <>
            <section className="config-section results-intro">

@@ -6,6 +6,7 @@ import { StatusPill } from "../components/StatusPill.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired } from "../auth/session-context.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 function summarizeTroupes(ballot, scores) {
   const groups = scores.reduce((result, score) => {
@@ -195,7 +196,9 @@ export function JudgeHomePage({ session }) {
       <section className="judge-home-content">
         {!profile && <p>Tu cuenta tiene rol JUDGE, pero no está vinculada a un perfil del padrón. Contactá a un administrador.</p>}
         {profile?.registrationStatus === "SUSPENDED" && <div className="suspension-notice" role="alert"><h2>Acceso suspendido</h2><p>Tus sesiones operativas fueron revocadas. Contactá a la administración para revisar tu estado.</p></div>}
-        {profile?.registrationStatus === "REGISTERED" && loading && <p role="status">Cargando tus planillas…</p>}
+        {profile?.registrationStatus === "REGISTERED" && loading && (
+          <SkeletonLoader variant="cards" rows={2} label="Cargando tus planillas…" />
+        )}
         {profile?.registrationStatus === "REGISTERED" && !loading && visibleBallots.length === 0 && <div className="empty-state"><h2>Registro completo</h2><p>Todavía no tenés planillas habilitadas para el evento seleccionado. Una asignación no abre votación por sí sola.</p></div>}
         {profile?.registrationStatus === "REGISTERED" && troupes.length > 0 && (
           <>

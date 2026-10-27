@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { AdminCompetenciaPage } from "../pages/AdminCompetenciaPage.jsx";
+import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
+function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="participantes" {...props} />; }
 import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
@@ -92,7 +93,7 @@ describe("AdminCompetenciaPage: errores de carga con Reintentar (spec 040 T3)", 
   it("Evaluación: un fallo de comparsas se informa sin ocultar el editor de rubros", async () => {
     mockApi("/troupes");
     render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
-    expect(await screen.findByRole("button", { name: "Crear primer rubro" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Ir a Rubros" })).toBeInTheDocument();
     expect(screen.getByText(/No se pudieron cargar datos complementarios: comparsas/)).toBeInTheDocument();
     expect(screen.queryByText("No se pudo cargar la configuración de evaluación.")).not.toBeInTheDocument();
   });

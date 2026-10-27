@@ -8,10 +8,12 @@ import { EntityDrawer } from "../components/EntityDrawer.jsx";
 import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { Button } from "../components/Button.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
+import { TroupeParticipantsSection } from "../features/TroupeParticipantsSection.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
@@ -20,7 +22,7 @@ import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.j
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 import { deriveEvaluationPresentation } from "../features/evaluation-presentation.js";
-import { evaluationItemCode, unequivocalCreateRejection } from "../features/evaluation-create-flow.js";
+import { unequivocalCreateRejection } from "../features/evaluation-create-flow.js";
 import { hashHistoryPosition, markHashHistoryEntry } from "../features/hash-history.js";
 
 const WriteContext = createContext(null);
@@ -100,6 +102,7 @@ function incompleteStepGuidance(stepKey, readiness) {
     if (messages.length === 0) messages.push("Revisá las especialidades y las asignaciones de jurados para completar este paso.");
   }
 
+  if (stepKey === "catalogo") return "Creá o activá los rubros e indicá si evalúan comparsas o participantes. Los ítems se configuran después, en Evaluación.";
   if (stepKey === "rubros") {
     if (missing.has("ACTIVE_RUBRIC")) messages.push("No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.");
     for (const rubric of readiness?.incompleteRubrics ?? []) {
@@ -112,7 +115,7 @@ function incompleteStepGuidance(stepKey, readiness) {
   return messages.join(" ");
 }
 
-export function AdminCompetenciaPage({ event, onBack, initialStep = "participantes", initialTab = "" }) {
+export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", initialTab = "" }) {
   const adminEvent = useAdminEvent();
   const draftGuard = useRef(null);
   const [hasDraftGuard, setHasDraftGuard] = useState(false);
@@ -186,7 +189,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
     };
   }, [hasDraftGuard]);
   const availableSteps = PREPARATION_STEPS;
-  const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "participantes";
+  const validInitialStep = availableSteps.some((item) => item.key === initialStep) ? initialStep : "catalogo";
   const [step, setStep] = useState(validInitialStep);
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const [juryTab, setJuryTab] = useState(() => (initialTab || getTabFromHash()) === "asignaciones" ? "asignaciones" : "especialidades");
@@ -488,6 +491,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 const isComplete = !isCurrent && state === "complete";
                 const stateLabel = READINESS_STATE_LABELS[state];
                 const shortLabels = {
+                  catalogo: "Rubros",
                   participantes: "Comparsas",
                   jurados: "Jurados",
                   rubros: "Evaluación",
@@ -520,6 +524,18 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
             </ol>
           </nav>
           {progressError && <LoadErrorAlert message="No se pudo cargar el resumen de la preparación." onRetry={reloadProgress} />}
+          {step === "catalogo" && (
+            <section aria-labelledby="competencia-step-title">
+              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Catálogo de rubros</h2>
+              <AdminRubricsSection key={`catalog-${event.id}`} event={event} catalogOnly
+                readiness={evaluation ? paired.readiness : null} readinessStatus={evaluationStatus === "available" ? "available" : "unavailable"}
+                evaluation={evaluation} evaluationStatus={evaluationStatus} catalog={editorCatalog}
+                unreflected={unreflected} confirmedEntries={confirmedEditor.eventId === event.id ? confirmedEditor.entries : {}}
+                onRememberAccepted={rememberConfirmedEditor} editorSpecialties={editorSpecialties.eventId === event.id ? editorSpecialties.data : []}
+                onRetryEvaluation={retryEvaluation} registerDraftGuard={registerDraftGuard}
+                onConfigure={(rubricId) => { setFocusRubricId(rubricId); goStep("rubros"); }} />
+            </section>
+          )}
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
@@ -560,7 +576,18 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                   <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
                 </section>
                 <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
-                  <AdminTroupesSection key={`troupes-${event.id}`} event={event} />
+                  <AdminTroupesSection key={`troupes-${event.id}`} event={event}
+                    renderParticipants={(troupe, onBack) => (
+                      <AdminRubricsSection key={`participants-${event.id}-${troupe.id}`} event={event}
+                        participantsTroupe={troupe} onBack={onBack} onConfigure={() => goStep("catalogo")}
+                        readiness={evaluation ? paired.readiness : null}
+                        evaluationStatus={evaluationStatus} catalog={editorCatalog}
+                        unreflected={unreflected}
+                        confirmedEntries={confirmedEditor.eventId === event.id ? confirmedEditor.entries : {}}
+                        onRememberAccepted={rememberConfirmedEditor}
+                        editorSpecialties={editorSpecialties.eventId === event.id ? editorSpecialties.data : []}
+                        onRetryEvaluation={retryEvaluation} />
+                    )} />
                 </section>
               </div>
 
@@ -633,6 +660,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                 onRetryEvaluation={retryEvaluation}
                 registerDraftGuard={registerDraftGuard}
                 onBack={() => goStep("jurados")}
+                onConfigure={() => goStep("catalogo")}
                 tab={rubricTab}
               />
               </div>
@@ -816,7 +844,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "participant
                     </a>
                   </div>
                   </div>
-                </> : <p role="status">{evaluationStatus === "unreflected" ? "Estado por comprobar: el catálogo todavía no refleja cambios confirmados." : progressError || evaluationStatus === "error" ? "Resumen no disponible." : "Cargando el resumen…"}</p>}
+                </> : evaluationStatus === "unreflected" ? (
+                  <p role="status">Estado por comprobar: el catálogo todavía no refleja cambios confirmados.</p>
+                ) : progressError || evaluationStatus === "error" ? (
+                  <p role="status">Resumen no disponible.</p>
+                ) : (
+                  <SkeletonLoader variant="text" rows={3} label="Cargando el resumen…" />
+                )}
               </section>
 
               <ConfirmDialog
@@ -950,7 +984,8 @@ function CompetenciaOverview({ event, catalog, evaluationStatus }) {
     }
   };
 
-  if (!data) return message ? <p role="status">{message}</p> : evaluationStatus === "error" ? null : <p>Cargando resumen...</p>;
+  if (message && !data) return <p role="status">{message}</p>;
+  if (!data) return evaluationStatus === "error" ? null : <SkeletonLoader variant="text" rows={3} label="Cargando resumen…" />;
   if (orphanedUnavailable) return <p role="status">Criterios descriptivos por comprobar. Reintentá la consulta antes de revisarlos.</p>;
   if (data.orphaned.length === 0) return message ? <p role="status">{message}</p> : null;
 
@@ -1022,12 +1057,14 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
         {evaluation?.progress.total > 0 && <p className={`evaluation-summary-readiness${evaluation.progress.readyCount === evaluation.progress.total ? " is-ready" : ""}`}>Especialidades listas: {evaluation.progress.readyCount} de {evaluation.progress.total}</p>}
         {evaluation?.progress.total === 0 && <p className="evaluation-summary-readiness">No hay especialidades activas.</p>}
       </header>
-      {!evaluation && <p role="status">{progressError ? "Estado por comprobar" : "Cargando evaluación…"}</p>}
+      {!evaluation && (progressError
+        ? <p role="status">Estado por comprobar</p>
+        : <SkeletonLoader variant="text" rows={2} label="Cargando evaluación…" />)}
       {progress ? <dl className="evaluation-summary-stats">
         <div className="evaluation-summary-stat"><dt>Especialidades con rubros</dt><dd>{specialties.filter((specialty) => coveredSpecialtyIds.has(specialty.id)).length} de {specialties.length}</dd></div>
         <div className="evaluation-summary-stat"><dt>Rubros activos</dt><dd>{rubrics.length}</dd></div>
         <div className="evaluation-summary-stat"><dt>Ítems activos</dt><dd>{items.length}</dd></div>
-      </dl> : <p role="status">{progressError ? "Resumen de evaluación no disponible." : "Cargando el resumen de evaluación…"}</p>}
+      </dl> : progressError ? <p role="status">Resumen de evaluación no disponible.</p> : <SkeletonLoader variant="text" rows={3} label="Cargando el resumen de evaluación…" />}
       {evaluation && visualPending.length > 0 && <div className="evaluation-summary-guidance">
         <strong>Orientación por especialidad (no bloquea el avance):</strong>
         <ul>{visualPending.map((specialty) => <li key={specialty.id}>{specialty.name}: {specialty.status}. Revisá sus rubros e ítems.</li>)}</ul>
@@ -1055,7 +1092,7 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
   );
 }
 
-function AdminTroupesSection({ event, readOnly = false }) {
+function AdminTroupesSection({ event, readOnly = false, renderParticipants }) {
   const [troupes, setTroupes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [drawerMode, setDrawerMode] = useState(null);
@@ -1066,6 +1103,15 @@ function AdminTroupesSection({ event, readOnly = false }) {
   const [statusFilter, setStatusFilter] = useState("active");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [mutationTarget, setMutationTarget] = useState(null);
+  const [participantsTroupeId, setParticipantsTroupeId] = useState(null);
+  const participantTrigger = useRef(null);
+  const returningToTroupes = useRef(false);
+  useEffect(() => {
+    if (!participantsTroupeId && returningToTroupes.current) {
+      participantTrigger.current?.focus();
+      returningToTroupes.current = false;
+    }
+  }, [participantsTroupeId]);
   const drawerTriggerRef = useRef(null);
   const deleteTriggerRef = useRef(null);
   const { writing, setPending, dataRevision, incRevision, reloadProgress } = useContext(WriteContext);
@@ -1204,9 +1250,11 @@ function AdminTroupesSection({ event, readOnly = false }) {
   });
 
   const editingTroupe = drawerMode?.mode === "edit" ? troupes.find((t) => t.id === drawerMode.troupeId) : null;
+  const participantsTroupe = troupes.find((troupe) => troupe.id === participantsTroupeId);
 
   return (
     <section className="config-section participants-catalog-section">
+      <div hidden={Boolean(participantsTroupe)}>
       <div className="section-heading">
         <h2>Comparsas</h2>
       </div>
@@ -1247,7 +1295,7 @@ function AdminTroupesSection({ event, readOnly = false }) {
                   <th scope="col">Comparsa</th>
                   <th scope="col">Tipo</th>
                   <th scope="col">Estado</th>
-                  {!locked && <th scope="col">Acción</th>}
+                  {(!locked || renderParticipants) && <th scope="col">Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1267,8 +1315,11 @@ function AdminTroupesSection({ event, readOnly = false }) {
                     </td>
                     <td>{troupe.categoryName ?? "Sin tipo"}</td>
                     <td><StatusPill status={troupe.active ? "ACTIVE" : "SUSPENDED"} label={troupe.active ? "Activa" : "Inactiva"} /></td>
-                    {!locked && (
+                    {(!locked || renderParticipants) && (
                       <td>
+                        {renderParticipants && <button className="secondary" type="button" aria-label={`Participantes de ${troupe.name}`}
+                          onClick={(event) => { participantTrigger.current = event.currentTarget; setParticipantsTroupeId(troupe.id); }}>Participantes</button>}{" "}
+                        {!locked && <>
                         <button className="secondary edit-action" type="button" aria-label={`Editar comparsa ${troupe.name}`} onClick={(event) => { drawerTriggerRef.current = event.currentTarget; setDrawerMode({ mode: "edit", troupeId: troupe.id }); }}>
                           Editar
                         </button>{" "}
@@ -1281,6 +1332,7 @@ function AdminTroupesSection({ event, readOnly = false }) {
                             Reactivar
                           </button>
                         )}
+                        </>}
                       </td>
                     )}
                   </tr>
@@ -1333,6 +1385,11 @@ function AdminTroupesSection({ event, readOnly = false }) {
           <button type="button" className="danger-action" onClick={confirmDeleteTroupe}>Eliminar (desactivar)</button>
         </div>
       </Dialog>
+      </div>
+      {participantsTroupe && renderParticipants?.(participantsTroupe, () => {
+        returningToTroupes.current = true;
+        setParticipantsTroupeId(null);
+      })}
     </section>
   );
 }
@@ -1447,7 +1504,7 @@ function TroupeScheduleSection({ event }) {
       </div>
       <p className="feedback" role="status">{message}</p>
       {loadError && <LoadErrorAlert message="No se pudieron cargar las jornadas." onRetry={() => setLoadAttempt((n) => n + 1)} />}
-      {!loadError && nights.length === 0 && <p>Cargando jornadas...</p>}
+      {!loadError && nights.length === 0 && <SkeletonLoader variant="list" rows={2} label="Cargando jornadas..." />}
       {nights.length > 0 && (
         <label>Jornada<select value={nightId} onChange={(e) => setNightId(e.target.value)} aria-label="Jornada para el orden de pasada">
           {nights.map((night) => <option key={night.id} value={night.id}>{night.name}</option>)}
@@ -1965,7 +2022,7 @@ function AdminSpecialtiesSection({ event }) {
   );
 }
 
-function AdminRubricsSection({ event, focusRubricId = null, readiness, readinessStatus, evaluation, evaluationStatus, catalog, unreflected, confirmedEntries, onRememberAccepted, editorSpecialties, onRetryEvaluation, onBack, registerDraftGuard, tab = "rubros" }) {
+function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = null, onConfigure, focusRubricId = null, readiness, readinessStatus, evaluation, evaluationStatus, catalog, unreflected, confirmedEntries, onRememberAccepted, editorSpecialties, onRetryEvaluation, onBack, registerDraftGuard, tab = "rubros" }) {
   const [detailSnapshot, setDetailSnapshot] = useState(null);
   const applyUnreflected = (rubric) => unreflected.filter((receipt) => receipt.rubricId === rubric.id)
     .reduce(showConfirmedChange, rubric);
@@ -1978,29 +2035,13 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
   const troupes = catalog?.troupes ?? [];
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createSpecialty, setCreateSpecialty] = useState(null);
-  const [createRows, setCreateRows] = useState([]);
-  const createRowsRef = useRef([]);
-  const nextCreateRow = useRef(0);
-  const [createReceipt, setCreateReceipt] = useState(null);
-  const createReceiptRef = useRef(null);
   const [createOutcome, setCreateOutcome] = useState("");
   const [createError, setCreateError] = useState("");
   const [reviewRequested, setReviewRequested] = useState(false);
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
-  const updateCreateRows = (updater) => {
-    const next = updater(createRowsRef.current);
-    createRowsRef.current = next;
-    setCreateRows(next);
-  };
   const resetCreateFlow = () => {
-    setCreateSpecialty(null);
     setNewRubricTarget("TROUPE");
-    createRowsRef.current = [];
-    setCreateRows([]);
-    createReceiptRef.current = null;
-    setCreateReceipt(null);
     setCreateOutcome("");
     setCreateError("");
     setReviewRequested(false);
@@ -2019,8 +2060,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
     if (!showCreateForm) { initialDraft.current = null; dirtyDraft.current = false; setIsDraftDirty(false); }
   }, [showCreateForm]);
   const trackDraft = (form) => {
-    dirtyDraft.current = createRowsRef.current.length > 0 || createReceiptRef.current !== null
-      || JSON.stringify([...new FormData(form).entries()]) !== initialDraft.current;
+    dirtyDraft.current = JSON.stringify([...new FormData(form).entries()]) !== initialDraft.current;
     setIsDraftDirty(dirtyDraft.current);
   };
   const requestDiscard = (action, onStay) => {
@@ -2029,7 +2069,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       onStay?.();
       return true;
     }
-    if (!showCreateForm || (!dirtyDraft.current && !createRowsRef.current.some((row) => row.status !== "confirmed"))) return false;
+    if (!showCreateForm || !dirtyDraft.current) return false;
     const trigger = document.activeElement;
     discardTrigger.current = trigger?.isConnected && !trigger.closest(".event-picker-popover")
       ? trigger : createFormRef.current?.querySelector('[name="name"]');
@@ -2105,16 +2145,21 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
         : specialties.find((specialty) => specialty.active !== false)?.id ?? null);
   }, [catalog, editorSpecialties, showCreateForm]);
 
+  const focusedRubric = rubrics.find((rubric) => rubric.id === focusRubricId);
+  const focusedRubricId = focusedRubric?.id;
+  const focusedSpecialtyId = specialties.find((specialty) => specialty.active !== false
+    && focusedRubric?.items?.some((item) => item.active !== false && item.specialtyId === specialty.id))?.id;
+  const appliedFocus = useRef(null);
   useEffect(() => {
-    if (focusRubricId) {
-      setRubricTab("items");
-      setExpanded(focusRubricId);
-      setHighlightItemId(null);
-      scrollToSelector(`[data-rubric-id="${focusRubricId}"]`);
-    }
-  }, [focusRubricId]);
+    if (!focusedRubricId || appliedFocus.current === focusRubricId) return;
+    appliedFocus.current = focusRubricId;
+    if (focusedSpecialtyId) setSelectedSpecialtyId(focusedSpecialtyId);
+    setExpanded(focusRubricId);
+    setHighlightItemId(null);
+    scrollToSelector(`[data-rubric-id="${focusRubricId}"]`);
+  }, [focusRubricId, focusedRubricId, focusedSpecialtyId]);
 
-  const locked = event.status !== "CONFIGURING";
+  const locked = event.status !== "CONFIGURING" || participantsTroupe?.active === false;
   const activeSpecialties = evaluation?.specialties ?? specialties.filter((specialty) => specialty.active !== false);
   const specialtyName = (specialtyId, fallback) => specialties.find((specialty) => specialty.id === specialtyId)?.name ?? fallback ?? `especialidad ${specialtyId}`;
   const rubricSpecialtyScope = (rubric) => {
@@ -2135,14 +2180,8 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
   };
   const activeTroupes = troupes.filter((troupe) => troupe.active !== false).sort((a, b) => a.name.localeCompare(b.name));
   const selectedSpecialty = activeSpecialties.find((specialty) => specialty.id === selectedSpecialtyId) ?? null;
-  const originalSpecialtyActive = !createSpecialty || specialties.some((specialty) => specialty.id === createSpecialty.id && specialty.active !== false);
-  const createSpecialtyNames = [...new Set(createRows.map((row) => row.specialtyId))]
-    .map((specialtyId) => activeSpecialties.find((specialty) => specialty.id === specialtyId)?.name)
-    .filter(Boolean);
   const openCreateForm = () => {
-    if (!selectedSpecialty) return;
     resetCreateFlow();
-    setCreateSpecialty({ id: selectedSpecialty.id, name: selectedSpecialty.name });
     setShowCreateForm(true);
   };
   const rubricHasSpecialty = (rubric, specialtyId) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialtyId);
@@ -2151,7 +2190,10 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
     : [];
   const pendingRubrics = rubrics.filter((rubric) => rubric.active !== false && !activeSpecialties.some((specialty) => rubricHasSpecialty(rubric, specialty.id)));
   const historicalRubrics = rubrics.filter((rubric) => rubric.active === false);
-  const rubricGroups = [
+  const rubricGroups = catalogOnly ? [
+    { key: "catalog", entries: rubrics.filter((rubric) => rubric.active !== false), title: "Rubros del evento" },
+    { key: "historical", entries: historicalRubrics, title: "Historial de rubros inactivos" },
+  ] : [
     { key: "associated", entries: specialtyRubrics, title: null },
     { key: "pending", entries: pendingRubrics, title: "Rubros activos pendientes de asociación" },
     { key: "historical", entries: historicalRubrics, title: "Historial de rubros inactivos" },
@@ -2205,12 +2247,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
   };
 
   const submitCreate = async (form) => {
-    if (creatingRef.current || locked || createRowsRef.current.some((row) => row.status === "uncertain")
-        || createOutcome === "uncertain") return false;
-    if (!createSpecialty || selectedSpecialtyId !== createSpecialty.id || !originalSpecialtyActive) {
-      setCreateError(`La especialidad ${createSpecialty?.name ?? "seleccionada"} ya no está activa. Descartá este formulario y elegí otra especialidad antes de crear.`);
-      return false;
-    }
+    if (!catalogOnly || creatingRef.current || locked || createOutcome === "uncertain") return false;
     const fd = new FormData(form);
     const rubricBody = {
       name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"),
@@ -2218,97 +2255,29 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
       icon: fd.get("icon") || null,
     };
-    const first = createRowsRef.current[0];
-    const code = first ? evaluationItemCode(first.name) : null;
-    if (first && !createReceiptRef.current && (!code || !/^[A-Z0-9_]{1,64}$/.test(code))) {
-      setCreateError("El nombre del primer ítem debe incluir letras o números para crear un código válido. Corregí el nombre antes de guardar.");
-      setCreateOutcome("");
-      return false;
-    }
-    if (createRowsRef.current.some((row) => row.status !== "confirmed" && !row.name.trim())) {
-      setCreateError("Ingresá un nombre para cada ítem pendiente.");
-      return false;
-    }
-    const activeSpecialtyIds = new Set(activeSpecialties.map((specialty) => specialty.id));
-    if (createRowsRef.current.some((row) => row.status !== "confirmed" && !activeSpecialtyIds.has(row.specialtyId))) {
-      setCreateError("Elegí una especialidad activa para cada ítem pendiente.");
-      return false;
-    }
     creatingRef.current = true;
     setCreating(true);
     setCreateError("");
     setReviewRequested(false);
     try {
-      if (!createReceiptRef.current) {
-        const initialItem = first ? { name: first.name, code, specialtyId: first.specialtyId,
-          required: first.required, allowNotPresented: first.allowNotPresented } : null;
-        try {
-          invalidateEvaluation();
-          const saved = await apiRequest(`/api/v1/events/${event.id}/${first ? "rubrics-with-item" : "rubrics"}`, {
-            method: "POST", body: JSON.stringify(first ? { ...rubricBody, initialItem } : rubricBody),
-          });
-          if (!saved?.id || (first && !saved.initialItem?.id)) throw new Error("Respuesta sin comprobante");
-          createReceiptRef.current = { id: saved.id, name: saved.name ?? rubricBody.name };
-          setCreateReceipt(createReceiptRef.current);
-          confirmCreated(saved, rubricBody, "rubric");
-          if (first) {
-            updateCreateRows((rows) => rows.map((row, index) => index === 0
-              ? { ...row, status: "confirmed", receipt: { id: saved.initialItem.id, name: saved.initialItem.name ?? row.name } } : row));
-            confirmCreated(saved.initialItem, initialItem, "items", saved.id);
-          }
-        } catch (error) {
-          const rejected = unequivocalCreateRejection(error);
-          invalidateEvaluation();
-          if (rejected) reloadProgress?.();
-          setCreateOutcome(rejected ? "error" : "uncertain");
-          if (first) updateCreateRows((rows) => rows.map((row, index) => index === 0
-            ? { ...row, status: rejected ? "rejected" : "uncertain" } : row));
-          setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
-            ? "El código ya está en uso. Corregí el nombre y reintentá la creación." : "La API rechazó la creación. Revisá los datos y reintentá."
-            : "Se interrumpió la conexión o no llegó un comprobante; no sabemos si se guardó. No vuelvas a enviar esta operación.");
-          return false;
-        }
-      }
-      for (const row of createRowsRef.current) {
-        if (row.status === "confirmed") continue;
-        // An uncertain operation stops this sequence: no dependent POST follows.
-        if (row.status === "uncertain") break;
-        const body = { name: row.name, specialtyId: row.specialtyId,
-          required: row.required, allowNotPresented: row.allowNotPresented };
-        try {
-          invalidateEvaluation();
-          const saved = await apiRequest(`/api/v1/rubrics/${createReceiptRef.current.id}/items`, {
-            method: "POST", body: JSON.stringify(body),
-          });
-          if (!saved?.id) throw new Error("Respuesta sin comprobante");
-          updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key
-            ? { ...candidate, status: "confirmed", receipt: { id: saved.id, name: saved.name ?? row.name } } : candidate));
-          confirmCreated(saved, body, "items", createReceiptRef.current.id);
-        } catch (error) {
-          const rejected = unequivocalCreateRejection(error);
-          invalidateEvaluation();
-          if (rejected) reloadProgress?.();
-          updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key
-            ? { ...candidate, status: rejected ? "rejected" : "uncertain" } : candidate));
-          setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
-            ? "El código ya está en uso. Corregí el nombre de este ítem antes de reintentar." : "La API rechazó este ítem. Revisá los datos antes de reintentar."
-            : "Se interrumpió la conexión o no llegó un comprobante de este ítem. No lo reenvíes sin revisión manual.");
-          break;
-        }
-      }
-      const remaining = createRowsRef.current.filter((row) => row.status !== "confirmed");
-      if (remaining.length) {
-        setCreateOutcome("partial");
-      } else {
-        const createdId = createReceiptRef.current.id;
-        setCreateOutcome("complete");
-        setMessage(first ? "Rubro e ítems guardados." : "Rubro guardado.");
-        dirtyDraft.current = false;
-        setIsDraftDirty(false);
-        setShowCreateForm(false);
-        resetCreateFlow();
-        setExpanded(createdId);
-      }
+      invalidateEvaluation();
+      const saved = await apiRequest(`/api/v1/events/${event.id}/rubrics`, { method: "POST", body: JSON.stringify(rubricBody) });
+      if (!saved?.id) throw new Error("Respuesta sin comprobante");
+      confirmCreated(saved, rubricBody, "rubric");
+      setMessage("Rubro guardado.");
+      dirtyDraft.current = false;
+      setIsDraftDirty(false);
+      setShowCreateForm(false);
+      resetCreateFlow();
+      setExpanded(saved.id);
+    } catch (error) {
+      const rejected = unequivocalCreateRejection(error);
+      invalidateEvaluation();
+      if (rejected) reloadProgress?.();
+      setCreateOutcome(rejected ? "error" : "uncertain");
+      setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
+        ? "El código ya está en uso. Corregí el nombre y reintentá la creación." : "La API rechazó la creación. Revisá los datos y reintentá."
+        : "Se interrumpió la conexión o no llegó un comprobante; no sabemos si se guardó. No vuelvas a enviar esta operación.");
     } finally {
       creatingRef.current = false;
       setCreating(false);
@@ -2371,8 +2340,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
     }
   };
 
-  const confirmNominationCreate = async () => {
-    const target = nominationCreateTarget;
+  const confirmNominationCreate = async (target = nominationCreateTarget) => {
     setNominationCreateTarget(null);
     if (!target || writing.current || locked) return;
     writing.current = true;
@@ -2391,20 +2359,23 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       setMessage("Participante agregado al rubro.");
       if (incRevision) incRevision();
       reloadProgress?.();
+      return { ok: true };
     } catch (error) {
-      setMessage(error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
+      const message = error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
         ? "Los rubros aleatorios permiten hasta 3 participantes por comparsa."
         : error.code === "NOMINATION_ALREADY_EXISTS"
           ? "Ese participante ya está cargado para esta comparsa y rubro."
-          : "No se pudo agregar el participante.");
+          : error.code === "EVENT_LOCKED" ? "El evento ya no permite modificar participantes."
+            : "No se pudo agregar el participante.";
+      if (!participantsTroupe) setMessage(message);
+      return { ok: false, error: message };
     } finally {
       writing.current = false;
       setPending(false);
     }
   };
 
-  const confirmNominationStatus = async () => {
-    const target = nominationStatusTarget;
+  const confirmNominationStatus = async (target = nominationStatusTarget) => {
     setNominationStatusTarget(null);
     if (!target || writing.current || locked) return;
     writing.current = true;
@@ -2422,10 +2393,13 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       setMessage(target.active ? "Participante reactivado." : "Participante desactivado.");
       if (incRevision) incRevision();
       reloadProgress?.();
+      return { ok: true };
     } catch (error) {
-      setMessage(error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
+      const message = error.code === "RANDOM_RUBRIC_NOMINATION_LIMIT"
         ? "Los rubros aleatorios permiten hasta 3 participantes activos por comparsa."
-        : "No se pudo actualizar el participante.");
+        : "No se pudo actualizar el participante.";
+      if (!participantsTroupe) setMessage(message);
+      return { ok: false, error: message };
     } finally {
       writing.current = false;
       setPending(false);
@@ -2548,6 +2522,17 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
     await setRubricActive(target, false);
   };
 
+  if (participantsTroupe) return (
+    <TroupeParticipantsSection troupe={participantsTroupe} rubrics={rubrics} locked={locked}
+      readiness={readiness} loading={!catalog && evaluationStatus === "loading"}
+      loadError={!catalog && evaluationStatus === "error"} unreflected={evaluationStatus === "unreflected"}
+      message={message} subjectTypeLabel={subjectTypeLabel} rubricScope={rubricSpecialtyScope}
+      onRetry={onRetryEvaluation} onBack={onBack} onConfigure={onConfigure}
+      onAdd={(rubric, displayName) => confirmNominationCreate({ rubricId: rubric.id, troupeName: participantsTroupe.name,
+        body: { eventTroupeId: participantsTroupe.id, displayName } })}
+      onToggle={(nomination, rubric, active) => confirmNominationStatus({ nomination, rubric, active })} />
+  );
+
   return (
     <section className="config-section">
       {evaluationStatus === "unreflected" && (
@@ -2564,18 +2549,20 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       )}
       <div className="evaluation-panel-card">
         <div className="evaluation-panel-header">
-          <h2>Evaluación</h2>
-          <p>Configurá qué van a evaluar los jurados en cada especialidad.</p>
-          {evaluation?.progress.total === 0 && <p>No hay especialidades activas.</p>}
+          <h2>{catalogOnly ? "Rubros" : "Evaluación"}</h2>
+          <p>{catalogOnly ? "Definí los rubros y a quién evalúan. Luego cargá participantes por comparsa y configurá los ítems en Evaluación." : "Usá los rubros ya creados para definir los ítems que puntúan los jurados en cada especialidad."}</p>
+          {catalogOnly && !locked && <button type="button" className="primary" onClick={() => showCreateForm ? closeCreateForm() : openCreateForm()} aria-expanded={showCreateForm} aria-controls="new-rubric-form">{showCreateForm ? "Cancelar" : "Agregar rubro"}</button>}
+          {!catalogOnly && evaluation?.progress.total === 0 && <p>No hay especialidades activas.</p>}
           {evaluationStatus === "loading" && <p role="status">Cargando evaluación…</p>}
           {pendingReceipts.map((receipt) => <p role="status" key={`${receipt.kind}-${receipt.id}`}>{receipt.kind === "rubric" ? "Rubro" : "Ítem"} confirmado: {receipt.data.name} ({receipt.id}).</p>)}
           {catalog?.secondaryPending?.length > 0 && <p role="status">Datos complementarios por comprobar: {catalog.secondaryPending.join(", ")}.</p>}
           {catalog?.secondaryErrors?.length > 0 && <p role="status">No se pudieron cargar datos complementarios: {catalog.secondaryErrors.join(", ")}. Revisá antes de usar esas opciones. <button type="button" onClick={onRetryEvaluation}>Reintentar datos complementarios</button></p>}
         </div>
-        {(catalog || evaluation || activeSpecialties.length > 0 || receiptRows.length > 0) && <>
+        {(catalogOnly || catalog || evaluation || activeSpecialties.length > 0 || receiptRows.length > 0) && <>
+        <p className="feedback" role="status">{message}</p>
         <div className="evaluation-panel-body">
           {/* Especialidades: filtro superior de la lista de rubros */}
-          <aside className="evaluation-specialties-col" aria-label="Especialidades">
+          {!catalogOnly && <aside className="evaluation-specialties-col" aria-label="Especialidades">
             <h3 className="evaluation-specialties-title">Especialidades</h3>
             {activeSpecialties.length > 0 ? (
               <div className="evaluation-specialty-list specialty-selector" role="group" aria-label="Especialidades de la competencia">
@@ -2619,31 +2606,20 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                 <button className="secondary" type="button" onClick={onBack}>Volver a Jurados y especialidades</button>
               </div>
             )}
-          </aside>
+          </aside>}
           {/* Columna Derecha: Rubros de la Especialidad */}
           <div className="evaluation-rubrics-col">
-            {selectedSpecialty && (
+            {!catalogOnly && selectedSpecialty && (
               <div className="evaluation-rubrics-header evaluation-list-heading">
                 <div>
                   <h3>Rubros de {selectedSpecialty.name}</h3>
                   <p>Ítems puntuables y criterios descriptivos de esta especialidad.</p>
                 </div>
-                {!locked && (!evaluation || specialtyRubrics.length > 0) && (
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => showCreateForm ? closeCreateForm() : openCreateForm()}
-                    aria-expanded={showCreateForm}
-                    aria-controls="new-rubric-form"
-                  >
-                    {showCreateForm ? "Cancelar" : "Agregar rubro"}
-                  </button>
-                )}
+                <button type="button" className="secondary" onClick={() => onConfigure()}>Administrar rubros</button>
               </div>
             )}
-            <p className="feedback" role="status">{message}</p>
 
-            {!locked && showCreateForm && (
+            {catalogOnly && !locked && showCreateForm && (
               <SaveForm
                 id="new-rubric-form"
                 ref={createFormRef}
@@ -2653,119 +2629,72 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                 onSubmit={(e) => submitCreate(e.currentTarget)}
               >
                 <div className="rubric-create-head">
-                  <h3>Crear rubro de evaluación</h3>
-                  <p>Cada ítem indica la especialidad que lo puntúa. Los criterios descriptivos se agregan después, por separado.</p>
+                  <h3>Crear rubro</h3>
+                  <p>Los participantes se cargan por comparsa. Los ítems puntuables y sus especialidades se configuran después, en Evaluación.</p>
                 </div>
                 <div className="rubric-create-layout">
                 <div className="rubric-create-main">
-                <label>Nombre del rubro<input name="name" autoFocus required placeholder="Ej. Coreografía" disabled={Boolean(createReceipt)} /></label>
+                <label>Nombre del rubro<input name="name" autoFocus required placeholder="Ej. Coreografía" /></label>
                 <div className="rubric-create-pair">
                   <label>A quién se evalúa
-                    <select name="evaluationTarget" value={newRubricTarget} disabled={Boolean(createReceipt)} onChange={(e) => setNewRubricTarget(e.target.value)}>
+                    <select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}>
                       <option value="TROUPE">Comparsa</option>
                       <option value="NOMINATION">Nominación</option>
                     </select>
                   </label>
                   {newRubricTarget === "NOMINATION" && (
                     <label>Qué tipo de participante
-                      <select name="expectedSubjectType" defaultValue="PERSON" disabled={Boolean(createReceipt)}>
+                      <select name="expectedSubjectType" defaultValue="PERSON">
                         {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </label>
                   )}
                 </div>
-                <section className="rubric-create-items" aria-labelledby="new-rubric-items-title">
-                  <h4 id="new-rubric-items-title">Ítems puntuables</h4>
-                  <p className="rubric-create-hint">Cada ítem recibe una puntuación del jurado.</p>
-                  {createRows.length === 0 && <p className="rubric-create-empty">Podés crear el rubro sin ítems; quedará sin asociación y pendiente de completar.</p>}
-                  {createRows.map((row, index) => <div className="rubric-create-item" key={row.key}>
-                    <div className="rubric-create-item-main">
-                      <label>Nombre del ítem {index + 1}
-                        <input value={row.name} required disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
-                          onChange={(e) => { const name = e.target.value; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, name } : candidate)); dirtyDraft.current = true; setIsDraftDirty(true); }} />
-                      </label>
-                      <label>Especialidad del ítem {index + 1}
-                        <select value={row.specialtyId ?? ""} required disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
-                          onChange={(e) => { const specialtyId = e.target.value; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, specialtyId } : candidate)); dirtyDraft.current = true; setIsDraftDirty(true); }}>
-                          {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
-                        </select>
-                      </label>
-                      {row.status !== "confirmed" && row.status !== "uncertain" && !creating && <button type="button" className="secondary rubric-create-remove" aria-label={`Quitar fila: ítem ${index + 1}`}
-                        onClick={() => { updateCreateRows((rows) => rows.filter((candidate) => candidate.key !== row.key)); dirtyDraft.current = true; setIsDraftDirty(true); }}>Quitar</button>}
-                    </div>
-                    <div className="rubric-create-options">
-                      <label className="check"><input type="checkbox" checked={row.required} disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
-                        onChange={(e) => { const required = e.target.checked; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, required } : candidate)); }} /> Obligatorio</label>
-                      <label className="check"><input type="checkbox" checked={row.allowNotPresented} disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
-                        onChange={(e) => { const allowNotPresented = e.target.checked; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, allowNotPresented } : candidate)); }} /> Permite No presentado</label>
-                    </div>
-                    {row.status === "confirmed" ? <p>Ítem confirmado: {row.receipt.name} ({row.receipt.id}).</p>
-                      : <p>{row.name || `Ítem ${index + 1}`}: {row.status === "uncertain" ? "por comprobar" : row.status === "rejected" ? "rechazada" : "pendiente no enviada"}.</p>}
-                  </div>)}
-                  {!createReceipt && <button type="button" className="secondary rubric-create-add" disabled={creating || createOutcome === "uncertain"} onClick={() => {
-                    const key = ++nextCreateRow.current;
-                    updateCreateRows((rows) => [...rows, { key, name: "", specialtyId: createSpecialty?.id ?? null, required: true, allowNotPresented: true, status: "pending" }]);
-                    dirtyDraft.current = true; setIsDraftDirty(true);
-                    requestAnimationFrame(() => createFormRef.current?.querySelector(`.rubric-create-item:last-of-type input`)?.focus());
-                  }}>Agregar otro ítem</button>}
-                </section>
                 <details className="advanced-options">
                   <summary>Opciones avanzadas</summary>
                   <label>Tipo de evaluación
-                    <select name="rubricType" disabled={Boolean(createReceipt)}>
+                    <select name="rubricType">
                       {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </label>
-                  <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" disabled={Boolean(createReceipt)} /></label>
+                  <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
                   <label>Método de resolución
-                    <select name="resolutionMethod" disabled={Boolean(createReceipt)} title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">
+                    <select name="resolutionMethod" title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">
                       {RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   </label>
-                  <RubricIconPicker name="icon" disabled={Boolean(createReceipt)} />
+                  <RubricIconPicker name="icon" />
                 </details>
-                {createReceipt && <p role="status">Rubro confirmado: {createReceipt.name} ({createReceipt.id}).</p>}
-                {!originalSpecialtyActive && <p role="alert">La especialidad {createSpecialty.name} ya no está activa. No se enviarán ítems a otra especialidad: descartá este formulario y elegí una especialidad activa. Lo confirmado no se deshará.</p>}
-                {createOutcome === "partial" && createRows.some((row) => row.status !== "confirmed") && <p role="status">Guardado parcial: el rubro y los ítems identificados están confirmados; los demás siguen pendientes. No es una transacción única.</p>}
                 {createOutcome === "error" && <p role="status">Error total: ninguna operación se confirmó. Revisá los datos y reintentá la creación.</p>}
                 {createOutcome === "uncertain" && <p role="status">Resultado por comprobar: no sabemos si se guardó. No reintentes este POST sin revisión manual.</p>}
                 {createError && <p role="alert">{createError}</p>}
                 {reviewRequested && <p role="status">Consultá la configuración guardada y solicitá revisión manual antes de intentar otra vez. Un GET, incluso con nombre o ID coincidente, no comprueba este POST.</p>}
                 <div className="form-actions rubric-create-actions">
-                  {createRows.some((row) => row.status === "uncertain") || createOutcome === "uncertain"
+                  {createOutcome === "uncertain"
                     ? <button type="button" className="secondary" onClick={() => { setReviewRequested(true); onRetryEvaluation?.(); }}>Revisar configuración guardada</button>
-                    : createReceipt && createRows.some((row) => row.status !== "confirmed")
-                      ? <button type="submit" disabled={creating || !originalSpecialtyActive}>Reintentar ítems pendientes</button>
-                      : createReceipt ? <button type="button" onClick={() => {
-                        dirtyDraft.current = false; setIsDraftDirty(false); setShowCreateForm(false); resetCreateFlow();
-                        setMessage("Alta finalizada. Solo se guardaron el rubro y los ítems confirmados.");
-                      }}>Finalizar alta</button>
-                      : <button type="submit" disabled={creating || !originalSpecialtyActive}>Crear rubro</button>}
+                    : <button type="submit" disabled={creating}>Crear rubro</button>}
                   <button type="button" className="secondary" onClick={closeCreateForm}>Cancelar</button>
                 </div>
                 </div>
                 <aside className="rubric-create-summary" aria-label="Resumen del alta">
                   <h4>Resumen</h4>
                   <dl>
-                    <div><dt>Especialidades</dt><dd>{createSpecialtyNames.length > 0 ? createSpecialtyNames.join(", ") : "Ninguna todavía"}</dd></div>
                     <div><dt>Se evalúa a</dt><dd>{newRubricTarget === "NOMINATION" ? "Nominación" : "Comparsa"}</dd></div>
-                    <div><dt>Ítems</dt><dd>{createRows.length}</dd></div>
                   </dl>
-                  <p className="rubric-create-note">Primero se guarda el rubro y después cada ítem. Si alguno falla, te mostramos cuál quedó pendiente.</p>
+                  <p className="rubric-create-note">Este rubro estará disponible para cargar participantes. Sus ítems se configuran en Evaluación.</p>
                 </aside>
                 </div>
               </SaveForm>
             )}
 
-            {evaluation && selectedSpecialty && specialtyRubrics.length === 0 && !showCreateForm && (
+            {!catalogOnly && evaluation && selectedSpecialty && specialtyRubrics.length === 0 && (
               <div className="evaluation-empty-state">
                 <h3>Todavía no configuraste qué se evalúa en {selectedSpecialty.name}.</h3>
-                <p>Empezá creando un rubro, por ejemplo Coreografía. Después podrás agregar ítems puntuables como Creatividad y Sincronización.</p>
-                {!locked && (
-                  <button type="button" className="primary" onClick={openCreateForm} aria-controls="new-rubric-form" aria-expanded={showCreateForm}>Crear primer rubro</button>
-                )}
+                <p>Agregá ítems a los rubros pendientes y asignales esta especialidad. Por ejemplo, Presencia dentro del rubro Reina.</p>
               </div>
             )}
+            {catalogOnly && catalog && rubrics.length === 0 && <p>Todavía no hay rubros. Agregá el primero para preparar los participantes.</p>}
+            {!catalogOnly && catalog && rubrics.length === 0 && <button type="button" className="primary" onClick={() => onConfigure()}>Ir a Rubros</button>}
 
             {rubricGroups.filter((group) => group.entries.length > 0).map((group) => (
               <section key={group.key} className="evaluation-rubric-group" aria-label={group.title ?? `Rubros de ${selectedSpecialty?.name ?? "la especialidad"}`}>
@@ -2796,14 +2725,15 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                             <span>{rubric.evaluationTarget === "NOMINATION" ? "Evalúa participantes nominados" : "Evalúa comparsas"}</span>
                             <span className={`rubric-status${rubricStatus === "Listo" ? " is-ready" : ""}`}>{rubricStatus}</span>
                           </p>
-                          <div className="rubric-item-preview">
+                          {!catalogOnly && <div className="rubric-item-preview">
                             <strong>{visibleItems.length} {visibleItems.length === 1 ? "ítem puntuable" : "ítems puntuables"}</strong>
                             {visibleItems.length > 0 ? (
                               <ul aria-label={`Ítems puntuables de ${rubric.name}`}>
                                 {visibleItems.map((item) => <li key={item.id}>{item.name}</li>)}
                               </ul>
                             ) : <p>Sin ítems puntuables activos.</p>}
-                          </div>
+                          </div>}
+                          {rubric.evaluationTarget === "NOMINATION" && <p className="rubric-card-note">{(rubric.nominations ?? []).filter((entry) => entry.active).length} {(rubric.nominations ?? []).filter((entry) => entry.active).length === 1 ? "participante activo" : "participantes activos"}</p>}
                           {rubric.evaluationObjective && <p className="rubric-card-note">{rubric.evaluationObjective}</p>}
                           {derived.length > 1 && (
                             <p className="rubric-card-note" title={`Este rubro se comparte entre ${derived.map((s) => s.name).join(" y ")}`}>
@@ -2817,7 +2747,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                           <button
                             className="secondary rubric-criteria-toggle"
                             type="button"
-                            aria-label={`${isExpanded ? "Ocultar" : "Ver"} criterios de ${rubric.name}`}
+                            aria-label={`${isExpanded ? "Ocultar" : "Ver"} ${catalogOnly ? "opciones" : "criterios"} de ${rubric.name}`}
                             aria-expanded={isExpanded}
                             onClick={() => {
                               setHighlightItemId(null);
@@ -2825,7 +2755,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                               setEditingRubricId(null);
                             }}
                           >
-                            {isExpanded ? "Ocultar criterios " : "Ver criterios "}<span aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
+                            {isExpanded ? "Ocultar " : "Ver "}{catalogOnly ? "opciones " : "criterios "}<span aria-hidden="true">{isExpanded ? "▴" : "▾"}</span>
                           </button>
 
                           {!locked && <div className="rubric-quick-menu">
@@ -2854,7 +2784,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                     Editar rubro
                                   </button>
                                 )}
-                                {!locked && (
+                                {!catalogOnly && !locked && (
                                   <button
                                     type="button"
                                     className="secondary"
@@ -2896,7 +2826,8 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                             )}
                           </div>}
 
-                          {tab === "items" && !locked && rubric.active !== false && (
+                          {catalogOnly && <button type="button" className="secondary" onClick={() => onConfigure(rubric.id)}>Configurar ítems en Evaluación</button>}
+                          {!catalogOnly && !locked && rubric.active !== false && (
                             <button
                               type="button"
                               aria-label={`Crear ítem en ${rubric.name}`}
@@ -3022,7 +2953,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                             )
                           )}
 
-                          {rubric.evaluationTarget === "NOMINATION" && (
+                          {!catalogOnly && rubric.evaluationTarget === "NOMINATION" && (
                             <section className="rubric-nominations" aria-label={`Participantes nominados para ${rubric.name}`}>
                               <h4>Participantes nominados</h4>
                               <ul className="rubric-nomination-list">
@@ -3075,7 +3006,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                             </section>
                           )}
 
-                          <section className="rubric-items-section" aria-label={`Ítems y criterios de ${rubric.name}`}>
+                          {!catalogOnly && <section className="rubric-items-section" aria-label={`Ítems y criterios de ${rubric.name}`}>
                             <div className="rubric-items-header">
                               <h4>Ítems y criterios puntuables</h4>
                               {!locked && tab !== "items" && (
@@ -3210,7 +3141,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                 );
                               })
                             )}
-                          </section>
+                          </section>}
                         </div>
                       )}
                     </article>
@@ -3322,7 +3253,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       >
         <div className="dialog-actions">
           <button type="button" className="secondary" onClick={() => setNominationStatusTarget(null)}>Cancelar</button>
-          <button type="button" className={nominationStatusTarget?.active ? "primary" : "danger-action"} onClick={confirmNominationStatus}>
+          <button type="button" className={nominationStatusTarget?.active ? "primary" : "danger-action"} onClick={() => void confirmNominationStatus()}>
             {nominationStatusTarget?.active ? "Reactivar" : "Desactivar"}
           </button>
         </div>

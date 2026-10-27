@@ -6,6 +6,7 @@ import { PageHeader } from "../components/PageHeader.jsx";
 import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { useNotify } from "../components/Notifications.jsx";
+import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 
 function getApiErrorMessage(error, defaultMsg = "Ocurrió un error inesperado.") {
   if (error?.code === "RESULTS_ALREADY_RELEASED") {
@@ -252,7 +253,7 @@ export function AdminPenaltiesPage() {
         {message}
       </p>
 
-      {loading && <p>Cargando información de penalizaciones…</p>}
+      {loading && <SkeletonLoader variant="list" rows={3} label="Cargando información de penalizaciones…" />}
 
       {!loading && selectedEvent && (
         <>

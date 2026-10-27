@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Acceso | `#/login`, `#/forgot-password`, `#/reset-password`, `#/cuenta` | Correo/clave → OTP → sesión; error no debe mostrar secreto |
 | Invitaciones | `#/invitations/accept`, `#/invitations/role/accept`, `#/invitations/operational/accept` | Token válido y contraseña segura; no registrar rol desde cliente |
-| Preparación admin | `#/admin/home`, `#/admin/events`, `#/admin/competencia`, `#/admin/users`, `#/admin/judges`, `#/admin/assignments` | Participantes → jurados → evaluación → readiness; cambios sensibles con confirmación |
+| Preparación admin | `#/admin/home`, `#/admin/events`, `#/admin/competencia`, `#/admin/users`, `#/admin/judges`, `#/admin/assignments` | Rubros → comparsas y participantes → jurados y especialidades → evaluación → revisión; cambios sensibles con confirmación |
 | Operación admin | `#/admin/voting` | Abrir/cerrar votación con evento/jornada listos; inspección sin voto de prueba |
 | Jurado | `#/judge/assignment`, `#/judge`, `#/judge/ballot` | Elegir asignación activa; puntuar ítems; `submit` solo completo; errores de red permiten reintento manual |
 | Fiscalización | `#/veedor`, `#/admin/penalties` | Monitoreo e incidencias/custodia; penalizaciones según rol |
@@ -17,7 +17,7 @@
 ## Recorridos de uso
 
 1. **Ingresar:** abrir `#/login`, escribir correo y contraseña, completar el OTP recibido. Si se olvidó la clave, usar `#/forgot-password`; un enlace de invitación conduce al formulario específico. Nunca compartir códigos ni enlaces de acceso.
-2. **Preparar la competencia (ADMIN):** crear y revisar evento, jornadas, participantes, rubros/ítems y asignaciones en Competencia. Consultar los faltantes de preparación antes de abrir el evento y luego la votación de la jornada. Las acciones sensibles piden confirmación; un botón deshabilitado o un error de readiness requiere resolver el faltante, no saltar la validación.
+2. **Preparar la competencia (ADMIN):** crear y revisar evento y jornadas. En Competencia, el recorrido implementado comienza por **Rubros**: crear el catálogo sin necesitar ítems ni especialidades. Luego, en **Comparsas**, usar **Participantes** para cargar nombres en los rubros correspondientes; configurar **Jurados y especialidades** y, en **Evaluación**, agregar ítems a esos mismos rubros. Los ítems se comparten entre los participantes del rubro de todas las comparsas. **Revisión final** consulta los faltantes oficiales antes de abrir el evento y luego la votación de la jornada. Las acciones sensibles piden confirmación; un error de readiness requiere resolver el faltante, no saltar la validación. Ver [recorrido y enlaces de los cinco pasos](../client/README.md#navegación-y-preparación-de-la-competencia-admin).
 3. **Votar (JUDGE):** elegir una jornada/especialidad asignada, abrir la planilla y seleccionar la comparsa. Completar cada ítem puntuable con nota 1–10 o «No se presentó» según corresponda. Esperar la confirmación del servidor de cada decisión; si falla la red, reintentar manualmente. La confirmación final de la planilla solo corresponde cuando está completa; las decisiones confirmadas no se editan por el flujo ordinario.
 4. **Supervisar y cerrar:** el veedor sigue el estado desde `#/veedor`; administración controla la ventana de votación. Comisario gestiona penalizaciones en su pantalla, y escrutinio/escribanía consultan resultados internos, liberan el snapshot y certifican acta según sus roles. El público solo accede a resultados ya liberados desde `#/resultados`.
 

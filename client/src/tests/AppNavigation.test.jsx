@@ -67,6 +67,15 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
+  it.each(["", "?step=catalogo"])("marca Rubros como paso inicial y breadcrumb con ruta %s", (query) => {
+    mockMatchMedia(true);
+    window.location.hash = `#/admin/competencia${query}`;
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    expect(screen.getByRole("link", { name: "Rubros" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Rubros", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+  });
+
   it("marca activo el ítem Evaluación dentro de Comparsas y jurados al navegar por step=rubros", () => {
     window.location.hash = "#/admin/competencia?step=rubros";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);

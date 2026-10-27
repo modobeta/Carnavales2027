@@ -134,7 +134,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toBeInTheDocument();
     // El ítem se anuncia una sola vez: sin etiqueta "Ítem a evaluar" duplicada.
     expect(screen.queryByText("Ítem a evaluar")).not.toBeInTheDocument();
-    expect(screen.getByText("A quién se evalúa")).toBeInTheDocument();
+    expect(screen.getByText("Participante")).toBeInTheDocument();
     expect(screen.getByText("Maria")).toBeInTheDocument();
 
     // Botón de excepción con ícono de alerta.
@@ -145,6 +145,15 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Votar 8" })[0]);
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
     expect(within(dialog).getByText("8", { selector: ".confirm-score-value" })).toBeInTheDocument();
+  });
+
+  it("identifica visiblemente a la comparsa cuando el rubro no tiene participante nominado", async () => {
+    apiRequest.mockResolvedValue(ballot);
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+
+    const subject = document.querySelector(".ballot-subject");
+    expect(subject).toHaveTextContent("ComparsaComparsa Uno");
   });
 
   it("conserva el ítem pendiente cuando no hay conexión", async () => {

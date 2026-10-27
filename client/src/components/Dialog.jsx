@@ -1,4 +1,6 @@
 import { useEffect, useRef, useId } from "react";
+import { animate } from "animejs";
+import { useMotionScope } from "../motion/useMotionScope.js";
 
 /**
  * Dialog — Componente modal nativo y plenamente accesible (Spec 020 / RF-178)
@@ -61,6 +63,21 @@ export function Dialog({
       prevOpenRef.current = false;
     }
   }, [isOpen, focusReturnRef]);
+
+  useMotionScope(
+    (root) => {
+      const content = root.querySelector(".app-dialog-content");
+      if (!content) return;
+      animate(content, {
+        opacity: [0, 1],
+        translateY: [10, 0],
+        scale: [0.97, 1],
+        duration: 240,
+        ease: "out(3)",
+      });
+    },
+    { deps: [isOpen], enabled: isOpen, ref: dialogRef },
+  );
 
   // Manejar el evento nativo de cancelación (tecla ESC)
   const handleCancel = (event) => {

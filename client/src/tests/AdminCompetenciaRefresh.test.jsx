@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { AdminCompetenciaPage } from "../pages/AdminCompetenciaPage.jsx";
+import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
+function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="participantes" {...props} />; }
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
@@ -44,12 +45,14 @@ it("conserva el tipo creado y su opción en comparsas frente a lecturas anterior
 
 it("conserva el rubro nuevo aunque el GET iniciado antes del POST termine último", async () => {
   const release = setup("rubrics");
-  fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
   expect(screen.queryByText(/Especialidades listas:/)).not.toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
+  await screen.findByText("Rubro guardado.");
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   await screen.findByRole("button", { name: "Crear ítem en Vestuario" });
   await release();
@@ -106,11 +109,13 @@ it("actualiza la comparsa y el selector de programación aunque termine una cons
 
 it("muestra un rubro y su ítem recién creados sin recargar y conserva el resumen actualizado", async () => {
   const release = setup("rubrics");
-  fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
   fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(form);
+  await screen.findByText("Rubro guardado.");
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const itemDialog = screen.getByRole("dialog", { name: "Crear ítem en Vestuario" });

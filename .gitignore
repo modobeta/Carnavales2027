@@ -2,6 +2,7 @@
 node_modules/
 
 # Local/generated documentation; maintained docs/ is versioned
+/GUIA_ACTUALIZAR_REPOSITORIO.md
 /graphify-out/
 /specs/*
 !/specs/029-piloto-produccion/
