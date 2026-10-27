@@ -1,17 +1,41 @@
 /**
- * contrast-check.mjs — Herramienta de verificación de contraste (STYLES.md §8)
+ * contrast-check.mjs — Verificación de contraste (STYLES.md §3)
  *
- * Calcula ratios WCAG 2.2 para las combinaciones críticas de la paleta
- * definida en STYLES.md y en src/styles/tokens.css.
+ * Lee los tokens resueltos de `src/styles/tokens.css` para el tema claro
+ * (`:root`) y el oscuro (`:root[data-theme="dark"]`), y calcula ratios WCAG
+ * 2.2 sobre las combinaciones críticas de texto, controles y estados.
  *
- * Paleta resuelta (STYLES.md §2.1 / §3):
- *   - Fondo principal:             degradado vertical #036B8B → #5e46be
- *   - Tarjetas y paneles:          #5e46be (lavanda; tinta clara)
- *   - Superficies del tema oscuro: #243A53 (tinta clara)
- *   - Botón principal:             #d22b8f (§3.1)
+ * Los colores oficiales no se modifican: si una combinación falla, se ajusta
+ * la tinta, la superficie o el uso del color en los componentes.
  *
  * Uso: node scripts/contrast-check.mjs
  */
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const tokensPath = resolve(here, "../src/styles/tokens.css");
+const css = readFileSync(tokensPath, "utf8");
+
+/* ==========================================================================
+   Lectura y resolución de tokens
+   ========================================================================== */
+const parseBlock = (pattern) => {
+  const match = css.match(pattern);
+  if (!match) throw new Error(`No se encontró el bloque ${pattern} en tokens.css`);
+  const declarations = new Map();
+  for (const [, name, value] of match[1].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
+    declarations.set(name, value.trim());
+  }
+  return declarations;
+};
+
+const lightTokens = parseBlock(/:root\s*\{([\s\S]*?)\n\}/);
+const darkOverrides = parseBlock(/:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/);
+// El bloque oscuro solo redefine parte de los tokens: hereda el resto del claro.
+const darkTokens = new Map([...lightTokens, ...darkOverrides]);
 
 const hexToRgb = (hex) => {
   const value = hex.replace("#", "").trim();
@@ -23,6 +47,44 @@ const hexToRgb = (hex) => {
   ];
 };
 
+const parseColor = (value) => {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("#")) return { rgb: hexToRgb(trimmed), alpha: 1 };
+  const fn = trimmed.match(/^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
+  if (!fn) return null;
+  return {
+    rgb: [Number(fn[1]), Number(fn[2]), Number(fn[3])],
+    alpha: fn[4] === undefined ? 1 : Number(fn[4]),
+  };
+};
+
+const createResolver = (tokens) => {
+  const cache = new Map();
+
+  const resolveToken = (name) => {
+    if (cache.has(name)) return cache.get(name);
+    const raw = tokens.get(name);
+    if (raw === undefined) return null;
+    cache.set(name, null); // evita ciclos
+    const resolved = resolveValue(raw);
+    cache.set(name, resolved);
+    return resolved;
+  };
+
+  const resolveValue = (value) => {
+    const trimmed = value.trim();
+    const variable = trimmed.match(/^var\(\s*--([\w-]+)\s*(?:,\s*([\s\S]+))?\)$/);
+    if (variable) {
+      const resolved = resolveToken(variable[1]);
+      if (resolved) return resolved;
+      return variable[2] ? resolveValue(variable[2]) : null;
+    }
+    return parseColor(trimmed);
+  };
+
+  return { resolveToken, resolveValue };
+};
+
 const channel = (v) => {
   const c = v / 255;
   return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -30,132 +92,125 @@ const channel = (v) => {
 
 const luminance = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 
-const blend = (fg, alpha, bg) => fg.map((c, i) => Math.round(alpha * c + (1 - alpha) * bg[i]));
+const composite = (fg, bg) => fg.rgb.map((c, i) => Math.round(fg.alpha * c + (1 - fg.alpha) * bg.rgb[i]));
 
-const contrast = (a, b) => {
-  const la = luminance(a);
-  const lb = luminance(b);
+const contrast = (fg, bg) => {
+  const la = luminance(fg.rgb);
+  const lb = luminance(bg.rgb);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 };
 
-const C = {
-  // Extremos del degradado del fondo principal (§2.1)
-  pageTop: hexToRgb("#036B8B"),
-  pageBottom: hexToRgb("#5e46be"),
-  // Tarjeta/panel lavanda = extremo inferior del degradado
-  card: hexToRgb("#5e46be"),
-  panel: hexToRgb("#243A53"),
-  panelStrong: hexToRgb("#2F4D6E"),
-  deep: hexToRgb("#16293C"),
-  white: [255, 255, 255],
+/* ==========================================================================
+   Combinaciones críticas
+   Cada entrada: [descripción, primer token, segundo token, mínimo, base?]
+   `base` permite componer un color translúcido sobre una superficie.
+   ========================================================================== */
+const textChecks = (t) => [
+  // Texto principal y secundario sobre las superficies del tema.
+  ["texto primario sobre fondo", "text-primary", "surface-base", 4.5],
+  ["texto primario sobre tarjeta", "text-primary", "surface-card", 4.5],
+  ["texto primario sobre superficie elevada", "text-primary", "surface-raised", 4.5],
+  ["texto primario sobre campo", "text-primary", "surface-input", 4.5],
+  ["texto secundario sobre fondo", "text-secondary", "surface-base", 4.5],
+  ["texto secundario sobre tarjeta", "text-secondary", "surface-card", 4.5],
+  ["texto secundario sobre superficie elevada", "text-secondary", "surface-raised", 4.5],
+  ["texto atenuado sobre fondo", "text-muted", "surface-base", 4.5],
+  ["texto atenuado sobre tarjeta", "text-muted", "surface-card", 4.5],
+  ["texto atenuado sobre superficie elevada", "text-muted", "surface-raised", 4.5],
+  ["enlace sobre fondo", "accent-text", "surface-base", 4.5],
+  ["enlace sobre tarjeta", "accent-text", "surface-card", 4.5],
+  ["texto sobre modal", "text-on-modal", "surface-modal", 4.5],
+  ["texto suave sobre modal", "text-on-modal-soft", "surface-modal", 4.5],
 
-  // Botones (§3)
-  primaryFill: hexToRgb("#d22b8f"),
-  primaryFillHover: hexToRgb("#A81F70"),
-  secondaryFill: hexToRgb("#DF3CB5"),
-  secondaryInk: hexToRgb("#2E0033"),
-  tertiaryFill: hexToRgb("#243A53"),
-  edit: hexToRgb("#A500B5"),
-  editHover: hexToRgb("#7D008A"),
-  success: hexToRgb("#2BC100"),
-  successHover: hexToRgb("#26A800"),
-  successInk: hexToRgb("#0B2600"),
-  warning: hexToRgb("#FF6F00"),
-  warningHover: hexToRgb("#E05F00"),
-  warningInk: hexToRgb("#2A1200"),
-  danger: hexToRgb("#DC2626"),
-  dangerHover: hexToRgb("#B91C1C"),
+  // Tinta sobre caras oficiales.
+  ["tinta de acción sobre rosa", "text-on-primary", "action-fill", 4.5],
+  ["tinta de acento sobre rosa", "text-on-accent", "accent-primary", 4.5],
+  ["tinta secundaria sobre azul", "text-on-secondary", "secondary-fill", 4.5],
+  ["tinta de confirmación sobre verde", "text-on-confirm", "confirm-fill", 4.5],
+  ["tinta de cancelación sobre coral", "text-on-cancel", "cancel-fill", 4.5],
+  ["tinta de aviso sobre ámbar", "text-on-highlight", "palette-highlight", 4.5],
+  ["tinta de navegación activa sobre rosa", "text-on-primary", "palette-admin-nav-active", 4.5],
+  ["tinta de comparsa sobre su marca", "troupe-brand-ink", "troupe-brand", 4.5],
 
-  // Acento, foco y texto sobre superficies oscuras
-  accent: hexToRgb("#01B2D4"),
-  accentText: hexToRgb("#BCE8F5"),
-  highlight: hexToRgb("#E0B544"),
-  textSecondary: hexToRgb("#EEE4F2"),
-  textMuted: hexToRgb("#E7E0EC"),
-  successText: hexToRgb("#B6F5C4"),
-  warningText: hexToRgb("#FFE08A"),
-  dangerText: hexToRgb("#FFD4D4"),
-  infoText: hexToRgb("#C9E2FF"),
-  successFill: hexToRgb("#B6F5C4"),
-  warningFill: hexToRgb("#FFE08A"),
-  navActive: hexToRgb("#D22B8F"),
-  chrome: blend(hexToRgb("#0F2233"), 0.92, hexToRgb("#5e46be")),
-};
+  // Botones por variante.
+  ["botón violeta", "modal-violet-ink", "modal-violet", 4.5],
+  ["botón violeta hover", "modal-violet-ink", "modal-violet-strong", 4.5],
+  ["botón verde", "modal-success-ink", "modal-success", 4.5],
+  ["botón verde hover", "modal-success-ink", "modal-success-strong", 4.5],
+  ["botón ámbar", "modal-warning-ink", "modal-warning", 4.5],
+  ["botón ámbar hover", "modal-warning-ink", "modal-warning-strong", 4.5],
+  ["botón coral", "modal-danger-ink", "modal-danger", 4.5],
+  ["botón coral hover", "modal-danger-ink", "modal-danger-strong", 4.5],
+  ["botón azul", "modal-info-ink", "modal-info", 4.5],
+  ["botón azul hover", "modal-info-ink", "modal-info-strong", 4.5],
+  ["botón edición", "palette-edit-ink", "palette-edit-fill", 4.5],
+  ["botón edición hover", "palette-edit-ink", "palette-edit-hover", 4.5],
+  ["botón secundario", "palette-secondary-ink", "palette-secondary-fill", 4.5],
+  ["botón secundario hover", "palette-secondary-ink", "palette-secondary-hover", 4.5],
 
-const checks = [
-  // Texto sobre el fondo principal — extremo inferior del degradado (§8: 4.5:1)
-  ["texto primario sobre fondo principal (lavanda)", C.white, C.pageBottom, 4.5],
-  ["texto secundario sobre fondo principal (lavanda)", C.textSecondary, C.pageBottom, 4.5],
-  ["texto atenuado sobre fondo principal (lavanda)", C.textMuted, C.pageBottom, 4.5],
-  ["texto de enlace sobre fondo principal (lavanda)", C.accentText, C.pageBottom, 4.5],
+  // Estados semánticos como texto sobre su tinte.
+  ["texto de éxito sobre su tinte", "success-text", "success-bg", 4.5, "surface-card"],
+  ["texto de aviso sobre su tinte", "warning-text", "warning-bg", 4.5, "surface-card"],
+  ["texto de peligro sobre su tinte", "danger-text", "danger-bg", 4.5, "surface-card"],
+  ["texto de información sobre su tinte", "info-text", "info-bg", 4.5, "surface-card"],
+  ["texto de éxito en modal", "modal-success-text", "surface-modal", 4.5],
+  ["texto de aviso en modal", "modal-warning-text", "surface-modal", 4.5],
+  ["texto de peligro en modal", "modal-danger-text", "surface-modal", 4.5],
+  ["texto de información en modal", "modal-info-text", "surface-modal", 4.5],
+  ["icono de éxito en modal", "modal-success-text", "modal-success-soft", 4.5, "surface-modal"],
+  ["icono de aviso en modal", "modal-warning-text", "modal-warning-soft", 4.5, "surface-modal"],
+  ["icono de peligro en modal", "modal-danger-text", "modal-danger-soft", 4.5, "surface-modal"],
+  ["icono de información en modal", "modal-info-text", "modal-info-soft", 4.5, "surface-modal"],
 
-  // Texto sobre el fondo principal — extremo superior del degradado (#036B8B)
-  ["texto primario sobre fondo principal (teal)", C.white, C.pageTop, 4.5],
-  ["texto secundario sobre fondo principal (teal)", C.textSecondary, C.pageTop, 4.5],
-  ["texto atenuado sobre fondo principal (teal)", C.textMuted, C.pageTop, 4.5],
-  ["texto de enlace sobre fondo principal (teal)", C.accentText, C.pageTop, 4.5],
-
-  // Texto claro sobre la tarjeta lavanda (§2.1: 4.5:1)
-  ["texto primario sobre tarjeta", C.white, C.card, 4.5],
-  ["texto secundario sobre tarjeta", C.textSecondary, C.card, 4.5],
-  ["texto atenuado sobre tarjeta", C.textMuted, C.card, 4.5],
-  ["texto de enlace sobre tarjeta", C.accentText, C.card, 4.5],
-
-  // Texto claro sobre el tema oscuro (#243A53: 4.5:1)
-  ["texto primario sobre tema oscuro", C.white, C.panel, 4.5],
-  ["texto secundario sobre tema oscuro", C.textSecondary, C.panel, 4.5],
-  ["texto atenuado sobre tema oscuro", C.textMuted, C.panel, 4.5],
-  ["texto de enlace sobre tema oscuro", C.accentText, C.panel, 4.5],
-
-  // Botones (§3): tinta sobre relleno
-  ["botón principal: blanco sobre #d22b8f", C.white, C.primaryFill, 4.5],
-  ["botón principal hover: blanco sobre #A81F70", C.white, C.primaryFillHover, 4.5],
-  ["botón secundario: tinta sobre #DF3CB5", C.secondaryInk, C.secondaryFill, 4.5],
-  ["botón terciario: blanco sobre #243A53", C.white, C.tertiaryFill, 4.5],
-  ["botón edición: blanco sobre #A500B5", C.white, C.edit, 4.5],
-  ["botón edición hover: blanco sobre #7D008A", C.white, C.editHover, 4.5],
-  ["botón éxito: tinta sobre #2BC100", C.successInk, C.success, 4.5],
-  ["botón éxito hover: tinta sobre #26A800", C.successInk, C.successHover, 4.5],
-  ["botón advertencia: tinta sobre #FF6F00", C.warningInk, C.warning, 4.5],
-  ["botón advertencia hover: tinta sobre #E05F00", C.warningInk, C.warningHover, 4.5],
-  ["botón destructivo: blanco sobre #DC2626", C.white, C.danger, 4.5],
-  ["botón destructivo hover: blanco sobre #B91C1C", C.white, C.dangerHover, 4.5],
-
-  // Controles, foco y estados gráficos (§8: 3:1)
-  ["borde fuerte sobre fondo principal", blend(C.white, 0.62, C.pageBottom), C.pageBottom, 3],
-  ["borde fuerte sobre tema oscuro", blend(C.white, 0.62, C.panel), C.panel, 3],
-  ["borde de campo sobre tema oscuro", blend(C.white, 0.4, C.panel), C.panel, 3],
-  ["borde fuerte sobre tarjeta", blend(C.white, 0.62, C.card), C.card, 3],
-  ["borde de control sobre superficie de campo", blend(C.white, 0.4, C.panel), C.panel, 3],
-  ["acento sobre tema oscuro", C.accent, C.panel, 3],
-  ["acento sobre fondo principal", C.accentText, C.pageBottom, 3],
-  ["foco dorado sobre fondo principal", C.highlight, C.pageBottom, 3],
-  ["foco dorado sobre tema oscuro", C.highlight, C.panel, 3],
-  ["foco dorado sobre tarjeta", C.highlight, C.card, 3],
-  ["navegación activa sobre chrome", C.navActive, C.chrome, 3],
-
-  // Estados semánticos como texto sobre tarjeta (§8: 4.5:1)
-  ["texto de éxito sobre tarjeta", C.successText, C.card, 4.5],
-  ["texto de advertencia sobre tarjeta", C.warningText, C.card, 4.5],
-  ["texto de peligro sobre tarjeta", C.dangerText, C.card, 4.5],
-  ["texto de información sobre tarjeta", C.infoText, C.card, 4.5],
-  ["tinta inversa sobre disco de éxito", C.deep, C.successFill, 4.5],
-  ["tinta inversa sobre disco de advertencia", C.deep, C.warningFill, 4.5],
-
-  // Iconos de modal sobre su tinte translúcido (STYLES.md §4: 4.5:1)
-  ["icono de éxito sobre tinte de éxito", C.successText, blend(C.success, 0.18, C.panel), 4.5],
-  ["icono de advertencia sobre tinte de advertencia", C.warningText, blend(C.warning, 0.18, C.panel), 4.5],
-  ["icono de peligro sobre tinte de peligro", C.dangerText, blend(C.danger, 0.18, C.panel), 4.5],
-  ["icono de información sobre tinte de información", C.infoText, blend(C.accent, 0.2, C.panel), 4.5],
+  // Discos e indicadores de estado.
+  ["tinta inversa sobre disco de éxito", "text-inverse", "success-fill", 4.5],
+  ["tinta inversa sobre disco de aviso", "text-inverse", "warning-fill", 4.5],
+  ["tinta inversa sobre disco de peligro", "text-inverse", "danger-fill", 4.5],
 ];
 
-let failed = 0;
-for (const [name, fg, bg, min] of checks) {
-  const ratio = contrast(fg, bg);
-  const ok = ratio >= min;
-  if (!ok) failed += 1;
-  console.log(`${ok ? "OK  " : "FALLA"} ${ratio.toFixed(2)}:1 (mín ${min}:1) — ${name}`);
-}
+const controlChecks = () => [
+  // Controles e indicadores esenciales (§3.2: 3:1).
+  ["borde fuerte sobre fondo", "border-strong", "surface-base", 3],
+  ["borde fuerte sobre tarjeta", "border-strong", "surface-card", 3],
+  ["borde fuerte sobre superficie elevada", "border-strong", "surface-raised", 3],
+  ["borde de campo sobre su superficie", "border-input", "surface-input", 3],
+  ["foco sobre fondo", "focus-color", "surface-base", 3],
+  ["foco sobre tarjeta", "focus-color", "surface-card", 3],
+  ["acento rosa sobre fondo", "accent-primary", "surface-base", 3],
+  ["acento azul sobre fondo", "accent", "surface-base", 3],
+  ["texto de error sobre fondo", "danger-text", "surface-base", 4.5],
+  ["texto de éxito sobre fondo", "success-text", "surface-base", 4.5],
+];
 
-console.log(failed === 0 ? "\nTodas las combinaciones verificadas cumplen." : `\n${failed} combinación(es) por debajo del mínimo.`);
-process.exit(failed === 0 ? 0 : 1);
+/* ==========================================================================
+   Ejecución
+   ========================================================================== */
+const runTheme = (themeName, tokens) => {
+  const { resolveToken } = createResolver(tokens);
+  const color = (name) => {
+    const resolved = resolveToken(name);
+    if (!resolved) throw new Error(`Token sin resolver en ${themeName}: --${name}`);
+    return resolved;
+  };
+  const checks = [...textChecks(), ...controlChecks()];
+
+  console.log(`\nTema ${themeName} (${tokens.get("palette-page")})`);
+
+  let failures = 0;
+  for (const [label, fgName, bgName, min, baseName] of checks) {
+    const fg = color(fgName);
+    const base = baseName ? color(baseName) : null;
+    const bg = base ? { rgb: composite(color(bgName), base), alpha: 1 } : color(bgName);
+    const ratio = contrast(fg, bg);
+    const ok = ratio >= min;
+    if (!ok) failures += 1;
+    console.log(`${ok ? "OK  " : "FALLA"} ${ratio.toFixed(2)}:1 (mín ${min}:1) — ${label}`);
+  }
+  return failures;
+};
+
+const failures = runTheme("claro", lightTokens) + runTheme("oscuro", darkTokens);
+console.log(failures === 0
+  ? "\nTodas las combinaciones verificadas cumplen."
+  : `\n${failures} combinación(es) por debajo del mínimo.`);
+process.exit(failures === 0 ? 0 : 1);

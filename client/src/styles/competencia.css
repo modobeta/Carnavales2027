@@ -47,7 +47,7 @@
   padding: 0.3rem;
   border: 1px solid var(--line-color);
   border-radius: var(--radius-md);
-  background: rgba(9, 13, 22, 0.5);
+  background: var(--surface-raised);
 }
 
 .competencia-tabs button {
@@ -854,8 +854,8 @@
 
 .competencia-stepper-btn.is-complete .competencia-stepper-circle {
   background: var(--surface-card);
-  border-color: var(--success);
-  color: var(--success);
+  border-color: var(--success-text);
+  color: var(--success-text);
 }
 
 .competencia-stepper-divider {
@@ -969,7 +969,7 @@
 }
 
 .competencia-readiness-badge.is-ready {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 /* Catálogos del paso Participantes: tipos primero, comparsas después. */

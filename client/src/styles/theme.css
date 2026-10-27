@@ -1,0 +1,199 @@
+/**
+ * theme.css — Control de tema claro/oscuro (STYLES.md §11)
+ *
+ * El tema efectivo se aplica con `data-theme="light" | "dark"` en <html>.
+ * Los colores provienen exclusivamente de tokens.css.
+ */
+
+/* Transición breve al cambiar de tema; `prefers-reduced-motion` la anula. */
+html {
+  background: var(--surface-base);
+}
+
+body {
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
+}
+
+/* ==========================================================================
+   Control de tema
+   ========================================================================== */
+.theme-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.theme-toggle__switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-input);
+  color: var(--text-primary);
+  box-shadow: none;
+  font-size: var(--text-sm);
+  font-weight: 750;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.theme-toggle--icon .theme-toggle__switch {
+  min-inline-size: var(--touch-target-min);
+  padding: var(--space-1);
+}
+
+.theme-toggle__switch:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+  border-color: var(--border-strong);
+}
+
+.theme-toggle__switch:focus-visible {
+  outline: 3px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.theme-toggle__switch[aria-pressed="true"] {
+  border-color: var(--accent-primary);
+}
+
+.theme-toggle__icon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  flex: 0 0 auto;
+}
+
+.theme-toggle__icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.theme-toggle__label {
+  white-space: nowrap;
+}
+
+.theme-toggle__auto {
+  min-block-size: var(--touch-target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--accent-text);
+  box-shadow: none;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.theme-toggle__auto:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+}
+
+/* En el encabezado, el control no debe romper la fila de acciones. */
+.theme-toggle--nav {
+  flex: 0 0 auto;
+}
+
+/* Botón flotante para rutas sin navegación (login, invitaciones, resultados). */
+.theme-toggle--floating {
+  position: fixed;
+  inset-block-start: max(var(--space-3), env(safe-area-inset-top, 0px));
+  inset-inline-end: max(var(--space-3), env(safe-area-inset-right, 0px));
+  z-index: var(--z-sticky);
+  padding: var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-nav-translucent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(0.5rem);
+}
+
+.theme-toggle--floating .theme-toggle__switch {
+  border-color: transparent;
+  background: transparent;
+}
+
+.theme-toggle--floating .theme-toggle__switch:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+  border-color: transparent;
+}
+
+/* ==========================================================================
+   Control dentro del menú lateral
+   ========================================================================== */
+.app-drawer-theme {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-1) var(--space-3);
+  border-block-end: 1px solid var(--border-card);
+}
+
+.app-drawer-theme-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-toggle--drawer {
+  display: grid;
+  justify-items: start;
+}
+
+.theme-toggle--drawer .theme-toggle__switch {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+
+.app-drawer.is-collapsed .app-drawer-theme {
+  display: none;
+}
+
+/* ==========================================================================
+   Ajustes específicos del tema claro
+   Algunos módulos usan overlays pensados para superficies oscuras; en el
+   tema claro se reemplazan por equivalentes neutros.
+   ========================================================================== */
+:root[data-theme="light"] .app-drawer-backdrop {
+  background: var(--surface-scrim);
+}
+
+:root[data-theme="light"] .connection-badge.is-online {
+  border-color: var(--success-border);
+}
+
+:root[data-theme="light"] .data-table th,
+:root[data-theme="light"] .table th {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+:root[data-theme="light"] .app-dialog-backdrop,
+:root[data-theme="light"] .dialog-backdrop {
+  background: var(--surface-overlay);
+}
+
+@media (max-width: 48rem) {
+  .theme-toggle--page {
+    inset-block-start: max(var(--space-2), env(safe-area-inset-top, 0px));
+    inset-inline-end: max(var(--space-2), env(safe-area-inset-right, 0px));
+  }
+}

@@ -13,8 +13,8 @@ describe("Especificación PWA y Metadatos Accesibles (Spec 020 / RF-181)", () =>
     expect(manifest.name).toBe("Carnavales 2027");
     expect(manifest.start_url).toBe("/#/login");
     expect(manifest.display).toBe("standalone");
-    expect(manifest.theme_color).toBe("#036B8B");
-    expect(manifest.background_color).toBe("#036B8B");
+    expect(manifest.theme_color).toBe("#E91683");
+    expect(manifest.background_color).toBe("#FFFFFF");
     expect(Array.isArray(manifest.icons)).toBe(true);
     expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
   });
@@ -27,10 +27,11 @@ describe("Especificación PWA y Metadatos Accesibles (Spec 020 / RF-181)", () =>
     }
   });
 
-  it("index.html incluye meta theme-color #036B8B y enlace al manifest", () => {
+  it("index.html incluye meta theme-color blanco y enlace al manifest", () => {
     const html = readFileSync(htmlPath, "utf8");
-    expect(html).toContain('<meta name="theme-color" content="#036B8B" />');
+    expect(html).toContain('<meta name="theme-color" content="#FFFFFF" />');
     expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
+    expect(html).toContain('localStorage.getItem("carnavales.theme")');
   });
 
   it("index.html incluye skip-link accesible hacia #main-content", () => {
