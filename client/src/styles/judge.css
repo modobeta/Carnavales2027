@@ -576,7 +576,7 @@ button.button-link:disabled {
 }
 
 .save-indicator span:first-child {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .locked-sheet {
@@ -851,7 +851,7 @@ button.button-link:disabled {
   .ballot-sidebar-item:hover { background: var(--surface-raised); border-color: var(--border-subtle); }
   .ballot-sidebar-name { font-weight: 600; }
   .ballot-sidebar-status { font-family: var(--font-mono); font-size: .75rem; font-weight: 700; color: var(--text-muted); }
-  .ballot-sidebar-status.is-progress { color: var(--accent-primary); }
+  .ballot-sidebar-status.is-progress { color: var(--accent-text); }
   .ballot-sidebar-status.is-done { color: var(--success-text); }
 }
 

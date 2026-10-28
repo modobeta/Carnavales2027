@@ -14,5 +14,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/tests/setup.js"],
+    // Las páginas con más árboles de componentes superan los 5 s por defecto
+    // cuando la suite corre en paralelo en equipos lentos.
+    testTimeout: 15000,
+    hookTimeout: 15000,
   },
 });

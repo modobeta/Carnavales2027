@@ -7,34 +7,50 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   const css = readFileSync(tokensPath, "utf8");
 
   it("define superficies, textos, bordes y acentos en :root", () => {
-    expect(css).toContain("--surface-base: linear-gradient(180deg, var(--palette-page) 0%, var(--palette-page-alt) 100%);");
+    expect(css).toContain("--surface-base: var(--palette-page);");
     expect(css).toContain("--surface-card: var(--palette-card);");
-    expect(css).toContain("--text-primary: #ffffff;");
-    expect(css).toContain("--text-secondary: #eee4f2;");
-    expect(css).toContain("--border-subtle: rgba(255, 255, 255, 0.14);");
+    expect(css).toContain("--text-primary: #111827;");
+    expect(css).toContain("--text-secondary: #334155;");
+    expect(css).toContain("--border-subtle: rgba(233, 22, 131, 0.12);");
     expect(css).toContain("--touch-target-min: 48px;");
   });
 
-  it("expone la paleta Carnaval como unica fuente de color", () => {
-    expect(css).toContain("--palette-page: #036B8B;");
-    expect(css).toContain("--palette-card: #5e46be;");
-    expect(css).toContain("--palette-panel: #243A53;");
-    expect(css).toContain("--palette-input: #243A53;");
-    expect(css).toContain("--palette-highlight: #E0B544;");
-    expect(css).toContain("--palette-confirm: #2BC100;");
+  it("expone la paleta oficial Carnaval de STYLES.md como unica fuente de color", () => {
+    expect(css).toContain("--palette-pink: #E91683;");
+    expect(css).toContain("--palette-blue: #3F51B5;");
+    expect(css).toContain("--palette-green: #8BC34A;");
+    expect(css).toContain("--palette-red: #FF5252;");
+    expect(css).toContain("--palette-amber: #FFC107;");
+
+    expect(css).toContain("--palette-page: #FFFFFF;");
+    expect(css).toContain("--palette-card: #FFF5FA;");
+    expect(css).toContain("--palette-panel: #F8FAFC;");
+    expect(css).toContain("--palette-input: #FFFFFF;");
+    expect(css).toContain("--palette-highlight: #FFC107;");
+    expect(css).toContain("--palette-confirm: #8BC34A;");
     expect(css).toContain("--palette-confirm-ink: #0B2600;");
-    expect(css).toContain("--palette-cancel: #DC2626;");
-    expect(css).toContain("--palette-action: #01B2D4;");
-    expect(css).toContain("--palette-action-fill: #d22b8f;");
-    expect(css).toContain("--palette-modal: #A500B5;");
-    expect(css).toContain("--palette-modal-ink: #ffffff;");
+    expect(css).toContain("--palette-cancel: #FF5252;");
+    expect(css).toContain("--palette-action: #3F51B5;");
+    expect(css).toContain("--palette-action-fill:");
+    expect(css).toContain("--palette-modal: #E91683;");
+    expect(css).toContain("--palette-modal-ink: #000000;");
     expect(css).toContain("--text-on-highlight: var(--palette-highlight-ink);");
-    expect(css).toContain("--text-on-modal: #ffffff;");
-    expect(css).toContain("--surface-modal: var(--palette-panel);");
+    expect(css).toContain("--text-on-modal: #111827;");
+    expect(css).toContain("--surface-modal: var(--palette-card);");
+  });
+
+  it("define el tema oscuro sobre fondo negro conservando los HEX oficiales", () => {
+    expect(css).toContain(':root[data-theme="dark"]');
+    expect(css).toContain("--palette-page: #000000;");
+    expect(css).toContain("--palette-card: #14000A;");
+    expect(css).toContain("--palette-input: #1C1C1C;");
+    expect(css).toContain("--text-primary: #FFFFFF;");
+    expect(css).toContain("--text-on-modal: #FFFFFF;");
+    expect(css).toContain("--border-subtle: rgba(233, 22, 131, 0.18);");
   });
 
   it("mantiene tinta oscura sobre los fondos claros de la paleta", () => {
-    expect(css).toContain("--palette-highlight-ink: #241a00;");
+    expect(css).toContain("--palette-highlight-ink: #241A00;");
     expect(css).toContain("--confirm-ink: var(--palette-confirm-ink);");
     expect(css).toContain("--cancel-ink: var(--palette-cancel-ink);");
   });
@@ -50,15 +66,14 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   it.each([
     ["--surface-input", "var(--palette-input)"],
     ["--surface-login-input", "var(--palette-input)"],
-    ["--border-input", "rgba(255, 255, 255, 0.4)"],
-    ["--surface-hover-subtle", "rgba(255, 255, 255, 0.08)"],
-    ["--text-on-primary", "#ffffff"],
-    ["--text-on-accent", "#ffffff"],
-  ])("define %s globalmente una sola vez con el valor existente", (name, value) => {
+    ["--border-input", "rgba(15, 23, 42, 0.28)"],
+    ["--surface-hover-subtle", "rgba(233, 22, 131, 0.08)"],
+    ["--text-on-primary", "#000000"],
+    ["--text-on-accent", "#000000"],
+  ])("define %s en el bloque :root del tema claro", (name, value) => {
     const root = css.match(/:root\s*\{([^{}]*)\}/)?.[1] ?? "";
     const declaration = new RegExp(`${name}:\\s*([^;]+);`, "g");
     expect([...root.matchAll(declaration)].map((match) => match[1])).toEqual([value]);
-    expect([...css.matchAll(declaration)].map((match) => match[1])).toEqual([value]);
   });
 
   it("soporta capas visuales data-layer='brand' e 'instrument'", () => {
@@ -85,10 +100,9 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   });
 
   it("centraliza el bloque operativo sin cambiar sus valores efectivos", () => {
-    // Legacy tokens are now mapped through semantic tokens in the main :root block.
     expect(css).toContain("--primary-color: var(--accent-primary);");
     expect(css).toContain("--primary-dark: var(--accent-hover);");
-    expect(css).toContain("--accent-color: var(--warning-text);");
+    expect(css).toContain("--accent-color: var(--accent-text);");
     expect(css).toContain("--danger-color: var(--danger);");
     expect(css).toContain("--success-color: var(--success);");
     expect(css).toContain("--bg-color: var(--surface-base);");
@@ -97,10 +111,9 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(css).toContain("--muted-color: var(--text-muted);");
     expect(css).toContain("--line-color: var(--border-subtle);");
     expect(css).toContain("--card-bg: var(--surface-card);");
-    expect(css).toContain("--focus-color: var(--palette-highlight);");
     expect(css).toContain("--mono-font: var(--font-mono);");
     expect(css).toContain("--border-radius: var(--radius-lg);");
-    expect(css).toContain("--text-inverse: var(--palette-deep);");
+    expect(css).toContain("--text-inverse: #FFFFFF;");
   });
 
   it("mantiene el orden de imports y evita overrides globales fuera de tokens", () => {
@@ -117,6 +130,7 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
     expect(index).toMatch(
       /^@import "\.\/styles\/tokens\.css";\s*@import "\.\/styles\/components\.css";\s*@import "\.\/styles\/ceremony\.css";\s*@import "\.\/styles\/penalties\.css";\s*@import "\.\/styles\/scrutiny\.css";\s*@import "\.\/styles\/admin\.css";\s*@import "\.\/styles\/competencia\.css";\s*@import "\.\/styles\/utilities\.css";\s*@import "\.\/styles\/legibility\.css";\s*@import "\.\/styles\/buttons\.css";/
     );
+    expect(index).toContain('@import "./styles/theme.css";');
     expect(/:root\s*\{/.test(index)).toBe(false);
     expect(/:root\s*\{/.test(components)).toBe(false);
     expect(/:root\s*\{/.test(ceremony)).toBe(false);

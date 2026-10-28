@@ -1158,7 +1158,7 @@
 }
 
 .config-progress-step.is-done {
-  border-color: var(--success);
+  border-color: var(--success-text);
 }
 
 .config-progress-step.is-current {
@@ -1170,7 +1170,7 @@
 }
 
 .config-progress-step.is-done .config-progress-bullet {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .config-progress-detail {
@@ -1298,7 +1298,7 @@
 }
 
 .admin-next-step-card.is-complete {
-  border-inline-start-color: var(--success);
+  border-inline-start-color: var(--success-text);
 }
 
 .admin-problem-list .readiness-fail {
@@ -1893,7 +1893,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  background: rgba(17, 24, 39, 0.58);
+  background: var(--surface-raised);
   box-shadow: none;
 }
 
@@ -2646,8 +2646,9 @@
 
 /* Identidad visual Admin: navegación activa. */
 .app-drawer .nav-primary-link[aria-current="page"] {
-  color: var(--text-primary);
-  background: var(--palette-admin-nav-active);
+  color: var(--text-on-primary);
+  background: linear-gradient(90deg, var(--palette-pink) 0%, var(--palette-pink-deep) 100%);
+  border-color: var(--palette-pink-deep);
 }
 
 .access-section {
