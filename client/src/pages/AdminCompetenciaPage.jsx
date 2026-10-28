@@ -379,10 +379,22 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
 
   // Accesibilidad: al cambiar de paso, el foco va al título del paso (no en el montaje inicial).
   const stepTitleRef = useRef(null);
+  const stepperRef = useRef(null);
   const firstRenderRef = useRef(true);
   useEffect(() => {
     if (firstRenderRef.current) { firstRenderRef.current = false; return; }
     stepTitleRef.current?.focus();
+  }, [step]);
+
+  // En pantallas angostas las solapas se desplazan: la activa debe quedar a la vista.
+  useEffect(() => {
+    const list = stepperRef.current?.querySelector(".competencia-stepper-line");
+    const activeTab = list?.querySelector('[aria-current="step"]');
+    if (!list || !activeTab) return;
+    const listRect = list.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    if (tabRect.left < listRect.left) list.scrollLeft -= listRect.left - tabRect.left;
+    else if (tabRect.right > listRect.right) list.scrollLeft += tabRect.right - listRect.right;
   }, [step]);
 
   const goStep = (key) => {
@@ -454,7 +466,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
               {onBack && <button className="secondary" type="button" onClick={() => requestLeave(onBack)}>Volver</button>}
             </div>
           </header>
-          <nav className="competencia-nav competencia-stepper competencia-stepper-header" aria-label="Pasos de configuración de competencia">
+          <nav ref={stepperRef} className="competencia-nav competencia-stepper competencia-stepper-header" aria-label="Pasos de configuración de competencia">
             <ol className="competencia-stepper-line">
               {steps.map((item, index) => {
                 const state = stepStatuses[item.key];
