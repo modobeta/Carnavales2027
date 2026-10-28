@@ -37,9 +37,10 @@ export function readinessStepStates(readiness, availability = "unqueried") {
   const states = {
     catalogo: has("ACTIVE_RUBRIC") ? "incomplete" : "complete",
     especialidades: has("ACTIVE_SPECIALTY") ? "incomplete" : "complete",
-    rubros: has("ACTIVE_RUBRIC") || readiness.incompleteRubrics.length > 0 ? "incomplete" : "complete",
-    participantes: has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
-    asignaciones: readiness.nightsWithoutJury.length > 0 ? "incomplete" : "complete",
+    rubros: has("ACTIVE_RUBRIC") || has("ACTIVE_SPECIALTY") || readiness.incompleteRubrics.length > 0 ? "incomplete" : "complete",
+    participantes: has("COMPETITION_NIGHT") || has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0
+      || readiness.incompleteSchedules.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
+    asignaciones: has("COMPETITION_NIGHT") || has("ACTIVE_SPECIALTY") || readiness.nightsWithoutJury.length > 0 ? "incomplete" : "complete",
     revision: readiness.ready ? "complete" : "incomplete",
   };
   return states;

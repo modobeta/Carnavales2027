@@ -500,6 +500,35 @@ it("reorden confirmado no suplanta una edición posterior del ítem en catálogo
   expect(await screen.findByRole("button", { name: "Editar item Color nuevo" })).toBeInTheDocument();
 });
 
+it("edición confirmada de ítem no queda pendiente por arrays de especialidades equivalentes", async () => {
+  let itemName = "Color";
+  const item = () => ({ ...rubric.items[0], name: itemName, specialtyId: "s1", specialtyIds: ["s1", "s2"],
+    specialties: [{ specialtyId: "s1", specialtyName: "Danza" }, { specialtyId: "s2", specialtyName: "Música" }],
+    active: true, displayOrder: 1, required: true, allowNotPresented: true });
+  mockCatalog({ rubrics: () => [{ ...rubric, items: [item()] }] });
+  const get = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "PATCH" && path.endsWith("/i1")) {
+      itemName = "Color editado";
+      return item();
+    }
+    return get(path, options);
+  });
+
+  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Vestuario" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Editar item Color" }));
+  const form = screen.getByRole("button", { name: "Guardar item" }).closest("form");
+  fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Color editado" } });
+  fireEvent.submit(form);
+  fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+
+  expect(await screen.findByRole("button", { name: "Editar item Color editado" })).toBeInTheDocument();
+  expect(screen.queryByText(/Estado por comprobar/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Ítem confirmado:/)).not.toBeInTheDocument();
+});
+
 it("reordenar programación invalida la orientación de Evaluación antes del siguiente readiness", async () => {
   let changed = false;
   mockCatalog({ readiness: () => changed ? ready([{ id: "r1", name: "Vestuario" }]) : ready() });

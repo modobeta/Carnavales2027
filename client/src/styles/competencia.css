@@ -707,19 +707,18 @@
 
 /* ==========================================================================
    Wizard Stepper & Navigation (Preparación del evento)
-   Las seis etapas se presentan como solapas en una única fila. En pantallas
-   angostas la fila se desplaza en horizontal en lugar de apilarse en dos
-   renglones desiguales.
+   Las seis etapas conservan su navegación directa, agrupadas por tarea. En
+   pantallas angostas el conjunto se desplaza horizontalmente.
    ========================================================================== */
 
 .competencia-stepper-header {
   margin-block-end: 1.5rem;
 }
 
-.competencia-stepper .competencia-stepper-line {
+.competencia-stepper .competencia-stepper-groups {
   display: flex;
   align-items: stretch;
-  gap: var(--space-1);
+  gap: var(--space-3);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -727,15 +726,50 @@
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scroll-snap-type: x proximity;
-  /* Línea base de las solapas: la pestaña activa la cubre con su fondo. */
+  width: max-content;
+  min-width: 100%;
+}
+
+.competencia-stepper .competencia-stepper-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 10rem;
+  min-inline-size: 10rem;
+  border-block-end: 1px solid var(--border-default);
+  scroll-snap-align: start;
+}
+
+.competencia-stepper .competencia-stepper-group:first-child {
+  flex: 3 1 27rem;
+  min-inline-size: 27rem;
+}
+
+.competencia-stepper-group-label {
+  margin: 0;
+  padding: 0.25rem 0.5rem 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.competencia-stepper .competencia-stepper-line {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
   box-shadow: inset 0 -1px 0 var(--border-default);
 }
 
 .competencia-stepper .competencia-stepper-item {
   display: flex;
-  flex: 1 0 10rem;
-  min-inline-size: 0;
-  max-inline-size: 14rem;
+  flex: 1 1 0;
+  min-inline-size: 8rem;
   scroll-snap-align: start;
 }
 

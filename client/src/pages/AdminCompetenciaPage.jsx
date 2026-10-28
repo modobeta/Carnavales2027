@@ -27,16 +27,31 @@ import { hashHistoryPosition, markHashHistoryEntry } from "../features/hash-hist
 
 const WriteContext = createContext(null);
 
+const PREPARATION_STEP_GROUPS = [
+  { key: "evaluation", label: "Definir evaluación", steps: ["catalogo", "especialidades", "rubros"] },
+  { key: "competition", label: "Armar competencia", steps: ["participantes"] },
+  { key: "jury", label: "Organizar jurados", steps: ["asignaciones"] },
+  { key: "opening", label: "Habilitar evento", steps: ["revision"] },
+];
+
 function receiptMatches(rubrics, receipt) {
   const rubric = rubrics.find((entry) => entry.id === receipt.rubricId);
   const row = receipt.kind === "rubric" ? rubric
     : rubric?.[receipt.kind]?.find((entry) => entry.id === receipt.id);
-  return Boolean(row && Object.entries(receipt.fields).every(([key, value]) => row[key] === value));
+  return Boolean(row && Object.entries(receipt.fields).every(([key, value]) => receiptValuesMatch(row[key], value)));
+}
+
+function receiptValuesMatch(left, right) {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) && left.length === right.length
+      && left.every((value) => right.includes(value));
+  }
+  return left === right;
 }
 
 function changedReceiptFields(body, saved, previous) {
   return Object.fromEntries(Object.keys(body)
-    .filter((key) => Object.hasOwn(previous ?? {}, key) && previous[key] !== (saved[key] ?? body[key]))
+    .filter((key) => Object.hasOwn(previous ?? {}, key) && !receiptValuesMatch(previous[key], saved[key] ?? body[key]))
     .map((key) => [key, saved[key] ?? body[key]]));
 }
 
@@ -83,7 +98,11 @@ function incompleteStepGuidance(stepKey, readiness) {
   const messages = [];
 
   if (stepKey === "participantes") {
+    if (missing.has("COMPETITION_NIGHT")) messages.push("Creá al menos una jornada de Competencia antes de programar comparsas.");
     if (missing.has("ACTIVE_TROUPE")) messages.push("No hay comparsas activas. Creá una comparsa o activá una existente.");
+    for (const night of readiness?.incompleteSchedules ?? []) {
+      messages.push(`Programá al menos una comparsa en ${night.nightName ?? "esta jornada"}.`);
+    }
     for (const troupe of readiness?.incompleteTroupes ?? []) {
       messages.push(`Elegí una categoría activa para ${troupe.name ?? "esta comparsa"}.`);
     }
@@ -99,6 +118,7 @@ function incompleteStepGuidance(stepKey, readiness) {
   }
 
   if (stepKey === "asignaciones") {
+    if (missing.has("COMPETITION_NIGHT")) messages.push("Primero creá una jornada de Competencia en Eventos y jornadas.");
     if (missing.has("ACTIVE_SPECIALTY")) messages.push("Primero creá al menos una especialidad en el paso Especialidades.");
     for (const night of readiness?.nightsWithoutJury ?? []) {
       messages.push(`Asigná un jurado activo a ${night.nightName ?? "esta jornada"}.`);
@@ -109,6 +129,7 @@ function incompleteStepGuidance(stepKey, readiness) {
 
   if (stepKey === "catalogo") return "Creá o activá los rubros e indicá si evalúan comparsas o participantes. Los ítems se configuran después, en Evaluación.";
   if (stepKey === "rubros") {
+    if (missing.has("ACTIVE_SPECIALTY")) messages.push("Creá o activá una especialidad antes de completar los ítems de evaluación.");
     if (missing.has("ACTIVE_RUBRIC")) messages.push("No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.");
     for (const rubric of readiness?.incompleteRubrics ?? []) {
       messages.push(`${rubric.name ?? "Este rubro"}: agregá ítems puntuables y asigná cada uno a una especialidad activa.`);
@@ -388,7 +409,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
 
   // En pantallas angostas las solapas se desplazan: la activa debe quedar a la vista.
   useEffect(() => {
-    const list = stepperRef.current?.querySelector(".competencia-stepper-line");
+    const list = stepperRef.current?.querySelector(".competencia-stepper-groups");
     const activeTab = list?.querySelector('[aria-current="step"]');
     if (!list || !activeTab) return;
     const listRect = list.getBoundingClientRect();
@@ -467,43 +488,51 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
             </div>
           </header>
           <nav ref={stepperRef} className="competencia-nav competencia-stepper competencia-stepper-header" aria-label="Pasos de configuración de competencia">
-            <ol className="competencia-stepper-line">
-              {steps.map((item, index) => {
-                const state = stepStatuses[item.key];
-                const isCurrent = step === item.key;
-                const isComplete = !isCurrent && state === "complete";
-                const stateLabel = READINESS_STATE_LABELS[state];
-                const shortLabels = {
-                  catalogo: "Rubros",
-                  especialidades: "Especialidades",
-                  rubros: "Evaluación",
-                  participantes: "Comparsas",
-                  asignaciones: "Asignar jurados",
-                  revision: "Revisión final",
-                };
-                return (
-                  <li key={item.key} className="competencia-stepper-item">
-                    <span className="sr-only" id={`competencia-step-${item.key}-context`}>
-                      Paso {index + 1} de {steps.length}. {item.label !== shortLabels[item.key] ? `${item.label}.` : ""} {isCurrent ? "Paso actual." : ""}
-                    </span>
-                    <button
-                      type="button"
-                      className={`competencia-stepper-btn ${isCurrent ? "is-active active" : ""} ${isComplete ? "is-complete" : ""}`}
-                      aria-current={isCurrent ? "step" : undefined}
-                      aria-describedby={`competencia-step-${item.key}-context`}
-                      onClick={() => goStep(item.key)}
-                    >
-                      <span className="competencia-stepper-circle competencia-step-badge" aria-hidden="true">
-                        {isComplete ? "✓" : index + 1}
-                      </span>
-                      <span className="competencia-step-copy">
-                        <span className="competencia-step-label">{shortLabels[item.key] ?? item.label}</span>
-                        <span className="competencia-step-state">{stateLabel}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
+            <ol className="competencia-stepper-groups">
+              {PREPARATION_STEP_GROUPS.map((group) => (
+                <li key={group.key} className="competencia-stepper-group">
+                  <h3 className="competencia-stepper-group-label">{group.label}</h3>
+                  <ol className="competencia-stepper-line">
+                    {steps.filter((item) => group.steps.includes(item.key)).map((item) => {
+                      const index = steps.findIndex((entry) => entry.key === item.key);
+                      const state = stepStatuses[item.key];
+                      const isCurrent = step === item.key;
+                      const isComplete = !isCurrent && state === "complete";
+                      const stateLabel = READINESS_STATE_LABELS[state];
+                      const shortLabels = {
+                        catalogo: "Rubros",
+                        especialidades: "Especialidades",
+                        rubros: "Evaluación",
+                        participantes: "Comparsas",
+                        asignaciones: "Asignar jurados",
+                        revision: "Revisión final",
+                      };
+                      return (
+                        <li key={item.key} className="competencia-stepper-item">
+                          <span className="sr-only" id={`competencia-step-${item.key}-context`}>
+                            Paso {index + 1} de {steps.length}. {item.label !== shortLabels[item.key] ? `${item.label}.` : ""} {isCurrent ? "Paso actual." : ""}
+                          </span>
+                          <button
+                            type="button"
+                            className={`competencia-stepper-btn ${isCurrent ? "is-active active" : ""} ${isComplete ? "is-complete" : ""}`}
+                            aria-current={isCurrent ? "step" : undefined}
+                            aria-describedby={`competencia-step-${item.key}-context`}
+                            onClick={() => goStep(item.key)}
+                          >
+                            <span className="competencia-stepper-circle competencia-step-badge" aria-hidden="true">
+                              {isComplete ? "✓" : index + 1}
+                            </span>
+                            <span className="competencia-step-copy">
+                              <span className="competencia-step-label">{shortLabels[item.key] ?? item.label}</span>
+                              <span className="competencia-step-state">{stateLabel}</span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </li>
+              ))}
             </ol>
           </nav>
           {progressError && <LoadErrorAlert message="No se pudo cargar el resumen de la preparación." onRetry={reloadProgress} />}

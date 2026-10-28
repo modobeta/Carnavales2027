@@ -32,8 +32,11 @@ it("inicia con Rubros y ofrece los seis pasos en el orden aprobado", async () =>
   setup();
   render(<AdminCompetenciaPage event={event} />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
-  expect(within(nav).getAllByRole("button").map((button) => button.textContent.replace(/^\d/, "").replace(/Completo|Incompleto|Pendiente de revisión|No se pudo revisar/g, "").trim()))
+  expect(within(nav).getAllByRole("button").map((button) => button.querySelector(".competencia-step-label").textContent.trim()))
     .toEqual(["Rubros", "Especialidades", "Evaluación", "Comparsas", "Asignar jurados", "Revisión final"]);
+  expect(within(nav).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent))
+    .toEqual(["Definir evaluación", "Armar competencia", "Organizar jurados", "Habilitar evento"]);
+  expect(within(nav).getByRole("button", { name: /^Rubros/ })).toHaveAttribute("aria-current", "step");
   expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
   expect(screen.getByText("Paso 1 de 6")).toBeInTheDocument();
 });
