@@ -3132,6 +3132,13 @@ button.button-link:disabled {
 .ballot-progress.ballot-progress-stack { grid-template-columns: minmax(0, 1fr); }
 .ballot-progress-stack > .app-progress-container:first-child { align-items: stretch; gap: var(--space-2); }
 
+/* Jurado: el header del área de votación ocupa todo el ancho de la pantalla,
+   sin el contenedor centrado que usan las pantallas administrativas. */
+.app-navigation.is-judge-route {
+  max-inline-size: none;
+  margin-inline: 0;
+}
+
 /* Jurado desktop refinement — planilla prioritaria */
 @media (min-width: 80rem) {
   .app-navigation.judge-navigation {
@@ -3257,8 +3264,6 @@ button.button-link:disabled {
   }
 
   .judge-ballot-page:not(.is-readonly) .card-rubric-name {
-    color: var(--text-muted);
-    font-size: 0.9rem;
     letter-spacing: 0;
     text-transform: none;
   }

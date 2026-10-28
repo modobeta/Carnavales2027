@@ -789,9 +789,9 @@
 }
 
 .rubric-icon-circle.is-lg {
-  inline-size: 3.1rem;
-  block-size: 3.1rem;
-  padding: 0.45rem;
+  inline-size: 3.75rem;
+  block-size: 3.75rem;
+  padding: 0.4rem;
 }
 
 /* Sobre un encabezado ya pintado con el color de la comparsa el círculo se
@@ -949,9 +949,9 @@
 
 .card-rubric-name {
   margin: var(--space-1) 0 0 0;
-  color: var(--accent-lighter);
+  color: var(--text-primary);
   font-weight: 700;
-  font-size: var(--text-sm);
+  font-size: var(--text-xl);
   line-height: 1.35;
   text-transform: uppercase;
   letter-spacing: 0.05em;
