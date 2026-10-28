@@ -469,6 +469,9 @@ describe("AdminCompetenciaPage", () => {
       fireEvent.change(select, { target: { value } });
     }
     for (const checkbox of fields.queryAllByRole("checkbox")) fireEvent.click(checkbox);
+    if (action === "Guardar item" && fields.queryAllByRole("checkbox", { name: /Danza|Vestido/ }).every((checkbox) => !checkbox.checked)) {
+      fireEvent.click(fields.getByRole("checkbox", { name: /Danza/ }));
+    }
     for (const order of fields.queryAllByRole("spinbutton")) fireEvent.change(order, { target: { value: "3" } });
     const expectedBody = Object.fromEntries(new FormData(form));
     // Both events in one batch exercise the synchronous guard, not only disabled buttons.
@@ -553,7 +556,8 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Coreografia" }));
     const itemDialog = screen.getByRole("dialog", { name: "Crear ítem en Coreografia" });
     expect(within(itemDialog).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" })).toBeInTheDocument();
-    expect(within(itemDialog).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" })).toBeInTheDocument();
+    expect(within(itemDialog).queryByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" })).not.toBeInTheDocument();
+    expect(within(itemDialog).getByRole("group", { name: "Especialidades" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Orden del nuevo criterio para Interpretacion" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar criterio a Interpretacion" })).toBeInTheDocument();
@@ -1069,7 +1073,7 @@ describe("AdminCompetenciaPage", () => {
       const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Coreografia" });
       const form = dialog.querySelector("form");
       fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
-      fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" }), { target: { value: "specialty-1" } });
+      fireEvent.click(within(form).getByRole("checkbox", { name: /Danza/ }));
       fireEvent.click(within(form).getByRole("checkbox", { name: /Canto/ }));
       fireEvent.submit(form);
 
@@ -1174,7 +1178,7 @@ describe("AdminCompetenciaPage", () => {
       const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Coreografia" });
       const form = dialog.querySelector("form");
       fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
-      fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" }), { target: { value: "specialty-1" } });
+      fireEvent.click(within(form).getByRole("checkbox", { name: /Danza/ }));
       fireEvent.submit(form);
       fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       await screen.findByText("Item guardado.");
@@ -1636,7 +1640,8 @@ describe("T06: alcance y seguridad de la gestión de evaluación", () => {
     details();
     fireEvent.click(screen.getByRole("button", { name: "Editar item Interpretacion" }));
     const form = screen.getByRole("button", { name: "Guardar item" }).closest("form");
-    fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad" }), { target: { value: "specialty-2" } });
+    fireEvent.click(within(form).getByRole("checkbox", { name: /Danza/ }));
+    fireEvent.click(within(form).getByRole("checkbox", { name: /Vestido/ }));
     fireEvent.submit(form);
     const dialog = screen.getByRole("dialog", { name: "Guardar cambios del ítem" });
     expect(dialog).toHaveTextContent(/Interpretacion.*Danza.*Vestido/);
@@ -1649,7 +1654,7 @@ describe("T06: alcance y seguridad de la gestión de evaluación", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Confirmar y guardar" }));
     await waitFor(() => expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/evaluation-items/item-1", expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"specialtyId":"specialty-2"') })));
     expect(await screen.findByText("No se pudo guardar.")).toBeInTheDocument();
-    expect(within(form).getByRole("combobox", { name: "Especialidad" })).toHaveValue("specialty-2");
+    expect(within(form).getByRole("checkbox", { name: /Vestido/ })).toBeChecked();
     expect(screen.getByRole("button", { name: "Guardar item" })).toBeInTheDocument();
     expect(screen.queryByText("Item guardado.")).not.toBeInTheDocument();
   });

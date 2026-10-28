@@ -2991,13 +2991,17 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                         const fd = new FormData(e.currentTarget);
                                         const body = {
                                           name: fd.get("name"),
-                                          specialtyId: fd.get("specialtyId"),
-                                          specialtyIds: [...new Set([fd.get("specialtyId"), ...fd.getAll("additionalSpecialtyIds")].filter(Boolean))],
+                                          specialtyId: fd.getAll("specialtyIds")[0] ?? "",
+                                          specialtyIds: [...new Set(fd.getAll("specialtyIds"))],
                                           displayOrder: Number(fd.get("displayOrder")),
                                           required: fd.get("required") === "on",
                                           allowNotPresented: fd.get("allowNotPresented") === "on",
                                           active: fd.get("active") === "on",
                                         };
+                                        if (body.specialtyIds.length === 0) {
+                                          setMessage("Seleccioná al menos una especialidad.");
+                                          return false;
+                                        }
                                         const destinations = activeSpecialties.filter((specialty) => body.specialtyIds.includes(specialty.id)).map((specialty) => specialty.name).join(", ");
                                         const currentSpecialties = item.specialties?.map((specialty) => specialty.specialtyName).filter(Boolean)
                                           ?? [specialtyName(item.specialtyId, item.specialtyName)];
@@ -3005,12 +3009,11 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                         return false;
                                       }}>
                                         <label>Nombre<input name="name" defaultValue={item.name} required /></label>
-                                        <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
                                         <fieldset className="advanced-options">
-                                          <legend>También evaluar en</legend>
+                                          <legend>Especialidades</legend>
                                           <p className="field-hint">Cada especialidad registra sus propias puntuaciones.</p>
-                                          {activeSpecialties.filter((s) => s.id !== item.specialtyId).map((s) => <label className="check" key={s.id}>
-                                            <input name="additionalSpecialtyIds" type="checkbox" value={s.id} defaultChecked={itemSpecialtyIds(item).includes(s.id)} /> {s.name}
+                                          {activeSpecialties.map((s) => <label className="check" key={s.id}>
+                                            <input name="specialtyIds" type="checkbox" value={s.id} defaultChecked={itemSpecialtyIds(item).includes(s.id)} /> {s.name}
                                           </label>)}
                                         </fieldset>
                                         <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
@@ -3139,11 +3142,15 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
           const target = itemCreateTarget;
           const body = {
             name: formData.get("name"),
-            specialtyId: formData.get("specialtyId"),
-            specialtyIds: [...new Set([formData.get("specialtyId"), ...formData.getAll("additionalSpecialtyIds")].filter(Boolean))],
+            specialtyId: formData.getAll("specialtyIds")[0] ?? "",
+            specialtyIds: [...new Set(formData.getAll("specialtyIds"))],
             required: formData.get("required") === "on",
             allowNotPresented: formData.get("allowNotPresented") === "on",
           };
+          if (body.specialtyIds.length === 0) {
+            setMessage("Seleccioná al menos una especialidad.");
+            return false;
+          }
           const specialtyNames = activeSpecialties.filter((specialty) => body.specialtyIds.includes(specialty.id)).map((specialty) => specialty.name).join(", ");
           setMutationConfirmTarget({
             title: "Confirmar creación del ítem",
@@ -3159,15 +3166,11 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
           return false;
         }}>
           <label>Nombre<input name="name" aria-label={`Nuevo item puntuable para ${itemCreateTarget.name}`} placeholder="Nuevo item puntuable" required /></label>
-          <label>Especialidad<select name="specialtyId" aria-label={`Especialidad del nuevo item para ${itemCreateTarget.name}`} required defaultValue="">
-            <option value="">Elegí una especialidad</option>
-            {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
-          </select></label>
           <fieldset className="advanced-options">
-            <legend>También evaluar en</legend>
+            <legend>Especialidades</legend>
             <p className="field-hint">Cada especialidad registrará sus propias puntuaciones.</p>
             {activeSpecialties.map((specialty) => <label className="check" key={specialty.id}>
-              <input name="additionalSpecialtyIds" type="checkbox" value={specialty.id} /> {specialty.name}
+              <input name="specialtyIds" type="checkbox" value={specialty.id} /> {specialty.name}
             </label>)}
           </fieldset>
           <details className="advanced-options">
