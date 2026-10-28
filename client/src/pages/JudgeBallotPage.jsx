@@ -600,7 +600,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         </div>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
-        <div role="group" aria-label={`Puntuación para ${scoreItem.itemName}`} className="score-grid-v3">
+        <div
+          role="group"
+          aria-label={`Puntuación para ${scoreItem.itemName}`}
+          className="score-grid-v3"
+          key={scoreItem.nightScheduleId || scoreItem.troupeId}
+          style={scoreItem.brandColor ? { "--troupe-brand": scoreItem.brandColor } : undefined}
+        >
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
             <button
               key={val}
@@ -665,50 +671,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       <div className={`ballot-layout${readonly ? " is-readonly" : ""}`}>
         {!readonly && (
         <aside className="ballot-context-rail" aria-label="Contexto de la planilla">
-          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
-            <ul>
-              {groups.map((group) => {
-                const isGroupLocked = Boolean(!readonly && activeGroup && group.presentationOrder > activeGroup.presentationOrder);
-                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
-                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
-                // Resaltada = comparsa que se está votando actualmente (primer grupo
-                // con pendientes), no la última ya votada que se esté consultando.
-                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
-                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
-                return (
-                  <li key={group.nightScheduleId}>
-                    <button
-                      type="button"
-                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
-                      disabled={isGroupLocked}
-                      aria-disabled={isGroupLocked ? "true" : undefined}
-                      aria-current={isCurrentGroup ? "true" : undefined}
-                      title={isGroupLocked ? "En espera de pasada" : undefined}
-                      onClick={() => {
-                        if (isGroupLocked) return;
-                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
-                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
-                        if (firstPending) goToScore(firstPending.id);
-                      }}
-                    >
-                      {group.brandColor && (
-                        <span
-                          className="troupe-color-dot"
-                          style={{ backgroundColor: group.brandColor }}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
-                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
-                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
           {activeScore && (() => {
             const currentGroup = groups.find((group) => group.nightScheduleId === activeScore.nightScheduleId);
             if (!currentGroup) return null;
@@ -772,6 +734,48 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </section>
             );
           })()}
+
+          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
+            <ul>
+              {groups.map((group) => {
+                const isGroupLocked = Boolean(!readonly && activeGroup && group.presentationOrder > activeGroup.presentationOrder);
+                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
+                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
+                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
+                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
+                return (
+                  <li key={group.nightScheduleId}>
+                    <button
+                      type="button"
+                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
+                      disabled={isGroupLocked}
+                      aria-disabled={isGroupLocked ? "true" : undefined}
+                      aria-current={isCurrentGroup ? "true" : undefined}
+                      title={isGroupLocked ? "En espera de pasada" : undefined}
+                      onClick={() => {
+                        if (isGroupLocked) return;
+                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
+                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
+                        if (firstPending) goToScore(firstPending.id);
+                      }}
+                    >
+                      {group.brandColor && (
+                        <span
+                          className="troupe-color-dot"
+                          style={{ backgroundColor: group.brandColor }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
+                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
+                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
         </aside>
         )}
 
@@ -780,7 +784,18 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <div>
               <a className="back-link" href="#/judge">← Mis comparsas</a>
               <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>
-              <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+              <div className="ballot-header-troupe-row">
+                {(readonly && targetGroup) || activeScore ? (
+                  <TroupeLogo
+                    troupeId={(readonly && targetGroup ? targetGroup : activeScore)?.troupeId}
+                    hasLogo={(readonly && targetGroup ? targetGroup : activeScore)?.hasLogo}
+                    sha256={(readonly && targetGroup ? targetGroup : activeScore)?.logoSha256}
+                    alt={`Logo de ${(readonly && targetGroup ? targetGroup : activeScore)?.troupeName}`}
+                    className="ballot-troupe-logo ballot-troupe-logo-header"
+                  />
+                ) : null}
+                <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+              </div>
               {readonly && targetGroup
                 ? <p>Salida {targetGroup.presentationOrder} · Planilla con {groups.length} comparsas</p>
                 : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
@@ -1031,27 +1046,20 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               );
               return (
                 <section ref={cardSectionRef} className="ballot-card-mode ballot-single" aria-label={`Evaluación: ${activeScore.troupeName} - ${activeScore.itemName}`}>
-                  <div
-                    className={`ballot-card-header${activeScore.brandColor ? " is-branded troupe-brand-panel" : ""}`}
-                    style={activeScore.brandColor ? {
-                      "--troupe-brand": activeScore.brandColor,
-                      "--troupe-brand-ink": readableInk(activeScore.brandColor),
-                    } : undefined}
-                  >
+                  <div className="ballot-card-header">
                     <div className="ballot-troupe-heading">
-                      <TroupeLogo
-                        troupeId={activeScore.troupeId}
-                        hasLogo={activeScore.hasLogo}
-                        sha256={activeScore.logoSha256}
-                        alt={`Logo de ${activeScore.troupeName}`}
-                        className="ballot-troupe-logo"
-                      />
-                      <RubricIcon
-                        icon={activeScore.rubricIcon}
-                        color={activeScore.brandColor}
-                        size="lg"
-                        onBrand={Boolean(activeScore.brandColor)}
-                      />
+                      <span
+                        className="rubric-icon-wrap"
+                        key={activeScore.troupeId || activeScore.nightScheduleId}
+                        style={activeScore.brandColor ? { "--troupe-brand": activeScore.brandColor } : undefined}
+                      >
+                        <RubricIcon
+                          icon={activeScore.rubricIcon}
+                          color={activeScore.brandColor}
+                          size="lg"
+                          onBrand={Boolean(activeScore.brandColor)}
+                        />
+                      </span>
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
                       </div>
