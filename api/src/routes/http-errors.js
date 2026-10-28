@@ -105,6 +105,10 @@ export function sendKnownError(response, error) {
     response.status(409).json({ code: error.message });
     return true;
   }
+  if (error.message === "SPECIALTY_NOT_FOUND") {
+    response.status(404).json({ code: error.message });
+    return true;
+  }
   if ([
     "EVENT_HAS_BALLOTS",
     "EVENT_HAS_ASSIGNMENTS",

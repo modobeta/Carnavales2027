@@ -238,8 +238,9 @@ export async function createBallotsForNight(client, { eventId, nightId, actorUse
       `SELECT ei.id AS "itemId", ei.rubric_id AS "rubricId",
               r.evaluation_target AS "evaluationTarget"
          FROM evaluation_item ei
+         JOIN evaluation_item_specialty eis ON eis.evaluation_item_id=ei.id AND eis.event_id=ei.event_id
          JOIN rubric r ON r.id = ei.rubric_id
-        WHERE ei.event_id = $1 AND ei.specialty_id = $2 AND ei.active = true`,
+        WHERE ei.event_id = $1 AND eis.specialty_id = $2 AND ei.active = true`,
       [eventId, assignment.specialtyId],
     );
 

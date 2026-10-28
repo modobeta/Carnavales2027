@@ -66,7 +66,9 @@ export async function getReadiness({ client = getPool(), eventId }) {
       WHERE r.event_id = $1 AND r.active AND (
         NOT EXISTS (SELECT 1 FROM evaluation_item i WHERE i.rubric_id = r.id AND i.active)
         OR EXISTS (
-          SELECT 1 FROM evaluation_item i JOIN event_specialty s ON s.id = i.specialty_id
+          SELECT 1 FROM evaluation_item i
+          JOIN evaluation_item_specialty eis ON eis.evaluation_item_id=i.id AND eis.event_id=i.event_id
+          JOIN event_specialty s ON s.id=eis.specialty_id AND s.event_id=eis.event_id
           WHERE i.rubric_id = r.id AND i.active AND NOT s.active
         )
       )`, [eventId]);

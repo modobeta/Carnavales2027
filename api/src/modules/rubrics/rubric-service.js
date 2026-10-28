@@ -162,7 +162,8 @@ export async function getRubric({ client = getPool(), rubricId }) {
   const { rows: specialties } = await client.query(
     `SELECT DISTINCT s.id, s.code, s.name
        FROM evaluation_item i
-       JOIN event_specialty s ON s.id=i.specialty_id
+       JOIN evaluation_item_specialty eis ON eis.evaluation_item_id=i.id
+       JOIN event_specialty s ON s.id=eis.specialty_id AND s.event_id=eis.event_id
       WHERE i.rubric_id=$1 AND i.active AND s.active
       ORDER BY s.code`,
     [rubricId],
@@ -212,25 +213,64 @@ export async function updateRubric({ client = null, rubricId, ...input }) {
   return updatedRows[0];
 }
 
-export async function createItem({ client = null, rubricId, name, code, specialtyId, displayOrder, required = true, allowNotPresented = true }) {
-  if (!client) return inTransaction((client) => createItem({ client, rubricId, name, code, specialtyId, displayOrder, required, allowNotPresented }));
+function itemSpecialtyIds({ specialtyIds, specialtyId }) {
+  const values = specialtyIds === undefined ? [specialtyId] : specialtyIds;
+  if (!Array.isArray(values) || values.length === 0) throw new TypeError("specialtyIds debe contener al menos una especialidad.");
+  const ids = [...new Set(values.map((id) => text(id, "specialtyIds")))];
+  if (ids.length !== values.length) throw new TypeError("specialtyIds no puede contener duplicados.");
+  return ids;
+}
+
+async function assertActiveItemSpecialties(client, eventId, specialtyIds) {
+  const { rows } = await client.query(
+    `SELECT id,active FROM event_specialty WHERE event_id=$1 AND id=ANY($2::uuid[])`,
+    [eventId, specialtyIds],
+  );
+  if (rows.some((row) => !row.active)) throw new Error("SPECIALTY_INACTIVE");
+  if (rows.length !== specialtyIds.length) throw new Error("SPECIALTY_NOT_FOUND");
+}
+
+async function itemSpecialtyDetails(client, itemId) {
+  const { rows } = await client.query(
+    `SELECT s.id AS "specialtyId",s.name AS "specialtyName",s.code AS "specialtyCode"
+       FROM evaluation_item_specialty eis
+       JOIN event_specialty s ON s.id=eis.specialty_id AND s.event_id=eis.event_id
+      WHERE eis.evaluation_item_id=$1 ORDER BY s.code`, [itemId],
+  );
+  return rows;
+}
+
+export async function createItem({ client = null, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required = true, allowNotPresented = true }) {
+  if (!client) return inTransaction((client) => createItem({ client, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required, allowNotPresented }));
   const rubric = await lockConfigurationParent(client, "rubric", rubricId);
+  const selectedSpecialtyIds = itemSpecialtyIds({ specialtyIds, specialtyId });
+  await assertActiveItemSpecialties(client, rubric.event_id, selectedSpecialtyIds);
   if (typeof required !== "boolean") throw new TypeError("required debe ser booleano.");
   if (typeof allowNotPresented !== "boolean") throw new TypeError("allowNotPresented debe ser booleano.");
   const { rows } = await client.query(
     `INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code,display_order,required,allow_not_presented) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
      RETURNING id,rubric_id AS "rubricId",specialty_id AS "specialtyId",name,code,active,
                display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented"`,
-    [rubric.event_id, rubricId, text(specialtyId, "specialtyId"), text(name, "name"), text(code, "code"), itemOrder(displayOrder), required, allowNotPresented],
+    [rubric.event_id, rubricId, selectedSpecialtyIds[0], text(name, "name"), text(code, "code"), itemOrder(displayOrder), required, allowNotPresented],
   );
-  return rows[0];
+  const item = rows[0];
+  for (const id of selectedSpecialtyIds.slice(1)) {
+    await client.query("INSERT INTO evaluation_item_specialty(event_id,evaluation_item_id,specialty_id) VALUES($1,$2,$3)", [rubric.event_id, item.id, id]);
+  }
+  const details = await itemSpecialtyDetails(client, item.id);
+  return { ...item, specialtyIds: details.map((entry) => entry.specialtyId), specialties: details };
 }
 
 export async function listItems({ client = getPool(), rubricId }) {
   const { rows } = await client.query(
     `SELECT i.id,i.rubric_id AS "rubricId",i.specialty_id AS "specialtyId",i.name,i.code,i.active,
             i.display_order AS "displayOrder",i.required,i.allow_not_presented AS "allowNotPresented",
-            s.name AS "specialtyName",s.code AS "specialtyCode"
+            s.name AS "specialtyName",s.code AS "specialtyCode",
+            ARRAY(SELECT eis.specialty_id FROM evaluation_item_specialty eis
+                   WHERE eis.evaluation_item_id=i.id ORDER BY eis.specialty_id) AS "specialtyIds",
+            COALESCE((SELECT json_agg(json_build_object('specialtyId',es.id,'specialtyName',es.name,'specialtyCode',es.code) ORDER BY es.code)
+                        FROM evaluation_item_specialty eis JOIN event_specialty es ON es.id=eis.specialty_id AND es.event_id=eis.event_id
+                       WHERE eis.evaluation_item_id=i.id), '[]'::json) AS specialties
        FROM evaluation_item i
        JOIN event_specialty s ON s.id=i.specialty_id
       WHERE i.rubric_id=$1
@@ -326,7 +366,7 @@ export async function setNominationActive({ client = null, nominationId, active 
   }
   const { rows } = await client.query(
     `UPDATE troupe_nomination SET active=$2,updated_at=CURRENT_TIMESTAMP
-      WHERE id=$1
+       WHERE id=$1
       RETURNING id,event_id AS "eventId",event_troupe_id AS "eventTroupeId",
                 rubric_id AS "rubricId",subject_type AS "subjectType",display_name AS "displayName",active`,
     [nominationId, active],
@@ -334,9 +374,12 @@ export async function setNominationActive({ client = null, nominationId, active 
   return rows[0];
 }
 
-export async function updateItem({ client = null, itemId, name, code, specialtyId, active, displayOrder, required, allowNotPresented }) {
-  if (!client) return inTransaction((client) => updateItem({ client, itemId, name, code, specialtyId, active, displayOrder, required, allowNotPresented }));
-  await lockConfigurationParent(client, "evaluation_item", itemId);
+export async function updateItem({ client = null, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented }) {
+  if (!client) return inTransaction((client) => updateItem({ client, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented }));
+  const item = await lockConfigurationParent(client, "evaluation_item", itemId);
+  const selectedSpecialtyIds = specialtyIds === undefined && specialtyId === undefined ? null
+    : itemSpecialtyIds({ specialtyIds, specialtyId });
+  if (selectedSpecialtyIds) await assertActiveItemSpecialties(client, item.event_id, selectedSpecialtyIds);
   if (active !== undefined) boolean(active, "active");
   if (required !== undefined && typeof required !== "boolean") throw new TypeError("required debe ser booleano.");
   if (allowNotPresented !== undefined && typeof allowNotPresented !== "boolean") throw new TypeError("allowNotPresented debe ser booleano.");
@@ -346,14 +389,14 @@ export async function updateItem({ client = null, itemId, name, code, specialtyI
             active=COALESCE($5,active),display_order=COALESCE($6,display_order),
             required=COALESCE($7,required),allow_not_presented=COALESCE($8,allow_not_presented),
             updated_at=CURRENT_TIMESTAMP
-      WHERE id=$1
+       WHERE id=$1
       RETURNING id,rubric_id AS "rubricId",specialty_id AS "specialtyId",name,code,active,
                 display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented"`,
     [
       text(itemId, "itemId"),
       name === undefined ? null : text(name, "name"),
       code === undefined ? null : text(code, "code"),
-      specialtyId === undefined ? null : text(specialtyId, "specialtyId"),
+      selectedSpecialtyIds ? selectedSpecialtyIds[0] : specialtyId === undefined ? null : text(specialtyId, "specialtyId"),
       active ?? null,
       displayOrder === undefined ? null : order(displayOrder),
       required ?? null,
@@ -361,7 +404,14 @@ export async function updateItem({ client = null, itemId, name, code, specialtyI
     ],
   );
   if (!rows[0]) throw new Error("EVALUATION_ITEM_NOT_FOUND");
-  return rows[0];
+  if (selectedSpecialtyIds) {
+    await client.query("DELETE FROM evaluation_item_specialty WHERE evaluation_item_id=$1 AND NOT (specialty_id=ANY($2::uuid[]))", [itemId, selectedSpecialtyIds]);
+    for (const id of selectedSpecialtyIds) {
+      await client.query("INSERT INTO evaluation_item_specialty(event_id,evaluation_item_id,specialty_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", [item.event_id, itemId, id]);
+    }
+  }
+  const details = await itemSpecialtyDetails(client, itemId);
+  return { ...rows[0], specialtyIds: details.map((entry) => entry.specialtyId), specialties: details };
 }
 
 export async function createCriterion({ client = null, rubricId, scoringItemId, description, displayOrder }) {
@@ -509,10 +559,9 @@ async function reorderConfiguration(table, id, { client = null, actorUserId = nu
 /**
  * Creación atómica de un rubro junto con su primer ítem.
  *
- * El modelo vincula la especialidad al ítem (evaluation_item.specialty_id), no al
- * rubro, así que un rubro recién creado no es puntuable hasta que tiene al menos
- * un ítem. Esta operación evita el estado intermedio "rubro sin ítems" que la
- * readiness de apertura del evento rechaza.
+ * El modelo vincula las especialidades al ítem, no al rubro, así que un rubro
+ * recién creado no es puntuable hasta que tiene al menos un ítem. Esta operación
+ * evita el estado intermedio "rubro sin ítems" que readiness rechaza.
  *
  * Requiere que el cliente venga dentro de una transacción (createWriteHandler).
  */
@@ -525,6 +574,7 @@ export async function createRubricWithInitialItem({ client = null, eventId, rubr
       name: initialItem.name,
       code: initialItem.code,
       specialtyId: initialItem.specialtyId,
+      specialtyIds: initialItem.specialtyIds,
       required: initialItem.required,
       allowNotPresented: initialItem.allowNotPresented,
     });

@@ -980,7 +980,7 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
   const specialties = (progress?.specialties ?? []).filter((specialty) => specialty.active !== false);
   const rubrics = (progress?.rubrics ?? []).filter((rubric) => rubric.active !== false);
   const items = rubrics.flatMap((rubric) => (rubric.items ?? []).filter((item) => item.active !== false));
-  const coveredSpecialtyIds = new Set(items.map((item) => item.specialtyId));
+  const coveredSpecialtyIds = new Set(items.flatMap((item) => item.specialtyIds ?? [item.specialtyId]));
   const pendingRubrics = readiness?.incompleteRubrics ?? [];
   const pendingNominations = readiness?.incompleteNominations ?? [];
   const missingActiveRubrics = readiness?.missing?.includes("ACTIVE_RUBRIC");
@@ -2087,7 +2087,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   const focusedRubric = rubrics.find((rubric) => rubric.id === focusRubricId);
   const focusedRubricId = focusedRubric?.id;
   const focusedSpecialtyId = specialties.find((specialty) => specialty.active !== false
-    && focusedRubric?.items?.some((item) => item.active !== false && item.specialtyId === specialty.id))?.id;
+    && focusedRubric?.items?.some((item) => item.active !== false && (item.specialtyIds ?? [item.specialtyId]).includes(specialty.id)))?.id;
   const appliedFocus = useRef(null);
   useEffect(() => {
     if (!focusedRubricId || appliedFocus.current === focusRubricId) return;
@@ -2105,12 +2105,15 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
     const activeIds = new Set(specialties.filter((specialty) => specialty.active !== false).map((specialty) => specialty.id));
     const inactiveIds = new Set(specialties.filter((specialty) => specialty.active === false).map((specialty) => specialty.id));
     const items = rubric.items ?? [];
-    const activeNames = [...new Set(items.filter((item) => item.active !== false && activeIds.has(item.specialtyId))
-      .map((item) => specialtyName(item.specialtyId, item.specialtyName)))];
-    const historical = [...new Set(items.filter((item) => item.active === false || inactiveIds.has(item.specialtyId))
-      .map((item) => `${specialtyName(item.specialtyId, item.specialtyName)} (${item.active === false ? "ítem inactivo" : "especialidad inactiva"})`))];
-    const unverified = [...new Set(items.filter((item) => item.active !== false && !activeIds.has(item.specialtyId) && !inactiveIds.has(item.specialtyId))
-      .map((item) => specialtyName(item.specialtyId, item.specialtyName)))];
+    const itemSpecialties = (item) => item.specialties?.map((entry) => ({ id: entry.specialtyId, name: entry.specialtyName }))
+      ?? [{ id: item.specialtyId, name: item.specialtyName }];
+    const allAssociations = items.flatMap((item) => itemSpecialties(item).map((specialty) => ({ item, specialty })));
+    const activeNames = [...new Set(allAssociations.filter(({ item, specialty }) => item.active !== false && activeIds.has(specialty.id))
+      .map(({ specialty }) => specialtyName(specialty.id, specialty.name)))];
+    const historical = [...new Set(allAssociations.filter(({ item, specialty }) => item.active === false || inactiveIds.has(specialty.id))
+      .map(({ item, specialty }) => `${specialtyName(specialty.id, specialty.name)} (${item.active === false ? "ítem inactivo" : "especialidad inactiva"})`))];
+    const unverified = [...new Set(allAssociations.filter(({ item, specialty }) => item.active !== false && !activeIds.has(specialty.id) && !inactiveIds.has(specialty.id))
+      .map(({ specialty }) => specialtyName(specialty.id, specialty.name)))];
     const current = rubric.active === false
       ? `El rubro está inactivo; no tiene asociaciones activas. Al reactivar, especialidades con ítems activos: ${activeNames.join(", ") || "ninguna"}.`
       : activeNames.length ? `Especialidades asociadas por ítems activos: ${activeNames.join(", ")}.` : "Sin especialidades asociadas por ítems activos.";
@@ -2123,7 +2126,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
     resetCreateFlow();
     setShowCreateForm(true);
   };
-  const rubricHasSpecialty = (rubric, specialtyId) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialtyId);
+  const itemSpecialtyIds = (item) => item.specialtyIds ?? [item.specialtyId];
+  const rubricHasSpecialty = (rubric, specialtyId) => (rubric.items ?? []).some((item) => item.active !== false && itemSpecialtyIds(item).includes(specialtyId));
   const specialtyRubrics = selectedSpecialty
     ? rubrics.filter((rubric) => rubric.active !== false && rubricHasSpecialty(rubric, selectedSpecialty.id))
     : [];
@@ -2140,7 +2144,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   const activeRubrics = rubrics.filter((rubric) => rubric.active !== false);
   const activeItemCount = activeRubrics.reduce((total, rubric) => total + (rubric.items ?? []).filter((item) => item.active !== false).length, 0);
   const coveredSpecialtyIds = new Set(activeRubrics.flatMap((rubric) =>
-    (rubric.items ?? []).filter((item) => item.active !== false).map((item) => item.specialtyId)));
+    (rubric.items ?? []).filter((item) => item.active !== false).flatMap(itemSpecialtyIds)));
   const incompleteRubricIds = new Set(evaluation ? [
     ...(readiness?.incompleteRubrics ?? []).map((rubric) => rubric.id),
     ...(readiness?.incompleteNominations ?? []).map((nomination) => nomination.rubricId),
@@ -2506,7 +2510,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
             {activeSpecialties.length > 0 ? (
               <div className="evaluation-specialty-list specialty-selector" role="group" aria-label="Especialidades de la competencia">
                 {activeSpecialties.map((specialty) => {
-                  const count = activeRubrics.filter((rubric) => (rubric.items ?? []).some((item) => item.active !== false && item.specialtyId === specialty.id)).length;
+                  const count = activeRubrics.filter((rubric) => (rubric.items ?? []).some((item) => item.active !== false && (item.specialtyIds ?? [item.specialtyId]).includes(specialty.id))).length;
                   const status = evaluation?.specialties.find((entry) => entry.id === specialty.id);
                   const selected = selectedSpecialtyId === specialty.id;
                   return (
@@ -2642,8 +2646,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
               {group.entries.map((rubric) => {
                 const isUnassigned = group.key === "pending";
                 const orderedItems = [...(rubric.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
-                const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id));
-                const visibleItems = orderedItems.filter((item) => item.active !== false && (group.key !== "associated" || item.specialtyId === selectedSpecialty?.id));
+                const derived = activeSpecialties.filter((s) => (rubric.items ?? []).some((i) => i.active !== false && itemSpecialtyIds(i).includes(s.id)));
+                const visibleItems = orderedItems.filter((item) => item.active !== false && (group.key !== "associated" || itemSpecialtyIds(item).includes(selectedSpecialty?.id)));
                 const isExpanded = expanded === rubric.id;
                 const rubricTypeLabel = RUBRIC_TYPES.find((t) => t.value === rubric.rubricType)?.label ?? LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? rubric.rubricType;
                 const rubricStatus = rubric.active === false ? "Inactivo" : !evaluation || readinessStatus !== "available" ? "Estado por comprobar" : incompleteRubricIds.has(rubric.id) ? "Necesita configuración" : isUnassigned ? "Sin asociación activa" : "Listo";
@@ -2976,16 +2980,27 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                         const body = {
                                           name: fd.get("name"),
                                           specialtyId: fd.get("specialtyId"),
+                                          specialtyIds: [...new Set([fd.get("specialtyId"), ...fd.getAll("additionalSpecialtyIds")].filter(Boolean))],
                                           displayOrder: Number(fd.get("displayOrder")),
                                           required: fd.get("required") === "on",
                                           allowNotPresented: fd.get("allowNotPresented") === "on",
                                           active: fd.get("active") === "on",
                                         };
-                                        requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará el ítem ${item.name} del rubro ${rubric.name}. Especialidad de origen: ${specialtyName(item.specialtyId, item.specialtyName)}; destino: ${specialtyName(body.specialtyId)}. Solo se modifica este ítem.`, () => saveItem(rubric.id, body, "PATCH", item.id));
+                                        const destinations = activeSpecialties.filter((specialty) => body.specialtyIds.includes(specialty.id)).map((specialty) => specialty.name).join(", ");
+                                        const currentSpecialties = item.specialties?.map((specialty) => specialty.specialtyName).filter(Boolean)
+                                          ?? [specialtyName(item.specialtyId, item.specialtyName)];
+                                        requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará el ítem ${item.name} del rubro ${rubric.name}. Asociaciones actuales: ${currentSpecialties.join(", ")}; evaluaciones independientes en: ${destinations}. Solo se modifica este ítem.`, () => saveItem(rubric.id, body, "PATCH", item.id));
                                         return false;
                                       }}>
                                         <label>Nombre<input name="name" defaultValue={item.name} required /></label>
                                         <label>Especialidad<select name="specialtyId" defaultValue={item.specialtyId}>{activeSpecialties.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+                                        <fieldset className="advanced-options">
+                                          <legend>También evaluar en</legend>
+                                          <p className="field-hint">Cada especialidad registra sus propias puntuaciones.</p>
+                                          {activeSpecialties.filter((s) => s.id !== item.specialtyId).map((s) => <label className="check" key={s.id}>
+                                            <input name="additionalSpecialtyIds" type="checkbox" value={s.id} defaultChecked={itemSpecialtyIds(item).includes(s.id)} /> {s.name}
+                                          </label>)}
+                                        </fieldset>
                                         <label>Orden<input name="displayOrder" type="number" min="1" defaultValue={item.displayOrder} required /></label>
                                         <details className="advanced-options">
                                           <summary>Opciones avanzadas</summary>
@@ -3001,7 +3016,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                     ) : (
                                       <div className="subrecord-summary">
                                         <strong>{item.name}</strong>
-                                        <span>{item.specialtyName}</span>
+                                        <span>{(item.specialties ?? [{ specialtyName: item.specialtyName }]).map((specialty) => specialty.specialtyName).filter(Boolean).join(", ")}</span>
                                         <span className="mono-text">Orden: {item.displayOrder}</span>
                                         {!locked && <button className="secondary edit-action" type="button" aria-label={`Editar item ${item.name}`} onClick={() => setEditingItem(item.id)}>Editar</button>}
                                         {!locked && (
@@ -3091,9 +3106,9 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
               </section>
             ))}
 
-            {specialtyRubrics.some((r) => activeSpecialties.filter((s) => (r.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id)).length > 1) && (
+            {specialtyRubrics.some((r) => activeSpecialties.filter((s) => (r.items ?? []).some((i) => i.active !== false && itemSpecialtyIds(i).includes(s.id))).length > 1) && (
               <p className="rubric-shared-footnote">
-                Los cambios en la configuración del rubro compartido afectan a sus especialidades asociadas; los cambios de ítem y criterio tienen su propio alcance.
+                Los rubros e ítems compartidos aparecen en cada especialidad asociada; cada una registra puntuaciones independientes.
               </p>
             )}
           </div>
@@ -3113,12 +3128,14 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
           const body = {
             name: formData.get("name"),
             specialtyId: formData.get("specialtyId"),
+            specialtyIds: [...new Set([formData.get("specialtyId"), ...formData.getAll("additionalSpecialtyIds")].filter(Boolean))],
             required: formData.get("required") === "on",
             allowNotPresented: formData.get("allowNotPresented") === "on",
           };
+          const specialtyNames = activeSpecialties.filter((specialty) => body.specialtyIds.includes(specialty.id)).map((specialty) => specialty.name).join(", ");
           setMutationConfirmTarget({
             title: "Confirmar creación del ítem",
-            description: `Se agregará ${body.name} a ${target.name}.`,
+            description: `Se agregará ${body.name} a ${target.name}, para evaluación independiente en: ${specialtyNames}.`,
             commit: async () => {
               const saved = await saveItem(target.id, body);
               if (saved) {
@@ -3134,6 +3151,13 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
             <option value="">Elegí una especialidad</option>
             {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
           </select></label>
+          <fieldset className="advanced-options">
+            <legend>También evaluar en</legend>
+            <p className="field-hint">Cada especialidad registrará sus propias puntuaciones.</p>
+            {activeSpecialties.map((specialty) => <label className="check" key={specialty.id}>
+              <input name="additionalSpecialtyIds" type="checkbox" value={specialty.id} /> {specialty.name}
+            </label>)}
+          </fieldset>
           <details className="advanced-options">
             <summary>Opciones avanzadas</summary>
             <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
@@ -3231,12 +3255,12 @@ function MatrizPlanillasSection({ event, onResolveRubric }) {
     (r) => !(r.items ?? []).some((i) => i.active !== false),
   );
   const uncoveredSpecialties = activeSpecialties.filter(
-    (s) => !activeRubrics.some((r) => (r.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id)),
+    (s) => !activeRubrics.some((r) => (r.items ?? []).some((i) => i.active !== false && (i.specialtyIds ?? [i.specialtyId]).includes(s.id))),
   );
 
   return (
     <section className="config-section">
-      <div className="section-heading"><h2>Planillas de evaluación</h2><p>Qué especialidad evalúa qué rubro. Se genera automaticamente desde la configuracion.</p></div>
+      <div className="section-heading"><h2>Planillas de evaluación</h2><p>Qué especialidades evalúan cada rubro e ítem. Cada planilla registra sus propias puntuaciones.</p></div>
       {(missingRubrics.length > 0 || uncoveredSpecialties.length > 0) && (
         <div className="overview-alert" role="alert">
           <strong>⚠ Te faltan {missingRubrics.length + uncoveredSpecialties.length} asignaciones para completar la matriz.</strong>
@@ -3274,7 +3298,7 @@ function MatrizPlanillasSection({ event, onResolveRubric }) {
                   </button>
                 </td>
                 {activeSpecialties.map((s) => {
-                  const hasItem = (r.items ?? []).some((i) => i.active !== false && i.specialtyId === s.id);
+                  const hasItem = (r.items ?? []).some((i) => i.active !== false && (i.specialtyIds ?? [i.specialtyId]).includes(s.id));
                   return <td key={s.id} className={hasItem ? "matrix-yes" : "matrix-no"}>{hasItem ? "\u2713" : "\u2014"}</td>;
                 })}
               </tr>

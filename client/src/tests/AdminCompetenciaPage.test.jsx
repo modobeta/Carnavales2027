@@ -1051,7 +1051,10 @@ describe("AdminCompetenciaPage", () => {
 
     it("separa Rubros e Ítems y confirma el alta desde el diálogo de creación", async () => {
       const write = vi.fn().mockResolvedValue({ id: "item-new", name: "Colorido", specialtyId: "specialty-1", required: true, allowNotPresented: true });
-      mockCompetitionData({ write });
+      mockCompetitionData({ write, specialties: [
+        { id: "specialty-1", name: "Danza", code: "DANZA", displayOrder: 1, active: true },
+        { id: "specialty-2", name: "Canto", code: "CANTO", displayOrder: 2, active: true },
+      ] });
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
       fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
       fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Coreografia" }));
@@ -1067,6 +1070,7 @@ describe("AdminCompetenciaPage", () => {
       const form = dialog.querySelector("form");
       fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
       fireEvent.change(within(form).getByRole("combobox", { name: "Especialidad del nuevo item para Coreografia" }), { target: { value: "specialty-1" } });
+      fireEvent.click(within(form).getByRole("checkbox", { name: /Canto/ }));
       fireEvent.submit(form);
 
       expect(write).not.toHaveBeenCalled();
@@ -1074,7 +1078,7 @@ describe("AdminCompetenciaPage", () => {
       await screen.findByText("Item guardado.");
       expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1/items", {
         method: "POST",
-        body: JSON.stringify({ name: "Colorido", specialtyId: "specialty-1", required: true, allowNotPresented: true }),
+         body: JSON.stringify({ name: "Colorido", specialtyId: "specialty-1", specialtyIds: ["specialty-1", "specialty-2"], required: true, allowNotPresented: true }),
       });
       expect(screen.queryByRole("dialog", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
     });
