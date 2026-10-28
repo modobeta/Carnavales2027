@@ -228,8 +228,30 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function formatNightDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+    }
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
   const isHomeRoute = currentRoute === "#/admin/home";
   const isJudgeRoute = currentRoute.startsWith("#/judge");
+  const judgeNight = isJudgeRoute
+    && adminEvent?.judgeNight?.route === currentRoute
+    && (!adminEvent?.activeEventId || adminEvent.judgeNight.eventId === adminEvent.activeEventId)
+    ? adminEvent.judgeNight
+    : null;
+  const judgeNightDate = judgeNight ? formatNightDate(judgeNight.eventDate) : "";
   const isUsersRoute = currentRoute === "#/admin/judges" || currentRoute === "#/admin/users";
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
@@ -310,6 +332,15 @@ function getInitials(name) {
       </div>
       <div className="session-actions">
         {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} canCreateEvents={isAdmin} />}
+        {judgeNight && (
+          <div
+            className="session-night"
+            aria-label={`Jornada actual: ${judgeNight.name}${judgeNightDate ? `, ${judgeNightDate}` : ""}`}
+          >
+            <span className="session-night-name">{judgeNight.name}</span>
+            {judgeNightDate && <span className="session-night-date">{judgeNightDate}</span>}
+          </div>
+        )}
         {!isJudgeRoute && sessionUser}
         <ThemeToggle iconOnly className="theme-toggle--nav" />
         <span className="session-divider" aria-hidden="true" />

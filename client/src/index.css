@@ -1181,8 +1181,8 @@ button.button-link:disabled {
 }
 
 .troupe-logo.ballot-troupe-logo-header {
-  inline-size: clamp(3.5rem, 10vw, 6rem);
-  block-size: clamp(3.5rem, 10vw, 6rem);
+  inline-size: clamp(2.5rem, 5vw, 3.5rem);
+  block-size: clamp(2.5rem, 5vw, 3.5rem);
 }
 
 .ballot-header-troupe-row {
@@ -1193,8 +1193,8 @@ button.button-link:disabled {
 }
 
 .ballot-header-single .ballot-header-support {
-  font-size: clamp(2.5rem, 10vw, 6rem) !important;
-  line-height: 0.98 !important;
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem) !important;
+  line-height: 1.05 !important;
   margin: 0 !important;
   color: #000000 !important;
 }
@@ -3121,10 +3121,37 @@ button.button-link:disabled {
 .password-requirements .requirement-pending { color: var(--danger-text); background: var(--danger-bg); }
 .password-requirements .requirement-met { color: var(--success-text); background: var(--success-bg); }
 .session-identity { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; max-width: 20rem; }
-.session-identity .session-role { font-size: 0.8rem; color: var(--text-muted); }
+.session-identity .session-role { font-size: var(--text-sm); color: var(--text-muted); }
 .session-identity .session-event { font-size: 0.8rem; overflow-wrap: anywhere; }
 .session-actions .global-event-picker { min-width: 0; max-width: min(20rem, 100%); }
 .session-actions .global-event-picker select { width: 100%; }
+
+/* Jornada activa del jurado, entre el selector de evento y el toggle de tema. */
+.session-night {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  max-inline-size: min(20rem, 100%);
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+}
+
+.session-night-name {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+.session-night-date { flex: 0 0 auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 40rem) {
   .session-actions { flex-wrap: wrap; }
   .session-identity { max-width: 100%; }
@@ -3287,6 +3314,13 @@ button.button-link:disabled {
     box-shadow: none;
   }
 
+  /* Los botones 1-10 conservan una sombra en reposo con el color de la comparsa. */
+  .judge-ballot-page:not(.is-readonly) .score-option-btn:where(.score-num-only:not(:disabled)) {
+    box-shadow:
+      0 0.1rem 0.25rem var(--btn-drop),
+      0 0.4rem 0.9rem -0.15rem var(--btn-drop);
+  }
+
   .judge-ballot-page:not(.is-readonly) .score-option-btn:hover:not(:disabled) {
     border-color: var(--troupe-brand, var(--border-strong));
     background: var(--troupe-brand, var(--accent-primary));
@@ -3370,6 +3404,5 @@ button.button-link:disabled {
 
   .judge-ballot-page:not(.is-readonly) .ballot-footer .save-indicator { justify-self: start; }
 
-  .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary,
-  .judge-ballot-page:not(.is-readonly) .ballot-footer #voting-confirm-help { grid-column: 1 / -1; }
+  .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary { grid-column: 1 / -1; }
 }
