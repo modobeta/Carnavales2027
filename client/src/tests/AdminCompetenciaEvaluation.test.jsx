@@ -465,7 +465,7 @@ it("con GET posterior fallido permite seguir con rubro confirmado y su ítem ace
   fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Nuevo" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Nuevo" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Nuevo"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Nuevo"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText(/Nuevo ítem \(i2\)/)).toBeInTheDocument();
@@ -565,7 +565,7 @@ it("ítem confirmado sigue editable con recibo aunque GET posterior de rubros tr
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText("Ítem confirmado: Nuevo ítem (i2).")).toBeInTheDocument();
@@ -630,7 +630,7 @@ it("POST de ítem libera confirmación y empieza refresh aunque GET individual s
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
@@ -753,7 +753,7 @@ it("tras conciliar un ítem, un GET nuevo fallido no elimina el acceso confirmad
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);

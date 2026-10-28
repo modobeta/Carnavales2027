@@ -66,8 +66,8 @@ describe("Design System Tokens (Spec 020 / RF-176, RF-177)", () => {
   it.each([
     ["--surface-input", "var(--palette-input)"],
     ["--surface-login-input", "var(--palette-input)"],
-    ["--border-input", "rgba(15, 23, 42, 0.28)"],
-    ["--surface-hover-subtle", "rgba(233, 22, 131, 0.08)"],
+    ["--border-input", "rgba(233, 22, 131, 0.35)"],
+    ["--surface-hover-subtle", "rgba(15, 23, 42, 0.05)"],
     ["--text-on-primary", "#000000"],
     ["--text-on-accent", "#000000"],
   ])("define %s en el bloque :root del tema claro", (name, value) => {

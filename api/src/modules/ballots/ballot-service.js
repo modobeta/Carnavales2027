@@ -556,7 +556,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
     const { rows } = await getPool().query(
       `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
               b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
-              s.name AS "specialtyName",
+              n.event_date AS "eventDate", s.name AS "specialtyName",
               COALESCE(SUM(t.total), 0)::INTEGER AS "totalScores",
               COALESCE(SUM(t.resolved), 0)::INTEGER AS "resolvedScores",
               COALESCE(
@@ -610,7 +610,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
   const { rows } = await getPool().query(
     `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
             b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
-            s.name AS "specialtyName"
+            n.event_date AS "eventDate", s.name AS "specialtyName"
        FROM ballot b
         JOIN judge_profile jp ON jp.id = b.judge_profile_id
          JOIN judge_assignment ja ON ja.id = b.judge_assignment_id
@@ -633,7 +633,7 @@ export async function getBallot({ ballotId, userId }) {
              b.status, b.revision, b.opened_at AS "openedAt", b.submitted_at AS "submittedAt",
             b.reopened_at AS "reopenedAt", b.reopen_count AS "reopenCount",
             jp.user_id AS "userId", jp.name AS "judgeName", jp.email AS "judgeEmail",
-            e.name AS "eventName", n.name AS "nightName", s.name AS "specialtyName"
+            e.name AS "eventName", n.name AS "nightName", n.event_date AS "eventDate", s.name AS "specialtyName"
        FROM ballot b
         JOIN judge_profile jp ON jp.id = b.judge_profile_id
          JOIN judge_assignment ja ON ja.id = b.judge_assignment_id
@@ -695,6 +695,7 @@ export async function getBallot({ ballotId, userId }) {
     judgeEmail: ballot.judgeEmail,
     eventName: ballot.eventName,
     nightName: ballot.nightName,
+    eventDate: ballot.eventDate,
     specialtyName: ballot.specialtyName,
     scores: scores.map((s) => ({
       id: s.id,

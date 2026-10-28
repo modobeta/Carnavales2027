@@ -365,7 +365,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("button", { name: "Ocultar votaciones de Comparsa Dos" })).toBeInTheDocument();
   });
 
-  it("aplica el color de la comparsa al ícono del rubro y a la grilla de puntajes", async () => {
+  it("muestra el rubro en el encabezado de la tarjeta activa sin ícono decorativo", async () => {
     apiRequest.mockResolvedValue({
       ...ballot,
       scores: ballot.scores.map((s) => ({ ...s, brandColor: "#10B981", rubricIcon: "Reina" })),
@@ -373,13 +373,9 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
-    const iconWrap = document.querySelector(".ballot-card-header .rubric-icon-wrap");
-    expect(iconWrap.style.getPropertyValue("--troupe-brand")).toBe("#10B981");
-    const circle = iconWrap.querySelector(".rubric-icon-circle.is-on-brand");
-    expect(circle).not.toBeNull();
-    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
-    const scoreGrid = document.querySelector(".ballot-card-mode .score-grid-v3");
-    expect(scoreGrid.style.getPropertyValue("--troupe-brand")).toBe("#10B981");
+    const header = document.querySelector(".ballot-card-header");
+    expect(header).toHaveTextContent("Rubro: Reina");
+    expect(header.querySelector(".rubric-icon-circle")).toBeNull();
   });
 
   it("muestra el ícono del rubro con el color de la comparsa en el resumen lateral", async () => {

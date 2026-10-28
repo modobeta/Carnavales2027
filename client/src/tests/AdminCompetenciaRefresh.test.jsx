@@ -120,7 +120,7 @@ it("muestra un rubro y su ítem recién creados sin recargar y conserva el resum
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const itemDialog = screen.getByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(itemDialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Colorido" } });
-  fireEvent.change(within(itemDialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "sp1" } });
+  fireEvent.click(within(itemDialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(itemDialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   await screen.findByText("Item guardado.");

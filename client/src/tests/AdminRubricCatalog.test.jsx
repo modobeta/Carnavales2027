@@ -71,7 +71,7 @@ it("Evaluación usa el rubro existente y muestra sus participantes para crear su
   fireEvent.click(add);
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Reina" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Reina"), { target: { value: "Presencia" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Reina"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText("Item guardado.")).toBeInTheDocument();

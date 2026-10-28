@@ -15,7 +15,7 @@ describe("visual hierarchy system", () => {
     expect(tokens).toContain("--palette-pink: #E91683;");
     expect(tokens).toContain("--palette-blue: #3F51B5;");
     expect(tokens).toContain("--palette-page: #FFFFFF;");
-    expect(tokens).toContain("--palette-card: #FFFFFF;");
+    expect(tokens).toContain("--palette-card: #FFF5FA;");
     expect(tokens).toContain("--palette-panel: #F8FAFC;");
     expect(tokens).toContain("--surface-modal: var(--palette-card);");
     expect(tokens).toContain("--text-on-modal: #111827;");
@@ -25,7 +25,7 @@ describe("visual hierarchy system", () => {
   it("removes decorative page texture and heavy elevation from the shared shell", () => {
     expect(index).not.toContain("radial-gradient(circle, rgba(255, 255, 255, 0.14)");
     expect(index).not.toContain("radial-gradient(circle at 92% -10%");
-    expect(index).toContain("background: var(--surface-base);");
+    expect(source("../styles/theme.css")).toContain("background: var(--surface-base);");
     expect(index).toContain("box-shadow: none;");
   });
 
