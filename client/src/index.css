@@ -399,14 +399,12 @@ body {
   min-inline-size: 320px;
   min-block-size: 100dvb;
   padding: clamp(0.75rem, 2vw, 1.5rem);
-  background: radial-gradient(ellipse at top left, #FFFFFF 0%, #FF5252 50%, #E91E63 100%);
-  background-attachment: fixed;
+  background: #FEE9F1;
   color: var(--text-color);
 }
 
 :root[data-theme="dark"] body {
-  background: radial-gradient(ellipse at top left, #000000 0%, #14000A 50%, #650838 100%);
-  background-attachment: fixed;
+  background: #000000;
 }
 
 a { color: var(--accent-text); }

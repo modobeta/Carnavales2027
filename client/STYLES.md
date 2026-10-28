@@ -29,9 +29,9 @@ Utilizar los cinco colores oficiales sin modificarlos ni reemplazarlos por aprox
 
 ### Fondos y superficies
 
-- Tema claro: degradado en diagonal con los siguientes colores: `#FFFFFF`, `#FF5252`, `#E91E63`
-- Tema oscuro: degradado en diagonal con los siguientes colores: `#000000`, `#14000A`, `#650838`
-- Tarjetas tema claro: superficies con matiz rosado muy tenue (`#FFF5FA`), bordes sutiles derivados de los rosas oficiales.
+- Tema claro: `#FEE9F1`
+- Tema oscuro: `#000000`
+- Tarjetas tema claro: superficies con matiz rosado muy tenue (`#FF5252`), bordes sutiles derivados de los rosas oficiales.
 - Tarjetas tema oscuro: superficies con matiz rosado muy oscuro (`#14000A`), bordes discretos derivados de los rosas oficiales.
 - Modales: superficies coherentes con el tema activo, con los mismos matices rosados.
 - Bordes, separadores: derivados de los dos rosas oficiales con transparencia para mantener sutileza.
