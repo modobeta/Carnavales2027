@@ -34,6 +34,22 @@ describe("EventReadinessPanel", () => {
     expect(screen.getByRole("button", { name: "Abrir evento" })).toBeDisabled();
   });
 
+  it("agrupa las nominaciones pendientes sin permitir abrir el evento", async () => {
+    apiRequest.mockResolvedValue(readiness({
+      ready: false,
+      missing: ["INCOMPLETE_NOMINATIONS"],
+      incompleteNominations: [
+        { rubricId: "r1", troupeId: "t1", rubricName: "Reina", troupeName: "Estrella" },
+        { rubricId: "r2", troupeId: "t1", rubricName: "Rey", troupeName: "Estrella" },
+      ],
+    }));
+    render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
+
+    expect(await screen.findByText("Hay 2 faltantes en 1 comparsa.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir evento" })).toBeDisabled();
+    expect(screen.getAllByText(/Falta un participante para/)).toHaveLength(2);
+  });
+
   it("muestra ok cuando todo esta completo", async () => {
     apiRequest.mockResolvedValue(readiness());
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);

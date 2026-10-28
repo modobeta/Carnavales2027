@@ -14,6 +14,7 @@ import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { TroupeParticipantsSection } from "../features/TroupeParticipantsSection.jsx";
+import { IncompleteNominationsSummary } from "../features/IncompleteNominationsSummary.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
@@ -106,9 +107,8 @@ function incompleteStepGuidance(stepKey, readiness) {
     for (const troupe of readiness?.incompleteTroupes ?? []) {
       messages.push(`Elegí una categoría activa para ${troupe.name ?? "esta comparsa"}.`);
     }
-    for (const nomination of readiness?.incompleteNominations ?? []) {
-      messages.push(`Cargá el participante que falta para ${nomination.rubricName ?? "el rubro"} en ${nomination.troupeName ?? "la comparsa"}.`);
-    }
+    const missingNominations = readiness?.incompleteNominations ?? [];
+    if (missingNominations.length > 0 && messages.length === 0) messages.push("Completá los participantes requeridos para continuar.");
     if (messages.length === 0) messages.push("Revisá los participantes y completá los datos que faltan para continuar.");
   }
 
@@ -551,7 +551,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
           {step === "participantes" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Participantes</h2>
-              <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} />
+              <StepSummary stepLabel="Participantes" recommendation={statusSummary("participantes")} nominations={currentReadiness?.incompleteNominations} />
 
               <div className="competencia-subtabs" role="tablist" aria-label="Subsecciones de participantes">
                 <button
@@ -708,7 +708,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 </div>
               ) : (
                 <>
-                  <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
+                   <StepSummary stepLabel="Revisión final" recommendation={statusSummary("revision")} />
                   <p className="revision-readiness-note">La apertura se decide con los requisitos oficiales de la API; el progreso por especialidad y los criterios descriptivos son orientación, no condiciones adicionales.</p>
                   {currentReadinessStatus === "available" ? (
                     currentReadiness.ready ? (
@@ -731,13 +731,19 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                       </div>
                     ) : (
                       <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
-                        {officialIssues.map((issue) => (
+                        {officialIssues.filter((issue) => !issue.key.startsWith("nomination-")).map((issue) => (
                           <li key={issue.key} className="readiness-fail">
                             <span className="readiness-icon" aria-hidden="true">!</span>
                             <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
                             <a href={issue.href}>{issue.action}</a>
                           </li>
                         ))}
+                        {(currentReadiness.incompleteNominations ?? []).length > 0 && (
+                          <li className="readiness-fail readiness-nominations-item">
+                            <span className="readiness-icon" aria-hidden="true">!</span>
+                            <IncompleteNominationsSummary nominations={currentReadiness.incompleteNominations} />
+                          </li>
+                        )}
                       </ul>
                     )
                   ) : (
@@ -861,12 +867,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   );
 }
 
-function StepSummary({ stepLabel, recommendation }) {
+function StepSummary({ stepLabel, recommendation, nominations }) {
   if (!recommendation) return null;
   return (
     <section className="competencia-step-summary" aria-label={`Resumen del paso ${stepLabel}`}>
       <h3>Resumen del paso</h3>
       <p role="status">{recommendation}</p>
+      {nominations?.length > 0 && <IncompleteNominationsSummary nominations={nominations} />}
     </section>
   );
 }
@@ -1062,8 +1069,8 @@ function EvaluationStepSummary({ progress, progressError = false, readiness, rea
             <ul>
               {missingActiveRubrics && <li>No hay rubros activos. Creá o activá un rubro para definir qué se va a evaluar.</li>}
               {pendingRubrics.map((rubric) => <li key={rubric.id}>{rubric.name ?? "Este rubro"} necesita ítems puntuables y una especialidad activa. Agregá o corregí sus ítems.</li>)}
-              {pendingNominations.map((nomination) => <li key={`${nomination.rubricId}-${nomination.troupeId}`}>Falta cargar un participante para {nomination.rubricName ?? "el rubro"} en {nomination.troupeName ?? "la comparsa"}.</li>)}
             </ul>
+            <IncompleteNominationsSummary nominations={pendingNominations} />
           </div>
         ) : <p className="evaluation-summary-status is-ok" role="status">Sin bloqueos oficiales de evaluación.</p>
       ) : <p className="evaluation-summary-status is-warning" role="status">No se pudo revisar la evaluación. Volvé a intentarlo en Revisión final.</p>}

@@ -164,7 +164,7 @@
   list-style: none;
 }
 
-.readiness-checklist li {
+.readiness-checklist > li {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -728,6 +728,38 @@
   scroll-snap-type: x proximity;
   width: max-content;
   min-width: 100%;
+}
+
+.readiness-checklist .readiness-nominations-item {
+  align-items: flex-start;
+}
+
+.incomplete-nominations-summary {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.incomplete-nominations-summary p {
+  margin: 0;
+}
+
+.incomplete-nominations-summary details {
+  margin-block-start: 0.35rem;
+}
+
+.incomplete-nominations-summary summary {
+  cursor: pointer;
+  color: var(--link, var(--text-primary));
+  font-weight: 700;
+}
+
+.incomplete-nominations-summary ul {
+  margin-block: 0.4rem;
+  padding-inline-start: 1.25rem;
+}
+
+.incomplete-nominations-summary > details > ul > li + li {
+  margin-block-start: 0.4rem;
 }
 
 .competencia-stepper .competencia-stepper-group {

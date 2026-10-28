@@ -8,6 +8,7 @@ import {
   resolvePendingEventOpenOperation,
 } from "./event-open-operation.js";
 import { isInterpretableReadiness } from "./readiness-presentation.js";
+import { IncompleteNominationsSummary } from "./IncompleteNominationsSummary.jsx";
 
 const READINESS_LABELS = {
   COMPETITION_NIGHT: "Creá al menos una jornada de Competencia",
@@ -197,7 +198,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
             )}
           </div>
           <ul className="readiness-checklist">
-            {(readiness.missing ?? []).map((code) => (
+            {(readiness.missing ?? []).filter((code) => code !== "INCOMPLETE_NOMINATIONS" || readiness.incompleteNominations.length === 0).map((code) => (
               <li key={code} className="readiness-fail">
                 <span className="readiness-icon">&#x2717;</span>
                 {READINESS_LABELS[code] ?? code}{" "}
@@ -217,9 +218,12 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
             {(readiness.incompleteSchedules ?? []).map((schedule) => (
               <li key={schedule.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Programá al menos una comparsa en la jornada &ldquo;{schedule.nightName}&rdquo;. <a href="#/admin/competencia">Configurar el orden de salida</a></li>
             ))}
-            {(readiness.incompleteNominations ?? []).map((item) => (
-              <li key={`${item.rubricId}-${item.troupeId}`} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Cargá al menos un participante para el rubro &ldquo;{item.rubricName}&rdquo; en &ldquo;{item.troupeName}&rdquo;. <a href="#/admin/competencia">Cargar participante</a></li>
-            ))}
+            {(readiness.incompleteNominations ?? []).length > 0 && (
+              <li className="readiness-fail readiness-nominations-item">
+                <span className="readiness-icon" aria-hidden="true">&#x2717;</span>
+                <IncompleteNominationsSummary nominations={readiness.incompleteNominations} />
+              </li>
+            )}
             {(readiness.nightsWithoutJury ?? []).map((night) => (
               <li key={night.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Asigná al menos un jurado activo a la jornada &ldquo;{night.nightName}&rdquo;. <a href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}&nightId=${encodeURIComponent(night.nightId)}`}>Asignar jurado</a></li>
             ))}

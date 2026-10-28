@@ -114,7 +114,9 @@ describe("AdminCompetenciaPage", () => {
     const participantsSummary = await screen.findByRole("region", { name: "Resumen del paso Participantes" });
     expect(within(participantsSummary).getByText(/No hay comparsas activas.*Creá una comparsa o activá una existente/)).toBeInTheDocument();
     expect(within(participantsSummary).getByText(/Elegí una categoría activa para Estrella/)).toBeInTheDocument();
-    expect(within(participantsSummary).getByText(/Cargá el participante que falta para Reina en Estrella/)).toBeInTheDocument();
+    expect(within(participantsSummary).getByText("Hay 1 faltante en 1 comparsa.")).toBeInTheDocument();
+    expect(within(participantsSummary).getByText("Ver faltantes")).toBeInTheDocument();
+    expect(within(participantsSummary).getByText(/Falta un participante para Reina/)).toBeInTheDocument();
     expect(within(participantsSummary).queryByText(/Readiness informa uno o más bloqueos/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^Especialidades / }));
@@ -129,7 +131,8 @@ describe("AdminCompetenciaPage", () => {
     const rubricSummary = await screen.findByRole("region", { name: "Resumen de evaluación" });
     expect(within(rubricSummary).getByText(/No hay rubros activos\. Creá o activá un rubro para definir qué se va a evaluar/)).toBeInTheDocument();
     expect(within(rubricSummary).getByText(/Coreografia necesita ítems puntuables y una especialidad activa/)).toBeInTheDocument();
-    expect(within(rubricSummary).getByText(/Falta cargar un participante para Reina en Estrella/)).toBeInTheDocument();
+    expect(within(rubricSummary).getByText("Hay 1 faltante en 1 comparsa.")).toBeInTheDocument();
+    expect(within(rubricSummary).getByText(/Falta un participante para Reina/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
     const reviewSummary = await screen.findByRole("region", { name: "Resumen del paso Revisión final" });
