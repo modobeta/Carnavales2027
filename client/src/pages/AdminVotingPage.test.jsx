@@ -21,6 +21,9 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     apiRequestMock.mockImplementation((path, options) => {
       if (path === "/api/v1/events") return Promise.resolve([mockEvent]);
       if (path === "/api/v1/events/event-1/nights") return Promise.resolve(mockNights);
+      if (path === "/api/v1/judges") return Promise.resolve([]);
+      if (path.endsWith("/judge-assignments")) return Promise.resolve({ quotas: [], assignments: [] });
+      if (path.endsWith("/specialties")) return Promise.resolve([]);
       if (path.endsWith("/voting/status")) {
         return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "NOT_OPEN", counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0 }, total: 0 });
       }

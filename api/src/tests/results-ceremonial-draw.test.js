@@ -26,7 +26,7 @@ async function createPersistentTie(pool) {
   const nights = [];
   for (const [name, order] of [["Noche 1", 1], ["Noche 2", 2]]) {
     const { rows: [night] } = await pool.query(
-      "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,'COMPETITION','OPEN') RETURNING id",
+      "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,'COMPETITION','DRAFT') RETURNING id",
       [event.id, name, order],
     );
     nights.push(night);
@@ -94,6 +94,7 @@ async function createPersistentTie(pool) {
     );
     assignments.push(assignment);
   }
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=ANY($1::uuid[])", [nights.map(({ id }) => id)]);
   for (let n = 0; n < nights.length; n += 1) {
     const { rows: [ballot] } = await pool.query(
       "INSERT INTO ballot(event_id,night_id,judge_assignment_id,judge_profile_id,specialty_id,status) VALUES($1,$2,$3,$4,$5,'OPEN') RETURNING id",

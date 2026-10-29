@@ -41,11 +41,7 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
   );
   const { rows: [night] } = await client.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche 1", 1, "COMPETITION", "OPEN"],
-  );
-  await client.query(
-    "INSERT INTO voting_window(event_id, night_id, status, closed_at) VALUES($1,$2,'CLOSED',CURRENT_TIMESTAMP)",
-    [event.id, night.id],
+    [event.id, "Noche 1", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [specialty] } = await client.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -175,6 +171,11 @@ async function setupResultFixtures({ withRandomRubric = false, scoreOverrides = 
   const { rows: [assignmentB] } = await client.query(
     "INSERT INTO judge_assignment(event_id, night_id, specialty_id, judge_profile_id, assignment_type) VALUES($1,$2,$3,$4,$5) RETURNING id",
     [event.id, night.id, batterySpecialty.id, batteryJudgeProfile.id, "PRIMARY"],
+  );
+  await client.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
+  await client.query(
+    "INSERT INTO voting_window(event_id, night_id, status, closed_at) VALUES($1,$2,'CLOSED',CURRENT_TIMESTAMP)",
+    [event.id, night.id],
   );
 
   const { rows: [ballotA] } = await client.query(

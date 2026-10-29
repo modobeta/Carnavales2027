@@ -34,6 +34,22 @@ describe("EventReadinessPanel", () => {
     expect(screen.getByRole("button", { name: "Abrir evento" })).toBeDisabled();
   });
 
+  it("agrupa las nominaciones pendientes sin permitir abrir el evento", async () => {
+    apiRequest.mockResolvedValue(readiness({
+      ready: false,
+      missing: ["INCOMPLETE_NOMINATIONS"],
+      incompleteNominations: [
+        { rubricId: "r1", troupeId: "t1", rubricName: "Reina", troupeName: "Estrella" },
+        { rubricId: "r2", troupeId: "t1", rubricName: "Rey", troupeName: "Estrella" },
+      ],
+    }));
+    render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
+
+    expect(await screen.findByText("Hay 2 faltantes en 1 comparsa.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir evento" })).toBeDisabled();
+    expect(screen.getAllByText(/Falta un participante para/)).toHaveLength(2);
+  });
+
   it("muestra ok cuando todo esta completo", async () => {
     apiRequest.mockResolvedValue(readiness());
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
@@ -73,6 +89,7 @@ describe("EventReadinessPanel", () => {
     const confirmButtons = await screen.findAllByRole("button", { name: "Abrir evento" });
     fireEvent.click(confirmButtons.at(-1));
     await waitFor(() => expect(onOpened).toHaveBeenCalled());
+    expect(screen.getByRole("link", { name: "Continuar a Control de votación" })).toHaveAttribute("href", "#/admin/voting");
   });
 
   it("no abre sin confirmacion explicita", async () => {
@@ -109,23 +126,25 @@ describe("EventReadinessPanel", () => {
     }));
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} onGoToNights={onGoToNights} />);
     await screen.findByText(/Comparsa incompleta/);
-    expect(screen.getByRole("link", { name: "Ir al problema" })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: "Corregir comparsa" })).toHaveAttribute("href", "#/admin/competencia");
-    expect(screen.getByRole("link", { name: "Corregir rubro" })).toHaveAttribute("href", "#/admin/competencia");
+    expect(screen.getByRole("link", { name: "Ir al problema" })).toHaveAttribute("href", "#/admin/competencia?step=especialidades");
+    expect(screen.getByRole("link", { name: "Corregir comparsa" })).toHaveAttribute("href", "#/admin/competencia?step=participantes");
+    expect(screen.getByRole("link", { name: "Corregir evaluación" })).toHaveAttribute("href", "#/admin/competencia?step=rubros");
     fireEvent.click(screen.getByRole("button", { name: "Ir al problema" }));
     expect(onGoToNights).toHaveBeenCalledTimes(1);
   });
 
-  it("presenta el faltante oficial de jurado por jornada con acceso a asignaciones", async () => {
+  it("presenta el jurado pendiente como aviso con acceso a la jornada, no como bloqueo del evento", async () => {
     apiRequest.mockResolvedValue(readiness({
-      ready: false,
-      missing: ["NIGHTS_WITHOUT_JURY"],
+      ready: true,
+      missing: [],
       nightsWithoutJury: [{ nightId: "n1", nightName: "Noche inaugural" }],
     }));
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
 
-    expect(await screen.findByText(/Asigná al menos un jurado activo a la jornada.*Noche inaugural/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Asignar jurado" })).toHaveAttribute("href", "#/admin/assignments?eventId=e1&nightId=n1");
+    await screen.findByRole("button", { name: "Abrir evento" });
+    expect(screen.getByRole("link", { name: "Control de votación" }).parentElement.textContent).toMatch(/Noche inaugural.*todavía no tiene jurados/);
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting?nightId=n1");
+    expect(screen.getByRole("button", { name: "Abrir evento" })).toBeEnabled();
   });
 
   it("confirma la apertura nombrando el evento y envía una sola operación identificada", async () => {
@@ -161,11 +180,14 @@ describe("EventReadinessPanel", () => {
     expect(apiRequest.mock.calls.some(([url]) => url === "/api/v1/events/e1")).toBe(false);
   });
 
-  it("no permite iniciar apertura si el estado vigente del evento no es CONFIGURING", async () => {
+  it("si el evento ya está abierto, ofrece continuar sin presentarlo como pendiente de apertura", async () => {
     apiRequest.mockResolvedValue(readiness());
     render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "OPEN" }} locked={false} />);
 
-    expect(await screen.findByRole("button", { name: "Abrir evento" })).toBeDisabled();
+    expect(await screen.findByText(/La competencia está abierta/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuar a Control de votación" })).toHaveAttribute("href", "#/admin/voting");
+    expect(screen.queryByRole("button", { name: "Abrir evento" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/listo para abrir/)).not.toBeInTheDocument();
   });
 
   it("permite reconsultar readiness tras un error de lectura sin abrir automáticamente", async () => {

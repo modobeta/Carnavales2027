@@ -28,14 +28,17 @@ function setup(overrides = {}) {
   return data;
 }
 
-it("inicia con Rubros y ofrece los seis pasos en el orden aprobado", async () => {
+it("inicia con Rubros y ofrece los cinco pasos de preparación", async () => {
   setup();
   render(<AdminCompetenciaPage event={event} />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
-  expect(within(nav).getAllByRole("button").map((button) => button.textContent.replace(/^\d/, "").replace(/Completo|Incompleto|Pendiente de revisión|No se pudo revisar/g, "").trim()))
-    .toEqual(["Rubros", "Especialidades", "Evaluación", "Comparsas", "Asignar jurados", "Revisión final"]);
+  expect(within(nav).getAllByRole("button").map((button) => button.querySelector(".competencia-step-label").textContent.trim()))
+    .toEqual(["Rubros", "Especialidades", "Evaluación", "Comparsas", "Revisión final"]);
+  expect(within(nav).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent))
+    .toEqual(["Definir evaluación", "Armar competencia", "Habilitar evento"]);
+  expect(within(nav).getByRole("button", { name: /^Rubros/ })).toHaveAttribute("aria-current", "step");
   expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
-  expect(screen.getByText("Paso 1 de 6")).toBeInTheDocument();
+  expect(screen.getByText("Paso 1 de 5")).toBeInTheDocument();
 });
 
 it("crea un rubro de participantes sin especialidades ni ítems y lo ofrece dentro de la comparsa", async () => {
@@ -68,7 +71,7 @@ it("Evaluación usa el rubro existente y muestra sus participantes para crear su
   fireEvent.click(add);
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Reina" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Reina"), { target: { value: "Presencia" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Reina"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText("Item guardado.")).toBeInTheDocument();
@@ -81,7 +84,6 @@ it("el catálogo permite completar Rubros aunque todavía falten sus ítems de E
   expect(states.catalogo).toBe("complete");
   expect(states.rubros).toBe("incomplete");
   expect(states.especialidades).toBe("complete");
-  expect(states.asignaciones).toBe("complete");
   expect(states.revision).toBe("incomplete");
   const issues = readinessIssues({ ...ready, incompleteRubrics: [{ id: "r1", name: "Reina" }] });
   expect(issues.find((issue) => issue.key === "missing-ACTIVE_RUBRIC").href).toBe("#/admin/competencia?step=catalogo");
@@ -92,10 +94,9 @@ it("separa bloqueos por especialidades de los bloqueos por asignación de jurado
   const readiness = { ...ready, missing: ["ACTIVE_SPECIALTY"], nightsWithoutJury: [{ nightId: "n1", nightName: "Noche 1" }] };
   const states = readinessStepStates(readiness, "available");
   expect(states.especialidades).toBe("incomplete");
-  expect(states.asignaciones).toBe("incomplete");
   const issues = readinessIssues(readiness);
   expect(issues.find((issue) => issue.key === "missing-ACTIVE_SPECIALTY").href).toBe("#/admin/competencia?step=especialidades");
-  expect(issues.find((issue) => issue.key === "jury-n1").href).toBe("#/admin/competencia?step=asignaciones");
+  expect(issues.find((issue) => issue.key === "jury-n1")).toMatchObject({ href: "#/admin/voting?nightId=n1", kind: "deferred" });
 });
 
 it.each(["red", "5xx", "sin ID"])("un POST de rubro incierto (%s) no se reenvía ni se confirma por coincidencia en GET", async (failure) => {

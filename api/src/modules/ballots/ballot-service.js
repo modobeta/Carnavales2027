@@ -103,14 +103,36 @@ async function saveScoreLocked(client, { ballot, actorUserId, ballotId, scoreId,
     throw error;
   }
 
+  if (scores[0].nightScheduleId) {
+    const { rows: releaseState } = await client.query(
+      `SELECT n.voting_release_mode AS "releaseMode", n.active_schedule_id AS "activeScheduleId",
+              nts.release_order AS "releaseOrder", w.status AS "windowStatus"
+         FROM night n
+         JOIN night_troupe_schedule nts ON nts.id = $2 AND nts.night_id = n.id
+         LEFT JOIN voting_window w ON w.night_id = n.id AND w.event_id = n.event_id
+        WHERE n.id = $1
+        FOR SHARE OF n, nts`,
+      [ballot.nightId, scores[0].nightScheduleId],
+    );
+    const release = releaseState[0];
+    if (release?.releaseMode === "MANUAL" && release.windowStatus === "OPEN"
+      && (release.releaseOrder === null || release.activeScheduleId !== scores[0].nightScheduleId)) {
+      const error = new Error("TROUPE_NOT_RELEASED");
+      error.code = error.message;
+      throw error;
+    }
+  }
+
   // RF-193: Precedencia estricta por orden de pasada (Spec 025)
   if (scores[0].nightScheduleId) {
     const { rows: currentSched } = await client.query(
-      `SELECT presentation_order AS "presentationOrder" FROM night_troupe_schedule WHERE id = $1 FOR SHARE`,
+      `SELECT nts.presentation_order AS "presentationOrder", n.voting_release_mode AS "releaseMode"
+         FROM night_troupe_schedule nts JOIN night n ON n.id = nts.night_id
+        WHERE nts.id = $1 FOR SHARE OF nts`,
       [scores[0].nightScheduleId],
     );
     const order = currentSched[0]?.presentationOrder;
-    if (typeof order === "number") {
+    if (typeof order === "number" && currentSched[0]?.releaseMode === "ALL") {
       const { rows: priorPending } = await client.query(
         `SELECT 1
            FROM ballot_score bs
@@ -238,8 +260,9 @@ export async function createBallotsForNight(client, { eventId, nightId, actorUse
       `SELECT ei.id AS "itemId", ei.rubric_id AS "rubricId",
               r.evaluation_target AS "evaluationTarget"
          FROM evaluation_item ei
+         JOIN evaluation_item_specialty eis ON eis.evaluation_item_id=ei.id AND eis.event_id=ei.event_id
          JOIN rubric r ON r.id = ei.rubric_id
-        WHERE ei.event_id = $1 AND ei.specialty_id = $2 AND ei.active = true`,
+        WHERE ei.event_id = $1 AND eis.specialty_id = $2 AND ei.active = true`,
       [eventId, assignment.specialtyId],
     );
 
@@ -310,12 +333,21 @@ export async function openVoting({ actorUserId, eventId, nightId }) {
     if (event.status !== "OPEN") throw new Error("EVENT_NOT_OPEN");
 
     const { rows: nights } = await client.query(
-      `SELECT id, status, kind FROM night WHERE id = $1 AND event_id = $2 FOR UPDATE`,
+      `SELECT id, status, kind, voting_release_mode AS "releaseMode" FROM night WHERE id = $1 AND event_id = $2 FOR UPDATE`,
       [requireText(nightId, "nightId"), eventId],
     );
     if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
     if (nights[0].kind !== "COMPETITION") throw new Error("VOTING_COMPETITION_ONLY");
     if (nights[0].status !== "OPEN") throw new Error("NIGHT_NOT_OPEN");
+
+    const { rows: activeAssignments } = await client.query(
+      `SELECT COUNT(*)::INTEGER AS count
+         FROM judge_assignment
+        WHERE event_id = $1 AND night_id = $2
+          AND status = 'ACTIVE' AND assignment_type = 'PRIMARY'`,
+      [eventId, nights[0].id],
+    );
+    if (activeAssignments[0]?.count === 0) throw new Error("NIGHT_WITHOUT_ACTIVE_JURY");
 
     const { rows: windows } = await client.query(
       "SELECT status FROM voting_window WHERE night_id = $1 FOR UPDATE",
@@ -337,12 +369,30 @@ export async function openVoting({ actorUserId, eventId, nightId }) {
     if ((scheduled[0]?.count ?? 0) === 0) throw new Error("NIGHT_SCHEDULE_EMPTY");
 
     const created = await createBallotsForNight(client, { eventId, nightId: nights[0].id, actorUserId });
+    if (nights[0].releaseMode === "ALL") {
+      const { rows: scheduledTroupes } = await client.query(
+        `SELECT id FROM night_troupe_schedule
+          WHERE event_id = $1 AND night_id = $2 AND status = 'SCHEDULED' AND release_order IS NULL
+          ORDER BY presentation_order FOR UPDATE`,
+        [eventId, nights[0].id],
+      );
+      for (const [index, troupe] of scheduledTroupes.entries()) {
+        await client.query(
+          `UPDATE night_troupe_schedule SET release_order = $2 WHERE id = $1`,
+          [troupe.id, index + 1],
+        );
+      }
+      await client.query(
+        `UPDATE night SET active_schedule_id = COALESCE(active_schedule_id, $2) WHERE id = $1`,
+        [nights[0].id, scheduledTroupes[0]?.id ?? null],
+      );
+    }
     await auditEvent(client, {
       actorUserId,
       action: "VOTING_OPENED",
       entityType: "night",
       entityId: nights[0].id,
-      after: { eventId, ballotsCreated: created.length },
+      after: { eventId, ballotsCreated: created.length, releaseMode: nights[0].releaseMode },
     });
     emitMonitorEvent("VOTING_OPENED", {
       eventId,
@@ -350,6 +400,141 @@ export async function openVoting({ actorUserId, eventId, nightId }) {
       ballotsCreated: created.length,
     });
     return { nightId: nights[0].id, ballotsCreated: created.length };
+  });
+}
+
+export async function setVotingReleaseMode({ actorUserId, eventId, nightId, releaseMode }) {
+  if (!['MANUAL', 'ALL'].includes(releaseMode)) throw new TypeError("releaseMode debe ser MANUAL o ALL.");
+  return inTransaction(async (client) => {
+    const event = await lockEvent(client, eventId);
+    if (event.status !== "OPEN") throw new Error("EVENT_NOT_OPEN");
+    const { rows: nights } = await client.query(
+      `SELECT id, voting_release_mode AS "releaseMode", status, kind
+         FROM night WHERE id = $1 AND event_id = $2 FOR UPDATE`,
+      [requireText(nightId, "nightId"), eventId],
+    );
+    if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
+    if (nights[0].kind !== "COMPETITION") throw new Error("VOTING_COMPETITION_ONLY");
+    const { rows: windows } = await client.query(
+      "SELECT status FROM voting_window WHERE night_id = $1 AND event_id = $2 FOR UPDATE",
+      [nights[0].id, eventId],
+    );
+    if (windows[0]) throw new Error("VOTING_RELEASE_MODE_LOCKED");
+    if (nights[0].releaseMode === releaseMode) return { nightId: nights[0].id, releaseMode };
+    await client.query(
+      "UPDATE night SET voting_release_mode = $2, active_schedule_id = NULL WHERE id = $1",
+      [nights[0].id, releaseMode],
+    );
+    await auditEvent(client, {
+      actorUserId,
+      action: "VOTING_RELEASE_MODE_CHANGED",
+      entityType: "night",
+      entityId: nights[0].id,
+      before: { eventId, releaseMode: nights[0].releaseMode },
+      after: { eventId, releaseMode },
+    });
+    emitMonitorEvent("VOTING_RELEASE_MODE_CHANGED", { eventId, nightId: nights[0].id, releaseMode });
+    return { nightId: nights[0].id, releaseMode };
+  });
+}
+
+export async function releaseVotingTroupe({ actorUserId, eventId, nightId, scheduleId }) {
+  const sid = requireUuid(scheduleId, "scheduleId");
+  return inTransaction(async (client) => {
+    const event = await lockEvent(client, eventId);
+    if (event.status !== "OPEN") throw new Error("EVENT_NOT_OPEN");
+    const { rows: nights } = await client.query(
+      `SELECT id, status, kind, voting_release_mode AS "releaseMode", active_schedule_id AS "activeScheduleId"
+         FROM night WHERE id = $1 AND event_id = $2 FOR UPDATE`,
+      [requireText(nightId, "nightId"), eventId],
+    );
+    if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
+    if (nights[0].kind !== "COMPETITION") throw new Error("VOTING_COMPETITION_ONLY");
+    if (nights[0].status !== "OPEN") throw new Error("NIGHT_NOT_OPEN");
+    const { rows: windows } = await client.query(
+      "SELECT status FROM voting_window WHERE night_id = $1 AND event_id = $2 FOR UPDATE",
+      [nights[0].id, eventId],
+    );
+    if (windows[0]?.status !== "OPEN") throw new Error("VOTING_WINDOW_NOT_OPEN");
+    const { rows: targets } = await client.query(
+      `SELECT id, release_order AS "releaseOrder", presentation_order AS "presentationOrder"
+         FROM night_troupe_schedule
+        WHERE id = $1 AND event_id = $2 AND night_id = $3 AND status = 'SCHEDULED'
+        FOR UPDATE`,
+      [sid, eventId, nights[0].id],
+    );
+    if (!targets[0]) throw new Error("NIGHT_SCHEDULE_ENTRY_NOT_FOUND");
+
+    if (nights[0].releaseMode === "MANUAL") {
+      if (targets[0].releaseOrder !== null && targets[0].releaseOrder !== undefined) {
+        throw new Error("TROUPE_ALREADY_RELEASED");
+      }
+      if (nights[0].activeScheduleId) {
+        const { rows: progress } = await client.query(
+          `SELECT COUNT(DISTINCT ja.id)::INTEGER AS "assignments",
+                  COUNT(DISTINCT b.id)::INTEGER AS "ballots",
+                  COUNT(DISTINCT b.id) FILTER (
+                    WHERE COALESCE(progress.total, 0) > 0 AND COALESCE(progress.pending, 0) = 0
+                  )::INTEGER AS "completeBallots"
+             FROM judge_assignment ja
+             LEFT JOIN ballot b ON b.judge_assignment_id = ja.id AND b.status <> 'REPLACED'
+             LEFT JOIN LATERAL (
+               SELECT COUNT(*)::INTEGER AS total,
+                      COUNT(*) FILTER (WHERE bs.evaluation_state = 'PENDING')::INTEGER AS pending
+                 FROM ballot_score bs
+                WHERE bs.ballot_id = b.id AND bs.night_schedule_id = $3
+             ) progress ON true
+            WHERE ja.event_id = $1 AND ja.night_id = $2
+              AND ja.status = 'ACTIVE' AND ja.assignment_type = 'PRIMARY'`,
+          [eventId, nights[0].id, nights[0].activeScheduleId],
+        );
+        const state = progress[0];
+        if (Number(state.assignments) === 0 || Number(state.ballots) !== Number(state.assignments)
+          || Number(state.completeBallots) !== Number(state.assignments)) {
+          throw new Error("ACTIVE_TROUPE_BALLOTS_INCOMPLETE");
+        }
+      }
+      const { rows: nextTroupes } = await client.query(
+        `SELECT id FROM night_troupe_schedule
+          WHERE event_id = $1 AND night_id = $2 AND status = 'SCHEDULED' AND release_order IS NULL
+          ORDER BY presentation_order LIMIT 1 FOR UPDATE`,
+        [eventId, nights[0].id],
+      );
+      if (nextTroupes[0]?.id !== sid) throw new Error("TROUPE_RELEASE_ORDER_REQUIRED");
+      const { rows: maxRows } = await client.query(
+        "SELECT COALESCE(MAX(release_order), 0)::INTEGER AS value FROM night_troupe_schedule WHERE night_id = $1",
+        [nights[0].id],
+      );
+      const nextOrder = Number(maxRows[0].value) + 1;
+      await client.query("UPDATE night_troupe_schedule SET release_order = $2 WHERE id = $1", [sid, nextOrder]);
+      await client.query("UPDATE night SET active_schedule_id = $2 WHERE id = $1", [nights[0].id, sid]);
+      await auditEvent(client, {
+        actorUserId,
+        action: "VOTING_TROUPE_RELEASED",
+        entityType: "night_troupe_schedule",
+        entityId: sid,
+        after: { eventId, nightId: nights[0].id, scheduleId: sid, releaseOrder: nextOrder, releaseMode: "MANUAL" },
+      });
+      emitMonitorEvent("VOTING_TROUPE_RELEASED", { eventId, nightId: nights[0].id, scheduleId: sid });
+      return { scheduleId: sid, releaseOrder: nextOrder, activeScheduleId: sid };
+    }
+
+    const { rows: released } = await client.query(
+      `SELECT id, release_order AS "releaseOrder" FROM night_troupe_schedule
+        WHERE id = $1 AND event_id = $2 AND night_id = $3`,
+      [sid, eventId, nights[0].id],
+    );
+    if (!released[0].releaseOrder) throw new Error("ALL_TROUPES_NOT_RELEASED");
+    await client.query("UPDATE night SET active_schedule_id = $2 WHERE id = $1", [nights[0].id, sid]);
+    await auditEvent(client, {
+      actorUserId,
+      action: "VOTING_ACTIVE_TROUPE_SELECTED",
+      entityType: "night_troupe_schedule",
+      entityId: sid,
+      after: { eventId, nightId: nights[0].id, scheduleId: sid, releaseMode: "ALL" },
+    });
+    emitMonitorEvent("VOTING_ACTIVE_TROUPE_SELECTED", { eventId, nightId: nights[0].id, scheduleId: sid });
+    return { scheduleId: sid, releaseOrder: released[0].releaseOrder, activeScheduleId: sid };
   });
 }
 
@@ -465,7 +650,9 @@ export async function getVotingStatus({ eventId, nightId }) {
   const { rows: events } = await getPool().query("SELECT id FROM carnival_event WHERE id = $1", [id]);
   if (!events[0]) throw new Error("EVENT_NOT_FOUND");
   const { rows: nights } = await getPool().query(
-    "SELECT id, status, kind FROM night WHERE id = $1 AND event_id = $2",
+    `SELECT id, status, kind, voting_release_mode AS "releaseMode",
+            active_schedule_id AS "activeScheduleId"
+       FROM night WHERE id = $1 AND event_id = $2`,
     [nid, id],
   );
   if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
@@ -487,6 +674,7 @@ export async function getVotingStatus({ eventId, nightId }) {
     `SELECT
        nts.id AS "scheduleId",
        nts.presentation_order AS "presentationOrder",
+       nts.release_order AS "releaseOrder",
        et.name AS "troupeName",
        et.brand_color AS "brandColor",
        COUNT(bs.id)::INTEGER AS "totalScores",
@@ -496,8 +684,8 @@ export async function getVotingStatus({ eventId, nightId }) {
      LEFT JOIN ballot b ON b.night_id = nts.night_id AND b.event_id = nts.event_id AND b.status IN ('OPEN', 'SUBMITTED', 'REOPENED')
      LEFT JOIN ballot_score bs ON bs.ballot_id = b.id AND bs.night_schedule_id = nts.id
     WHERE nts.night_id = $1 AND nts.event_id = $2 AND nts.status = 'SCHEDULED'
-    GROUP BY nts.id, et.name, et.brand_color, nts.presentation_order
-    ORDER BY nts.presentation_order ASC`,
+     GROUP BY nts.id, et.name, et.brand_color, nts.presentation_order, nts.release_order
+     ORDER BY nts.release_order NULLS LAST, nts.presentation_order ASC`,
     [nid, id],
   );
 
@@ -510,7 +698,7 @@ export async function getVotingStatus({ eventId, nightId }) {
     let troupeStatus = "WAITING";
     if (isCompleted) {
       troupeStatus = "COMPLETED";
-    } else if (!foundActive && total > 0) {
+    } else if (nights[0].releaseMode === "ALL" && windows[0]?.status === "OPEN" && !foundActive && total > 0) {
       troupeStatus = "IN_RUNWAY";
       foundActive = true;
     }
@@ -518,6 +706,8 @@ export async function getVotingStatus({ eventId, nightId }) {
     const item = {
       scheduleId: tr.scheduleId,
       presentationOrder: tr.presentationOrder,
+      releaseOrder: tr.releaseOrder,
+      released: tr.releaseOrder !== null,
       troupeName: tr.troupeName,
       brandColor: tr.brandColor || null,
       totalScores: total,
@@ -525,13 +715,21 @@ export async function getVotingStatus({ eventId, nightId }) {
       status: troupeStatus,
     };
 
-    if (troupeStatus === "IN_RUNWAY") {
-      activeTroupe = item;
-    }
+    if (troupeStatus === "IN_RUNWAY") activeTroupe = item;
     return item;
   });
 
-  if (!activeTroupe && troupes.length > 0 && troupes.some((t) => t.status !== "COMPLETED")) {
+  if (nights[0].activeScheduleId) {
+    const selected = troupes.find((troupe) => troupe.scheduleId === nights[0].activeScheduleId);
+    if (selected && selected.status !== "COMPLETED") {
+      if (activeTroupe) activeTroupe.status = "WAITING";
+      selected.status = "IN_RUNWAY";
+      activeTroupe = selected;
+    }
+  }
+
+  if (!activeTroupe && nights[0].releaseMode === "ALL" && windows[0]?.status === "OPEN"
+    && troupes.length > 0 && troupes.some((t) => t.status !== "COMPLETED")) {
     const firstPending = troupes.find((t) => t.status !== "COMPLETED");
     if (firstPending) {
       firstPending.status = "IN_RUNWAY";
@@ -542,6 +740,8 @@ export async function getVotingStatus({ eventId, nightId }) {
   return {
     nightId: nid,
     nightStatus: nights[0].status,
+    releaseMode: nights[0].releaseMode,
+    activeScheduleId: nights[0].activeScheduleId,
     votingStatus: windows[0]?.status ?? "NOT_OPEN",
     counts,
     total: counts.OPEN + counts.SUBMITTED + counts.REOPENED,
@@ -555,7 +755,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
     const { rows } = await getPool().query(
       `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
               b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
-              s.name AS "specialtyName",
+              n.event_date AS "eventDate", s.name AS "specialtyName",
               COALESCE(SUM(t.total), 0)::INTEGER AS "totalScores",
               COALESCE(SUM(t.resolved), 0)::INTEGER AS "resolvedScores",
               COALESCE(
@@ -609,7 +809,7 @@ export async function listJudgeBallots({ userId, includeProgress = false }) {
   const { rows } = await getPool().query(
     `SELECT b.id, b.event_id AS "eventId", b.status, b.night_id AS "nightId", b.submitted_at AS "submittedAt",
             b.reopened_at AS "reopenedAt", e.name AS "eventName", n.name AS "nightName",
-            s.name AS "specialtyName"
+            n.event_date AS "eventDate", s.name AS "specialtyName"
        FROM ballot b
         JOIN judge_profile jp ON jp.id = b.judge_profile_id
          JOIN judge_assignment ja ON ja.id = b.judge_assignment_id
@@ -632,7 +832,8 @@ export async function getBallot({ ballotId, userId }) {
              b.status, b.revision, b.opened_at AS "openedAt", b.submitted_at AS "submittedAt",
             b.reopened_at AS "reopenedAt", b.reopen_count AS "reopenCount",
             jp.user_id AS "userId", jp.name AS "judgeName", jp.email AS "judgeEmail",
-            e.name AS "eventName", n.name AS "nightName", s.name AS "specialtyName"
+             e.name AS "eventName", n.name AS "nightName", n.event_date AS "eventDate", s.name AS "specialtyName",
+             n.voting_release_mode AS "releaseMode", n.active_schedule_id AS "activeScheduleId"
        FROM ballot b
         JOIN judge_profile jp ON jp.id = b.judge_profile_id
          JOIN judge_assignment ja ON ja.id = b.judge_assignment_id
@@ -659,7 +860,7 @@ export async function getBallot({ ballotId, userId }) {
             tn.id AS "nominationId", tn.display_name AS "participantName",
             tn.subject_type AS "participantType",
              bs.rubric_id AS "rubricId", bs.night_schedule_id AS "nightScheduleId",
-             nts.presentation_order AS "presentationOrder",
+              nts.presentation_order AS "presentationOrder", nts.release_order AS "releaseOrder",
              et.id AS "troupeId",
              et.name AS "troupeName",
              et.brand_color AS "brandColor",
@@ -674,7 +875,7 @@ export async function getBallot({ ballotId, userId }) {
        JOIN night_troupe_schedule nts ON nts.id = bs.night_schedule_id
        JOIN event_troupe et ON et.id = nts.event_troupe_id
       WHERE bs.ballot_id = $1
-      ORDER BY nts.presentation_order, r.name, ei.name, tn.display_name NULLS FIRST`,
+       ORDER BY nts.release_order NULLS LAST, nts.presentation_order, r.name, ei.name, tn.display_name NULLS FIRST`,
     [id],
   );
 
@@ -694,7 +895,10 @@ export async function getBallot({ ballotId, userId }) {
     judgeEmail: ballot.judgeEmail,
     eventName: ballot.eventName,
     nightName: ballot.nightName,
+    eventDate: ballot.eventDate,
     specialtyName: ballot.specialtyName,
+    releaseMode: ballot.releaseMode,
+    activeScheduleId: ballot.activeScheduleId,
     scores: scores.map((s) => ({
       id: s.id,
       evaluationItemId: s.evaluationItemId,
@@ -711,7 +915,8 @@ export async function getBallot({ ballotId, userId }) {
       participantType: s.participantType,
       rubricId: s.rubricId,
        nightScheduleId: s.nightScheduleId,
-       presentationOrder: s.presentationOrder,
+        presentationOrder: s.presentationOrder,
+        releaseOrder: s.releaseOrder,
         troupeId: s.troupeId,
         troupeName: s.troupeName,
         brandColor: s.brandColor || null,

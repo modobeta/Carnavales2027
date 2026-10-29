@@ -181,9 +181,9 @@ jurado
 
 # 7. Selección de noche
 
-La noche y especialidad pueden ser seleccionadas por el jurado entre sus asignaciones activas creadas por Administración en Competencia.
+La noche y especialidad pueden ser seleccionadas por el jurado entre sus asignaciones activas creadas por Administración en Control de votación.
 
-Resolver la autorización crítica validando en servidor que la asignación esté activa, que la noche exista y que la comparsa activa pertenezca a esa noche. Mientras el evento esté abierto, Administración puede revocar o reemplazar asignaciones sin modificar planillas confirmadas.
+Resolver la autorización crítica validando en servidor que la asignación esté activa, que la noche exista y que la comparsa activa pertenezca a esa noche. Administración crea asignaciones nuevas mientras la noche siga en `DRAFT`, aunque el evento ya esté abierto; la falta de jurados en otra jornada futura no impide abrir la seleccionada. En una noche abierta no se admiten altas nuevas, pero las asignaciones existentes pueden revocarse o reemplazarse si todavía no tienen una planilla confirmada.
 
 ---
 

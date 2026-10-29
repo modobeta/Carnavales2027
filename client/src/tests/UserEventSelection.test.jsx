@@ -5,6 +5,7 @@ import { loadAvailableEvents } from "../context/available-events.js";
 import { AdminEventProvider } from "../context/AdminEventContext.jsx";
 import { AppNavigation } from "../components/AppNavigation.jsx";
 import { JudgeHomePage } from "../pages/JudgeHomePage.jsx";
+import { JudgeBallotPage } from "../pages/JudgeBallotPage.jsx";
 import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
@@ -78,6 +79,66 @@ describe("identidad y selección de evento", () => {
     fireEvent.click(screen.getByRole("option", { name: "Evento 2" }));
     await screen.findAllByText("Comparsa 2");
     expect(screen.queryByText("Comparsa 1")).not.toBeInTheDocument();
+  });
+
+  it("muestra la jornada actual y su fecha en el header del jurado", async () => {
+    window.location.hash = "#/judge";
+    apiRequest.mockImplementation(async (path) => {
+      if (path === "/api/v1/judge/profile") return { assignments: [{ eventId: "e1", eventName: "Evento 1", status: "ACTIVE" }] };
+      if (path.includes("judge/ballots")) return [{
+        id: "b1",
+        eventId: "e1",
+        eventName: "Evento 1",
+        nightId: "n1",
+        nightName: "Jornada 1",
+        eventDate: "2027-02-06",
+        specialtyName: "Baile",
+        status: "OPEN",
+        totalScores: 1,
+        resolvedScores: 0,
+        troupes: [{ troupeId: "t1", troupeName: "Comparsa 1", total: 1, resolved: 0 }],
+      }];
+      return { events: [] };
+    });
+    const session = { user: { id: "j1", name: "Juez Uno" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } };
+    const { container } = render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /><JudgeHomePage session={session} /></AdminEventProvider>);
+    await waitFor(() => expect(container.querySelector(".session-night-name")).toHaveTextContent("Jornada 1"));
+    expect(container.querySelector(".session-night-date")).toHaveTextContent("06/02/2027");
+  });
+
+  it("muestra la fecha de la jornada en el header al abrir una planilla", async () => {
+    window.location.hash = "#/judge/ballot?ballotId=b1";
+    apiRequest.mockImplementation(async (path) => {
+      if (path === "/api/v1/judge/profile") return { assignments: [{ eventId: "e1", eventName: "Evento 1", status: "ACTIVE" }] };
+      if (path === "/api/v1/judge/ballots/b1") return {
+        id: "b1",
+        eventId: "e1",
+        eventName: "Evento 1",
+        nightId: "n1",
+        nightName: "Jornada 1",
+        eventDate: "2027-02-06",
+        specialtyName: "Baile",
+        status: "OPEN",
+        revision: 0,
+        scores: [{
+          id: "score-1",
+          nightScheduleId: "schedule-1",
+          presentationOrder: 1,
+          troupeName: "Comparsa Uno",
+          rubricId: "rubric-1",
+          rubricName: "Reina",
+          itemName: "Presencia",
+          score: null,
+          evaluationState: "PENDING",
+          status: "DRAFT",
+        }],
+      };
+      return {};
+    });
+    const session = { user: { id: "j1", name: "Juez Uno" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } };
+    const { container } = render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /><JudgeBallotPage ballotId="b1" /></AdminEventProvider>);
+    await waitFor(() => expect(container.querySelector(".session-night-name")).toHaveTextContent("Jornada 1"));
+    expect(container.querySelector(".session-night-date")).toHaveTextContent("06/02/2027");
   });
 
   it("no ofrece crear evento ni copy de administración al jurado", async () => {

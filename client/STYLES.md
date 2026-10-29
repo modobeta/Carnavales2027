@@ -31,7 +31,7 @@ Utilizar los cinco colores oficiales sin modificarlos ni reemplazarlos por aprox
 
 - Tema claro: `#FEE9F1`
 - Tema oscuro: `#000000`
-- Tarjetas tema claro: superficies con matiz rosado muy tenue (`#FF5252`), bordes sutiles derivados de los rosas oficiales.
+- Tarjetas tema claro: superficies con matiz rosado muy tenue (`#FFF5FA`), bordes sutiles derivados de los rosas oficiales.
 - Tarjetas tema oscuro: superficies con matiz rosado muy oscuro (`#14000A`), bordes discretos derivados de los rosas oficiales.
 - Modales: superficies coherentes con el tema activo, con los mismos matices rosados.
 - Bordes, separadores: derivados de los dos rosas oficiales con transparencia para mantener sutileza.

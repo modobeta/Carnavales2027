@@ -322,7 +322,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     // Press '8' on keyboard -> abre modal
-    fireEvent.keyDown(window, { key: "8" });
+    fireEvent.keyDown(document.body, { key: "8" });
 
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
     expect(within(dialog).getByText((_, el) => el?.textContent === "Usted está por votar 8. ¿Desea confirmar?")).toBeInTheDocument();

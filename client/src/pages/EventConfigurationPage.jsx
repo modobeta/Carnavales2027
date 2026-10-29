@@ -258,6 +258,17 @@ export function EventConfigurationPage({
       <EventStatusBanner status={currentEvent.status} />
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 
+      <EventReadinessPanel
+        event={currentEvent}
+        locked={locked}
+        refreshKey={readinessRevision}
+        onOpened={(openedEvent) => {
+          setCurrentEvent((current) => ({ ...current, ...openedEvent }));
+          onEventChange?.(openedEvent);
+        }}
+        onGoToNights={() => nightsSectionRef.current?.scrollIntoView?.({ block: "start" })}
+      />
+
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
         <form
@@ -421,16 +432,6 @@ export function EventConfigurationPage({
         tone="danger"
       />
 
-      <EventReadinessPanel
-        event={currentEvent}
-        locked={locked}
-        refreshKey={readinessRevision}
-          onOpened={(openedEvent) => {
-            setCurrentEvent((current) => ({ ...current, ...openedEvent }));
-            onEventChange?.(openedEvent);
-          }}
-        onGoToNights={() => nightsSectionRef.current?.scrollIntoView?.({ block: "start" })}
-      />
     </PageShell>
   );
 }

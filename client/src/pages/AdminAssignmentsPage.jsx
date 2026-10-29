@@ -16,7 +16,7 @@ const typeLabels = { PRIMARY: "Titular", SUBSTITUTE: "Suplente" };
  * (revocar/reemplazar/activar) viven en [Acciones ▾] + dialog con motivo.
  * Contratos API y reglas intactos.
  */
-export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) {
+export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "", embedded = false, fixedNight = false }) {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
   const [judges, setJudges] = useState([]);
@@ -87,6 +87,10 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
     previousEventId.current = eventId;
   }, [eventId]);
 
+  useEffect(() => {
+    if (initialNightId) setNightId(initialNightId);
+  }, [initialNightId]);
+
   const action = async (key, operation, success) => {
     if (busy) return;
     setBusy(key);
@@ -99,6 +103,7 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
       const messages = {
         JUDGE_QUOTA_FULL: "El cupo de esa combinación está completo.",
         JUDGE_ALREADY_ASSIGNED: "El jurado ya tiene una asignación activa en esa noche.",
+        JUDGE_ASSIGNMENT_NIGHT_OPEN: "La jornada ya está abierta y no admite nuevas asignaciones.",
         EVENT_LOCKED: "El evento ya no permite modificar esa configuración.",
         NIGHT_CLOSED: "La noche ya está cerrada.",
         JUDGE_NOT_ASSIGNABLE: "El jurado no está registrado o está suspendido.",
@@ -123,6 +128,9 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
       (assignment) => assignment.status === "ACTIVE" && sameNight(assignment, night) && sameSpecialty(assignment, specialty),
     );
   const selectedNight = nights.find((night) => night.id === nightId);
+  const canAssignSelectedNight = Boolean(
+    selectedNight?.status === "DRAFT" && ["CONFIGURING", "OPEN"].includes(selectedEvent?.status),
+  );
 
   const inactiveForNight = (data.assignments ?? []).filter(
     (assignment) => assignment.status !== "ACTIVE" && (nightId === "" || (selectedNight ? sameNight(assignment, selectedNight) : assignment.nightId === nightId)),
@@ -220,14 +228,14 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
 
   const boardContent = (
     <>
-      <p className="feedback" role="status" aria-live="polite">{message}</p>
+      {message && <p className="feedback" role={message.startsWith("No se pudieron") ? "alert" : "status"} aria-live="polite">{message}</p>}
       {eventId && <>
-        {selectedEvent?.status === "OPEN" && (
-          <p className="feedback" role="status">
+        {selectedEvent?.status === "OPEN" && !embedded && (
+          <p className="feedback" role="note">
             Competencia en curso: podés asignar, reemplazar o revocar jurados de jornadas abiertas. Los cupos quedan bloqueados.
           </p>
         )}
-        <div className="night-tabs" role="group" aria-label="Jornada">
+        {!fixedNight && <div className="night-tabs" role="group" aria-label="Jornada">
           {availableNights.map((night) => (
             <button
               key={night.id}
@@ -239,7 +247,7 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
               {night.name}
             </button>
           ))}
-        </div>
+        </div>}
         {selectedNight && specialties.map((specialty) => {
           const quota = quotaFor(selectedNight.id, specialty.id);
           const slots = activeFor(selectedNight, specialty);
@@ -254,9 +262,10 @@ export function AdminAssignmentsPage({ initialEventId = "", embedded = false }) 
                 <div className="event-actions">
                   {!quota && <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Configurar cupo</button>}
                   {quota && <button className="secondary edit-action" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
-                  <button type="button" disabled={Boolean(busy) || (selectedEvent?.status !== "CONFIGURING" && selectedEvent?.status !== "OPEN")} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
+                  <button type="button" disabled={Boolean(busy) || !canAssignSelectedNight} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
                 </div>
               </div>
+              {selectedNight.status === "OPEN" && <p className="feedback" role="note">Jornada abierta: no se admiten nuevas asignaciones. Los reemplazos y las revocaciones siguen sujetos a que no haya una planilla confirmada.</p>}
               {slots.length === 0 ? (
                 <p className="empty-state">⚠ Falta cubrir el puesto de {specialty.name} en {selectedNight.name}.</p>
               ) : (

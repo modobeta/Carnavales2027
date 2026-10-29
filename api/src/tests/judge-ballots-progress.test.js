@@ -51,8 +51,8 @@ test("API jurado: include=progress y brand_color de comparsa", {
   );
 
   const { rows: [night] } = await pool.query(
-    "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche Progreso", 1, "COMPETITION", "OPEN"],
+    "INSERT INTO night(event_id, name, display_order, kind, status, event_date) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
+    [event.id, "Noche Progreso", 1, "COMPETITION", "DRAFT", "2027-02-06"],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -129,6 +129,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
      VALUES($1,$2,$3,$4,$5) RETURNING id`,
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
 
   // Spec 029: logo cargado durante la configuración. El trigger
   // troupe_requires_configuring_event bloquea cambios con el evento abierto,
@@ -186,6 +187,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
     assert.equal(listData[0].eventId, event.id);
     assert.equal(listData.length, 1);
     assert.equal(listData[0].totalScores, undefined);
+    assert.ok(String(listData[0].eventDate).startsWith("2027-02-06"));
 
     // List ballots as judge WITH include=progress
     const listProgRes = await fetch(`${baseUrl}/api/v1/judge/ballots?include=progress`, {
@@ -195,6 +197,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
     const listProgData = await listProgRes.json();
     assert.equal(listProgData[0].eventId, event.id);
     assert.equal(listProgData.length, 1);
+    assert.ok(String(listProgData[0].eventDate).startsWith("2027-02-06"));
     // 2 troupes * 2 items = 4 scores total, initially 0 resolved
     assert.equal(listProgData[0].totalScores, 4);
     assert.equal(listProgData[0].resolvedScores, 0);
@@ -218,6 +221,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
     assert.equal(ballotRes.status, 200);
     const ballotData = await ballotRes.json();
     assert.equal(ballotData.scores.length, 4);
+    assert.ok(String(ballotData.eventDate).startsWith("2027-02-06"));
 
     const greenScores = ballotData.scores.filter((s) => s.troupeName === "Comparsa Verde");
     assert.equal(greenScores.length, 2);

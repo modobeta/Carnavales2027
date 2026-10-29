@@ -36,13 +36,13 @@ it("nombra stepper y controles de evaluación con el texto visible más su conte
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const first = await within(nav).findByRole("button", { name: "Comparsas Completo" });
-  expect(first).toHaveAccessibleDescription(/Paso 4 de 6/);
-  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 6/);
-  expect(within(nav).getByRole("button", { name: "Asignar jurados Completo" })).toHaveAccessibleDescription(/Paso 5 de 6.*Asignación de jurados/);
+  expect(first).toHaveAccessibleDescription(/Paso 4 de 5/);
+  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 5/);
+  expect(within(nav).queryByRole("button", { name: /Asignar jurados/ })).not.toBeInTheDocument();
   const current = within(nav).getByRole("button", { name: "Evaluación Completo" });
   expect(current).toHaveAttribute("aria-current", "step");
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
-  expect(within(nav).getAllByRole("button")).toHaveLength(6);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
+  expect(within(nav).getAllByRole("button")).toHaveLength(5);
   const card = await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
   expect(card).toHaveAttribute("aria-expanded", "false");
   expect(within(card).getByText("▾")).toHaveAttribute("aria-hidden", "true");
@@ -66,7 +66,7 @@ it("stepper distingue falta de readiness sin perder nombre visible ni posición 
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const current = await within(nav).findByRole("button", { name: "Evaluación No se pudo revisar" });
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
   expect(current).toHaveAttribute("aria-current", "step");
 });
 
@@ -465,7 +465,7 @@ it("con GET posterior fallido permite seguir con rubro confirmado y su ítem ace
   fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Nuevo" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Nuevo" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Nuevo"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Nuevo"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText(/Nuevo ítem \(i2\)/)).toBeInTheDocument();
@@ -498,6 +498,35 @@ it("reorden confirmado no suplanta una edición posterior del ítem en catálogo
   fireEvent.submit(form);
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByRole("button", { name: "Editar item Color nuevo" })).toBeInTheDocument();
+});
+
+it("edición confirmada de ítem no queda pendiente por arrays de especialidades equivalentes", async () => {
+  let itemName = "Color";
+  const item = () => ({ ...rubric.items[0], name: itemName, specialtyId: "s1", specialtyIds: ["s1", "s2"],
+    specialties: [{ specialtyId: "s1", specialtyName: "Danza" }, { specialtyId: "s2", specialtyName: "Música" }],
+    active: true, displayOrder: 1, required: true, allowNotPresented: true });
+  mockCatalog({ rubrics: () => [{ ...rubric, items: [item()] }] });
+  const get = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "PATCH" && path.endsWith("/i1")) {
+      itemName = "Color editado";
+      return item();
+    }
+    return get(path, options);
+  });
+
+  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Vestuario" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Editar item Color" }));
+  const form = screen.getByRole("button", { name: "Guardar item" }).closest("form");
+  fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Color editado" } });
+  fireEvent.submit(form);
+  fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+
+  expect(await screen.findByRole("button", { name: "Editar item Color editado" })).toBeInTheDocument();
+  expect(screen.queryByText(/Estado por comprobar/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Ítem confirmado:/)).not.toBeInTheDocument();
 });
 
 it("reordenar programación invalida la orientación de Evaluación antes del siguiente readiness", async () => {
@@ -536,7 +565,7 @@ it("ítem confirmado sigue editable con recibo aunque GET posterior de rubros tr
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText("Ítem confirmado: Nuevo ítem (i2).")).toBeInTheDocument();
@@ -601,7 +630,7 @@ it("POST de ítem libera confirmación y empieza refresh aunque GET individual s
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
@@ -724,7 +753,7 @@ it("tras conciliar un ítem, un GET nuevo fallido no elimina el acceso confirmad
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);

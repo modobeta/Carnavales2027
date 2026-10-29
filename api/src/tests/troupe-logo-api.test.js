@@ -251,7 +251,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
 
     await context.test("lifecycle OPEN/CLOSED conserva guarda persistente DELETE para ambos actores", async () => {
       const eventId = ids.lifecycle;
-      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
+      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [eventId]);
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
       await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES ($1,$2,$3,'Item','ITEM')", [eventId, rubric.id, specialty.id]);
@@ -260,6 +260,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
       const opened = await fetch(`${baseUrl}/api/v1/events/${eventId}/open`, { method: "POST", headers: { "x-test-session": "admin", "Idempotency-Key": randomUUID() } });
       assert.equal(opened.status, 200);
       assert.equal((await opened.json()).status, "OPEN");
+      await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
       for (const status of ["OPEN", "CLOSED"]) {
         if (status === "CLOSED") {
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);
@@ -514,7 +515,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
 
     await context.test("lifecycle OPEN/CLOSED conserva guarda persistente de PUT para ambos actores", async () => {
       const eventId = ids.lifecycle;
-      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
+      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [eventId]);
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
       await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES ($1,$2,$3,'Item','ITEM')", [eventId, rubric.id, specialty.id]);
@@ -523,6 +524,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
       const opened = await fetch(`${baseUrl}/api/v1/events/${eventId}/open`, { method: "POST", headers: { "x-test-session": "admin", "Idempotency-Key": randomUUID() } });
       assert.equal(opened.status, 200);
       assert.equal((await opened.json()).status, "OPEN");
+      await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
       for (const status of ["OPEN", "CLOSED"]) {
         if (status === "CLOSED") {
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);

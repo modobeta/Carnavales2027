@@ -25,8 +25,17 @@ describe("visual hierarchy system", () => {
   it("removes decorative page texture and heavy elevation from the shared shell", () => {
     expect(index).not.toContain("radial-gradient(circle, rgba(255, 255, 255, 0.14)");
     expect(index).not.toContain("radial-gradient(circle at 92% -10%");
-    expect(index).toContain("background: #FEE9F1;");
+    expect(source("../styles/theme.css")).toContain("background: var(--surface-base);");
     expect(index).toContain("box-shadow: none;");
+  });
+
+  it("keeps the document as the single vertical scroll container", () => {
+    const shellSizing = index.match(/html,\s*\nbody,\s*\n#root\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(shellSizing).toContain("min-height: 100dvh !important;");
+    expect(shellSizing).toContain("overflow-x: clip !important;");
+    expect(shellSizing).not.toContain("height: 100% !important;");
+    expect(shellSizing).not.toContain("overflow-x: hidden !important;");
   });
 
   it("keeps dialogs readable on a quiet surface and supports reduced transparency", () => {

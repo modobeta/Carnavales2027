@@ -51,10 +51,7 @@ function isCurrentNavItem(currentLocation, href) {
   const [currentRoute, currentSearch = ""] = currentLocation.split("?");
   const [hrefRoute, hrefSearch = ""] = href.split("?");
 
-  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/competencia") {
-    const hrefStep = new URLSearchParams(hrefSearch).get("step");
-    if (hrefStep === "jurados") return true;
-  }
+  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/voting") return true;
 
   if (currentRoute !== hrefRoute) return false;
 
@@ -186,7 +183,7 @@ const ROUTE_LABELS = {
   "#/admin/home": "Inicio",
   "#/admin/events": "Jornadas",
   "#/admin/competencia": "Comparsas y jurados",
-  "#/admin/assignments": "Asignaciones",
+  "#/admin/assignments": "Control de votación",
   "#/admin/voting": "Control de votación",
   "#/veedor": "Supervisión",
   "#/admin/penalties": "Penalizaciones",
@@ -212,8 +209,8 @@ function getBreadcrumbData(location) {
     if (step === "catalogo") label = "Rubros";
     else if (step === "especialidades") label = "Especialidades";
     else if (step === "participantes") label = "Comparsas";
-    else if (step === "jurados") label = params.get("tab") === "asignaciones" ? "Asignación de jurados" : "Especialidades";
-    else if (step === "asignaciones") label = "Asignación de jurados";
+    else if (step === "jurados") label = params.get("tab") === "asignaciones" ? "Control de votación" : "Especialidades";
+    else if (step === "asignaciones") label = "Control de votación";
     else if (step === "rubros") label = "Evaluación";
     else if (step === "revision") label = "Revisión final";
   }
@@ -232,18 +229,58 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function formatNightDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+    }
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
   const isHomeRoute = currentRoute === "#/admin/home";
+  const isJudgeRoute = currentRoute.startsWith("#/judge");
+  const judgeNight = isJudgeRoute
+    && adminEvent?.judgeNight?.route === currentRoute
+    && (!adminEvent?.activeEventId || adminEvent.judgeNight.eventId === adminEvent.activeEventId)
+    ? adminEvent.judgeNight
+    : null;
+  const judgeNightDate = judgeNight ? formatNightDate(judgeNight.eventDate) : "";
   const isUsersRoute = currentRoute === "#/admin/judges" || currentRoute === "#/admin/users";
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
   const showHomeBreadcrumb = canAccessAdminArea(session) && currentRoute !== "#/veedor";
   const roleLabels = (session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role);
+  const sessionUser = (
+    <div className="session-user">
+      <div className="session-avatar" aria-hidden="true">
+        {getInitials(session.user?.name)}
+      </div>
+      <div className="session-identity">
+        <strong>{session.user?.name}</strong>
+        <span className="session-role">{roleLabels.join(" · ") || "Sin rol asignado"}</span>
+        {adminEvent && (
+          <span className="session-event sr-only">
+            {adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <>
-    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
       <div className="header-left">
+        {isJudgeRoute && sessionUser}
         {!isDesktop && !hideDrawer && (
         <button
           ref={toggleRef}
@@ -271,7 +308,7 @@ function getInitials(name) {
         </button>
         )}
         <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
-        {isDesktop && (
+        {isDesktop && !isJudgeRoute && (
           <nav className="header-breadcrumb" aria-label="Ruta de navegación">
             {breadcrumb.isHome ? (
               canAccessAdminArea(session) ? (
@@ -296,20 +333,16 @@ function getInitials(name) {
       </div>
       <div className="session-actions">
         {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} canCreateEvents={isAdmin} />}
-        <div className="session-user">
-          <div className="session-avatar" aria-hidden="true">
-            {getInitials(session.user?.name)}
+        {judgeNight && (
+          <div
+            className="session-night"
+            aria-label={`Jornada actual: ${judgeNight.name}${judgeNightDate ? `, ${judgeNightDate}` : ""}`}
+          >
+            <span className="session-night-name">{judgeNight.name}</span>
+            {judgeNightDate && <span className="session-night-date">{judgeNightDate}</span>}
           </div>
-          <div className="session-identity">
-            <strong>{session.user?.name}</strong>
-            <span className="session-role">{roleLabels.join(" · ") || "Sin rol asignado"}</span>
-            {adminEvent && (
-              <span className="session-event sr-only">
-                {adminEvent.loading ? "Cargando evento…" : adminEvent.activeEvent?.name ?? "Sin eventos disponibles"}
-              </span>
-            )}
-          </div>
-        </div>
+        )}
+        {!isJudgeRoute && sessionUser}
         <ThemeToggle iconOnly className="theme-toggle--nav" />
         <span className="session-divider" aria-hidden="true" />
         <button className="session-signout secondary" type="button" disabled={closing} onClick={signOut}>
@@ -365,7 +398,7 @@ function getInitials(name) {
               <NavigationIcon name="calendar" />
               <span>Jornadas</span>
             </a>
-            <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
+            <details className="nav-group" open={["#/admin/competencia"].includes(currentRoute)}>
               <summary className="nav-group-summary" title={railTitle("Preparación de competencia")} onClick={expandRail}>
                 <NavigationIcon name="people" />
                 <span>Preparación de competencia</span>
@@ -375,7 +408,6 @@ function getInitials(name) {
                 {navLink("#/admin/competencia?step=especialidades", "Especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}
                 {navLink("#/admin/competencia?step=participantes", "Comparsas")}
-                {navLink("#/admin/competencia?step=asignaciones", "Asignación de jurados")}
               </div>
             </details>
             <span className="nav-section-label">En vivo</span>

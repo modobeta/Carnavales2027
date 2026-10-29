@@ -212,6 +212,7 @@ export async function createJudgeAssignment({
     const event = await lockEvent(client, eventId);
     if (event.status !== "CONFIGURING" && event.status !== "OPEN") throw new Error("EVENT_LOCKED");
     const context = await lockNightSpecialty(client, { eventId, nightId, specialtyId });
+    if (context.nightStatus === "OPEN") throw new Error("JUDGE_ASSIGNMENT_NIGHT_OPEN");
     const quota = await lockQuota(client, context);
     if (standbyId) {
       const { rows: primaries } = await client.query(

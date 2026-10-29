@@ -55,7 +55,11 @@ test("API votación: ciclo completo de planilla", {
 
   const { rows: [night] } = await pool.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche 1", 1, "COMPETITION", "OPEN"],
+    [event.id, "Noche 1", 1, "COMPETITION", "DRAFT"],
+  );
+  const { rows: [night2] } = await pool.query(
+    "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
+    [event.id, "Noche 2", 2, "COMPETITION", "DRAFT"],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -89,10 +93,18 @@ test("API votación: ciclo completo de planilla", {
     "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order, status) VALUES($1,$2,$3,$4,$5)",
     [event.id, night.id, secondTroupe.id, 2, "SCHEDULED"],
   );
+  await pool.query(
+    "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order, status) VALUES($1,$2,$3,$4,$5)",
+    [event.id, night2.id, troupe.id, 1, "SCHEDULED"],
+  );
 
   await pool.query(
     "INSERT INTO judge_quota(event_id, night_id, specialty_id, max_assignments) VALUES($1,$2,$3,$4)",
     [event.id, night.id, specialty.id, 3],
+  );
+  await pool.query(
+    "INSERT INTO judge_quota(event_id, night_id, specialty_id, max_assignments) VALUES($1,$2,$3,$4)",
+    [event.id, night2.id, specialty.id, 3],
   );
   const { rows: [judgeProfile] } = await pool.query(
     "INSERT INTO judge_profile(name, email, document_number, registration_status, created_by) VALUES($1,$2,$3,$4,$5) RETURNING id",
@@ -110,12 +122,11 @@ test("API votación: ciclo completo de planilla", {
     "UPDATE judge_profile SET user_id = $2, registration_status = 'REGISTERED' WHERE id = $1",
     [otherJudgeProfile.id, otherJudgeUserId],
   );
-  const { rows: [assignment] } = await pool.query(
+  await pool.query(
     `INSERT INTO judge_assignment(event_id, night_id, specialty_id, judge_profile_id, assignment_type)
-     VALUES($1,$2,$3,$4,$5) RETURNING id`,
+     VALUES($1,$2,$3,$4,$5)`,
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
-
   const openClient = await pool.connect();
   try {
     await openClient.query("BEGIN");
@@ -143,6 +154,52 @@ test("API votación: ciclo completo de planilla", {
     const adminHeaders = { "content-type": "application/json", "x-test-session": "admin" };
     const judgeHeaders = { "content-type": "application/json", "x-test-session": "judge" };
     const otherJudgeHeaders = { "content-type": "application/json", "x-test-session": "other-judge" };
+
+    // Open this assigned night while the later night still has no jury.
+    const openNight1 = await fetch(`${baseUrl}/api/v1/nights/${night.id}`, {
+      method: "PATCH",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "Noche 1", displayOrder: 1, kind: "COMPETITION", eventDate: null, status: "OPEN" }),
+    });
+    assert.equal(openNight1.status, 200);
+
+    // A later night without jury does not block this one; it cannot open
+    // itself until it gets its own active primary assignment.
+    const noJuryDirect = await pool.connect();
+    try {
+      await noJuryDirect.query("BEGIN");
+      await assert.rejects(
+        () => noJuryDirect.query("UPDATE night SET status='OPEN' WHERE id=$1", [night2.id]),
+        /NIGHT_WITHOUT_ACTIVE_JURY/,
+      );
+      await noJuryDirect.query("ROLLBACK");
+    } finally {
+      noJuryDirect.release();
+    }
+    const noJuryOpen = await fetch(`${baseUrl}/api/v1/nights/${night2.id}`, {
+      method: "PATCH",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "Noche 2", displayOrder: 2, kind: "COMPETITION", eventDate: null, status: "OPEN" }),
+    });
+    assert.equal(noJuryOpen.status, 409);
+    assert.deepEqual(await noJuryOpen.json(), { code: "NIGHT_WITHOUT_ACTIVE_JURY" });
+    const assignedAfterEventOpen = await fetch(`${baseUrl}/api/v1/events/${event.id}/judge-assignments`, {
+      method: "POST",
+      headers: adminHeaders,
+      body: JSON.stringify({ nightId: night2.id, specialtyId: specialty.id, judgeProfileId: judgeProfile.id }),
+    });
+    assert.equal(assignedAfterEventOpen.status, 201);
+    const openNight2 = await fetch(`${baseUrl}/api/v1/nights/${night2.id}`, {
+      method: "PATCH",
+      headers: adminHeaders,
+      body: JSON.stringify({ name: "Noche 2", displayOrder: 2, kind: "COMPETITION", eventDate: null, status: "OPEN" }),
+    });
+    assert.equal(openNight2.status, 200);
+    const openNight2Voting = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night2.id}/voting/open`, {
+      method: "POST", headers: adminHeaders,
+    });
+    assert.equal(openNight2Voting.status, 201);
+    assert.equal((await openNight2Voting.json()).ballotsCreated, 1);
 
     // 1. Unauthenticated → 401
     const unauth = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/open`, { method: "POST" });
@@ -182,7 +239,8 @@ test("API votación: ciclo completo de planilla", {
     const ownBallotsRes = await fetch(`${baseUrl}/api/v1/judge/ballots`, { headers: judgeHeaders });
     assert.equal(ownBallotsRes.status, 200);
     const ownBallots = await ownBallotsRes.json();
-    assert.deepEqual(ownBallots.map((ballot) => ballot.id), [ballotId]);
+    assert.equal(ownBallots.length, 2);
+    assert.ok(ownBallots.some((ballot) => ballot.id === ballotId));
     const otherBallotsRes = await fetch(`${baseUrl}/api/v1/judge/ballots`, { headers: otherJudgeHeaders });
     assert.equal(otherBallotsRes.status, 200);
     assert.deepEqual(await otherBallotsRes.json(), []);
@@ -373,15 +431,6 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(reopenWindow.status, 409);
     assert.equal((await reopenWindow.json()).code, "VOTING_WINDOW_CLOSED");
 
-    await pool.query(
-      `UPDATE judge_assignment
-          SET status = 'REVOKED', revoked_at = clock_timestamp(), revoked_by = $2, reason = 'Revocación de prueba'
-        WHERE id = $1`,
-      [assignment.id, adminId],
-    );
-    const revokedBallot = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}`, { headers: judgeHeaders });
-    assert.equal(revokedBallot.status, 409);
-    assert.equal((await revokedBallot.json()).code, "BALLOT_NOT_FOUND");
   });
 });
 
@@ -451,6 +500,8 @@ test("API votación: juez no puede abrir votación", {
     assert.deepEqual(await observerStatus.json(), {
       nightId: night.id,
       nightStatus: "OPEN",
+      releaseMode: "ALL",
+      activeScheduleId: null,
       votingStatus: "NOT_OPEN",
       counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0, REPLACED: 0 },
       total: 0,

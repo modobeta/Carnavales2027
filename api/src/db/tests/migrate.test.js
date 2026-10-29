@@ -112,8 +112,17 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "087_admin_event_assignments.sql"
           || filename === "088_voting_incidents.sql"
           || filename === "089_ballot_custody.sql"
-          || filename === "090_reconcile_schema_drift.sql"
-          || filename === "095_primary_admin_protection.sql"
+           || filename === "090_reconcile_schema_drift.sql"
+           || filename === "095_primary_admin_protection.sql"
+           || filename === "104_manual_voting_release.sql"
+           || filename === "105_manual_release_requires_open_window.sql"
+           || filename === "106_legacy_night_default_all.sql"
+           || filename === "107_allow_voting_release_state.sql"
+           || filename === "108_preserve_legacy_nomination_ballots.sql"
+            || filename === "109_defer_jury_assignment_to_night_open.sql"
+            || filename === "110_night_open_requires_primary_jury.sql"
+            || filename === "111_freeze_jury_assignments_after_night_open.sql"
+            || filename === "112_allow_assignment_replacement_after_night_open.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -564,6 +573,22 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       version: "095",
       applied: true,
     },
+    { filename: "097_item_specialties.sql", version: "097", applied: true },
+    { filename: "098_ballot_item_specialty_guard.sql", version: "098", applied: true },
+    { filename: "099_sync_item_specialty_guard.sql", version: "099", applied: true },
+    { filename: "100_full_multispecialty_score_guard.sql", version: "100", applied: true },
+    { filename: "101_preserve_configuration_guards.sql", version: "101", applied: true },
+    { filename: "102_multispecialty_readiness_guard.sql", version: "102", applied: true },
+    { filename: "103_guard_item_specialty_configuration.sql", version: "103", applied: true },
+    { filename: "104_manual_voting_release.sql", version: "104", applied: true },
+    { filename: "105_manual_release_requires_open_window.sql", version: "105", applied: true },
+    { filename: "106_legacy_night_default_all.sql", version: "106", applied: true },
+    { filename: "107_allow_voting_release_state.sql", version: "107", applied: true },
+    { filename: "108_preserve_legacy_nomination_ballots.sql", version: "108", applied: true },
+    { filename: "109_defer_jury_assignment_to_night_open.sql", version: "109", applied: true },
+    { filename: "110_night_open_requires_primary_jury.sql", version: "110", applied: true },
+    { filename: "111_freeze_jury_assignments_after_night_open.sql", version: "111", applied: true },
+    { filename: "112_allow_assignment_replacement_after_night_open.sql", version: "112", applied: true },
   ]);
 
   const secondRun = await migrate();

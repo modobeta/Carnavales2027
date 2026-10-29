@@ -312,6 +312,8 @@ La apertura del evento mantiene `POST /api/v1/events/:eventId/open`, pero requie
 
 La escala vigente para esta versión es `SCORED` entero 1–10, `NOT_PRESENTED` con 0 y `PENDING` sin puntuación. Las asignaciones se gestionan por jornada y especialidad; la API valida que la planilla corresponda a una asignación activa y a comparsas de esa jornada.
 
+Los ítems se crean con `POST /api/v1/rubrics/:rubricId/items` aceptando `specialtyIds` (lista no vacía de IDs activos del evento); se conserva `specialtyId` como entrada de compatibilidad para asignar una sola especialidad. La respuesta incluye `specialtyIds` y `specialties`, además de `specialtyId` (especialidad primaria histórica). `PATCH /api/v1/evaluation-items/:itemId` acepta `specialtyIds` para reemplazar las asociaciones. Cada planilla se genera con los ítems asociados a su especialidad y registra puntuaciones propias, sin compartir votos entre jurados de distintas especialidades. Las migraciones 097–103 preservan la asignación histórica, compatibilidad de escritura y validaciones de configuración y puntajes.
+
 - Guardar una decisión online la confirma; el cliente no debe presentarla como persistida antes de la respuesta. `PENDING` no es un cero válido ni una omisión aceptada.
 - Se preservan completitud, inmutabilidad por ítem, pertenencia del jurado y precedencia de pasada. No existe un flujo habilitado de nuevas reaperturas.
 - Guardado y submit admiten UUID en `Idempotency-Key` o `X-Idempotency-Key`; un replay se indica con `Idempotency-Replay`. El endpoint histórico `/sync` sigue en el backend, pero eso no habilita operación offline de la interfaz.

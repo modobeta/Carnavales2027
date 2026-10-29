@@ -11,6 +11,7 @@ Las decisiones aquí resumen evidencia existente; **no** aprueban por sí mismas
 | D-05 | Despliegue manual | `autoDeploy` off porque migraciones, respaldo y ausencia de votación requieren gate que CI actual no cubre. `render.yaml`, [runbook](despliegue-y-respaldo.md). |
 | D-06 | Preservar evidencia | Voto confirmado y auditoría no se editan/borran ordinariamente; backup se restaura en base nueva, no sobre Neon. `AGENTS.md`. |
 | D-07 | Roles de implementación | `ADMIN` global, `JUDGE`, `VEEDOR`, `COMISARIO`, `SCRUTINEER`, `ESCRIBANO`; `ADMIN_EVENT` histórico no concede administración actual. Guardas de API. |
+| D-08 | Un ítem puede asociarse a varias especialidades y cada una lo evalúa con puntuaciones independientes | Aprobado por el usuario el 2026-10-28 (opción 1). Persistencia `evaluation_item_specialty`; planillas filtradas por especialidad; pruebas en `api/src/db/tests/ballots.test.js` y `client/src/features/evaluation-presentation.test.js`. |
 
 ## Sin resolver (requiere responsable)
 

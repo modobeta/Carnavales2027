@@ -85,20 +85,21 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("separa Especialidades y Asignación de jurados en la navegación de preparación", () => {
+  it("ubica la asignación de jurados en Control de votación, no en preparación", () => {
     window.location.hash = "#/admin/competencia?step=especialidades";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
     expect(screen.getByRole("link", { name: "Especialidades" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Asignación de jurados" })).toHaveAttribute("href", "#/admin/competencia?step=asignaciones");
+    expect(screen.queryByRole("link", { name: "Asignación de jurados" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("mantiene el breadcrumb de enlaces antiguos de jurados según su pestaña", () => {
+  it("mantiene el acceso de enlaces antiguos de jurados con contexto de Control de votación", () => {
     mockMatchMedia(true);
     window.location.hash = "#/admin/competencia?step=jurados&tab=asignaciones";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
-    expect(screen.getByText("Asignación de jurados", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+    expect(screen.getByText("Control de votación", { selector: ".breadcrumb-current" })).toBeInTheDocument();
   });
 
   it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {

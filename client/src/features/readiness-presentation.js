@@ -3,7 +3,6 @@ export const PREPARATION_STEPS = [
   { key: "especialidades", label: "Especialidades", href: "#/admin/competencia?step=especialidades" },
   { key: "rubros", label: "Evaluación", href: "#/admin/competencia?step=rubros" },
   { key: "participantes", label: "Comparsas", href: "#/admin/competencia?step=participantes" },
-  { key: "asignaciones", label: "Asignación de jurados", href: "#/admin/competencia?step=asignaciones" },
   { key: "revision", label: "Revisión final", href: "#/admin/events" },
 ];
 
@@ -37,9 +36,9 @@ export function readinessStepStates(readiness, availability = "unqueried") {
   const states = {
     catalogo: has("ACTIVE_RUBRIC") ? "incomplete" : "complete",
     especialidades: has("ACTIVE_SPECIALTY") ? "incomplete" : "complete",
-    rubros: has("ACTIVE_RUBRIC") || readiness.incompleteRubrics.length > 0 ? "incomplete" : "complete",
-    participantes: has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
-    asignaciones: readiness.nightsWithoutJury.length > 0 ? "incomplete" : "complete",
+    rubros: has("ACTIVE_RUBRIC") || has("ACTIVE_SPECIALTY") || readiness.incompleteRubrics.length > 0 ? "incomplete" : "complete",
+    participantes: has("COMPETITION_NIGHT") || has("ACTIVE_TROUPE") || readiness.incompleteTroupes.length > 0
+      || readiness.incompleteSchedules.length > 0 || readiness.incompleteNominations.length > 0 ? "incomplete" : "complete",
     revision: readiness.ready ? "complete" : "incomplete",
   };
   return states;
@@ -66,7 +65,7 @@ export function readinessIssues(readiness) {
     key: `nomination-${item.rubricId}-${item.troupeId}`, title: `Falta un participante para ${item.rubricName} en ${item.troupeName}`, description: "Cargá al menos un participante para este rubro y esta comparsa.", href: "#/admin/competencia?step=participantes", action: "Cargar participante", kind: "blocking",
   }));
   readiness.nightsWithoutJury.forEach((night) => issues.push({
-    key: `jury-${night.nightId}`, title: `${night.nightName} no tiene jurados asignados`, description: "Asigná al menos un jurado activo a esta jornada de Competencia.", href: "#/admin/competencia?step=asignaciones", action: "Asignar jurado", kind: "blocking",
+    key: `jury-${night.nightId}`, title: `${night.nightName} todavía no tiene jurados asignados`, description: "Podés asignarlos desde Control de votación antes de abrir esta jornada.", href: `#/admin/voting?nightId=${encodeURIComponent(night.nightId)}`, action: "Preparar jornada", kind: "deferred",
   }));
   return issues;
 }
