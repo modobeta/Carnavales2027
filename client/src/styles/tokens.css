@@ -153,6 +153,15 @@
   --palette-neutral-900: #111827;
 >>>>>>> frontendV5
 
+  /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
+  --rubric-form-panel: #4f3fa6;
+  --rubric-form-field: #3a2b7a;
+  --rubric-form-line: #6a5bc0;
+  --rubric-form-field-line: #8c7fe0;
+  --rubric-form-muted: #e4e0f7;
+  --rubric-form-placeholder: #cfc8f0;
+  --rubric-form-check: #c4246f;
+
   /* ==========================================================================
      Alias de paleta (compatibilidad con estilos existentes)
      ========================================================================== */
@@ -190,6 +199,8 @@
      Superficies — tema claro (STYLES.md §11)
      ========================================================================== */
   --surface-base: var(--palette-page);
+  --surface-shell: #FEE9F1;
+  --surface-login-backdrop: linear-gradient(135deg, #FFFFFF 0%, #FF5252 50%, #E91E63 100%);
   --surface-card: var(--palette-card);
   --surface-raised: #FFFFFF;
   --surface-raised-hover: #FFF5FA;
@@ -464,6 +475,8 @@
   --palette-input: #1C1C1C;
 
   --surface-base: var(--palette-page);
+  --surface-shell: #000000;
+  --surface-login-backdrop: linear-gradient(135deg, #000000 0%, #14000A 50%, #650838 100%);
   --surface-card: var(--palette-card);
   --surface-raised: #0F0006;
   --surface-raised-hover: #1A000D;

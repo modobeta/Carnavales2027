@@ -20,6 +20,9 @@ function summarizeTroupes(ballot, scores) {
       hasLogo: score.hasLogo === true,
       logoSha256: score.logoSha256 || null,
       nightName: ballot.nightName,
+      nightId: ballot.nightId,
+      eventDate: ballot.eventDate,
+      eventId: ballot.eventId,
       specialtyName: ballot.specialtyName,
       eventName: ballot.eventName,
       status: ballot.status,
@@ -90,6 +93,9 @@ export function JudgeHomePage({ session }) {
               hasLogo: t.hasLogo === true,
               logoSha256: t.logoSha256 || null,
               nightName: ballot.nightName,
+              nightId: ballot.nightId,
+              eventDate: ballot.eventDate,
+              eventId: ballot.eventId,
               specialtyName: ballot.specialtyName,
               eventName: ballot.eventName,
               status: ballot.status,
@@ -167,6 +173,24 @@ export function JudgeHomePage({ session }) {
   const currentCta = currentEntry && currentEntry.troupe.resolved === 0
     ? "Comenzar evaluación →"
     : "Continuar evaluación →";
+
+  // La jornada del header acompaña a la comparsa que el jurado está trabajando.
+  // Si no hay una acción inmediata, usa la primera comparsa pendiente.
+  const headerNight = currentEntry?.troupe
+    ?? entries.find((entry) => entry.troupe.status !== "SUBMITTED")?.troupe
+    ?? troupes[0]
+    ?? null;
+  const setJudgeNight = eventContext?.setJudgeNight;
+  useEffect(() => {
+    if (!setJudgeNight) return;
+    setJudgeNight(headerNight?.nightName ? {
+      id: headerNight.nightId ?? null,
+      eventId: headerNight.eventId ?? eventContext?.activeEventId ?? null,
+      name: headerNight.nightName,
+      eventDate: headerNight.eventDate ?? null,
+      route: "#/judge",
+    } : null);
+  }, [setJudgeNight, eventContext?.activeEventId, headerNight?.nightId, headerNight?.nightName, headerNight?.eventDate]);
 
   return (
     <PageShell layer="instrument" className="judge-home judge-operation-shell">

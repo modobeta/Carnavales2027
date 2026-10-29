@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { loadAvailableEvents } from "./available-events.js";
 
 const STORAGE_KEY = "carnavales.admin.activeEventId";
@@ -28,6 +28,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
   const [activeEventId, setActiveEventIdState] = useState(() => readStoredEventId(storageKey));
   const activeEventIdRef = useRef(activeEventId);
   const [activeNightId, setActiveNightIdState] = useState("");
+  const [judgeNight, setJudgeNightState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
@@ -59,6 +60,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
       const storedEvent = visible.find((event) => event.id === currentId);
       const fallbackId = items[0]?.id ?? "";
       const nextId = storedEvent?.id ?? fallbackId;
+<<<<<<< HEAD
       const commit = () => {
         if (requestId !== requestSequence.current) return;
         setEvents(visible);
@@ -83,6 +85,23 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
         storeEventId("", storageKey);
       };
       requestEventChange("", commit);
+=======
+      if (nextId !== currentId) {
+        setActiveNightIdState("");
+        if (currentId) setJudgeNightState(null);
+      }
+      activeEventIdRef.current = nextId;
+      setActiveEventIdState(nextId);
+      storeEventId(nextId, storageKey);
+      return visible;
+    } catch {
+      if (requestId !== requestSequence.current) return [];
+      setEvents([]);
+      activeEventIdRef.current = "";
+      setActiveEventIdState("");
+      setActiveNightIdState("");
+      setJudgeNightState(null);
+>>>>>>> frontendV5
       setError("No se pudieron cargar los eventos.");
       return [];
     } finally {
@@ -97,6 +116,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
   const setActiveEventId = (eventId) => {
     const exists = events.some((event) => event.id === eventId);
     const nextId = exists ? eventId : "";
+<<<<<<< HEAD
     if (nextId === activeEventIdRef.current) return;
     const commit = () => {
       setActiveEventIdState(nextId);
@@ -120,9 +140,33 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
       activeEventIdRef.current = nextId;
       storeEventId(nextId, storageKey);
     });
+=======
+    if (nextId !== activeEventIdRef.current) setJudgeNightState(null);
+    setActiveEventIdState(nextId);
+    activeEventIdRef.current = nextId;
+    setActiveNightIdState("");
+    storeEventId(nextId, storageKey);
+  };
+
+  const setActiveEvent = (event) => {
+    if (event?.id) {
+      setEvents((current) => current.some((entry) => entry.id === event.id)
+        ? current.map((entry) => entry.id === event.id ? { ...entry, ...event } : entry)
+        : [...current, event]);
+    }
+    if ((event?.id ?? "") !== activeEventIdRef.current) setJudgeNightState(null);
+    setActiveEventIdState(event?.id ?? "");
+    activeEventIdRef.current = event?.id ?? "";
+    setActiveNightIdState("");
+    storeEventId(event?.id ?? "", storageKey);
+>>>>>>> frontendV5
   };
 
   const setActiveNightId = (nightId) => setActiveNightIdState(nightId ?? "");
+
+  const setJudgeNight = useCallback((night) => {
+    setJudgeNightState(night ?? null);
+  }, []);
 
   const updateEvent = (event) => {
     if (!event?.id) return;
@@ -135,6 +179,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     activeEvent,
     activeEventId,
     activeNightId,
+    judgeNight,
     loading,
     error,
     refreshEvents,
@@ -142,8 +187,9 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     setActiveEventId,
     registerEventChangeGuard,
     setActiveNightId,
+    setJudgeNight,
     updateEvent,
-  }), [events, activeEvent, activeEventId, activeNightId, loading, error]);
+  }), [events, activeEvent, activeEventId, activeNightId, judgeNight, loading, error]);
 
   return <AdminEventContext.Provider value={value}>{children}</AdminEventContext.Provider>;
 }

@@ -111,6 +111,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
   }, [ballot, ballotId, eventContext]);
 
+  // Publica la jornada de la planilla para el header global del jurado.
+  useEffect(() => {
+    const setJudgeNight = eventContext?.setJudgeNight;
+    if (!setJudgeNight) return;
+    setJudgeNight(ballot?.nightName ? {
+      id: ballot.nightId ?? null,
+      eventId: ballot.eventId ?? eventContext?.activeEventId ?? null,
+      name: ballot.nightName,
+      eventDate: ballot.eventDate ?? null,
+      route: "#/judge/ballot",
+    } : null);
+  }, [ballot?.id, ballot?.nightId, ballot?.eventId, ballot?.nightName, ballot?.eventDate, eventContext?.activeEventId, eventContext?.setJudgeNight]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -608,6 +621,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div
           role="group"
           aria-label={`Puntuación para ${scoreItem.itemName}`}
+          aria-describedby="score-shortcuts-hint"
           className="score-grid-v3"
           key={scoreItem.nightScheduleId || scoreItem.troupeId}
           style={scoreItem.brandColor ? { "--troupe-brand": scoreItem.brandColor } : undefined}
@@ -781,8 +795,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div className="ballot-main">
           <header className="ballot-header ballot-header-single">
             <div>
-              <a className="back-link" href="#/judge">← Mis comparsas</a>
-              <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>
+              <p className="eyebrow">{ballot.specialtyName}</p>
               <div className="ballot-header-troupe-row">
                 {(readonly && targetGroup) || activeScore ? (
                   <TroupeLogo
@@ -1045,20 +1058,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               );
               return (
                 <section ref={cardSectionRef} className="ballot-card-mode ballot-single" aria-label={`Evaluación: ${activeScore.troupeName} - ${activeScore.itemName}`}>
-                  <div className="ballot-card-header">
+                  <div
+                    className={`ballot-card-header${activeScore.brandColor ? " is-branded troupe-brand-panel" : ""}`}
+                    style={activeScore.brandColor ? {
+                      "--troupe-brand": activeScore.brandColor,
+                      "--troupe-brand-ink": readableInk(activeScore.brandColor),
+                    } : undefined}
+                  >
                     <div className="ballot-troupe-heading">
-                      <span
-                        className="rubric-icon-wrap"
-                        key={activeScore.troupeId || activeScore.nightScheduleId}
-                        style={activeScore.brandColor ? { "--troupe-brand": activeScore.brandColor } : undefined}
-                      >
-                        <RubricIcon
-                          icon={activeScore.rubricIcon}
-                          color={activeScore.brandColor}
-                          size="lg"
-                          onBrand={Boolean(activeScore.brandColor)}
-                        />
-                      </span>
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
                       </div>
@@ -1174,7 +1181,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   ref={submitButtonRef}
                   type="button"
                   disabled={!canConfirmVoting}
-                  aria-describedby={!canConfirmVoting ? "voting-confirm-help" : "voting-confirm-summary"}
+                  aria-describedby={canConfirmVoting ? "voting-confirm-summary" : undefined}
                   onClick={beginSubmitReview}
                 >
                   {isSubmitting ? "Confirmando…" : "Confirmar votación"}
@@ -1191,7 +1198,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 )}
               </>
             )}
-            {!readonly && !canConfirmVoting && <small id="voting-confirm-help">Completá todas las puntuaciones y esperá su confirmación en el servidor para habilitar el cierre.</small>}
             {readonly && (
               <section className="locked-sheet" aria-label="Planilla confirmada">
                 <span aria-hidden="true">✓</span>

@@ -25,7 +25,7 @@
 | `GET/POST /api/v1/events/:eventId/nights`; `PATCH/DELETE /api/v1/nights/:nightId` | ADMIN | Jornadas; borrado condicionado a historial |
 | `GET/POST /api/v1/events/:eventId/judge-assignments` | ADMIN | Asignaciones; `GET /api/v1/judge/assignments` es del jurado |
 | `POST /api/v1/events/:eventId/nights/:nightId/voting/open` y `POST /api/v1/events/:eventId/nights/:nightId/voting/close` | ADMIN | Ventana de votación |
-| `GET /api/v1/judge/ballots`, `GET /api/v1/judge/ballots/:ballotId` | JUDGE propio | Planillas |
+| `GET /api/v1/judge/ballots`, `GET /api/v1/judge/ballots/:ballotId` | JUDGE propio | Planillas; incluyen `nightId`, `nightName` y `eventDate` (fecha de la jornada) |
 | `PUT /api/v1/judge/ballots/:ballotId/scores/:scoreId` | JUDGE propio | Confirmar decisión idempotente |
 | `POST /api/v1/judge/ballots/:ballotId/submit` | JUDGE propio | Confirmar planilla completa |
 | `GET /api/v1/monitor/events/:eventId/nights/:nightId` | ADMIN/VEEDOR habilitado | Monitoreo de jornada |

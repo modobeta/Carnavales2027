@@ -41,7 +41,7 @@ body,
 
 body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: var(--bg-color);
+  background: var(--surface-base);
   color: var(--text-color);
 }
 
@@ -413,12 +413,8 @@ body {
   min-inline-size: 320px;
   min-block-size: 100dvb;
   padding: clamp(0.75rem, 2vw, 1.5rem);
-  background: #FEE9F1;
+  background: var(--surface-shell);
   color: var(--text-color);
-}
-
-:root[data-theme="dark"] body {
-  background: #000000;
 }
 
 a { color: var(--accent-text); }
@@ -774,11 +770,7 @@ body:has(.login-page) {
 }
 
 html:has(.login-page) {
-  background: linear-gradient(135deg, #FFFFFF 0%, #FF5252 50%, #E91E63 100%) !important;
-}
-
-:root[data-theme="dark"] html:has(.login-page) {
-  background: linear-gradient(135deg, #000000 0%, #14000A 50%, #650838 100%) !important;
+  background: var(--surface-login-backdrop) !important;
 }
 
 .login-page {
@@ -795,12 +787,8 @@ html:has(.login-page) {
   padding: 0 !important;
   margin: 0 !important;
   box-sizing: border-box !important;
-  background: linear-gradient(135deg, #FFFFFF 0%, #FF5252 50%, #E91E63 100%) !important;
+  background: var(--surface-login-backdrop) !important;
   z-index: 9999;
-}
-
-:root[data-theme="dark"] .login-page {
-  background: linear-gradient(135deg, #000000 0%, #14000A 50%, #650838 100%) !important;
 }
 .login-card {
   position: relative;
@@ -817,7 +805,7 @@ html:has(.login-page) {
   overflow: hidden;
 }
 
-/* Columna izquierda — identidad visual del Carnaval con textura de confeti */
+/* Columna izquierda — identidad visual del Carnaval con textura de plumas */
 .login-brand-column {
   position: relative;
   overflow: hidden;
@@ -836,22 +824,14 @@ html:has(.login-page) {
   position: absolute;
   z-index: 0;
   inset: 0;
-  background: url("/icons/06%20%E2%80%94%20Confeti.svg") center / cover no-repeat;
-  opacity: 0.12;
+  background: url("/icons/plumas/textura-plumas.webp") center / cover no-repeat;
+  opacity: 0.18;
   pointer-events: none;
   user-select: none;
 }
 .login-brand-column > * {
   position: relative;
   z-index: 1;
-}
-.login-brand-title {
-  margin: 0;
-  font-size: clamp(1.9rem, 4.5vw, 3rem);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  color: var(--text-primary);
 }
 .login-brand-kicker {
   margin: 0;
@@ -894,7 +874,7 @@ html:has(.login-page) {
   text-align: center;
 }
 
-.login-emblem { display: block; inline-size: clamp(7rem, 22vw, 11rem); block-size: auto; margin: 0 auto .5rem; border-radius: 1.25rem; }
+.login-emblem { display: block; inline-size: clamp(12rem, 32vw, 19rem); block-size: auto; margin: 0 auto .5rem; }
 .login-kicker { margin: 0 0 .7rem; color: var(--text-secondary); font-size: .82rem; font-weight: 700; letter-spacing: .03em; }
 .login-subtitle { margin: 1rem 0 2.2rem; color: var(--text-muted); font-size: .95rem; letter-spacing: .01em; }
 .login-card form { display: flex; flex-direction: column; gap: var(--space-3); border: none; padding: 0; text-align: start; }
@@ -915,7 +895,7 @@ html:has(.login-page) {
     padding-block: clamp(1.25rem, 5vw, 2rem);
     gap: var(--space-2);
   }
-  .login-emblem { inline-size: clamp(5rem, 20vw, 7rem); }
+  .login-emblem { inline-size: clamp(9rem, 45vw, 14rem); }
 }
 
 .judge-operation-shell { max-inline-size: 1160px; margin-inline: auto; }
@@ -997,15 +977,11 @@ button.button-link:disabled {
 .judge-now-header > .eyebrow { margin: 0; }
 .judge-now-card h3 {
   margin: 0;
-  color: #000000;
+  color: var(--text-primary);
   font-size: clamp(1.9rem, 6vw, 3rem);
   line-height: 1;
   letter-spacing: -0.03em;
   text-transform: none;
-}
-
-:root[data-theme="dark"] .judge-now-card h3 {
-  color: #ffffff;
 }
 /* Nombre de la comparsa con su logo. El color de marca se usa como fondo del
    círculo del logo; si no hay logo, un círculo con ese color lo representa.
@@ -1165,13 +1141,13 @@ button.button-link:disabled {
 .judge-ballot-page:not(.is-readonly) .score-grid-v3 .score-option-btn:hover:not(:disabled) {
   border-color: var(--troupe-brand, var(--border-strong));
   background: var(--troupe-brand, var(--accent-primary));
-  color: var(--text-on-primary, #fff);
+  color: var(--text-on-primary);
 }
 
 .judge-ballot-page:not(.is-readonly) .score-grid-v3 .score-option-btn:active:not(:disabled) {
   border-color: var(--troupe-brand, var(--accent-primary));
   background: var(--troupe-brand, var(--accent-primary));
-  color: var(--text-on-accent, #fff);
+  color: var(--text-on-accent);
 }
 
 .ballot-card-header {
@@ -1180,8 +1156,8 @@ button.button-link:disabled {
 }
 
 .troupe-logo.ballot-troupe-logo-header {
-  inline-size: clamp(3.5rem, 10vw, 6rem);
-  block-size: clamp(3.5rem, 10vw, 6rem);
+  inline-size: clamp(2.5rem, 5vw, 3.5rem);
+  block-size: clamp(2.5rem, 5vw, 3.5rem);
 }
 
 .ballot-header-troupe-row {
@@ -1192,14 +1168,10 @@ button.button-link:disabled {
 }
 
 .ballot-header-single .ballot-header-support {
-  font-size: clamp(2.5rem, 10vw, 6rem) !important;
-  line-height: 0.98 !important;
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem) !important;
+  line-height: 1.05 !important;
   margin: 0 !important;
-  color: #000000 !important;
-}
-
-:root[data-theme="dark"] .ballot-header-single .ballot-header-support {
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
 }
 
 .ballot-layout {
@@ -1789,11 +1761,16 @@ button.button-link:disabled {
   line-height: 1.4;
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 .save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-sans); font-size: .8125rem; font-weight: 600; letter-spacing: 0; }
 .save-indicator span:first-child { color: var(--success); }
 =======
 .save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .save-indicator span:first-child { color: var(--success-text); }
+>>>>>>> frontendV5
+=======
+.save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-sans); font-size: .8125rem; font-weight: 600; letter-spacing: 0; }
+.save-indicator span:first-child { color: var(--success); }
 >>>>>>> frontendV5
 .locked-sheet { display: flex; align-items: center; gap: .9rem; flex: 1; border: 1px solid var(--success-border); border-radius: var(--radius-lg); padding: .8rem 1rem; color: var(--success-text); background: var(--success-bg); }
 .locked-sheet > span { display: grid; inline-size: 2.25rem; block-size: 2.25rem; place-items: center; border-radius: var(--radius-full); color: var(--text-inverse); background: var(--success-fill); font-weight: 900; }
@@ -3091,14 +3068,54 @@ button.button-link:disabled {
 .password-requirements .requirement-pending { color: var(--danger-text); background: var(--danger-bg); }
 .password-requirements .requirement-met { color: var(--success-text); background: var(--success-bg); }
 .session-identity { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; max-width: 20rem; }
-.session-identity .session-role { font-size: 0.8rem; color: var(--text-muted); }
+.session-identity .session-role { font-size: var(--text-sm); color: var(--text-muted); }
 .session-identity .session-event { font-size: 0.8rem; overflow-wrap: anywhere; }
 .session-actions .global-event-picker { min-width: 0; max-width: min(20rem, 100%); }
 .session-actions .global-event-picker select { width: 100%; }
+
+/* Jornada activa del jurado, entre el selector de evento y el toggle de tema. */
+.session-night {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  max-inline-size: min(20rem, 100%);
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+}
+
+.session-night-name {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+.session-night-date { flex: 0 0 auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 40rem) {
   .session-actions { flex-wrap: wrap; }
   .session-identity { max-width: 100%; }
 }
+<<<<<<< HEAD
+=======
+.ballot-progress.ballot-progress-stack { grid-template-columns: minmax(0, 1fr); }
+.ballot-progress-stack > .app-progress-container:first-child { align-items: stretch; gap: var(--space-2); }
+
+/* Jurado: el header del área de votación ocupa todo el ancho de la pantalla,
+   sin el contenedor centrado que usan las pantallas administrativas. */
+.app-navigation.is-judge-route {
+  max-inline-size: none;
+  margin-inline: 0;
+}
+
+>>>>>>> frontendV5
 /* Jurado desktop refinement — planilla prioritaria */
 @media (min-width: 80rem) {
   .app-navigation.judge-navigation {
@@ -3224,8 +3241,6 @@ button.button-link:disabled {
   }
 
   .judge-ballot-page:not(.is-readonly) .card-rubric-name {
-    color: var(--text-muted);
-    font-size: 0.9rem;
     letter-spacing: 0;
     text-transform: none;
   }
@@ -3248,16 +3263,23 @@ button.button-link:disabled {
     box-shadow: none;
   }
 
+  /* Los botones 1-10 conservan una sombra en reposo con el color de la comparsa. */
+  .judge-ballot-page:not(.is-readonly) .score-option-btn:where(.score-num-only:not(:disabled)) {
+    box-shadow:
+      0 0.1rem 0.25rem var(--btn-drop),
+      0 0.4rem 0.9rem -0.15rem var(--btn-drop);
+  }
+
   .judge-ballot-page:not(.is-readonly) .score-option-btn:hover:not(:disabled) {
     border-color: var(--troupe-brand, var(--border-strong));
     background: var(--troupe-brand, var(--accent-primary));
-    color: var(--text-on-primary, #fff);
+    color: var(--text-on-primary);
   }
 
   .judge-ballot-page:not(.is-readonly) .score-option-btn:active:not(:disabled) {
     border-color: var(--troupe-brand, var(--accent-primary));
     background: var(--troupe-brand, var(--accent-primary));
-    color: var(--text-on-accent, #fff);
+    color: var(--text-on-accent);
   }
 
   .judge-ballot-page:not(.is-readonly) .troupe-absent-actions { margin-block-start: 0.5rem; padding-inline: 0; }
@@ -3324,6 +3346,5 @@ button.button-link:disabled {
 
   .judge-ballot-page:not(.is-readonly) .ballot-footer .save-indicator { justify-self: start; }
 
-  .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary,
-  .judge-ballot-page:not(.is-readonly) .ballot-footer #voting-confirm-help { grid-column: 1 / -1; }
+  .judge-ballot-page:not(.is-readonly) .ballot-footer .voting-confirm-summary { grid-column: 1 / -1; }
 }

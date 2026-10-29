@@ -789,9 +789,9 @@
 }
 
 .rubric-icon-circle.is-lg {
-  inline-size: 3.1rem;
-  block-size: 3.1rem;
-  padding: 0.45rem;
+  inline-size: 3.75rem;
+  block-size: 3.75rem;
+  padding: 0.4rem;
 }
 
 /* Sobre un encabezado ya pintado con el color de la comparsa el círculo se
@@ -949,11 +949,21 @@
 
 .card-rubric-name {
   margin: var(--space-1) 0 0 0;
+<<<<<<< HEAD
   color: var(--accent-lighter);
   font-weight: 600;
   font-size: var(--text-sm);
+=======
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: var(--text-xl);
+>>>>>>> frontendV5
   line-height: 1.35;
   letter-spacing: 0;
+}
+
+.ballot-card-header .card-rubric-name {
+  font-size: var(--text-2xl);
 }
 
 .card-item-title {
@@ -1077,12 +1087,32 @@
   margin-block-start: 2px;
 }
 
-/* Botón numérico solo-número (Spec 007 RF-77): sin etiqueta textual */
+/* Botón numérico solo-número (Spec 007 RF-77): sin etiqueta textual.
+   Sombra, canto y cara activa toman el color de la comparsa (--troupe-brand). */
 .score-option-btn.score-num-only {
   min-block-size: 56px;
   min-inline-size: 56px;
   flex-direction: row;
   padding: var(--space-3) var(--space-2);
+  --btn-drop: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 55%, transparent);
+  --btn-drop-hover: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 70%, transparent);
+}
+
+/* El canto inferior sólido deja de usar el rosa de acción y sigue el color
+   de la comparsa, tanto en reposo como en hover/press/staged. */
+body .score-option-btn.score-num-only {
+  --btn-face-edge: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 78%, var(--palette-neutral-900));
+}
+
+body .score-option-btn.score-num-only:hover:not(:disabled),
+body .score-option-btn.score-num-only:active:not(:disabled),
+body .score-option-btn.score-num-only.is-staged {
+  --btn-face-fill: var(--troupe-brand, var(--accent-primary));
+  --btn-face-edge: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 78%, var(--palette-neutral-900));
+  /* El reflejo superior también se tinta con la comparsa (antes era rosa). */
+  --btn-highlight: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 45%, var(--palette-neutral-0));
+  --btn-highlight-strong: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 60%, var(--palette-neutral-0));
+  --btn-highlight-soft: color-mix(in srgb, var(--troupe-brand, var(--accent-primary)) 35%, var(--palette-neutral-0));
 }
 
 .score-option-btn.score-num-only .score-num {
