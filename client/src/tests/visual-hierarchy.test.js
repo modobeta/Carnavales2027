@@ -15,7 +15,7 @@ describe("visual hierarchy system", () => {
     expect(tokens).toContain("--palette-pink: #E91683;");
     expect(tokens).toContain("--palette-blue: #3F51B5;");
     expect(tokens).toContain("--palette-page: #FFFFFF;");
-    expect(tokens).toContain("--palette-card: #FFFFFF;");
+    expect(tokens).toContain("--palette-card: #FFF5FA;");
     expect(tokens).toContain("--palette-panel: #F8FAFC;");
     expect(tokens).toContain("--surface-modal: var(--palette-card);");
     expect(tokens).toContain("--text-on-modal: #111827;");

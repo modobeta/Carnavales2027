@@ -17,10 +17,10 @@ function fillOtp(code) {
 describe("LoginPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); window.location.hash = ""; });
 
-  it("muestra el nuevo logo WebP como imagen decorativa junto al nombre del sitio", () => {
+  it("muestra el logotipo WebP como imagen decorativa junto al nombre del sitio", () => {
     const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
     const logo = container.querySelector(".login-emblem");
-    expect(logo).toHaveAttribute("src", "/icons/logo.webp");
+    expect(logo).toHaveAttribute("src", "/icons/logotipo.webp");
     expect(logo).toHaveAttribute("alt", "");
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
   });

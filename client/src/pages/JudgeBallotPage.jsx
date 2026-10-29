@@ -616,6 +616,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div
           role="group"
           aria-label={`Puntuación para ${scoreItem.itemName}`}
+          aria-describedby="score-shortcuts-hint"
           className="score-grid-v3"
           key={scoreItem.nightScheduleId || scoreItem.troupeId}
           style={scoreItem.brandColor ? { "--troupe-brand": scoreItem.brandColor } : undefined}
@@ -1058,7 +1059,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               );
               return (
                 <section ref={cardSectionRef} className="ballot-card-mode ballot-single" aria-label={`Evaluación: ${activeScore.troupeName} - ${activeScore.itemName}`}>
-                  <div className="ballot-card-header">
+                  <div
+                    className={`ballot-card-header${activeScore.brandColor ? " is-branded troupe-brand-panel" : ""}`}
+                    style={activeScore.brandColor ? {
+                      "--troupe-brand": activeScore.brandColor,
+                      "--troupe-brand-ink": readableInk(activeScore.brandColor),
+                    } : undefined}
+                  >
                     <div className="ballot-troupe-heading">
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
