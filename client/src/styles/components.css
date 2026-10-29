@@ -946,25 +946,8 @@
   font-size: var(--text-2xl);
   color: var(--text-primary);
 }
-
-.card-rubric-name {
-  margin: var(--space-1) 0 0 0;
-<<<<<<< HEAD
-  color: var(--accent-lighter);
-  font-weight: 600;
-  font-size: var(--text-sm);
-=======
-  color: var(--text-primary);
-  font-weight: 700;
-  font-size: var(--text-xl);
->>>>>>> frontendV5
   line-height: 1.35;
   letter-spacing: 0;
-}
-
-.ballot-card-header .card-rubric-name {
-  font-size: var(--text-2xl);
-}
 
 .card-item-title {
   font-size: var(--text-xl);

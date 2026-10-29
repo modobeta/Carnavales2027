@@ -615,9 +615,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         </div>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
-<<<<<<< HEAD
-        <div role="group" aria-label={`Puntuación para ${scoreItem.itemName}`} aria-describedby="score-shortcuts-hint" className="score-grid-v3">
-=======
         <div
           role="group"
           aria-label={`Puntuación para ${scoreItem.itemName}`}
@@ -626,7 +623,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           key={scoreItem.nightScheduleId || scoreItem.troupeId}
           style={scoreItem.brandColor ? { "--troupe-brand": scoreItem.brandColor } : undefined}
         >
->>>>>>> frontendV5
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
             <button
               key={val}
