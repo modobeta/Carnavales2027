@@ -805,7 +805,7 @@ html:has(.login-page) {
   overflow: hidden;
 }
 
-/* Columna izquierda — identidad visual del Carnaval con textura de confeti */
+/* Columna izquierda — identidad visual del Carnaval con textura de plumas */
 .login-brand-column {
   position: relative;
   overflow: hidden;
@@ -824,8 +824,8 @@ html:has(.login-page) {
   position: absolute;
   z-index: 0;
   inset: 0;
-  background: url("/icons/06%20%E2%80%94%20Confeti.svg") center / cover no-repeat;
-  opacity: 0.12;
+  background: url("/icons/plumas/textura-plumas.webp") center / cover no-repeat;
+  opacity: 0.18;
   pointer-events: none;
   user-select: none;
 }
@@ -1792,13 +1792,8 @@ button.button-link:disabled {
   color: var(--text-muted);
   line-height: 1.4;
 }
-<<<<<<< Updated upstream
-.save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.save-indicator span:first-child { color: var(--success-text); }
-=======
 .save-indicator { display: inline-flex; align-items: center; gap: .4rem; color: var(--success-text); font-family: var(--font-sans); font-size: .8125rem; font-weight: 600; letter-spacing: 0; }
 .save-indicator span:first-child { color: var(--success); }
->>>>>>> Stashed changes
 .locked-sheet { display: flex; align-items: center; gap: .9rem; flex: 1; border: 1px solid var(--success-border); border-radius: var(--radius-lg); padding: .8rem 1rem; color: var(--success-text); background: var(--success-bg); }
 .locked-sheet > span { display: grid; inline-size: 2.25rem; block-size: 2.25rem; place-items: center; border-radius: var(--radius-full); color: var(--text-inverse); background: var(--success-fill); font-weight: 900; }
 .locked-sheet p { margin: .15rem 0 0; color: var(--success-text); font-size: .86rem; }

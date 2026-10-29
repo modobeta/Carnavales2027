@@ -25,7 +25,7 @@ describe("LoginPage", () => {
     expect(screen.getByRole("heading", { name: "Carnavales" })).toBeInTheDocument();
   });
 
-  it("integra el confeti como textura de la columna de marca, sin elemento detrás de la tarjeta", () => {
+  it("integra las plumas como textura de la columna de marca, sin elemento detrás de la tarjeta", () => {
     const { container } = render(<LoginPage onAuthenticated={vi.fn()} />);
     expect(container.querySelector(".login-page > .login-confetti")).toBeNull();
     expect(container.querySelector(".login-brand-column")).toBeInTheDocument();

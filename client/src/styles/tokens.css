@@ -115,8 +115,6 @@
   --palette-neutral-700: #334155;
   --palette-neutral-800: #1F2937;
   --palette-neutral-900: #111827;
-<<<<<<< Updated upstream
-=======
 
   /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
   --rubric-form-panel: #4f3fa6;
@@ -126,7 +124,6 @@
   --rubric-form-muted: #e4e0f7;
   --rubric-form-placeholder: #cfc8f0;
   --rubric-form-check: #c4246f;
->>>>>>> Stashed changes
 
   /* ==========================================================================
      Alias de paleta (compatibilidad con estilos existentes)

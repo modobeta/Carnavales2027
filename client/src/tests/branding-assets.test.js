@@ -18,4 +18,13 @@ describe("identidad del inicio de sesión", () => {
     expect(favicon.toString("ascii", 0, 4)).toBe("RIFF");
     expect(favicon.toString("ascii", 8, 12)).toBe("WEBP");
   });
+
+  it("usa una textura WebP de plumas en la columna de marca del login", () => {
+    const css = readFileSync(resolve(__dirname, "../index.css"), "utf8");
+    const texture = publicFile("icons/plumas/textura-plumas.webp");
+    expect(css).toContain('url("/icons/plumas/textura-plumas.webp")');
+    expect(css).not.toContain("Confeti.svg");
+    expect(texture.toString("ascii", 0, 4)).toBe("RIFF");
+    expect(texture.toString("ascii", 8, 12)).toBe("WEBP");
+  });
 });
