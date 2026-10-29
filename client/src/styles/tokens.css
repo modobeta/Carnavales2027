@@ -100,33 +100,17 @@
   /* ==========================================================================
      Paleta oficial Carnaval (STYLES.md §2) — no modificar los HEX
      ========================================================================== */
-<<<<<<< HEAD
-  --palette-page: #036B8B;        /* Fondo principal: extremo superior del degradado (blanco = 6.0:1) */
-  --palette-page-alt: #5e46be;    /* Extremo inferior del degradado (violeta lavanda, §2.1) */
-  --palette-brand: #01B2D4;       /* Cyan de marca: acento sobre superficies oscuras */
-  --palette-card: #5e46be;        /* Tarjetas y paneles lavanda (§2.1); blanco = 6.8:1 */
-  --palette-panel: #243A53;       /* Superficie elevada / tema oscuro (blanco = 11.6:1) */
-  --palette-panel-strong: #2F4D6E;/* Superficie elevada sobre tema oscuro */
-  --palette-deep: #16293C;        /* Superficie hundida y tinta inversa */
-  --palette-input: #243A53;       /* Campos de formulario (blanco = 11.6:1) */
-  --palette-highlight: #E0B544;   /* Resaltado / foco sobre superficies oscuras */
-  --palette-highlight-ink: #241a00;
-  --palette-confirm: #2BC100;     /* Éxito (§3.5) — tinta #0B2600 = 7.3:1 */
-  --palette-confirm-ink: #0B2600;
-  --palette-cancel: #DC2626;      /* Destructivo (§3.7) — blanco = 4.8:1 */
-  --palette-cancel-ink: #ffffff;
-  --palette-action: #01B2D4;      /* Bordes, focus y acentos (marca) */
-  --palette-action-fill: #d22b8f; /* Botón principal (§3.1) — blanco = 4.7:1 */
-  --palette-action-ink: #ffffff;
-  --palette-secondary-fill: #DF3CB5; /* Botón secundario (§3.2) — tinta oscura = 4.7:1 */
-  --palette-secondary-ink: #2E0033;
-  --palette-secondary-hover: #E85CC4;
-  --palette-edit-fill: #A500B5;   /* Botón edición (§3.4) — blanco = 6.4:1 */
-  --palette-edit-ink: #ffffff;
-  --palette-edit-hover: #7D008A;
-  --palette-modal: #A500B5;       /* Acento de modal informativo (§4.1) */
-  --palette-modal-ink: #ffffff;
-  --palette-admin-nav-active: #d22b8f; /* Navegación Admin activa = acción principal (§3.1) */
+--palette-pink: #E91683;    /* rosa oficial 1 - identidad y acciones principales */
+  --palette-pink-deep: #C70F6F; /* rosa oficial 2 - hover/profundidad */
+  --palette-blue: #3F51B5;    /* navegación y acciones secundarias */
+  --palette-green: #8BC34A;   /* éxito */
+  --palette-red: #FF5252;     /* errores y acciones destructivas */
+  --palette-amber: #FFC107;   /* advertencias y resaltados */
+
+  /* Tonos neutros funcionales (no son colores de marca). */
+  --palette-neutral-0: #FFFFFF;
+  --palette-neutral-50: #F8FAFC;
+  --palette-neutral-100: #F1F5F9;
   /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
   --rubric-form-panel: #4f3fa6;
   --rubric-form-field: #3a2b7a;
