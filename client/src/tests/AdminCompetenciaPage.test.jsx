@@ -72,7 +72,7 @@ describe("AdminCompetenciaPage", () => {
   it("clasifica los pasos con los checks oficiales y limita la revisión a bloqueos readiness", async () => {
     mockCompetitionData({ readiness: {
       ready: false,
-      missing: ["ACTIVE_TROUPE", "NIGHTS_WITHOUT_JURY"],
+      missing: ["ACTIVE_TROUPE"],
       incompleteTroupes: [{ id: "t-1", name: "Estrella" }],
       incompleteRubrics: [],
       incompleteSchedules: [],
@@ -81,12 +81,11 @@ describe("AdminCompetenciaPage", () => {
     } });
     render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} />);
 
-    expect(await screen.findAllByText("Incompleto", { selector: ".competencia-step-state" })).toHaveLength(3);
+    expect(await screen.findAllByText("Incompleto", { selector: ".competencia-step-state" })).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
     expect(await screen.findByText(/Estrella/)).toBeInTheDocument();
-    expect(screen.getByText("Asigná al menos un jurado activo a esta jornada de Competencia.")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Requisitos pendientes para abrir el evento" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Asignar jurado" })).toHaveAttribute("href", "#/admin/competencia?step=asignaciones");
+    expect(screen.queryByRole("link", { name: "Asignar jurado" })).not.toBeInTheDocument();
   });
 
   it("mantiene el estado no disponible si readiness no pudo consultarse", async () => {
@@ -122,10 +121,6 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Especialidades / }));
     const specialtiesSummary = await screen.findByRole("region", { name: "Resumen del paso Especialidades" });
     expect(within(specialtiesSummary).getByText(/No hay especialidades activas.*Creá o activá las especialidades/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /^Asignar jurados / }));
-    const assignmentsSummary = await screen.findByRole("region", { name: "Resumen del paso Asignación de jurados" });
-    expect(within(assignmentsSummary).getByText(/Asigná un jurado activo a Noche 1/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Evaluación/ }));
     const rubricSummary = await screen.findByRole("region", { name: "Resumen de evaluación" });
@@ -1192,14 +1187,14 @@ describe("AdminCompetenciaPage", () => {
     it("muestra 6 pasos en orden de dependencia con progreso no bloqueante", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(6);
+      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByText("Completo según readiness de la API.")).not.toBeInTheDocument();
-      for (const step of [/^Rubros /, /^Especialidades /, /^Evaluación /, /^Comparsas /, /^Asignar jurados /, /^Revisión final /]) {
+      for (const step of [/^Rubros /, /^Especialidades /, /^Evaluación /, /^Comparsas /, /^Revisión final /]) {
         expect(screen.getByRole("button", { name: step })).toBeInTheDocument();
       }
       // Los estados desconocidos no se convierten en progreso ni porcentaje.
       expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-      expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(6);
+      expect(screen.getAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByRole("region", { name: "Configuración de la competencia" })).not.toBeInTheDocument();
       // Comparsas conserva tipos de participación, fichas y orden de pasada.
       expect(screen.getByRole("heading", { name: "Tipos de participación" })).toBeInTheDocument();
@@ -1235,19 +1230,19 @@ describe("AdminCompetenciaPage", () => {
       render(<AdminCompetenciaPage event={{ id: "event-1", name: "Carnaval", status: "CONFIGURING" }} onBack={onBack} />);
       expect(screen.getByText("Competencia")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Carnaval", level: 1 })).toBeInTheDocument();
-      expect(screen.getByText(/Paso 4 de 6/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
+      expect(screen.getByText(/Paso 4 de 5/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
       expect(screen.queryByText(/% completado/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Volver" }));
       expect(onBack).toHaveBeenCalledTimes(1);
       fireEvent.click(screen.getByRole("button", { name: /^Especialidades / }));
-      expect(await screen.findByText(/Paso 2 de 6/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
+      expect(await screen.findByText(/Paso 2 de 5/, { selector: ".competencia-step-meta" })).toBeInTheDocument();
     });
 
-    it("el stepper expone 6 pasos accionables con estado y marca el actual", async () => {
+    it("el stepper expone 5 pasos accionables con estado y marca el actual", async () => {
       mockCompetitionData();
       render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
       const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
-      expect(within(nav).getAllByRole("button")).toHaveLength(6);
+      expect(within(nav).getAllByRole("button")).toHaveLength(5);
       expect(screen.getByRole("button", { name: /^Comparsas / })).toHaveAttribute("aria-current", "step");
       expect(screen.getByRole("button", { name: /^Revisión final / })).not.toHaveAttribute("aria-current");
       fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
@@ -1262,11 +1257,11 @@ describe("AdminCompetenciaPage", () => {
       for (const block of ["Bloque 1 de 3: Tipos de participación", "Bloque 2 de 3: Comparsas", "Bloque 3 de 3: Orden de pasada por jornada"]) {
         expect(screen.getByRole("region", { name: block })).toBeInTheDocument();
       }
-      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(6);
+      expect(await screen.findAllByText("Completo", { selector: ".competencia-step-state" })).toHaveLength(5);
       expect(screen.queryByRole("region", { name: "Resumen del paso Participantes" })).not.toBeInTheDocument();
     });
 
-    it("separa la configuración de especialidades de la asignación de jurados", async () => {
+    it("mantiene especialidades en preparación y traslada asignación al control por jornada", async () => {
       mockCompetitionData();
       const request = apiRequest.getMockImplementation();
       apiRequest.mockImplementation((path, options) => {
@@ -1282,9 +1277,8 @@ describe("AdminCompetenciaPage", () => {
       expect(screen.getByRole("region", { name: "Gestión de especialidades" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Jurados por jornada" })).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Asignar jurados / }));
-      expect(await screen.findByRole("heading", { name: "Asignación de jurados" })).toBeInTheDocument();
-      expect(await screen.findByRole("heading", { name: "Jurados por jornada" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Asignar jurados / })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Jurados por jornada" })).not.toBeInTheDocument();
     });
 
     it("al crear una especialidad queda disponible para asignar jurados sin recargar", async () => {
@@ -1308,8 +1302,7 @@ describe("AdminCompetenciaPage", () => {
       fireEvent.submit(form);
 
       expect(await screen.findByText("Danza nueva")).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: /^Asignar jurados / }));
-      expect(await screen.findByRole("button", { name: "Asignar jurados Danza nueva" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Asignar jurados / })).not.toBeInTheDocument();
     });
 
     it("mueve el foco al título del paso al navegar y no usa el copy anterior", async () => {
@@ -1338,9 +1331,9 @@ describe("AdminCompetenciaPage", () => {
       expect(comparsasTab).toHaveAttribute("aria-selected", "false");
 
       const footer = screen.getByRole("navigation", { name: "Navegación del asistente" });
-      const nextBtn = within(footer).getByRole("button", { name: /Continuar a asignación de jurados/i });
+      const nextBtn = within(footer).getByRole("button", { name: /Continuar a revisión/i });
       fireEvent.click(nextBtn);
-      expect(await screen.findByRole("heading", { name: "Asignación de jurados" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
     });
 
     it("muestra tipos de participación antes de comparsas para poder crearlos primero", async () => {
@@ -1457,10 +1450,10 @@ describe("AdminCompetenciaPage", () => {
       expect(votingLinks.length).toBeGreaterThanOrEqual(1);
       expect(votingLinks[0]).toHaveAttribute("href", "#/admin/voting");
 
-      // Resumen ejecutivo de la preparación (4 tarjetas)
+      // Resumen ejecutivo de la preparación
       expect(screen.getByRole("heading", { name: "Resumen de la preparación" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Comparsas" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Asignación de jurados" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Asignación de jurados" })).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Evaluación" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Jornadas" })).toBeInTheDocument();
     });

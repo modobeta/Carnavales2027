@@ -11,7 +11,6 @@ import { AdminHomePage } from "./pages/AdminHomePage.jsx";
 import { AdminCompetenciaPage } from "./pages/AdminCompetenciaPage.jsx";
 import { AdminJudgesPage } from "./pages/AdminJudgesPage.jsx";
 import { AdminUsersPage } from "./pages/AdminUsersPage.jsx";
-import { AdminAssignmentsPage } from "./pages/AdminAssignmentsPage.jsx";
 import { AdminVotingPage } from "./pages/AdminVotingPage.jsx";
 import { AdminPenaltiesPage } from "./pages/AdminPenaltiesPage.jsx";
 import { AdminResultsPage } from "./pages/AdminResultsPage.jsx";
@@ -156,6 +155,9 @@ export default function App({ session: providedSession }) {
     const params = new URLSearchParams(query);
     const initialStep = params.get("step") ?? "catalogo";
     const initialTab = params.get("tab") ?? "";
+    if (initialStep === "asignaciones" || (initialStep === "jurados" && initialTab === "asignaciones")) {
+      return <RoleArea session={session} admin><AdminVotingPage initialEventId={params.get("eventId") ?? ""} initialNightId={params.get("nightId") ?? ""} /></RoleArea>;
+    }
     return <RoleArea session={session} adminArea><AdminCompetenciaPageWrapper initialStep={initialStep} initialTab={initialTab} /></RoleArea>;
   }
   if (route === "#/admin/judges") {
@@ -165,10 +167,12 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminUsersPage /></RoleArea>;
   }
   if (route === "#/admin/assignments") {
-    return <RoleArea session={session} admin><AdminAssignmentsPage initialEventId={new URLSearchParams(query).get("eventId") ?? ""} /></RoleArea>;
+    const params = new URLSearchParams(query);
+    return <RoleArea session={session} admin><AdminVotingPage initialEventId={params.get("eventId") ?? ""} initialNightId={params.get("nightId") ?? ""} /></RoleArea>;
   }
   if (route === "#/admin/voting") {
-    return <RoleArea session={session} admin><AdminVotingPage /></RoleArea>;
+    const params = new URLSearchParams(query);
+    return <RoleArea session={session} admin><AdminVotingPage initialEventId={params.get("eventId") ?? ""} initialNightId={params.get("nightId") ?? ""} /></RoleArea>;
   }
   if (route === "#/admin/penalties") {
     const content = <RequirePenaltiesRole session={session}><AdminPenaltiesPage /></RequirePenaltiesRole>;

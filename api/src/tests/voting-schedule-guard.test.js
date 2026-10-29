@@ -44,7 +44,7 @@ test("API eventos: bloquea la apertura sin cronograma y no habilita planillas", 
   );
   const { rows: [night] } = await pool.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche sin schedule", 1, "COMPETITION", "OPEN"],
+    [event.id, "Noche sin schedule", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",

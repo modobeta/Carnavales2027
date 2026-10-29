@@ -52,7 +52,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
 
   const { rows: [night] } = await pool.query(
     "INSERT INTO night(event_id, name, display_order, kind, status, event_date) VALUES($1,$2,$3,$4,$5,$6) RETURNING id",
-    [event.id, "Noche Progreso", 1, "COMPETITION", "OPEN", "2027-02-06"],
+    [event.id, "Noche Progreso", 1, "COMPETITION", "DRAFT", "2027-02-06"],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -129,6 +129,7 @@ test("API jurado: include=progress y brand_color de comparsa", {
      VALUES($1,$2,$3,$4,$5) RETURNING id`,
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
 
   // Spec 029: logo cargado durante la configuración. El trigger
   // troupe_requires_configuring_event bloquea cambios con el evento abierto,

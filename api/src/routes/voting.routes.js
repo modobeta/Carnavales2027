@@ -7,6 +7,8 @@ import {
   openVoting,
   closeVoting,
   getVotingStatus,
+  setVotingReleaseMode,
+  releaseVotingTroupe,
   listJudgeBallots,
   getBallot,
   saveScore,
@@ -22,6 +24,42 @@ export function createVotingRouter({ requireSession }) {
   const admin = [requireSession, requireTwoFactor, requireAdmin];
   const judge = [requireSession, requireTwoFactor, requireJudge];
   const observer = [requireSession, requireTwoFactor, requireVotingObserver];
+  router.patch(
+    "/events/:eventId/nights/:nightId/voting/release-mode",
+    ...admin,
+    async (request, response) => {
+      try {
+        const result = await setVotingReleaseMode({
+          actorUserId: request.user.id,
+          eventId: request.params.eventId,
+          nightId: request.params.nightId,
+          releaseMode: request.body?.releaseMode,
+        });
+        response.json(result);
+      } catch (error) {
+        if (sendKnownError(response, error)) return;
+        throw error;
+      }
+    },
+  );
+  router.post(
+    "/events/:eventId/nights/:nightId/voting/release",
+    ...admin,
+    async (request, response) => {
+      try {
+        const result = await releaseVotingTroupe({
+          actorUserId: request.user.id,
+          eventId: request.params.eventId,
+          nightId: request.params.nightId,
+          scheduleId: request.body?.scheduleId,
+        });
+        response.json(result);
+      } catch (error) {
+        if (sendKnownError(response, error)) return;
+        throw error;
+      }
+    },
+  );
   router.post(
     "/events/:eventId/nights/:nightId/voting/open",
     ...admin,

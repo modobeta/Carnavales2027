@@ -51,7 +51,6 @@ describe("ruta de Competencia con evento activo", () => {
     mockApi([{ id: "e1", name: "Carnaval 2027", status: "CONFIGURING" }]);
     render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { name: "Admin" } }} />);
     fireEvent.click(await screen.findByRole("button", { name: /Continuar a comparsas/ }));
-    fireEvent.click(await screen.findByRole("button", { name: /Continuar a asignación de jurados/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Continuar a revisión/ }));
     expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
     expect(apiRequest.mock.calls.some(([path, options]) => path.endsWith("/open") && options?.method === "POST")).toBe(false);

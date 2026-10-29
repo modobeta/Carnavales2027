@@ -13,7 +13,7 @@ const ready = (overrides = {}) => ({
 });
 
 describe("readinessStepStates", () => {
-  it("marca Comparsas incompleto si falta programar una jornada, sin bloquear Asignación de jurados", () => {
+  it("marca Comparsas incompleto si falta programar una jornada", () => {
     const readiness = ready({
       ready: false,
       missing: ["INCOMPLETE_SCHEDULES"],
@@ -22,12 +22,11 @@ describe("readinessStepStates", () => {
 
     expect(readinessStepStates(readiness, "available")).toMatchObject({
       participantes: "incomplete",
-      asignaciones: "complete",
       revision: "incomplete",
     });
   });
 
-  it("refleja que Evaluación y Asignación dependen de una especialidad activa", () => {
+  it("refleja que Evaluación depende de una especialidad activa", () => {
     const readiness = ready({
       ready: false,
       missing: ["ACTIVE_SPECIALTY"],
@@ -36,7 +35,6 @@ describe("readinessStepStates", () => {
     expect(readinessStepStates(readiness, "available")).toMatchObject({
       especialidades: "incomplete",
       rubros: "incomplete",
-      asignaciones: "incomplete",
       revision: "incomplete",
     });
   });

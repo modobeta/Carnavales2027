@@ -406,6 +406,33 @@ test("ADMIN gestiona cupos y asignaciones, y JUDGE consulta solo las propias", {
       "SELECT count(*)::int AS count FROM judge_assignment WHERE night_id = $1 AND specialty_id = $2 AND status = 'ACTIVE'",
       [nightId, specialtyId],
     )).rows[0].count, 1);
+    await pool.query("UPDATE night SET status = 'OPEN' WHERE id = $1", [nightId]);
+    const openNightAssign = await fetch(`${base}/api/v1/events/${eventId}/judge-assignments`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ nightId, specialtyId, judgeProfileId: firstProfileId }),
+    });
+    assert.deepEqual({ status: openNightAssign.status, body: await openNightAssign.json() }, {
+      status: 409, body: { code: "JUDGE_ASSIGNMENT_NIGHT_OPEN" },
+    });
+    const activeAssignmentId = (await pool.query(
+      "SELECT id, judge_profile_id AS \"judgeProfileId\" FROM judge_assignment WHERE night_id = $1 AND status = 'ACTIVE'",
+      [nightId],
+    )).rows[0];
+    const replacementProfileId = activeAssignmentId.judgeProfileId === firstProfileId ? secondProfileId : firstProfileId;
+    const openNightReplace = await fetch(`${base}/api/v1/judge-assignments/${activeAssignmentId.id}/replace`, {
+      method: "POST", headers: adminHeaders,
+      body: JSON.stringify({ replacementJudgeProfileId: replacementProfileId, assignmentType: "PRIMARY", reason: "Reemplazo permitido sin planilla confirmada" }),
+    });
+    assert.equal(openNightReplace.status, 201);
+    const openNightReplacement = await openNightReplace.json();
+    const openNightRevoke = await fetch(`${base}/api/v1/judge-assignments/${openNightReplacement.id}/revoke`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ reason: "Intento posterior a apertura" }),
+    });
+    await assert.rejects(
+      () => pool.query(`INSERT INTO judge_assignment(event_id, night_id, specialty_id, judge_profile_id, assignment_type)
+                        VALUES($1,$2,$3,$4,'PRIMARY')`, [eventId, nightId, specialtyId, firstProfileId]),
+      /JUDGE_ASSIGNMENT_NIGHT_OPEN/,
+    );
+    assert.equal(openNightRevoke.status, 200);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

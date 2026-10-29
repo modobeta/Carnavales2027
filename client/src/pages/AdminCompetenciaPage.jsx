@@ -18,8 +18,6 @@ import { IncompleteNominationsSummary } from "../features/IncompleteNominationsS
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
 import { uxStatusLabel } from "../components/admin-ux-labels.js";
-import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
-import { JuradosPorJornadaSection } from "../features/JuradosPorJornadaSection.jsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 import { deriveEvaluationPresentation } from "../features/evaluation-presentation.js";
@@ -31,7 +29,6 @@ const WriteContext = createContext(null);
 const PREPARATION_STEP_GROUPS = [
   { key: "evaluation", label: "Definir evaluación", steps: ["catalogo", "especialidades", "rubros"] },
   { key: "competition", label: "Armar competencia", steps: ["participantes"] },
-  { key: "jury", label: "Organizar jurados", steps: ["asignaciones"] },
   { key: "opening", label: "Habilitar evento", steps: ["revision"] },
 ];
 
@@ -115,16 +112,6 @@ function incompleteStepGuidance(stepKey, readiness) {
   if (stepKey === "especialidades") {
     if (missing.has("ACTIVE_SPECIALTY")) messages.push("No hay especialidades activas. Creá o activá las especialidades que se usarán en la evaluación.");
     if (messages.length === 0) messages.push("Revisá las especialidades que se usarán para configurar los ítems de evaluación.");
-  }
-
-  if (stepKey === "asignaciones") {
-    if (missing.has("COMPETITION_NIGHT")) messages.push("Primero creá una jornada de Competencia en Eventos y jornadas.");
-    if (missing.has("ACTIVE_SPECIALTY")) messages.push("Primero creá al menos una especialidad en el paso Especialidades.");
-    for (const night of readiness?.nightsWithoutJury ?? []) {
-      messages.push(`Asigná un jurado activo a ${night.nightName ?? "esta jornada"}.`);
-    }
-    if (missing.has("NIGHTS_WITHOUT_JURY") && messages.length === 0) messages.push("Revisá las asignaciones y asegurate de que cada jornada tenga un jurado activo.");
-    if (messages.length === 0) messages.push("Revisá las asignaciones de jurados para cada jornada y especialidad.");
   }
 
   if (stepKey === "catalogo") return "Creá o activá los rubros e indicá si evalúan comparsas o participantes. Los ítems se configuran después, en Evaluación.";
@@ -217,9 +204,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   const availableSteps = PREPARATION_STEPS;
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const requestedTab = initialTab || getTabFromHash();
-  const requestedStep = initialStep === "jurados"
-    ? requestedTab === "asignaciones" ? "asignaciones" : "especialidades"
-    : initialStep;
+  const requestedStep = initialStep === "jurados" ? "especialidades" : initialStep;
   const validInitialStep = availableSteps.some((item) => item.key === requestedStep) ? requestedStep : "catalogo";
   const [step, setStep] = useState(validInitialStep);
   const [troupeTab, setTroupeTab] = useState("comparsas");
@@ -624,22 +609,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
               </section>
             </section>
           )}
-          {step === "asignaciones" && (
-            <section aria-labelledby="competencia-step-title">
-              <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Asignación de jurados</h2>
-              <StepSummary stepLabel="Asignación de jurados" recommendation={statusSummary("asignaciones")} />
-              <p className="step-intro">Padrón general: <a href="#/admin/judges">Jurados</a>.</p>
-              <JuradosPorJornadaSection
-                event={event}
-                refreshSignal={dataRevision}
-                onOpenSpecialties={() => goStep("especialidades")}
-                onDataChanged={() => {
-                  if (incRevision) incRevision();
-                  if (reloadProgress) reloadProgress();
-                }}
-              />
-            </section>
-          )}
           {step === "rubros" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1} aria-label="Configurar evaluación" className="sr-only">Configurar evaluación</h2>
@@ -731,7 +700,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                       </div>
                     ) : (
                       <ul className="readiness-checklist" aria-label="Requisitos pendientes para abrir el evento">
-                        {officialIssues.filter((issue) => !issue.key.startsWith("nomination-")).map((issue) => (
+                        {officialIssues.filter((issue) => issue.kind === "blocking" && !issue.key.startsWith("nomination-")).map((issue) => (
                           <li key={issue.key} className="readiness-fail">
                             <span className="readiness-icon" aria-hidden="true">!</span>
                             <span><strong>{issue.title}</strong><span>{issue.description}</span></span>
@@ -801,13 +770,6 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                     <p className="revision-card-value">{progress?.troupes?.filter((t) => t.active !== false).length ?? 0} comparsas</p>
                     <p className="revision-card-detail">{progress?.categories?.filter((c) => c.active !== false).length ?? 0} tipos de participación</p>
                     <button type="button" className="secondary revision-card-link" onClick={() => goStep("participantes")}>Ver comparsas</button>
-                  </div>
-
-                  <div className="revision-summary-card">
-                    <div className="revision-card-header"><span className="revision-card-badge">Paso 5</span><h4>Asignación de jurados</h4></div>
-                    <p className="revision-card-value">Por jornada y especialidad</p>
-                    <p className="revision-card-detail">Jurados responsables de evaluar</p>
-                    <button type="button" className="secondary revision-card-link" onClick={() => goStep("asignaciones")}>Ver asignaciones</button>
                   </div>
 
                   <div className="revision-summary-card">
@@ -888,7 +850,6 @@ function WizardFooterNav({ activeIndex, steps, onStepChange, isEventOpen, isRead
   const STEP_BUTTON_LABELS = {
     participantes: "comparsas",
     especialidades: "especialidades",
-    asignaciones: "asignación de jurados",
     rubros: "evaluación",
     revision: "revisión",
   };

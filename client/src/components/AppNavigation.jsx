@@ -51,10 +51,7 @@ function isCurrentNavItem(currentLocation, href) {
   const [currentRoute, currentSearch = ""] = currentLocation.split("?");
   const [hrefRoute, hrefSearch = ""] = href.split("?");
 
-  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/competencia") {
-    const hrefStep = new URLSearchParams(hrefSearch).get("step");
-    if (hrefStep === "jurados") return true;
-  }
+  if (currentRoute === "#/admin/assignments" && hrefRoute === "#/admin/voting") return true;
 
   if (currentRoute !== hrefRoute) return false;
 
@@ -186,7 +183,7 @@ const ROUTE_LABELS = {
   "#/admin/home": "Inicio",
   "#/admin/events": "Jornadas",
   "#/admin/competencia": "Comparsas y jurados",
-  "#/admin/assignments": "Asignaciones",
+  "#/admin/assignments": "Control de votación",
   "#/admin/voting": "Control de votación",
   "#/veedor": "Supervisión",
   "#/admin/penalties": "Penalizaciones",
@@ -212,8 +209,8 @@ function getBreadcrumbData(location) {
     if (step === "catalogo") label = "Rubros";
     else if (step === "especialidades") label = "Especialidades";
     else if (step === "participantes") label = "Comparsas";
-    else if (step === "jurados") label = params.get("tab") === "asignaciones" ? "Asignación de jurados" : "Especialidades";
-    else if (step === "asignaciones") label = "Asignación de jurados";
+    else if (step === "jurados") label = params.get("tab") === "asignaciones" ? "Control de votación" : "Especialidades";
+    else if (step === "asignaciones") label = "Control de votación";
     else if (step === "rubros") label = "Evaluación";
     else if (step === "revision") label = "Revisión final";
   }
@@ -401,7 +398,7 @@ function formatNightDate(value) {
               <NavigationIcon name="calendar" />
               <span>Jornadas</span>
             </a>
-            <details className="nav-group" open={["#/admin/competencia", "#/admin/assignments"].includes(currentRoute)}>
+            <details className="nav-group" open={["#/admin/competencia"].includes(currentRoute)}>
               <summary className="nav-group-summary" title={railTitle("Preparación de competencia")} onClick={expandRail}>
                 <NavigationIcon name="people" />
                 <span>Preparación de competencia</span>
@@ -411,7 +408,6 @@ function formatNightDate(value) {
                 {navLink("#/admin/competencia?step=especialidades", "Especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}
                 {navLink("#/admin/competencia?step=participantes", "Comparsas")}
-                {navLink("#/admin/competencia?step=asignaciones", "Asignación de jurados")}
               </div>
             </details>
             <span className="nav-section-label">En vivo</span>

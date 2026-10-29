@@ -22,6 +22,7 @@ function groupScores(scores) {
         nightScheduleId: key,
         troupeName: score.troupeName,
         presentationOrder: score.presentationOrder ?? 0,
+        releaseOrder: score.releaseOrder ?? null,
         brandColor: score.brandColor || null,
         rubrics: {},
       };
@@ -149,6 +150,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       const loaded = await apiRequest(`/api/v1/judge/ballots/${ballotId}`);
       if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       setBallot(loaded);
+      if (loaded.releaseMode === "MANUAL" && loaded.activeScheduleId && !selectedTroupeId) {
+        setSelectedTroupeId(loaded.activeScheduleId);
+      }
     } catch (error) {
       if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       if (redirectOnSessionEnded(error)) return;
@@ -239,9 +243,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   const readonly = ballot?.status === "SUBMITTED";
-  const groups = ballot ? Object.values(groupScores(ballot.scores)).sort((left, right) => left.presentationOrder - right.presentationOrder) : [];
+  const groups = ballot ? Object.values(groupScores(ballot.scores)).sort((left, right) =>
+    (left.releaseOrder ?? Number.MAX_SAFE_INTEGER) - (right.releaseOrder ?? Number.MAX_SAFE_INTEGER)
+      || left.presentationOrder - right.presentationOrder
+  ) : [];
   const activeGroup = ballot && !readonly
     ? groups.find((group) => {
+        if (ballot.releaseMode === "MANUAL" && String(group.nightScheduleId) !== String(ballot.activeScheduleId)) return false;
         const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
         return allScores.some((s) => s.evaluationState === "PENDING");
       })
@@ -271,12 +279,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const readonlyVisibleScoreCount = readonlyVisibleGroups.reduce((count, entry) => count + entry.scores.length, 0);
   const hasReadonlyFilters = Boolean(readonlyTroupeFilter || readonlyRubricFilter || readonlySearchFilter || readonlyStateFilter !== "ALL");
 
-  const isTargetTroupeLocked = Boolean(
-    !readonly &&
-    targetGroup &&
-    activeGroup &&
-    targetGroup.presentationOrder > activeGroup.presentationOrder
-  );
+  const isTargetTroupeLocked = Boolean(!readonly && ballot?.releaseMode === "MANUAL"
+    ? (targetGroup
+      ? targetGroup.releaseOrder == null || String(targetGroup.nightScheduleId) !== String(ballot.activeScheduleId)
+      : !ballot.activeScheduleId || (activeScore && String(activeScore.nightScheduleId) !== String(ballot.activeScheduleId)))
+    : !readonly && targetGroup && activeGroup && targetGroup.presentationOrder > activeGroup.presentationOrder);
 
   const saveDecision = async (scoreId, evaluationState, score, operationId = globalThis.crypto.randomUUID()) => {
     if (!ballot) return;
@@ -747,7 +754,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <nav className="ballot-troupe-navigation" aria-label="Comparsas">
             <ul>
               {groups.map((group) => {
-                const isGroupLocked = Boolean(!readonly && activeGroup && group.presentationOrder > activeGroup.presentationOrder);
+                const isGroupLocked = Boolean(!readonly && (ballot?.releaseMode === "MANUAL"
+                  ? (group.releaseOrder == null || String(group.nightScheduleId) !== String(ballot.activeScheduleId))
+                  : activeGroup && group.presentationOrder > activeGroup.presentationOrder));
                 const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
                 const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
                 const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;

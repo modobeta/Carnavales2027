@@ -53,6 +53,28 @@ describe("AdminVotingPage", () => {
     expect(screen.queryByRole("button", { name: /reabrir/i })).not.toBeInTheDocument();
   });
 
+  it("pide confirmación antes de cambiar el modo y guarda la elección por jornada", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "NOT_OPEN", releaseMode: "MANUAL", counts: {}, total: 0 });
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      if (path.endsWith("/voting/release-mode")) return Promise.resolve({ releaseMode: "ALL" });
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    const modeSelect = await screen.findByRole("combobox", { name: "Modo de habilitación de comparsas" });
+    expect(modeSelect).toHaveValue("MANUAL");
+    fireEvent.change(modeSelect, { target: { value: "ALL" } });
+    expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("release-mode"), expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/events/event-1/nights/night-1/voting/release-mode",
+      { method: "PATCH", body: JSON.stringify({ releaseMode: "ALL" }) },
+    ));
+  });
+
   it("identifica los ítems pendientes cuando el cierre es rechazado", async () => {
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);

@@ -11,6 +11,9 @@ function setup({ eventStatus = "OPEN", nightStatus = "DRAFT", votingStatus = "NO
   let windowStatus = votingStatus;
   apiRequest.mockImplementation(async (path, options) => {
     if (path === "/api/v1/events") return [{ id: "e1", name: "Carnaval", status: eventStatus }];
+    if (path.endsWith("/judge-assignments")) return { quotas: [], assignments: [] };
+    if (path === "/api/v1/judges") return [];
+    if (path.endsWith("/specialties")) return [];
     if (path.endsWith("/nights")) return [{ ...night }];
     if (path.endsWith("/voting/status")) return { nightId: "n1", nightStatus: night.status, votingStatus: windowStatus, counts: {}, total: 0 };
     if (path.endsWith("/voting/ballots")) return [];
@@ -32,13 +35,14 @@ function setup({ eventStatus = "OPEN", nightStatus = "DRAFT", votingStatus = "NO
 describe("apertura de jornada y votación", () => {
   it("abre jornada y votación tras confirmar", async () => {
     setup();
-    const openButton = await screen.findByRole("button", { name: "Abrir votación" });
+    const openButton = await screen.findByRole("button", { name: "Abrir jornada y votación" });
     await waitFor(() => expect(openButton).toBeEnabled());
     fireEvent.click(openButton);
     expect(apiRequest.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(apiRequest.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(false);
     fireEvent.click(openButton);
+    expect(screen.getByRole("dialog", { name: "Confirmar apertura de jornada y votación" })).toHaveTextContent("Se abrirá la jornada y se habilitarán las planillas");
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/Votación abierta. 0 planilla/)).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/nights/n1", { method: "PATCH", body: JSON.stringify({ name: "Primera noche", displayOrder: 1, kind: "COMPETITION", eventDate: "2027-02-01", status: "OPEN" }) });
@@ -53,17 +57,34 @@ describe("apertura de jornada y votación", () => {
     { nightStatus: "OPEN", votingStatus: "CLOSED" },
   ])("impide aperturas inválidas %j", async (state) => {
     setup(state);
-    expect(await screen.findByRole("button", { name: "Abrir votación" })).toBeDisabled();
+    const buttonName = (state.nightStatus ?? "DRAFT") === "DRAFT" ? "Abrir jornada y votación" : "Abrir votación";
+    expect(await screen.findByRole("button", { name: buttonName })).toBeDisabled();
   });
 
   it("no anuncia éxito si la API rechaza abrir jornada", async () => {
     setup({ failure: "EVENT_LOCKED" });
-    const button = await screen.findByRole("button", { name: "Abrir votación" });
+    const button = await screen.findByRole("button", { name: "Abrir jornada y votación" });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/El estado del evento o la jornada cambió/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abrir votación" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Abrir jornada y votación" })).toBeEnabled();
+  });
+
+  it("exige jurado activo antes de cambiar la jornada de DRAFT a OPEN", async () => {
+    setup({ failure: "NIGHT_WITHOUT_ACTIVE_JURY" });
+    const button = await screen.findByRole("button", { name: "Abrir jornada y votación" });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(await screen.findByText("Asigná al menos un jurado titular activo a esta jornada antes de abrirla.")).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/e1/nights/n1/voting/open", expect.anything());
+  });
+
+  it("muestra la asignación de jurados para la jornada seleccionada antes de abrirla", async () => {
+    setup();
+    expect(await screen.findByRole("region", { name: "Jurados de Primera noche" })).toBeInTheDocument();
+    expect(screen.getByText("Revisá o completá las asignaciones aquí antes de abrir la jornada y su votación.")).toBeInTheDocument();
   });
 
   it("muestra el bloqueo por cronograma vacío al intentar abrir votación", async () => {

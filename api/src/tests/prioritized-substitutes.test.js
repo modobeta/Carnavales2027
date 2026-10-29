@@ -19,7 +19,7 @@ async function setupPair() {
   );
   await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN'),($2,'JUDGE'),($3,'JUDGE')", [adminId, primaryUserId, substituteUserId]);
   const { rows: [event] } = await pool.query("INSERT INTO carnival_event(name) VALUES($1) RETURNING id", [`Suplencias ${randomUUID()}`]);
-  const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [event.id]);
+  const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [event.id]);
   const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'Baile',$2,1) RETURNING id", [event.id, `BAILE_${randomUUID()}`]);
   const { rows: [category] } = await pool.query("INSERT INTO event_category(event_id,name,code,display_order) VALUES($1,'Categoria',$2,1) RETURNING id", [event.id, `CAT_${randomUUID()}`]);
   const { rows: [troupe] } = await pool.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES($1,$2,'Comparsa') RETURNING id", [event.id, category.id]);
@@ -37,6 +37,7 @@ async function setupPair() {
   }
   const primary = await createJudgeAssignment({ actorUserId: adminId, eventId: event.id, nightId: night.id, specialtyId: specialty.id, judgeProfileId: event.primaryProfileId });
   await createJudgeAssignment({ actorUserId: adminId, eventId: event.id, nightId: night.id, specialtyId: specialty.id, judgeProfileId: event.substituteProfileId, assignmentType: "SUBSTITUTE", standbyForAssignmentId: primary.id });
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

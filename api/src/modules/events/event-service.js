@@ -133,7 +133,7 @@ export async function deleteEvent({ client = null, eventId, actorUserId = null }
 export async function createNight({ client = getPool(), eventId, name, displayOrder, kind, eventDate = null }) {
   await requireConfiguringEvent({ client, eventId });
   const { rows } = await client.query(
-    `INSERT INTO night (event_id, name, display_order, kind, event_date) VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO night (event_id, name, display_order, kind, event_date, voting_release_mode) VALUES ($1, $2, $3, $4, $5, 'MANUAL')
      RETURNING id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate"`,
     [requireText(eventId, "eventId"), requireText(name, "name"), requirePositiveInteger(displayOrder, "displayOrder"), requireText(kind, "kind"), eventDate],
   );
@@ -182,6 +182,22 @@ export async function deleteNight({ client = null, nightId, actorUserId = null }
   }
 }
 export async function updateNight({ client = getPool(), actorUserId = null, nightId, name, displayOrder, kind, eventDate = null, status = null }) {
+  if (status === "OPEN") {
+    const { rows: current } = await client.query(
+      `SELECT n.id, n.status, n.kind, n.event_id AS "eventId"
+         FROM night n WHERE n.id = $1 FOR UPDATE`,
+      [requireText(nightId, "nightId")],
+    );
+    if (!current[0]) throw new Error("NIGHT_NOT_FOUND");
+    if (current[0].status === "DRAFT" && current[0].kind === "COMPETITION") {
+      const { rows: assignments } = await client.query(
+        `SELECT COUNT(*)::INTEGER AS count FROM judge_assignment
+          WHERE event_id = $1 AND night_id = $2 AND status = 'ACTIVE' AND assignment_type = 'PRIMARY'`,
+        [current[0].eventId, current[0].id],
+      );
+      if (assignments[0]?.count === 0) throw new Error("NIGHT_WITHOUT_ACTIVE_JURY");
+    }
+  }
   if (status === "CLOSED") {
     const { rows: current } = await client.query(
       `SELECT n.id, n.kind, e.status AS "eventStatus"

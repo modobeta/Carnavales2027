@@ -22,11 +22,23 @@ const legacyNominationScope = {
   appliedChecksum: "a53d6aa87ccf55921d39eb23b01c3ef52227e93d1ced41add88c6018dd103c7e",
 };
 
+// 111 was already applied in the test database before its later guard was
+// moved into 112. Accept that applied checksum only while the restored 111 SQL
+// matches this known canonical content.
+const frozenJuryAssignments = {
+  filename: "111_freeze_jury_assignments_after_night_open.sql",
+  canonicalChecksum: "aaaf79448d8f3ba02877e86360d5aa20d821f0c461b898c75bb223c8ac632510",
+  appliedChecksum: "a7a9181c81cd2f55001f6b1b163f31eab464b73afa6592c094d8505e229f6ea5",
+};
+
 export function matchesAppliedChecksum(migration, appliedChecksum) {
   if (appliedChecksum === migration.checksum) return true;
   return migration.filename === legacyNominationScope.filename
     && appliedChecksum === legacyNominationScope.appliedChecksum
-    && checksum(migration.content.replace(/\r\n/g, "\n")) === legacyNominationScope.canonicalChecksum;
+    && checksum(migration.content.replace(/\r\n/g, "\n")) === legacyNominationScope.canonicalChecksum
+    || migration.filename === frozenJuryAssignments.filename
+      && appliedChecksum === frozenJuryAssignments.appliedChecksum
+      && migration.checksum === frozenJuryAssignments.canonicalChecksum;
 }
 
 async function loadMigrations() {

@@ -33,10 +33,10 @@ body,
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
-  height: 100% !important;
   min-height: 100dvh !important;
   max-width: 100% !important;
-  overflow-x: hidden !important;
+  /* No crear un scroll container vertical en cada nivel del shell. */
+  overflow-x: clip !important;
 }
 
 body {

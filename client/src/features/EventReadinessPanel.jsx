@@ -11,15 +11,14 @@ import { isInterpretableReadiness } from "./readiness-presentation.js";
 import { IncompleteNominationsSummary } from "./IncompleteNominationsSummary.jsx";
 
 const READINESS_LABELS = {
-  COMPETITION_NIGHT: "Creá al menos una jornada de Competencia",
-  ACTIVE_TROUPE: "Creá o activá al menos una comparsa",
-  ACTIVE_SPECIALTY: "Creá o activá al menos una especialidad",
-  ACTIVE_RUBRIC: "Creá o activá al menos un rubro",
-  INCOMPLETE_TROUPES: "Asigná una categoría activa a cada comparsa activa",
-  INCOMPLETE_RUBRICS: "Agregá ítems puntuables y usá especialidades activas en cada rubro",
-  INCOMPLETE_NOMINATIONS: "Completá las nominaciones requeridas para las comparsas programadas",
-  INCOMPLETE_SCHEDULES: "Programá al menos una comparsa en cada jornada de Competencia",
-  NIGHTS_WITHOUT_JURY: "Asigná al menos un jurado activo a cada jornada de Competencia",
+  COMPETITION_NIGHT: ["Creá al menos una jornada de Competencia", "#/admin/events"],
+  ACTIVE_TROUPE: ["Creá o activá al menos una comparsa", "#/admin/competencia?step=participantes"],
+  ACTIVE_SPECIALTY: ["Creá o activá al menos una especialidad", "#/admin/competencia?step=especialidades"],
+  ACTIVE_RUBRIC: ["Creá o activá al menos un rubro", "#/admin/competencia?step=catalogo"],
+  INCOMPLETE_TROUPES: ["Asigná una categoría activa a cada comparsa activa", "#/admin/competencia?step=participantes"],
+  INCOMPLETE_RUBRICS: ["Agregá ítems puntuables y usá especialidades activas en cada rubro", "#/admin/competencia?step=rubros"],
+  INCOMPLETE_NOMINATIONS: ["Completá las nominaciones requeridas para las comparsas programadas", "#/admin/competencia?step=participantes"],
+  INCOMPLETE_SCHEDULES: ["Programá al menos una comparsa en cada jornada de Competencia", "#/admin/competencia?step=participantes"],
 };
 
 export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onReadinessChange, refreshKey = 0 }) {
@@ -184,39 +183,45 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
     && eligible && !locked && !pendingOperation && !opening;
 
   return (
-    <section className="config-section readiness-panel">
+    <section className="config-section readiness-panel" aria-label="Requisitos para abrir el evento">
       <div className="section-heading">
-        <h2>Requisitos para abrir el evento</h2>
+        <h2>Preparar y comenzar</h2>
       </div>
       {readiness && (
         <>
           <div className="readiness-summary">
-            {readiness.ready ? (
+            {event.status === "OPEN" || opened ? (
+              <p className="readiness-ok">La competencia está abierta. Ya podés continuar con la puesta en marcha por jornada.</p>
+            ) : event.status === "CLOSED" ? (
+              <p className="readiness-pending">El evento está finalizado y no se puede abrir.</p>
+            ) : !eligible ? (
+              <p className="readiness-pending">El evento no está disponible para abrir.</p>
+            ) : readiness.ready ? (
               <p className="readiness-ok">Se cumplen los requisitos. El evento está listo para abrir.</p>
             ) : (
-              <p className="readiness-pending">Requisitos pendientes para abrir: {(readiness.missing ?? []).filter((code) => !["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY"].includes(code)).length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0) + (readiness.incompleteNominations?.length ?? 0) + (readiness.nightsWithoutJury?.length ?? 0)}.</p>
+              <p className="readiness-pending">Requisitos pendientes para abrir: {(readiness.missing ?? []).filter((code) => !["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY"].includes(code)).length + (readiness.incompleteTroupes?.length ?? 0) + (readiness.incompleteRubrics?.length ?? 0) + (readiness.incompleteSchedules?.length ?? 0) + (readiness.incompleteNominations?.length ?? 0)}.</p>
             )}
           </div>
           <ul className="readiness-checklist">
             {(readiness.missing ?? []).filter((code) => code !== "INCOMPLETE_NOMINATIONS" || readiness.incompleteNominations.length === 0).map((code) => (
               <li key={code} className="readiness-fail">
                 <span className="readiness-icon">&#x2717;</span>
-                {READINESS_LABELS[code] ?? code}{" "}
+                {(Array.isArray(READINESS_LABELS[code]) ? READINESS_LABELS[code][0] : READINESS_LABELS[code]) ?? code}{" "}
                 {code === "COMPETITION_NIGHT" && onGoToNights ? (
                   <button type="button" className="secondary" onClick={onGoToNights}>Ir al problema</button>
                 ) : (
-                  <a href="#/admin/competencia">Ir al problema</a>
+                  <a href={Array.isArray(READINESS_LABELS[code]) ? READINESS_LABELS[code][1] : "#/admin/competencia?step=revision"}>Ir al problema</a>
                 )}
               </li>
             ))}
             {(readiness.incompleteTroupes ?? []).map((troupe) => (
-              <li key={troupe.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La comparsa &ldquo;{troupe.name}&rdquo; necesita una categoría activa. <a href="#/admin/competencia">Corregir comparsa</a></li>
+              <li key={troupe.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>La comparsa &ldquo;{troupe.name}&rdquo; necesita una categoría activa. <a href="#/admin/competencia?step=participantes">Corregir comparsa</a></li>
             ))}
             {(readiness.incompleteRubrics ?? []).map((rubric) => (
-              <li key={rubric.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>El rubro &ldquo;{rubric.name}&rdquo; necesita ítems puntuables y especialidades activas. <a href="#/admin/competencia">Corregir rubro</a></li>
+              <li key={rubric.id} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>El rubro &ldquo;{rubric.name}&rdquo; necesita ítems puntuables y especialidades activas. <a href="#/admin/competencia?step=rubros">Corregir evaluación</a></li>
             ))}
             {(readiness.incompleteSchedules ?? []).map((schedule) => (
-              <li key={schedule.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Programá al menos una comparsa en la jornada &ldquo;{schedule.nightName}&rdquo;. <a href="#/admin/competencia">Configurar el orden de salida</a></li>
+              <li key={schedule.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Programá al menos una comparsa en la jornada &ldquo;{schedule.nightName}&rdquo;. <a href="#/admin/competencia?step=participantes">Configurar el orden de salida</a></li>
             ))}
             {(readiness.incompleteNominations ?? []).length > 0 && (
               <li className="readiness-fail readiness-nominations-item">
@@ -225,7 +230,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
               </li>
             )}
             {(readiness.nightsWithoutJury ?? []).map((night) => (
-              <li key={night.nightId} className="readiness-fail"><span className="readiness-icon">&#x2717;</span>Asigná al menos un jurado activo a la jornada &ldquo;{night.nightName}&rdquo;. <a href={`#/admin/assignments?eventId=${encodeURIComponent(event.id)}&nightId=${encodeURIComponent(night.nightId)}`}>Asignar jurado</a></li>
+              <li key={night.nightId} className="readiness-pending"><span className="readiness-icon">&#x25cf;</span>La jornada &ldquo;{night.nightName}&rdquo; todavía no tiene jurados. Podés asignarlos antes de abrirla desde <a href={`#/admin/voting?nightId=${encodeURIComponent(night.nightId)}`}>Control de votación</a>.</li>
             ))}
             {readiness.ready && (
               <>
@@ -238,16 +243,15 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
               </>
             )}
           </ul>
-          {!eligible && <p role="status">El evento ya no está en preparación y no se puede abrir desde aquí.</p>}
-          <button ref={openTriggerRef} className="danger-action" disabled={!canOpen} onClick={() => setConfirmOpen(true)}>
+          {event.status === "CONFIGURING" && <button ref={openTriggerRef} className="danger-action" disabled={!canOpen} onClick={() => setConfirmOpen(true)}>
             {opening ? "Abriendo…" : "Abrir evento"}
-          </button>
+          </button>}
           <ConfirmDialog
             isOpen={confirmOpen}
             onClose={() => setConfirmOpen(false)}
             onConfirm={() => void open()}
             title="Abrir evento"
-            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no inicia una jornada ni habilita la votación. Después, las asignaciones de jurados que todavía no tengan una planilla confirmada podrán revocarse o reemplazarse. ¿Querés continuar?`}
+            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no inicia una jornada ni habilita la votación; los jurados se revisan desde Control de votación antes de abrir cada jornada. Las asignaciones que todavía no tengan una planilla confirmada podrán revocarse o reemplazarse. ¿Querés continuar?`}
             confirmLabel="Abrir evento"
             confirming={opening}
             danger
@@ -264,7 +268,11 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
           {checkingOperation ? "Consultando operación…" : "Consultar resultado de apertura"}
         </button>
       )}
-      {opened && <p><a href="#/admin/voting">Ir a Control de votación</a> para abrir una jornada y, por separado, su ventana de votación.</p>}
+      {(event.status === "OPEN" || opened) && <div className="readiness-summary" role="status">
+        <p>La competencia está abierta. El siguiente paso es elegir una jornada y habilitar su votación; el estado de cada jornada y su ventana se conserva por separado.</p>
+        <a className="button-link" href="#/admin/voting">Continuar a Control de votación</a>
+      </div>}
+      {event.status === "CLOSED" && <p className="readiness-summary" role="status">El evento está finalizado.</p>}
     </section>
   );
 }

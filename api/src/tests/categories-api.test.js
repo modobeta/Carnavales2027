@@ -528,7 +528,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
 
     await context.test("evento activo OPEN/CLOSED sigue bloqueado por lifecycle para ADMIN y delegado", async () => {
       const eventId = ids.lifecycle;
-      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
+      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [eventId]);
       const troupe = await assertCreated("lifecycle", "admin");
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
@@ -539,6 +539,7 @@ test("Spec 036 T5: POST comparsas autoriza el evento de ruta y conserva pertenen
       });
       assert.equal(opened.status, 200);
       assert.equal((await opened.json()).status, "OPEN");
+      await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
       for (const status of ["OPEN", "CLOSED"]) {
         if (status === "CLOSED") {
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);
@@ -813,7 +814,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
 
     await context.test("evento activo OPEN/CLOSED conserva bloqueo persistente de PATCH para ambos actores", async () => {
       const eventId = ids.lifecycle;
-      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
+      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [eventId]);
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
       await pool.query("INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code) VALUES ($1,$2,$3,'Item','ITEM')", [eventId, rubric.id, specialty.id]);
@@ -824,6 +825,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
       });
       assert.equal(opened.status, 200);
       assert.equal((await opened.json()).status, "OPEN");
+      await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
       for (const status of ["OPEN", "CLOSED"]) {
         if (status === "CLOSED") {
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);
@@ -1273,7 +1275,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
     await context.test("guardas persistentes de OPEN/CLOSED siguen aplicando a ambos actores sin divulgar a ajenos", async () => {
       const eventId = ids.lifecycle;
       // Minimal ready fixture, without disabling constraints or triggers.
-      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','OPEN') RETURNING id", [eventId]);
+      const { rows: [night] } = await pool.query("INSERT INTO night(event_id,name,display_order,kind,status) VALUES ($1,'Noche',1,'COMPETITION','DRAFT') RETURNING id", [eventId]);
       const { rows: [troupe] } = await pool.query("INSERT INTO event_troupe(event_id,category_id,name) VALUES ($1,$2,'Comparsa') RETURNING id", [eventId, categories.lifecycle.id]);
       const { rows: [specialty] } = await pool.query("INSERT INTO event_specialty(event_id,name,code,display_order) VALUES ($1,'Baile','BAILE',1) RETURNING id", [eventId]);
       const { rows: [rubric] } = await pool.query("INSERT INTO rubric(event_id,name,code,evaluation_target) VALUES ($1,'Rubro','RUBRO','TROUPE') RETURNING id", [eventId]);
@@ -1285,6 +1287,7 @@ test("PATCH categoría autoriza por propietario persistido y conserva contrato, 
       });
       assert.equal(opened.status, 200);
       assert.equal((await opened.json()).status, "OPEN");
+      await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
       for (const status of ["OPEN", "CLOSED"]) {
         if (status === "CLOSED") {
           await pool.query("UPDATE night SET status='CLOSED' WHERE id=$1", [night.id]);

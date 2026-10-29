@@ -36,13 +36,13 @@ it("nombra stepper y controles de evaluación con el texto visible más su conte
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const first = await within(nav).findByRole("button", { name: "Comparsas Completo" });
-  expect(first).toHaveAccessibleDescription(/Paso 4 de 6/);
-  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 6/);
-  expect(within(nav).getByRole("button", { name: "Asignar jurados Completo" })).toHaveAccessibleDescription(/Paso 5 de 6.*Asignación de jurados/);
+  expect(first).toHaveAccessibleDescription(/Paso 4 de 5/);
+  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 5/);
+  expect(within(nav).queryByRole("button", { name: /Asignar jurados/ })).not.toBeInTheDocument();
   const current = within(nav).getByRole("button", { name: "Evaluación Completo" });
   expect(current).toHaveAttribute("aria-current", "step");
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
-  expect(within(nav).getAllByRole("button")).toHaveLength(6);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
+  expect(within(nav).getAllByRole("button")).toHaveLength(5);
   const card = await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
   expect(card).toHaveAttribute("aria-expanded", "false");
   expect(within(card).getByText("▾")).toHaveAttribute("aria-hidden", "true");
@@ -66,7 +66,7 @@ it("stepper distingue falta de readiness sin perder nombre visible ni posición 
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const current = await within(nav).findByRole("button", { name: "Evaluación No se pudo revisar" });
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 6/);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
   expect(current).toHaveAttribute("aria-current", "step");
 });
 

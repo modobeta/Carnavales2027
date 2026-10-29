@@ -53,7 +53,7 @@ test("Spec 025: Backend Defense (RF-193) — Votación secuencial por orden de p
 
   const { rows: [night] } = await pool.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche Secuencial", 1, "COMPETITION", "OPEN"],
+    [event.id, "Noche Secuencial", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [specialty] } = await pool.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -118,6 +118,7 @@ test("Spec 025: Backend Defense (RF-193) — Votación secuencial por orden de p
      VALUES($1,$2,$3,$4,$5) RETURNING id`,
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
 
   const openClient = await pool.connect();
   try {
