@@ -165,21 +165,19 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
-    const troupe = fields.getByRole("radio", { name: /La comparsa/ });
-    const nominee = fields.getByRole("radio", { name: /Un participante nominado/ });
+    const evaluationTarget = fields.getByLabelText("¿Qué se evalúa?");
     const nominative = fields.getByRole("radio", { name: /Nominativo/ });
-    expect(fields.getByText("1. ¿Quién recibe puntos?")).toBeInTheDocument();
-    expect(fields.getByText("2. ¿Qué regla del reglamento aplica?")).toBeInTheDocument();
-    expect(fields.getByText("Sus puntos se suman para definir la comparsa ganadora.")).toBeInTheDocument();
-    expect(troupe).toBeChecked();
+    expect(fields.getByText("Tipo de rubro")).toBeInTheDocument();
+    expect(fields.getByText("¿Qué se evalúa?")).toBeInTheDocument();
+    expect(fields.getByText("Sus puntos contribuyen a la clasificación general de comparsas.")).toBeInTheDocument();
+    expect(evaluationTarget).toHaveValue("TROUPE");
     expect(nominative).toBeChecked();
-    expect(fields.getByText("La comparsa", { selector: "strong" })).toBeInTheDocument();
     expect(fields.queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
 
-    fireEvent.click(nominee);
+    fireEvent.change(evaluationTarget, { target: { value: "NOMINATION" } });
     expect(fields.getByLabelText("Tipo de participante")).toHaveValue("PERSON");
-    expect(fields.getByText("Persona nominada", { selector: "dd" })).toBeInTheDocument();
-    fireEvent.click(troupe);
+    expect(fields.getByText(/Se evalúa:.*Persona nominada/)).toBeInTheDocument();
+    fireEvent.change(evaluationTarget, { target: { value: "TROUPE" } });
     expect(fields.queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
   });
 
@@ -191,24 +189,22 @@ describe("AdminCompetenciaPage", () => {
 
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
-    const targetNomination = fields.getByRole("radio", { name: /Un participante nominado/ });
-    const targetTroupe = fields.getByRole("radio", { name: /La comparsa/ });
+    const evaluationTarget = fields.getByLabelText("¿Qué se evalúa?");
     const random = fields.getByRole("radio", { name: /Aleatorio/ });
     fireEvent.click(random);
 
-    expect(targetNomination).toBeChecked();
-    expect(targetTroupe).toBeDisabled();
-    expect(fields.getByText("Se permiten hasta 3 participantes nominados por comparsa en este rubro.")).toBeInTheDocument();
+    expect(evaluationTarget).toHaveValue("NOMINATION");
+    expect(fields.getByRole("option", { name: "Comparsa completa" })).toBeDisabled();
+    expect(fields.getByText("Se permiten hasta 3 participantes nominados por comparsa.")).toBeInTheDocument();
     const subjectType = fields.getByLabelText("Tipo de participante");
     expect(subjectType).toHaveValue("PERSON");
-    expect(fields.getByText("Persona nominada", { selector: "dd" })).toBeInTheDocument();
-    expect(fields.getByText("Aleatorio: hasta 3 por comparsa")).toBeInTheDocument();
-    expect(fields.getByText("La cantidad máxima se aplica por comparsa y por rubro.")).toBeInTheDocument();
+    expect(fields.getByText(/Se evalúa:.*Persona nominada/)).toBeInTheDocument();
+    expect(fields.getByText("No suma al puntaje general de la comparsa.")).toBeInTheDocument();
     expect(new FormData(form).getAll("evaluationTarget")).toEqual(["NOMINATION"]);
 
     fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Mejor Pareja de Baile" } });
     fireEvent.change(subjectType, { target: { value: "COUPLE" } });
-    expect(fields.getByText("Pareja nominada", { selector: "dd" })).toBeInTheDocument();
+    expect(fields.getByText(/Se evalúa:.*Pareja nominada/)).toBeInTheDocument();
     fireEvent.submit(form);
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/rubrics", {
@@ -319,7 +315,7 @@ describe("AdminCompetenciaPage", () => {
     await screen.findByRole("button", { name: "Ver opciones de Coreografia" });
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
-    fireEvent.click(fields.getByRole("radio", { name: /Un participante nominado/ }));
+    fireEvent.change(fields.getByLabelText("¿Qué se evalúa?"), { target: { value: "NOMINATION" } });
     expect(Array.from(fields.getByLabelText("Tipo de participante").options, (option) => option.value))
       .toEqual(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "OTHER"]);
     fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Figura destacada" } });

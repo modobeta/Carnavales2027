@@ -2592,27 +2592,37 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                 onSubmit={(e) => submitCreate(e.currentTarget)}
               >
                 <div className="rubric-create-head">
-                  <h3>Crear rubro</h3>
-                  <p>Respondé estas dos preguntas: la primera indica quién recibe puntos; la segunda, qué regla del reglamento se aplica.</p>
+                  <div>
+                    <h3>Crear rubro</h3>
+                    <p>Configurá el rubro y definí cómo se computarán sus puntos.</p>
+                  </div>
                 </div>
                 <div className="rubric-create-layout">
                 <div className="rubric-create-main">
                 <label>Nombre del rubro<input name="name" autoFocus required placeholder="Ej. Coreografía" /></label>
                 <fieldset className="rubric-choice-fieldset">
-                  <legend>1. ¿Quién recibe puntos?</legend>
-                  <p>Esto determina si cargás el rubro sobre la comparsa o sobre una nominación.</p>
-                  <div className="rubric-target-options">
-                    <label className="rubric-choice-card">
-                      <input type="radio" name="evaluationTarget" value="TROUPE" checked={newRubricTarget === "TROUPE"}
-                        disabled={newRubricType === "RANDOM"} onChange={() => setNewRubricTarget("TROUPE")} />
-                      <span><strong>La comparsa</strong><small>La puntuación corresponde al conjunto.</small></span>
+                  <legend>Tipo de rubro</legend>
+                  <div className="rubric-rule-options">
+                    <label className="rubric-rule-card">
+                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="NOMINATIVE" checked={newRubricType === "NOMINATIVE"}
+                        onChange={() => setNewRubricType("NOMINATIVE")} />Nominativo</span>
+                      <span className="rubric-rule-description">Sus puntos contribuyen a la clasificación general de comparsas.</span>
                     </label>
-                    <label className="rubric-choice-card">
-                      <input type="radio" name="evaluationTarget" value="NOMINATION" checked={newRubricTarget === "NOMINATION"}
-                        onChange={() => setNewRubricTarget("NOMINATION")} />
-                      <span><strong>Un participante nominado</strong><small>Después elegís persona, pareja, grupo, etc.</small></span>
+                    <label className="rubric-rule-card">
+                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="RANDOM" checked={newRubricType === "RANDOM"}
+                        onChange={() => { setNewRubricType("RANDOM"); setNewRubricTarget("NOMINATION"); }} />Aleatorio</span>
+                      <span className="rubric-rule-description">Premio independiente. No suma al puntaje general de la comparsa.</span>
                     </label>
                   </div>
+                </fieldset>
+                <fieldset className="rubric-choice-fieldset rubric-evaluation-target">
+                  <label>¿Qué se evalúa?
+                    <select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}>
+                      <option value="TROUPE" disabled={newRubricType === "RANDOM"}>Comparsa completa</option>
+                      <option value="NOMINATION">Participante nominado</option>
+                    </select>
+                  </label>
+                  <p>Define a quién se le carga la calificación, no cómo se computa.</p>
                 </fieldset>
                 {newRubricTarget === "NOMINATION" && (
                   <label>Tipo de participante
@@ -2621,24 +2631,6 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                     </select>
                   </label>
                 )}
-                <fieldset className="rubric-choice-fieldset">
-                  <legend>2. ¿Qué regla del reglamento aplica?</legend>
-                  <p>No cambia quién recibe puntos; define cómo se clasifica el rubro.</p>
-                  <div className="rubric-rule-options">
-                    <label className="rubric-rule-card">
-                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="NOMINATIVE" checked={newRubricType === "NOMINATIVE"}
-                        onChange={() => setNewRubricType("NOMINATIVE")} />Nominativo</span>
-                      <span className="rubric-rule-description">Sus puntos se suman para definir la comparsa ganadora.</span>
-                      <small>Elegí esto cuando el reglamento lo clasifique como nominativo.</small>
-                    </label>
-                    <label className="rubric-rule-card">
-                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="RANDOM" checked={newRubricType === "RANDOM"}
-                        onChange={() => { setNewRubricType("RANDOM"); setNewRubricTarget("NOMINATION"); }} />Aleatorio</span>
-                      <span className="rubric-rule-description">Se permiten hasta 3 participantes nominados por comparsa en este rubro.</span>
-                      <small>La cantidad máxima se aplica por comparsa y por rubro.</small>
-                    </label>
-                  </div>
-                </fieldset>
                 <details className="advanced-options">
                   <summary>Opciones avanzadas</summary>
                   <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
@@ -2661,12 +2653,12 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                 </div>
                 </div>
                 <aside className="rubric-create-summary" aria-label="Resumen del alta">
-                  <h4>Resumen</h4>
-                  <dl>
-                    <div><dt>Objeto evaluado</dt><dd>{newRubricTarget === "NOMINATION" ? nominationSubjectLabel(newRubricSubjectType) : "Comparsa"}</dd></div>
-                    <div><dt>Tipo de rubro</dt><dd>{newRubricType === "RANDOM" ? "Aleatorio: hasta 3 por comparsa" : "Nominativo: suma para la comparsa"}</dd></div>
-                  </dl>
-                  <p className="rubric-create-note">{newRubricTarget === "NOMINATION" ? "Las nominaciones se cargan por comparsa." : "Se puntúa a cada comparsa."} Sus ítems se configuran en Evaluación.</p>
+                  <h4>Resumen automático</h4>
+                  <ul>
+                    <li><span aria-hidden="true">✓</span>{newRubricType === "RANDOM" ? "No suma al puntaje general de la comparsa." : "Suma al resultado general de la comparsa."}</li>
+                    <li><span aria-hidden="true">✓</span>Se evalúa: {newRubricTarget === "NOMINATION" ? nominationSubjectLabel(newRubricSubjectType) : "Comparsa completa"}.</li>
+                    {newRubricType === "RANDOM" && <li><span aria-hidden="true">✓</span>Se permiten hasta 3 participantes nominados por comparsa.</li>}
+                  </ul>
                 </aside>
                 </div>
               </SaveForm>
