@@ -81,7 +81,7 @@ Cuando una implementación requiera una regla inexistente, dejar claramente iden
 
 El Jurado elige una noche competitiva y una especialidad para las que tenga una asignación activa.
 
-Administración gestiona asignaciones desde Competencia. En estado `OPEN` se pueden revocar o reemplazar asignaciones que todavía no tengan una planilla confirmada; una planilla presentada conserva su evidencia y bloquea cambios que la alteren.
+Administración gestiona asignaciones desde Control de votación. Las asignaciones nuevas de una jornada competitiva se crean mientras esa jornada siga en `DRAFT`, incluso si el evento ya está `OPEN`; abrir la jornada no obliga a tener jurados en jornadas futuras. Una vez abierta, no se admiten altas nuevas. Las asignaciones existentes pueden revocarse o reemplazarse mientras no tengan una planilla confirmada; una planilla presentada conserva su evidencia y bloquea cambios que la alteren.
 
 El backend debe validar que la asignación esté activa, que la noche exista y que la comparsa activa pertenezca a esa noche antes de aceptar votos o cierres.
 

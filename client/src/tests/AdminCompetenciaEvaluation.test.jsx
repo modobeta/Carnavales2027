@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { ApiError } from "../api/http.js";
-import { AdminCompetenciaPage } from "../pages/AdminCompetenciaPage.jsx";
+import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
+
+function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="participantes" {...props} />; }
 
 vi.mock("../api/http.js", async (importOriginal) => ({ ...(await importOriginal()), apiRequest: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
@@ -14,338 +15,12 @@ const specialties = [{ id: "s1", name: "Danza", active: true }, { id: "s2", name
 const rubric = { id: "r1", name: "Vestuario", active: true, evaluationTarget: "TROUPE", rubricType: "NOMINATIVE", resolutionMethod: "JURY", items: [{ id: "i1", name: "Color", specialtyId: "s1", active: true }], criteria: [], nominations: [] };
 const ready = (incompleteRubrics = []) => ({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics, incompleteNominations: [], incompleteSchedules: [], nightsWithoutJury: [] });
 const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
-const rejected = (status = 409, code = "RESOURCE_CONFLICT") => new ApiError({ status, code });
 const posts = () => apiRequest.mock.calls.filter(([, options]) => options?.method === "POST" && options?.body);
 
-async function integratedDraft(names = []) {
-  fireEvent.click(await screen.findByRole("button", { name: /Crear primer rubro|Agregar rubro/ }));
-  const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-  fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Coreografía" } });
-  for (const name of names) {
-    fireEvent.click(within(form).getByRole("button", { name: "Agregar otro ítem" }));
-    fireEvent.change(within(form).getByRole("textbox", { name: `Nombre del ítem ${within(form).getAllByRole("textbox", { name: /Nombre del ítem/ }).length}` }), { target: { value: name } });
-  }
-  return form;
+async function openCatalog() {
+  fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
 }
-
-it("crea 0, 1 y varios ítems con el contrato correcto y recibos individuales", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) return { id: "r2", name: "Coreografía", active: true, items: [], initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1", active: true } };
-    if (options?.method === "POST" && path.endsWith("/items")) return { id: "i2", name: "Sincronización", specialtyId: "s1", active: true };
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Sincronización"]);
-  expect(within(form).getByRole("heading", { name: "Crear rubro de evaluación" })).toBeInTheDocument();
-  expect(within(form).getByLabelText("Nombre del rubro")).toHaveAttribute("placeholder", "Ej. Coreografía");
-  fireEvent.submit(form);
-  await screen.findByText(/Ítem confirmado: Sincronización \(i2\)/);
-  const requests = posts();
-  expect(requests.map(([path]) => path)).toEqual(["/api/v1/events/e1/rubrics-with-item", "/api/v1/rubrics/r2/items"]);
-  expect(JSON.parse(requests[0][1].body).initialItem).toEqual({ name: "Creatividad", code: "CREATIVIDAD", specialtyId: "s1", required: true, allowNotPresented: true });
-  expect(JSON.parse(requests[1][1].body)).toEqual({ name: "Sincronización", specialtyId: "s1", required: true, allowNotPresented: true });
-  expect(screen.getByText("Rubro confirmado: Coreografía (r2).")).toBeInTheDocument();
-  expect(screen.getByText(/Ítem confirmado: Creatividad \(i1\)/)).toBeInTheDocument();
-});
-
-it("agrega y quita filas no guardadas con foco sin suprimir el alta sin ítems", async () => {
-  mockCatalog({ rubrics: () => [] });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft();
-  expect(within(form).getByText(/sin asociación.*pendiente/i)).toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Agregar otro ítem" }));
-  await waitFor(() => expect(within(form).getByRole("textbox", { name: "Nombre del ítem 1" })).toHaveFocus());
-  fireEvent.click(within(form).getByRole("button", { name: "Quitar fila: ítem 1" }));
-  fireEvent.submit(form);
-  await screen.findByText("Rubro confirmado: Nuevo (r2).");
-  expect(posts().map(([path]) => path)).toEqual(["/api/v1/events/e1/rubrics"]);
-});
-
-it("no envía code vacío y deriva el primero como la ruta para signos, tildes y 64 caracteres", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => options?.method === "POST" ? { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "item", specialtyId: "s1" } } : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["!!!"]);
-  fireEvent.submit(form);
-  expect(posts()).toHaveLength(0);
-  expect(within(form).getByRole("alert")).toHaveTextContent(/nombre.*letras o números/i);
-  await act(async () => {});
-  fireEvent.change(within(form).getByRole("textbox", { name: "Nombre del ítem 1" }), { target: { value: `  Coreografía -- ${"x".repeat(80)} ! ` } });
-  fireEvent.submit(form);
-  await waitFor(() => expect(posts()).toHaveLength(1));
-  expect(JSON.parse(posts()[0][1].body).initialItem.code).toBe(`COREOGRAFIA_${"X".repeat(52)}`);
-});
-
-it("rechazo inequívoco inicial conjunto conserva borrador y permite corregir solo la creación", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation(); let attempts = 0;
-  apiRequest.mockImplementation(async (path, options) => options?.method === "POST" ? (++attempts === 1 ? Promise.reject(rejected()) : { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Otro", specialtyId: "s1" } }) : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/error total/i)).toBeInTheDocument();
-  expect(within(form).getByText(/código.*en uso/i)).toBeInTheDocument();
-  await act(async () => {});
-  expect(within(form).queryByRole("button", { name: "Reintentar ítems pendientes" })).not.toBeInTheDocument();
-  fireEvent.change(within(form).getByRole("textbox", { name: "Nombre del ítem 1" }), { target: { value: "Otro" } });
-  fireEvent.submit(form);
-  await waitFor(() => expect(posts()).toHaveLength(2));
-});
-
-it("un rechazo de ítem adicional deja el siguiente no enviado y reintenta solo ambos, nunca el rubro", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation(); let second = true;
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } };
-    if (options?.method === "POST" && path.endsWith("/items")) {
-      if (second) { second = false; throw rejected(); }
-      return { id: path, name: JSON.parse(options.body).name, specialtyId: "s1" };
-    }
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Sincronización", "Ritmo"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/guardado parcial/i)).toBeInTheDocument();
-  expect(within(form).getByText(/Sincronización.*rechazada/i)).toBeInTheDocument();
-  expect(within(form).getByText(/Ritmo.*pendiente no enviada/i)).toBeInTheDocument();
-  expect(posts()).toHaveLength(2);
-  fireEvent.change(within(form).getByRole("textbox", { name: "Nombre del ítem 2" }), { target: { value: "Sincronización nueva" } });
-  fireEvent.click(within(form).getByRole("button", { name: "Reintentar ítems pendientes" }));
-  await waitFor(() => expect(posts()).toHaveLength(4));
-  expect(posts().map(([path]) => path)).toEqual(["/api/v1/events/e1/rubrics-with-item", ...Array(3).fill("/api/v1/rubrics/r2/items")]);
-  expect(JSON.parse(posts()[2][1].body).name).toBe("Sincronización nueva");
-});
-
-it("tras quitar la última fila rechazada finaliza sin reenviar el rubro ya confirmado", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } };
-    if (options?.method === "POST" && path.endsWith("/items")) throw rejected();
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Ritmo"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Guardado parcial/)).toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Quitar fila: ítem 2" }));
-  fireEvent.click(within(form).getByRole("button", { name: "Finalizar alta" }));
-  expect(screen.queryByRole("heading", { name: "Crear rubro de evaluación" })).not.toBeInTheDocument();
-  expect(posts()).toHaveLength(2);
-  expect(screen.getByText("Rubro confirmado: Coreografía (r2).")).toBeInTheDocument();
-});
-
-it("respuesta perdida del primer POST permanece por comprobar aun si GET coincide; bloquea dependientes y doble envío", async () => {
-  const pending = deferred();
-  mockCatalog({ rubrics: () => [{ ...rubric, id: "r2", name: "Coreografía", items: [{ id: "i1", name: "Creatividad", specialtyId: "s1", active: true }] }] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation((path, options) => options?.method === "POST" ? pending.promise : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Ritmo"]);
-  fireEvent.submit(form); fireEvent.submit(form);
-  expect(posts()).toHaveLength(1);
-  await act(async () => { pending.resolve(Promise.reject(new ApiError({ status: 0, code: "NETWORK_ERROR" }))); });
-  expect(await within(form).findByText(/resultado por comprobar/i)).toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Revisar configuración guardada" }));
-  expect((await within(form).findAllByText(/revisión manual/i)).length).toBeGreaterThan(0);
-  expect(within(form).queryByRole("button", { name: "Reintentar ítems pendientes" })).not.toBeInTheDocument();
-  fireEvent.submit(form);
-  expect(posts()).toHaveLength(1);
-});
-
-it.each(["simple", "conjunto"])("rechazo inequívoco %s permite reintentar la creación sin inventar rubro", async (mode) => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation(); let attempts = 0;
-  apiRequest.mockImplementation(async (path, options) => options?.method === "POST"
-    ? (++attempts === 1 ? Promise.reject(rejected()) : { id: "r2", name: "Nuevo", ...(mode === "conjunto" ? { initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } } : {}) })
-    : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(mode === "conjunto" ? ["Creatividad"] : []);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Error total/)).toBeInTheDocument();
-  expect(within(form).queryByRole("button", { name: "Reintentar ítems pendientes" })).not.toBeInTheDocument();
-  fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
-  fireEvent.submit(form);
-  expect(await screen.findByText("Rubro confirmado: Nuevo (r2).")).toBeInTheDocument();
-  expect(posts().map(([path]) => path)).toEqual(Array(2).fill(`/api/v1/events/e1/${mode === "conjunto" ? "rubrics-with-item" : "rubrics"}`));
-});
-
-it.each(["sin GET", "GET coincidente"])("ítem adicional sin respuesta con %s queda parcial e impide dependientes y reenvío", async (catalogResult) => {
-  mockCatalog({ rubrics: () => catalogResult === "sin GET" ? Promise.reject(new Error("fallo GET"))
-    : [{ ...rubric, id: "r2", name: "Coreografía", items: [{ id: "i2", name: "Sincronización", specialtyId: "s1", active: true }] }] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } };
-    if (options?.method === "POST" && path.endsWith("/items")) throw new ApiError({ status: 503, code: "INTERNAL_ERROR" });
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Sincronización", "Ritmo"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Guardado parcial/)).toBeInTheDocument();
-  expect(within(form).getByText(/Sincronización.*por comprobar/)).toBeInTheDocument();
-  expect(within(form).getByText(/Ritmo.*pendiente no enviada/)).toBeInTheDocument();
-  expect(within(form).getByText(/Ítem confirmado: Creatividad \(i1\)/)).toBeInTheDocument();
-  expect(screen.queryByText("Lista", { exact: true })).not.toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Revisar configuración guardada" }));
-  fireEvent.submit(form);
-  expect(posts()).toHaveLength(2);
-});
-
-it("guarda opciones del rubro y del primer ítem sin orden y protege parcial al cambiar especialidad", async () => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } };
-    if (options?.method === "POST" && path.endsWith("/items")) throw rejected();
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Ritmo"]);
-  fireEvent.change(within(form).getByRole("combobox", { name: "A quién se evalúa" }), { target: { value: "NOMINATION" } });
-  fireEvent.change(within(form).getByRole("combobox", { name: "Qué tipo de participante" }), { target: { value: "GROUP" } });
-  fireEvent.click(within(form).getAllByRole("checkbox", { name: "Obligatorio" })[0]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Guardado parcial/)).toBeInTheDocument();
-  expect(JSON.parse(posts()[0][1].body)).toMatchObject({ evaluationTarget: "NOMINATION", expectedSubjectType: "GROUP", initialItem: { required: false, allowNotPresented: true, specialtyId: "s1" } });
-  expect(JSON.parse(posts()[0][1].body).initialItem).not.toHaveProperty("displayOrder");
-  fireEvent.click(within(screen.getByRole("group", { name: "Especialidades de la competencia" })).getByRole("button", { name: /Música/ }));
-  const dialog = screen.getByRole("dialog", { name: /descartar cambios/i });
-  fireEvent.click(within(dialog).getByRole("button", { name: /Permanecer/ }));
-  expect(within(form).getByRole("textbox", { name: "Nombre del ítem 2" })).toHaveValue("Ritmo");
-  fireEvent.click(within(screen.getByRole("group", { name: "Especialidades de la competencia" })).getByRole("button", { name: /Música/ }));
-  fireEvent.click(within(screen.getByRole("dialog", { name: /descartar cambios/i })).getByRole("button", { name: /Descartar/ }));
-  expect(screen.getByText("Rubro confirmado: Coreografía (r2).")).toBeInTheDocument();
-  expect(posts()).toHaveLength(2);
-});
-
-it("no descarta mientras hay un POST en curso incluso al intentar navegar", async () => {
-  const pending = deferred();
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation((path, options) => options?.method === "POST" ? pending.promise : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad"]);
-  fireEvent.submit(form);
-  fireEvent.click(screen.getByRole("button", { name: /^Revisión final / }));
-  expect(screen.getByRole("heading", { name: "Crear rubro de evaluación" })).toBeInTheDocument();
-  expect(screen.getByText(/Esperá.*guardado/i)).toBeInTheDocument();
-  await act(async () => { pending.resolve(Promise.reject(new ApiError({ status: 0, code: "NETWORK_ERROR" }))); });
-});
-
-it("GET iniciado tras el primer comprobante no restaura Lista al perderse la respuesta del segundo POST", async () => {
-  const slowReadiness = deferred();
-  let accepted = false;
-  mockCatalog({ rubrics: () => accepted ? [{ ...rubric, id: "r2", name: "Coreografía", items: [{ id: "i1", name: "Creatividad", specialtyId: "s1", active: true }] }] : [],
-    readiness: () => accepted ? slowReadiness.promise : ready() });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) { accepted = true; return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } }; }
-    if (options?.method === "POST" && path.endsWith("/items")) throw new ApiError({ status: 503, code: "INTERNAL_ERROR" });
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Sincronización"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Guardado parcial/)).toBeInTheDocument();
-  await act(async () => { slowReadiness.resolve(ready()); });
-  expect(screen.queryByText("Lista", { exact: true })).not.toBeInTheDocument();
-  expect(screen.queryByText(/Especialidades listas:/)).not.toBeInTheDocument();
-  expect(within(form).getByText(/Sincronización.*por comprobar/)).toBeInTheDocument();
-});
-
-it("5xx del alta simple y GET fallido no se convierten en error total ni habilitan reenvío", async () => {
-  mockCatalog({ rubrics: () => Promise.reject(new Error("GET fallido")) });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => options?.method === "POST"
-    ? Promise.reject(new ApiError({ status: 500, code: "INTERNAL_ERROR" })) : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft();
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Resultado por comprobar/)).toBeInTheDocument();
-  expect(within(form).queryByText(/Error total/)).not.toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Revisar configuración guardada" }));
-  fireEvent.submit(form);
-  expect(posts()).toHaveLength(1);
-});
-
-it("un GET reciente que desactiva la especialidad conserva el contexto del borrador y bloquea el POST conjunto", async () => {
-  let active = true; let fail = true;
-  mockCatalog({ specialties: () => active ? specialties : [{ ...specialties[0], active: false }, specialties[1]],
-    rubrics: () => [], readiness: () => fail ? Promise.reject(new Error("GET fallido")) : ready() });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad"]);
-  active = false; fail = false;
-  fireEvent.click(await screen.findByRole("button", { name: "Reintentar evaluación" }));
-  await waitFor(() => expect(within(screen.getByRole("group", { name: "Especialidades de la competencia" })).queryByRole("button", { name: /Danza/ })).not.toBeInTheDocument());
-  expect(within(form).getByRole("heading", { name: "Ítems puntuables" })).toBeInTheDocument();
-  expect(within(form).getByText(/La especialidad Danza ya no está activa/)).toBeInTheDocument();
-  expect(within(form).getByRole("button", { name: "Crear rubro" })).toBeDisabled();
-  fireEvent.submit(form);
-  expect(posts()).toHaveLength(0);
-  expect(screen.getByRole("heading", { name: "Crear rubro de evaluación" })).toBeInTheDocument();
-  fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
-  fireEvent.click(within(screen.getByRole("dialog", { name: /descartar cambios/i })).getByRole("button", { name: /Descartar/ }));
-  expect(screen.getByRole("heading", { name: "Rubros de Música" })).toBeInTheDocument();
-});
-
-it("GET posterior al primer comprobante no reorienta la fila rechazada a otra especialidad", async () => {
-  let accepted = false;
-  mockCatalog({ specialties: () => accepted ? [{ ...specialties[0], active: false }, specialties[1]] : specialties, rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => {
-    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) {
-      accepted = true;
-      return { id: "r2", name: "Coreografía", initialItem: { id: "i1", name: "Creatividad", specialtyId: "s1" } };
-    }
-    if (options?.method === "POST" && path.endsWith("/items")) throw rejected();
-    return read(path, options);
-  });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft(["Creatividad", "Ritmo"]);
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Guardado parcial/)).toBeInTheDocument();
-  await waitFor(() => expect(within(screen.getByRole("group", { name: "Especialidades de la competencia" })).queryByRole("button", { name: /Danza/ })).not.toBeInTheDocument());
-  expect(within(form).getByRole("heading", { name: "Ítems puntuables" })).toBeInTheDocument();
-  expect(within(form).getByText(/La especialidad Danza ya no está activa/)).toBeInTheDocument();
-  expect(within(form).getByRole("button", { name: "Reintentar ítems pendientes" })).toBeDisabled();
-  fireEvent.click(within(form).getByRole("button", { name: "Reintentar ítems pendientes" }));
-  expect(posts()).toHaveLength(2);
-  expect(within(form).getByText(/Ritmo.*rechazada/i)).toBeInTheDocument();
-  expect(within(form).getByText(/Ítem confirmado: Creatividad \(i1\)/)).toBeInTheDocument();
-});
-
-it.each([[401, "UNAUTHENTICATED"], [429, "RATE_LIMIT_EXCEEDED"]])("rechazo recibido %i/%s de alta simple no se clasifica como incierto", async (status, code) => {
-  mockCatalog({ rubrics: () => [] });
-  const read = apiRequest.getMockImplementation();
-  apiRequest.mockImplementation(async (path, options) => options?.method === "POST" ? Promise.reject(rejected(status, code)) : read(path, options));
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft();
-  fireEvent.submit(form);
-  expect(await within(form).findByText(/Error total/)).toBeInTheDocument();
-  expect(within(form).getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
-  expect(within(form).getByRole("button", { name: "Crear rubro" })).toBeEnabled();
-  expect(within(form).queryByRole("button", { name: "Revisar configuración guardada" })).not.toBeInTheDocument();
-});
-
-it("Nominación descartada no se filtra a la siguiente alta: vuelve Comparsa y payload TROUPE", async () => {
-  mockCatalog({ rubrics: () => [] });
-  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  const form = await integratedDraft();
-  fireEvent.change(within(form).getByRole("combobox", { name: "A quién se evalúa" }), { target: { value: "NOMINATION" } });
-  fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
-  fireEvent.click(within(screen.getByRole("dialog", { name: /descartar cambios/i })).getByRole("button", { name: /Descartar/ }));
-  const fresh = await integratedDraft();
-  expect(within(fresh).getByRole("combobox", { name: "A quién se evalúa" })).toHaveValue("TROUPE");
-  expect(within(fresh).queryByRole("combobox", { name: "Qué tipo de participante" })).not.toBeInTheDocument();
-  fireEvent.submit(fresh);
-  await screen.findByText("Rubro confirmado: Nuevo (r2).");
-  expect(JSON.parse(posts()[0][1].body)).toMatchObject({ evaluationTarget: "TROUPE", expectedSubjectType: null });
-});
 
 function mockCatalog(overrides = {}) {
   apiRequest.mockImplementation(async (path, options) => {
@@ -361,12 +36,13 @@ it("nombra stepper y controles de evaluación con el texto visible más su conte
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const first = await within(nav).findByRole("button", { name: "Comparsas Completo" });
-  expect(first).toHaveAccessibleDescription(/Paso 1 de 4.*Participantes/);
-  expect(within(nav).getByRole("button", { name: "Jurados Completo" })).toHaveAccessibleDescription(/Paso 2 de 4.*Jurados y especialidades/);
+  expect(first).toHaveAccessibleDescription(/Paso 4 de 5/);
+  expect(within(nav).getByRole("button", { name: "Especialidades Completo" })).toHaveAccessibleDescription(/Paso 2 de 5/);
+  expect(within(nav).queryByRole("button", { name: /Asignar jurados/ })).not.toBeInTheDocument();
   const current = within(nav).getByRole("button", { name: "Evaluación Completo" });
   expect(current).toHaveAttribute("aria-current", "step");
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 4/);
-  expect(within(nav).getAllByRole("button")).toHaveLength(4);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
+  expect(within(nav).getAllByRole("button")).toHaveLength(5);
   const card = await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
   expect(card).toHaveAttribute("aria-expanded", "false");
   expect(within(card).getByText("▾")).toHaveAttribute("aria-hidden", "true");
@@ -383,9 +59,6 @@ it("nombra stepper y controles de evaluación con el texto visible más su conte
   fireEvent.click(menu);
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Vincular criterio Claridad" })).toBeInTheDocument();
-  const form = await integratedDraft();
-  fireEvent.click(within(form).getByRole("button", { name: "Agregar otro ítem" }));
-  expect(within(form).getByRole("button", { name: "Quitar fila: ítem 1" })).toBeInTheDocument();
 });
 
 it("stepper distingue falta de readiness sin perder nombre visible ni posición del paso", async () => {
@@ -393,7 +66,7 @@ it("stepper distingue falta de readiness sin perder nombre visible ni posición 
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const nav = screen.getByRole("navigation", { name: "Pasos de configuración de competencia" });
   const current = await within(nav).findByRole("button", { name: "Evaluación No se pudo revisar" });
-  expect(current).toHaveAccessibleDescription(/Paso 3 de 4/);
+  expect(current).toHaveAccessibleDescription(/Paso 3 de 5/);
   expect(current).toHaveAttribute("aria-current", "step");
 });
 
@@ -407,7 +80,7 @@ it("usa un token de texto, no el fondo translúcido, para el huérfano sobre sup
   expect(css).toMatch(/\.overview-alert form span\s*\{\s*color:\s*var\(--text-primary\);\s*\}/);
 });
 
-it("ofrece un único alta contextual en una especialidad vacía y conserva el POST legado", async () => {
+it("una especialidad vacía orienta al catálogo y conserva el alta independiente", async () => {
   let entries = [];
   mockCatalog({ rubrics: () => entries });
   const read = apiRequest.getMockImplementation();
@@ -420,18 +93,18 @@ it("ofrece un único alta contextual en una especialidad vacía y conserva el PO
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   const empty = await screen.findByRole("heading", { name: "Todavía no configuraste qué se evalúa en Danza." });
-  const panel = empty.closest(".evaluation-empty-state");
-  expect(within(panel).getByText(/^Empezá creando un rubro/)).toHaveTextContent(/Coreografía.*Creatividad.*Sincronización/);
-  expect(within(panel).getAllByRole("button")).toHaveLength(1);
+  expect(empty).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Agregar rubro" })).not.toBeInTheDocument();
-  fireEvent.click(within(panel).getByRole("button", { name: "Crear primer rubro" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ir a Rubros" }));
+  fireEvent.click(screen.getByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   expect(within(form).getByLabelText("Nombre del rubro")).toHaveFocus();
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Coreografía" } });
   fireEvent.submit(form);
-  await screen.findByRole("button", { name: "Ocultar criterios de Coreografía" });
+  await screen.findByRole("button", { name: "Ocultar opciones de Coreografía" });
   expect(screen.queryByText(/Rubro confirmado:/)).not.toBeInTheDocument();
   expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1/rubrics", expect.objectContaining({ method: "POST", body: expect.stringContaining('"name":"Coreografía"') }));
+  fireEvent.click(screen.getByRole("button", { name: "Configurar ítems en Evaluación" }));
   expect(screen.getByRole("heading", { name: "Todavía no configuraste qué se evalúa en Danza." })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Ocultar criterios de Coreografía" })).toBeInTheDocument();
   fireEvent.click(within(screen.getByRole("group", { name: "Especialidades de la competencia" })).getByRole("button", { name: /Música/ }));
@@ -490,15 +163,12 @@ it("un rubro activo sin asociación no se anuncia Listo aunque readiness no lo e
   expect(container.querySelectorAll('[data-rubric-id="r2"]')).toHaveLength(1);
 });
 
-it("agregar rubro queda solo en cabecera cuando hay asociación y el alta legada no altera operaciones existentes", async () => {
+it("Evaluación permite gestionar ítems y criterios de rubros existentes", async () => {
   mockCatalog();
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
-  expect(screen.getAllByRole("button", { name: "Agregar rubro" })).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "Agregar rubro" })).not.toBeInTheDocument();
   expect(screen.queryByText(/Todavía no configuraste qué se evalúa en Danza/)).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Agregar rubro" }));
-  expect(screen.getByRole("button", { name: "Crear rubro" })).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole("button", { name: "Crear rubro" }).closest("form")).getByRole("button", { name: "Cancelar" }));
   fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   fireEvent.click(screen.getByRole("button", { name: "Ver criterios de Vestuario" }));
   expect(screen.getByRole("button", { name: "Crear ítem en Vestuario" })).toBeEnabled();
@@ -510,7 +180,7 @@ it("proyecta una sola lectura vigente en selector, indicador y resumen", async (
   mockCatalog();
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
-  expect(screen.getByText("Configurá qué van a evaluar los jurados en cada especialidad.")).toBeInTheDocument();
+  expect(screen.getByText("Usá los rubros ya creados para definir los ítems que puntúan los jurados en cada especialidad.")).toBeInTheDocument();
   const selector = screen.getByRole("group", { name: "Especialidades de la competencia" });
   expect(within(selector).getByRole("button", { name: /Danza/ })).toHaveTextContent("Lista");
   expect(within(selector).getByRole("button", { name: /Música/ })).toHaveTextContent("Sin configurar");
@@ -531,7 +201,8 @@ it("separa orientación incompleta y criterios descriptivos de bloqueos oficiale
   expect(within(summary).getByText(/1 criterio descriptivo sin asociar/)).toBeInTheDocument();
   expect(within(summary).getByText(/Sin bloqueos oficiales de evaluación/)).toBeInTheDocument();
   expect(within(summary).queryByText(/criterio.*sin asociar/, { selector: ".evaluation-summary-official *" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Continuar a revisión/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Continuar a comparsas/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
   expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Requisitos para abrir el evento" })).getByRole("button", { name: "Abrir competencia" })).toBeEnabled();
   const review = screen.getByRole("region", { name: "Resumen de la preparación" });
@@ -548,7 +219,8 @@ it("readiness bloquea la apertura aunque la orientación visual esté completa",
   const summary = await screen.findByRole("region", { name: "Resumen de evaluación" });
   expect(within(summary).getByText("Especialidades listas: 1 de 1")).toBeInTheDocument();
   expect(within(summary).getByText(/Sin bloqueos oficiales de evaluación/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Continuar a revisión/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Continuar a comparsas/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Revisión final/ }));
   expect(await screen.findByRole("list", { name: "Requisitos pendientes para abrir el evento" })).toHaveTextContent("comparsa");
   expect(screen.queryByRole("button", { name: "Abrir competencia" })).not.toBeInTheDocument();
   expect(posts()).toHaveLength(0);
@@ -678,11 +350,12 @@ it("conserva alta legada de rubro y su identificador confirmado sin crear ítems
     return get(path, options);
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
   expect(await screen.findByText("Rubro guardado.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   expect(await screen.findByRole("button", { name: "Crear ítem en Nuevo" })).toBeInTheDocument();
 });
@@ -698,10 +371,12 @@ it("el progreso 1/2 no persiste durante la mutación ni ante readiness atrasado;
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   await screen.findAllByText("Especialidades listas: 1 de 2");
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
+  await screen.findByText("Rubro guardado.");
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   await waitFor(() => expect(screen.queryAllByText("Especialidades listas: 1 de 2")).toHaveLength(0));
   expect(screen.queryByText("Lista", { exact: true })).not.toBeInTheDocument();
   await act(async () => { freshReadiness.resolve(ready([{ id: "r1", name: "Vestuario" }])); });
@@ -718,7 +393,7 @@ it("si el catálogo falla después de confirmar el alta, conserva el comprobante
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   await screen.findAllByText("Especialidades listas: 1 de 2");
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
@@ -736,7 +411,7 @@ it("POST de A resuelto después de seleccionar B no invalida GET de B ni muestra
   const get = apiRequest.getMockImplementation();
   apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.includes("/e1/rubrics") ? postA.promise : get(path, options));
   const view = render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo A" } });
   fireEvent.submit(form);
@@ -744,8 +419,9 @@ it("POST de A resuelto después de seleccionar B no invalida GET de B ni muestra
   view.rerender(<AdminCompetenciaPage event={event("e2")} initialStep="rubros" />);
   await act(async () => { postA.resolve({ ...rubric, id: "ra", name: "Nuevo A", items: [] }); });
   await act(async () => { getB.resolve([]); });
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   expect((await screen.findAllByText("Especialidades listas: 0 de 2")).length).toBe(1);
-  expect(screen.getByRole("button", { name: "Crear primer rubro" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Administrar rubros" })).toBeEnabled();
   expect(screen.queryByText(/Nuevo A|\(ra\)/)).not.toBeInTheDocument();
   expect(bCalls).toBe(1);
 });
@@ -753,7 +429,7 @@ it("POST de A resuelto después de seleccionar B no invalida GET de B ni muestra
 it("fallos solo de categorías, comparsas o huérfanos no ocultan el editor y sí informan lectura parcial", async () => {
   mockCatalog({ categories: () => Promise.reject(new Error("sin categorías")), troupes: () => Promise.reject(new Error("sin comparsas")), "orphaned-criteria": () => Promise.reject(new Error("sin criterios")) });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Crear ítem en Vestuario" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Ver criterios de Vestuario" })).toBeInTheDocument();
   expect(screen.getByText(/No se pudieron cargar datos complementarios/)).toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "Resumen de evaluación" })).getByText(/Criterios descriptivos por comprobar/)).toBeInTheDocument();
@@ -778,16 +454,18 @@ it("con GET posterior fallido permite seguir con rubro confirmado y su ítem ace
     return get(path, options);
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
+  await screen.findByText("Rubro guardado.");
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
   expect(await screen.findByRole("button", { name: "Crear ítem en Nuevo" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Crear ítem en Nuevo" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Nuevo" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Nuevo"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Nuevo"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText(/Nuevo ítem \(i2\)/)).toBeInTheDocument();
@@ -820,6 +498,35 @@ it("reorden confirmado no suplanta una edición posterior del ítem en catálogo
   fireEvent.submit(form);
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByRole("button", { name: "Editar item Color nuevo" })).toBeInTheDocument();
+});
+
+it("edición confirmada de ítem no queda pendiente por arrays de especialidades equivalentes", async () => {
+  let itemName = "Color";
+  const item = () => ({ ...rubric.items[0], name: itemName, specialtyId: "s1", specialtyIds: ["s1", "s2"],
+    specialties: [{ specialtyId: "s1", specialtyName: "Danza" }, { specialtyId: "s2", specialtyName: "Música" }],
+    active: true, displayOrder: 1, required: true, allowNotPresented: true });
+  mockCatalog({ rubrics: () => [{ ...rubric, items: [item()] }] });
+  const get = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "PATCH" && path.endsWith("/i1")) {
+      itemName = "Color editado";
+      return item();
+    }
+    return get(path, options);
+  });
+
+  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
+  fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Vestuario" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Editar item Color" }));
+  const form = screen.getByRole("button", { name: "Guardar item" }).closest("form");
+  fireEvent.change(within(form).getByLabelText("Nombre"), { target: { value: "Color editado" } });
+  fireEvent.submit(form);
+  fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
+
+  expect(await screen.findByRole("button", { name: "Editar item Color editado" })).toBeInTheDocument();
+  expect(screen.queryByText(/Estado por comprobar/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Ítem confirmado:/)).not.toBeInTheDocument();
 });
 
 it("reordenar programación invalida la orientación de Evaluación antes del siguiente readiness", async () => {
@@ -858,7 +565,7 @@ it("ítem confirmado sigue editable con recibo aunque GET posterior de rubros tr
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByText("Ítem confirmado: Nuevo ítem (i2).")).toBeInTheDocument();
@@ -923,7 +630,7 @@ it("POST de ítem libera confirmación y empieza refresh aunque GET individual s
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
@@ -943,12 +650,12 @@ it("alta simple de rubro no espera un GET adicional anterior a la relectura", as
     return read(path, options);
   });
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
   expect(await screen.findByText("Rubro confirmado: Nuevo (r2).")).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: "Ocultar criterios de Nuevo" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Ocultar opciones de Nuevo" })).toBeInTheDocument();
   expect(afterPostReads).toBeGreaterThan(0);
   await act(async () => { individual.resolve(Promise.reject(new Error("GET anterior fallido"))); });
   expect(screen.getByText("Rubro guardado.")).toBeInTheDocument();
@@ -1022,7 +729,7 @@ it("un PATCH de rubro con nombre igual pero destino cambiado no se concilia cont
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Vestuario" }));
   fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
-  fireEvent.change(screen.getByRole("combobox", { name: "A quién se evalúa" }), { target: { value: "NOMINATION" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "Objeto evaluado" }), { target: { value: "NOMINATION" } });
   fireEvent.submit(screen.getByRole("button", { name: "Guardar rubro" }).closest("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByRole("region", { name: "Participantes nominados para Vestuario" })).toBeInTheDocument();
@@ -1046,7 +753,7 @@ it("tras conciliar un ítem, un GET nuevo fallido no elimina el acceso confirmad
   fireEvent.click(await screen.findByRole("button", { name: "Crear ítem en Vestuario" }));
   const dialog = await screen.findByRole("dialog", { name: "Crear ítem en Vestuario" });
   fireEvent.change(within(dialog).getByLabelText("Nuevo item puntuable para Vestuario"), { target: { value: "Nuevo ítem" } });
-  fireEvent.change(within(dialog).getByLabelText("Especialidad del nuevo item para Vestuario"), { target: { value: "s1" } });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name: "Danza" }));
   fireEvent.submit(dialog.querySelector("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
@@ -1063,7 +770,7 @@ it("resumen de Revisión no cifra un catálogo completo pero anterior al rubro a
   apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.endsWith("/rubrics")
     ? { ...rubric, id: "r2", name: "Nuevo", items: [] } : read(path, options));
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
@@ -1087,7 +794,7 @@ for (const catalogResult of ["viejo", "fallido"]) {
       return read(path, options);
     });
     render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-    fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+    await openCatalog();
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
     fireEvent.submit(form);
@@ -1111,12 +818,13 @@ it("el comprobante de r2 no se filtra al cambiar a otro evento", async () => {
   apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.endsWith("/e1/rubrics")
     ? { ...rubric, id: "r2", name: "Nuevo", items: [] } : read(path, options));
   const view = render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
   expect(await screen.findByText("Rubro confirmado: Nuevo (r2).")).toBeInTheDocument();
   view.rerender(<AdminCompetenciaPage event={event("e2")} initialStep="rubros" />);
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   await screen.findByRole("button", { name: "Ver criterios de Vestuario" });
   expect(screen.queryByText("Rubro confirmado: Nuevo (r2).")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Crear ítem en Nuevo" })).not.toBeInTheDocument();
@@ -1130,13 +838,14 @@ it("al reflejar r2, el catálogo vuelve a mandar y un refresco posterior no rest
   apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.endsWith("/rubrics")
     ? { ...rubric, id: "r2", name: "Nuevo", items: [] } : read(path, options));
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
   expect(await screen.findByRole("button", { name: "Reintentar evaluación" })).toBeInTheDocument();
   name = "Nuevo";
   fireEvent.click(screen.getByRole("button", { name: "Reintentar evaluación" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
   expect((await screen.findAllByText("Especialidades listas: 1 de 2")).length).toBe(1);
   name = "Nombre posterior";
   fireEvent.click(screen.getByRole("button", { name: /^Revisión final / }));
@@ -1204,12 +913,13 @@ for (const rubricRead of ["fallido", "sin conciliar"]) {
     apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.endsWith("/rubrics")
       ? (posted = true, { ...rubric, id: "r2", name: "Nuevo", items: [] }) : read(path, options));
     render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-    fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+    await openCatalog();
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
     fireEvent.submit(form);
     expect(await screen.findByText("Rubro confirmado: Nuevo (r2).")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Reintentar evaluación" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
     expect(screen.queryAllByText(/Especialidades listas:/)).toHaveLength(0);
     expect(within(screen.getByRole("region", { name: "Resumen de evaluación" })).getByText("Estado por comprobar")).toBeInTheDocument();
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Resumen de evaluación" })).queryByText("No se pudo revisar la evaluación. Volvé a intentarlo en Revisión final.")).not.toBeInTheDocument());
@@ -1237,7 +947,7 @@ it("en Revisión invalida ready=true anterior a la mutación hasta recibir readi
   render(<AdminCompetenciaPage event={event()} initialStep="revision" />);
   expect(within(await screen.findByRole("region", { name: "Requisitos para abrir el evento" })).getByRole("button", { name: "Abrir competencia" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: /^Evaluación / }));
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
@@ -1272,7 +982,7 @@ it("readiness antiguo del evento no restablece ready mientras el nuevo GET tras 
   apiRequest.mockImplementation(async (path, options) => options?.method === "POST" && path.endsWith("/rubrics")
     ? (posted = true, { ...rubric, id: "r2", name: "Nuevo", items: [] }) : read(path, options));
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+  await openCatalog();
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Nuevo" } });
   fireEvent.submit(form);
@@ -1282,4 +992,207 @@ it("readiness antiguo del evento no restablece ready mientras el nuevo GET tras 
   expect(screen.queryByRole("button", { name: "Abrir competencia" })).not.toBeInTheDocument();
   await act(async () => { freshReadiness.resolve({ ...ready(), ready: true }); });
   expect(within(await screen.findByRole("region", { name: "Requisitos para abrir el evento" })).getByRole("button", { name: "Abrir competencia" })).toBeEnabled();
+});
+
+it("abre los participantes desde su comparsa y permite volver para elegir otra", async () => {
+  const ana = { id: "n1", rubricId: "r1", eventTroupeId: "t1", displayName: "Ana", subjectType: "PERSON", active: true };
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }, { id: "t2", name: "Luna", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION", nominations: [ana] }],
+    readiness: () => ({ ...ready(), incompleteNominations: [{ rubricId: "r1", rubricName: "Vestuario", troupeId: "t2", troupeName: "Luna" }] }),
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  const view = await screen.findByRole("region", { name: "Participantes de Estrella" });
+  expect(within(view).getByText("Ana")).toBeInTheDocument();
+  expect(within(view).getByRole("list")).not.toHaveTextContent("Luna");
+  expect(within(view).queryByText("Falta cargar")).not.toBeInTheDocument();
+  expect(within(view).queryByRole("combobox")).not.toBeInTheDocument();
+  fireEvent.click(within(view).getByRole("button", { name: "Volver a comparsas" }));
+  expect(screen.getByRole("button", { name: "Participantes de Estrella" })).toHaveFocus();
+  fireEvent.click(screen.getByRole("button", { name: "Participantes de Luna" }));
+  const luna = await screen.findByRole("region", { name: "Participantes de Luna" });
+  expect(within(luna).queryByText("Ana")).not.toBeInTheDocument();
+  expect(within(luna).queryByRole("list")).not.toBeInTheDocument();
+  expect(within(luna).getByText("Falta cargar")).toBeInTheDocument();
+});
+
+it("agrega desde la comparsa en un único modal y no envía nada al cancelar", async () => {
+  const nomination = { id: "n2", rubricId: "r1", eventTroupeId: "t1", displayName: "Ana", subjectType: "PERSON", active: true };
+  let nominations = [];
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION", nominations }],
+  });
+  const read = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "POST" && path.endsWith("/nominations")) { nominations = [nomination]; return nomination; }
+    return read(path, options);
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  const view = await screen.findByRole("region", { name: "Participantes de Estrella" });
+  fireEvent.click(await within(view).findByRole("button", { name: "Agregar participante a Vestuario" }));
+  const cancelled = await screen.findByRole("dialog", { name: "Agregar participante al rubro" });
+  fireEvent.change(within(cancelled).getByRole("textbox", { name: "Nombre del participante" }), { target: { value: "Borrador" } });
+  fireEvent.click(within(cancelled).getByRole("button", { name: "Cancelar" }));
+  expect(posts()).toHaveLength(0);
+  fireEvent.click(within(view).getByRole("button", { name: "Agregar participante a Vestuario" }));
+  const dialog = await screen.findByRole("dialog", { name: "Agregar participante al rubro" });
+  expect(dialog).toHaveTextContent(/Estrella.*Vestuario/);
+  expect(dialog).toHaveTextContent("Danza");
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Nombre del participante" }), { target: { value: " Ana " } });
+  expect(posts()).toHaveLength(0);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar y agregar" }));
+  await waitFor(() => expect(posts()).toHaveLength(1));
+  expect(posts()[0][0]).toBe("/api/v1/rubrics/r1/nominations");
+  expect(JSON.parse(posts()[0][1].body)).toEqual({ eventTroupeId: "t1", displayName: "Ana" });
+  expect(await within(view).findByText("Ana")).toBeInTheDocument();
+});
+
+it("desde la comparsa respeta el límite de tres activos en rubros aleatorios", async () => {
+  const nominations = ["Ana", "Beto", "Caro"].map((displayName, index) => ({
+    id: `n${index}`, rubricId: "r1", eventTroupeId: "t1", displayName, subjectType: "PERSON", active: true,
+  }));
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION", rubricType: "RANDOM", nominations }],
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  expect(screen.getByText(/3 de 3 activos/)).toBeInTheDocument();
+  expect(screen.getByText("Máximo 3 participantes activos en este rubro.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Agregar participante a Vestuario" })).not.toBeInTheDocument();
+});
+
+it("desde la comparsa desactiva un participante con confirmación", async () => {
+  const nomination = { id: "n1", rubricId: "r1", eventTroupeId: "t1", displayName: "Ana", subjectType: "PERSON", active: true };
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION", nominations: [nomination] }],
+  });
+  const read = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "PATCH" && path === "/api/v1/nominations/n1") return { ...nomination, active: false };
+    return read(path, options);
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  fireEvent.click(screen.getByRole("button", { name: "Desactivar a Ana en Vestuario" }));
+  const dialog = await screen.findByRole("dialog", { name: "Desactivar participante" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Desactivar" }));
+  await waitFor(() => expect(apiRequest.mock.calls.some(([path, options]) => path === "/api/v1/nominations/n1" && options?.method === "PATCH")).toBe(true));
+  expect(await screen.findByText("Inactivo")).toBeInTheDocument();
+});
+
+it("Evaluación conserva los rubros sin el selector de vista anterior", async () => {
+  mockCatalog();
+  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
+  expect(await screen.findByRole("button", { name: "Crear ítem en Vestuario" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Por comparsa" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Por rubro" })).not.toBeInTheDocument();
+});
+
+it.each(["OPEN", "CLOSED"])("permite consultar participantes pero no modificarlos en %s", async (status) => {
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION", nominations: [{ id: "n1", eventTroupeId: "t1", displayName: "Ana", active: true }] }],
+  });
+  render(<AdminCompetenciaPage event={{ ...event(), status }} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  const view = await screen.findByRole("region", { name: "Participantes de Estrella" });
+  expect(await within(view).findByText("Ana")).toBeInTheDocument();
+  expect(within(view).queryByRole("button", { name: /Agregar participante/ })).not.toBeInTheDocument();
+  expect(within(view).queryByRole("button", { name: /Desactivar/ })).not.toBeInTheDocument();
+});
+
+it("conserva el nombre y muestra el rechazo dentro del modal sin anunciar un alta", async () => {
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION" }],
+  });
+  const read = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "POST") throw Object.assign(new Error("duplicate"), { code: "NOMINATION_ALREADY_EXISTS" });
+    return read(path, options);
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar participante a Vestuario" }));
+  const dialog = await screen.findByRole("dialog", { name: "Agregar participante al rubro" });
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Nombre del participante" }), { target: { value: "Ana" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar y agregar" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("ya está cargado");
+  expect(within(dialog).getByRole("textbox", { name: "Nombre del participante" })).toHaveValue("Ana");
+  expect(screen.queryByText("Participante agregado al rubro.")).not.toBeInTheDocument();
+});
+
+it("orienta hacia Rubros cuando la comparsa no tiene rubros de nominación disponibles", async () => {
+  mockCatalog({ troupes: () => [{ id: "t1", name: "Estrella", active: true }] });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  expect(await screen.findByText(/No hay rubros de nominación activos/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Ir a Rubros" }));
+  expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
+});
+
+it("un error de carga de participantes ofrece reintento sin afirmar que no hay rubros", async () => {
+  let fails = true;
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => { if (fails) throw new Error("offline"); return [{ ...rubric, evaluationTarget: "NOMINATION" }]; },
+  });
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  const view = await screen.findByRole("region", { name: "Participantes de Estrella" });
+  const alert = await within(view).findByRole("alert");
+  expect(within(view).queryByText(/No hay rubros de nominación activos/)).not.toBeInTheDocument();
+  fails = false;
+  fireEvent.click(within(alert).getByRole("button", { name: "Reintentar" }));
+  expect(await within(view).findByRole("button", { name: "Agregar participante a Vestuario" })).toBeInTheDocument();
+});
+
+it("una confirmación pendiente no duplica el alta ni cierra el modal al cancelar", async () => {
+  const accepted = deferred();
+  mockCatalog({
+    troupes: () => [{ id: "t1", name: "Estrella", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION" }],
+  });
+  const read = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation((path, options) => options?.method === "POST" ? accepted.promise : read(path, options));
+  render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar participante a Vestuario" }));
+  const dialog = await screen.findByRole("dialog", { name: "Agregar participante al rubro" });
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Nombre del participante" }), { target: { value: "Ana" } });
+  const form = within(dialog).getByRole("button", { name: "Confirmar y agregar" }).closest("form");
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(posts()).toHaveLength(1);
+  expect(dialog).toHaveAttribute("open");
+  expect(within(dialog).getByRole("button", { name: "Guardando…" })).toBeDisabled();
+  expect(screen.queryByText("Participante agregado al rubro.")).not.toBeInTheDocument();
+  await act(async () => accepted.resolve({ id: "n1", rubricId: "r1", eventTroupeId: "t1", displayName: "Ana", active: true }));
+  expect(await screen.findByText("Participante agregado al rubro.")).toBeInTheDocument();
+  expect(screen.getByText("Ana")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("cambiar de evento descarta la comparsa y el modal de participantes anteriores", async () => {
+  mockCatalog({
+    troupes: (path) => [{ id: path.includes("/e1/") ? "t1" : "t2", name: path.includes("/e1/") ? "Estrella" : "Luna", active: true }],
+    rubrics: () => [{ ...rubric, evaluationTarget: "NOMINATION" }],
+  });
+  const { rerender } = render(<AdminCompetenciaPage event={event()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Estrella" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar participante a Vestuario" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Nombre del participante" }), { target: { value: "Borrador de Estrella" } });
+  rerender(<AdminCompetenciaPage event={event("e2")} />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Participantes de Estrella" })).not.toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Participantes de Luna" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Agregar participante a Vestuario" }));
+  expect(screen.getByRole("textbox", { name: "Nombre del participante" })).toHaveValue("");
+  expect(posts()).toHaveLength(0);
 });

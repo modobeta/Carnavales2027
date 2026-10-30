@@ -43,7 +43,7 @@ describe("AdminAssignmentsPage", () => {
     expect(screen.queryByText(/puntuar/i)).not.toBeInTheDocument();
   });
 
-  it("activa solo el suplente reservado con un motivo", async () => {
+  it("bloquea altas nuevas cuando la jornada ya está abierta y conserva las acciones de reemplazo", async () => {
     const assignments = [
       { id: "primary-1", judgeName: "Titular", judgeProfileId: "judge-1", nightName: "Noche 1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "OPEN" },
       { id: "standby-1", judgeName: "Suplente", judgeProfileId: "judge-2", nightName: "Noche 1", specialtyName: "Baile", assignmentType: "SUBSTITUTE", standbyForAssignmentId: "primary-1", status: "ACTIVE", nightStatus: "OPEN" },
@@ -57,15 +57,13 @@ describe("AdminAssignmentsPage", () => {
       return Promise.resolve({});
     });
     render(<AdminAssignmentsPage />);
+    expect(await screen.findByText(/Jornada abierta: no se admiten nuevas asignaciones/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Asignar jurado" })).toBeDisabled();
     fireEvent.click(await screen.findByRole("button", { name: "Acciones para Titular" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Activar suplente" }));
-    const dialogForm = screen.getByLabelText("Motivo de activación").closest("form");
-    fireEvent.change(dialogForm.querySelector("input[name='reason']"), { target: { value: "Titular no finalizo" } });
-    fireEvent.submit(dialogForm);
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
-      "/api/v1/judge-assignments/primary-1/activate-substitute",
-      { method: "POST", body: JSON.stringify({ reason: "Titular no finalizo" }) },
-    ));
+    expect(screen.getByRole("button", { name: "Activar suplente" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reemplazar jurado" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Revocar asignación" })).toBeEnabled();
+    expect(screen.queryByLabelText("Motivo de activación")).not.toBeInTheDocument();
   });
 
   it("muestra cupo inline y falta de cobertura por especialidad", async () => {

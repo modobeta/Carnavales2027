@@ -11,7 +11,7 @@ import { useAdminEvent } from "../context/AdminEventContext.jsx";
 
 const BALLOT_STATUS_LABELS = { SUBMITTED: "Confirmada", REOPENED: "Reabierta", OPEN: "En carga" };
 
-export function AdminVotingPage() {
+export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
   const adminEvent = useAdminEvent();
   const { notify } = useNotify();
   const [localEvents, setLocalEvents] = useState([]);
@@ -19,7 +19,7 @@ export function AdminVotingPage() {
   const [ballots, setBallots] = useState([]);
   const [status, setStatus] = useState(null);
   const [localEventId, setLocalEventId] = useState("");
-  const [localNightId, setLocalNightId] = useState("");
+  const [localNightId, setLocalNightId] = useState(initialNightId);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [statusLoading, setStatusLoading] = useState(false);
@@ -61,12 +61,18 @@ export function AdminVotingPage() {
   };
 
   useEffect(() => {
-    if (adminEvent) return undefined;
+    if (adminEvent) {
+      if (initialEventId && adminEvent.events.some((event) => event.id === initialEventId)) {
+        adminEvent.setActiveEventId(initialEventId);
+      }
+      return undefined;
+    }
     void apiRequest("/api/v1/events").then((items) => {
       setLocalEvents(items);
-      if (items[0]) setLocalEventId(items[0].id);
+      const preferred = items.some((event) => event.id === initialEventId) ? initialEventId : items[0]?.id;
+      if (preferred) setLocalEventId(preferred);
     }).catch(() => setMessage("No se pudieron cargar los eventos."));
-  }, [adminEvent]);
+  }, [adminEvent, initialEventId]);
 
   useEffect(() => {
     setNights([]);
@@ -81,7 +87,9 @@ export function AdminVotingPage() {
       if (!active) return;
       const competitionNights = items.filter((night) => night.kind === "COMPETITION");
       setNights(competitionNights);
-      const preferredNightId = competitionNights.some((night) => night.id === adminEvent?.activeNightId)
+       const preferredNightId = competitionNights.some((night) => night.id === initialNightId)
+        ? initialNightId
+        : competitionNights.some((night) => night.id === adminEvent?.activeNightId)
         ? adminEvent.activeNightId
         : competitionNights[0]?.id ?? "";
       chooseNight(preferredNightId);
@@ -89,7 +97,7 @@ export function AdminVotingPage() {
       setBallots([]);
     }).catch(() => { if (active) setMessage("No se pudieron cargar las noches del evento."); });
     return () => { active = false; };
-  }, [eventId]);
+  }, [eventId, initialNightId]);
 
   useEffect(() => { void refreshNight(); }, [eventId, nightId]);
 
@@ -128,6 +136,13 @@ export function AdminVotingPage() {
         NIGHT_CLOSED: "La jornada está cerrada y no se puede reabrir.",
         VOTING_WINDOW_CLOSED: "La ventana de votación está cerrada y no se puede reabrir.",
         VOTING_WINDOW_NOT_OPEN: "La votación todavía no está abierta.",
+        NIGHT_WITHOUT_ACTIVE_JURY: "Asigná al menos un jurado titular activo a esta jornada antes de abrirla.",
+        VOTING_RELEASE_MODE_LOCKED: "El modo ya no se puede cambiar después de abrir la votación.",
+        TROUPE_ALREADY_RELEASED: "Esta comparsa ya fue habilitada.",
+        TROUPE_RELEASE_ORDER_REQUIRED: "Habilitá las comparsas en el orden de pasada.",
+        ACTIVE_TROUPE_BALLOTS_INCOMPLETE: "No se puede habilitar otra comparsa: todavía hay planillas o ítems pendientes para la comparsa actual.",
+        TROUPE_NOT_RELEASED: "Esta comparsa todavía no está habilitada para votar.",
+        ALL_TROUPES_NOT_RELEASED: "Abrí nuevamente la votación para habilitar todas las comparsas.",
         EVENT_LOCKED: "El estado del evento o la jornada cambió. Actualizá el estado antes de reintentar.",
         NETWORK_ERROR: "No se recibió confirmación. Actualizá el estado antes de reintentar.",
       };
@@ -166,10 +181,22 @@ export function AdminVotingPage() {
         if (!ok) return;
       }
       await action("open", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/open`, { method: "POST" }),
-        (result) => `Votación abierta. ${result.ballotsCreated} planilla(s) nueva(s) habilitada(s). Si no hay planillas, revisá las asignaciones de jurados.`);
+        (result) => `Votación abierta. ${result.ballotsCreated} planilla(s) nueva(s) habilitada(s). Si no hay planillas, revisá que haya un jurado titular activo en esta jornada.`);
     } else if (kind === "close") {
       await action("close", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/close`, { method: "POST" }),
         (result) => `Votación cerrada. ${result.autoSubmitted} planilla(s) confirmada(s) al cerrar.`);
+    } else if (kind.startsWith("mode:")) {
+      const releaseMode = kind.slice("mode:".length);
+      await action("release-mode", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/release-mode`, {
+        method: "PATCH", body: JSON.stringify({ releaseMode }),
+      }), () => releaseMode === "MANUAL"
+        ? "Modo actualizado: habilitar una comparsa por vez."
+        : "Modo actualizado: todas las comparsas quedarán habilitadas al abrir la votación.");
+    } else if (kind.startsWith("release:")) {
+      const scheduleId = kind.slice("release:".length);
+      await action("release-troupe", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/release`, {
+        method: "POST", body: JSON.stringify({ scheduleId }),
+      }), () => "Comparsa habilitada para votar.");
     }
   };
   const runwayTroupes = [...(status?.troupes ?? [])].sort((a, b) => a.presentationOrder - b.presentationOrder);
@@ -249,11 +276,22 @@ export function AdminVotingPage() {
       </section>
       <section className="config-section">
         <div className="section-heading"><div><h2>Ventana de votación</h2><p>La apertura crea las planillas pendientes. El cierre exige que todas estén completas y confirma las que sigan en carga.</p></div></div>
+        <label>Habilitación de comparsas
+          <select aria-label="Modo de habilitación de comparsas" value={status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL"}
+            disabled={Boolean(busy) || votingStatus !== "NOT_OPEN" || !isEventOpen}
+            onChange={(event) => requestConfirmation(`mode:${event.target.value}`, event)}>
+            <option value="MANUAL">Una comparsa por vez</option>
+            <option value="ALL">Todas antes de comenzar</option>
+          </select>
+        </label>
+        <p>{(status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL") === "MANUAL"
+          ? "La siguiente comparsa solo se habilita cuando todas las planillas de la actual estén completas."
+          : "Todas las comparsas se habilitan al abrir; la mesa puede seleccionar cuál está en pista."}</p>
         <p>Estado de la jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Estado de la ventana de votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
-        {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. Revisá las <a href="#/admin/assignments">asignaciones de jurados</a> y luego habilitá las planillas pendientes.</p>}
+        {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. <a href="#/admin/events">Revisar asignaciones de esta jornada</a> desde Jornadas y luego habilitá las planillas pendientes.</p>}
         <div className="event-actions">
-          <button type="button" disabled={Boolean(busy) || !status || !isEventOpen || nightStatus === "CLOSED" || votingStatus === "CLOSED"} onClick={(event) => requestConfirmation("open", event)}>{votingStatus === "OPEN" ? "Habilitar planillas pendientes" : "Abrir votación"}</button>
+          <button type="button" disabled={Boolean(busy) || !status || !isEventOpen || nightStatus === "CLOSED" || votingStatus === "CLOSED"} onClick={(event) => requestConfirmation("open", event)}>{votingStatus === "OPEN" ? "Habilitar planillas pendientes" : nightStatus === "DRAFT" ? "Abrir jornada y votación" : "Abrir votación"}</button>
           <button ref={closeButtonRef} className="danger-action" type="button" disabled={Boolean(busy) || !isEventOpen || votingStatus !== "OPEN"} onClick={(event) => requestConfirmation("close", event)}>Cerrar votación</button>
           <button type="button" className="secondary" disabled={Boolean(busy)} onClick={() => void refreshNight()}>Actualizar estado</button>
         </div>
@@ -322,6 +360,17 @@ export function AdminVotingPage() {
                   key={troupe.scheduleId}
                   className={`runway-troupe-card ${isCurrent ? "is-current" : ""} ${isDone ? "is-completed" : "is-waiting"}`}
                 >
+                  {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "MANUAL" && !troupe.released
+                    && troupe.scheduleId === runwayTroupes.find((entry) => !entry.released)?.scheduleId && <button type="button"
+                    disabled={Boolean(busy)}
+                    onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
+                    Habilitar para votar
+                  </button>}
+                  {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "ALL" && troupe.released && <button type="button"
+                    disabled={Boolean(busy) || isCurrent}
+                    onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
+                    {isCurrent ? "En pista" : "Poner en pista"}
+                  </button>}
                   <div className="runway-troupe-header">
                     <span className="troupe-order">#{troupe.presentationOrder}</span>
                     <strong className="troupe-name" style={{ color: troupe.brandColor || "inherit" }}>
@@ -391,7 +440,9 @@ export function AdminVotingPage() {
       isOpen={confirmation !== null}
       onClose={() => setConfirmation(null)}
       tone={confirmation === "open" ? "violet" : "danger"}
-      title={confirmation === "open" ? "Confirmar apertura de votación" : "Confirmar cierre de votación"}
+      title={confirmation === "open"
+        ? nightStatus === "DRAFT" ? "Confirmar apertura de jornada y votación" : "Confirmar apertura de votación"
+        : "Confirmar cierre de votación"}
       description={`Jornada: ${selectedNight?.name ?? ""}. ${confirmation === "open" ? (nightStatus === "DRAFT" ? "Se abrirá la jornada y se habilitarán las planillas de los jurados asignados." : "Se habilitarán las planillas de los jurados asignados.") : "El cierre es definitivo y requiere planillas completas."}`}
       confirmLabel="Confirmar"
       focusReturnRef={actionButtonRef}

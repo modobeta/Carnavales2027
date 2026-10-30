@@ -4,12 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="google-site-verification" content="TT8VyDayyY35Yzgo5vj8xpq-0zxhhCRhhUWby-wXUms" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#036B8B" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta name="description" content="Plataforma de gestión y votación para Carnavales 2027" />
-    <link rel="icon" type="image/webp" href="/icons/logo.webp" />
+    <link rel="icon" type="image/webp" href="/icons/isotipo.webp" />
     <link rel="apple-touch-icon" href="/icons/logo.webp" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Carnavales 2027</title>
+    <script>
+      // Resuelve el tema antes del primer pintado para evitar destellos.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("carnavales.theme");
+          var systemDark =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme = stored === "light" || stored === "dark" ? stored : systemDark ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", theme === "dark" ? "#000000" : "#FFFFFF");
+        } catch (error) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
   </head>
   <body>
     <a href="#main-content" class="skip-link">Saltar al contenido principal</a>

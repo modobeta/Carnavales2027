@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { getPool, closePool } from "../pool.js";
 import { migrate } from "../migrate.js";
+import { createBallotsForNight } from "../../modules/ballots/ballot-service.js";
 
 let client;
 
@@ -24,14 +25,14 @@ afterEach(async () => {
   await client.query("ROLLBACK");
 });
 
-async function setupTestData() {
+async function setupTestData({ openNight = true } = {}) {
   const suffix = Math.random().toString(36).slice(2, 8);
   const { rows: [event] } = await client.query(
     "INSERT INTO carnival_event(name) VALUES($1) RETURNING id", [`Test Ballots ${suffix}`],
   );
   const { rows: [night] } = await client.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche 1", 1, "COMPETITION", "OPEN"],
+    [event.id, "Noche 1", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [specialty] } = await client.query(
     "INSERT INTO event_specialty(event_id, name, code, display_order) VALUES($1,$2,$3,$4) RETURNING id",
@@ -81,11 +82,47 @@ async function setupTestData() {
      VALUES($1,$2,$3,$4,$5) RETURNING id`,
     [event.id, night.id, specialty.id, judgeProfile.id, "PRIMARY"],
   );
+  if (openNight) await client.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
 
-  return { event, night, specialty, rubric, item, troupe, schedule, judgeProfile, assignment };
+  return { event, night, specialty, rubric, item, troupe, schedule, judgeProfile, assignment, adminId };
 }
 
 describe("ballots DB", () => {
+  it("creates an independent score for a multi-specialty item on each specialty ballot", async () => {
+    const data = await setupTestData({ openNight: false });
+    const { rows: [secondSpecialty] } = await client.query(
+      "INSERT INTO event_specialty(event_id,name,code,display_order) VALUES($1,'Canto','CANTO',2) RETURNING id",
+      [data.event.id],
+    );
+    await client.query(
+      "INSERT INTO evaluation_item_specialty(event_id,evaluation_item_id,specialty_id) VALUES($1,$2,$3)",
+      [data.event.id, data.item.id, secondSpecialty.id],
+    );
+    const secondJudgeUser = randomUUID();
+    await client.query(`INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,'Second Judge',$2,true)`, [secondJudgeUser, `${secondJudgeUser}@example.test`]);
+    const { rows: [secondJudge] } = await client.query(
+      "INSERT INTO judge_profile(user_id,name,email,document_number,registration_status,created_by) VALUES($1,'Second Judge',$2,$3,'REGISTERED',$4) RETURNING id",
+      [secondJudgeUser, `${secondJudgeUser}@test.test`, `DOC_${secondJudgeUser}`, data.adminId],
+    );
+    await client.query(
+      "INSERT INTO judge_quota(event_id,night_id,specialty_id,max_assignments) VALUES($1,$2,$3,1)",
+      [data.event.id, data.night.id, secondSpecialty.id],
+    );
+    const { rows: [assignment] } = await client.query(
+      "INSERT INTO judge_assignment(event_id,night_id,specialty_id,judge_profile_id,assignment_type) VALUES($1,$2,$3,$4,'PRIMARY') RETURNING id",
+      [data.event.id, data.night.id, secondSpecialty.id, secondJudge.id],
+    );
+    await client.query("UPDATE night SET status='OPEN' WHERE id=$1", [data.night.id]);
+
+    const ballots = await createBallotsForNight(client, { eventId: data.event.id, nightId: data.night.id, actorUserId: data.adminId });
+    assert.equal(ballots.length, 2);
+    assert.deepEqual(new Set(ballots.map((ballot) => ballot.specialtyId)), new Set([data.specialty.id, secondSpecialty.id]));
+    for (const ballot of ballots) {
+      const { rows: scores } = await client.query("SELECT evaluation_item_id FROM ballot_score WHERE ballot_id=$1", [ballot.id]);
+      assert.deepEqual(scores.map((score) => score.evaluation_item_id), [data.item.id]);
+    }
+  });
+
   it("crea planilla y scores al abrir votación", async () => {
     const data = await setupTestData();
     const { rows: [ballot] } = await client.query(

@@ -4,8 +4,8 @@
  *
  *   Especialidad → Rubro → Ítems puntuables → Criterios
  *
- * Deriva de los mismos datos del editor; no escribe. El administrador
- * ve qué puntúa el jurado y qué criterios observa para ese puntaje.
+ * Deriva de los mismos datos del editor; no escribe. Un ítem asociado a varias
+ * especialidades aparece en cada una, con puntuaciones independientes.
  */
 export function RubricTree({ rubrics = [], specialties = [] }) {
   const activeSpecialties = specialties.filter((s) => s.active !== false);
@@ -22,7 +22,7 @@ export function RubricTree({ rubrics = [], specialties = [] }) {
           .map((rubric) => ({
             rubric,
             items: [...(rubric.items ?? [])]
-              .filter((item) => item.active !== false && item.specialtyId === specialty.id)
+              .filter((item) => item.active !== false && (item.specialtyIds ?? [item.specialtyId]).includes(specialty.id))
               .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
           }))
           .filter(({ items }) => items.length > 0);

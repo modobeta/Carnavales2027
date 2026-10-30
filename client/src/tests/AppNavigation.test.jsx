@@ -67,7 +67,16 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
-  it("marca activo el ítem Evaluación dentro de Comparsas y jurados al navegar por step=rubros", () => {
+  it.each(["", "?step=catalogo"])("marca Rubros como paso inicial y breadcrumb con ruta %s", (query) => {
+    mockMatchMedia(true);
+    window.location.hash = `#/admin/competencia${query}`;
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    expect(screen.getByRole("link", { name: "Rubros" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText("Rubros", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+  });
+
+  it("marca activo el ítem Evaluación dentro de Preparación de competencia al navegar por step=rubros", () => {
     window.location.hash = "#/admin/competencia?step=rubros";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
@@ -76,13 +85,21 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("marca activo el ítem Jurados y especialidades al navegar por step=jurados", () => {
-    window.location.hash = "#/admin/competencia?step=jurados";
+  it("no agrega un acceso independiente de jurados al menú de preparación de competencia", () => {
+    window.location.hash = "#/admin/competencia?step=especialidades";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
-    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("href", "#/admin/competencia?step=jurados");
-    expect(screen.getByRole("link", { name: "Jurados y especialidades" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Especialidades" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("link", { name: "Asignación de jurados" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("mantiene el acceso de enlaces antiguos de jurados con contexto de Control de votación", () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/competencia?step=jurados&tab=asignaciones";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
+    expect(screen.getByText("Control de votación", { selector: ".breadcrumb-current" })).toBeInTheDocument();
   });
 
   it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {

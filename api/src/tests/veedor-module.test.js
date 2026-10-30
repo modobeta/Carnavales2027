@@ -79,7 +79,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
   );
   const { rows: [night] } = await pool.query(
     "INSERT INTO night(event_id, name, display_order, kind, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
-    [event.id, "Noche 1 - Competencia", 1, "COMPETITION", "OPEN"],
+    [event.id, "Noche 1 - Competencia", 1, "COMPETITION", "DRAFT"],
   );
   const { rows: [troupe] } = await pool.query(
     "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1,$2,$3) RETURNING id",
@@ -112,6 +112,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
      VALUES($1,$2,$3,$4,'PRIMARY','ACTIVE') RETURNING id`,
     [event.id, night.id, specialty.id, judgeProfile.id],
   );
+  await pool.query("UPDATE night SET status='OPEN' WHERE id=$1", [night.id]);
 
   const { rows: [ballot] } = await pool.query(
     `INSERT INTO ballot (event_id, night_id, judge_assignment_id, judge_profile_id, specialty_id, status)

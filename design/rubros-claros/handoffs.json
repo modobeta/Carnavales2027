@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "02-opciones-explicadas.html",
+  "handoffs": {
+    "02-opciones-explicadas.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-10-30T16:08:52.857Z",
+      "startedAt": "2026-10-30T16:09:13.901Z",
+      "implementedAt": "2026-10-30T16:19:44.708Z",
+      "note": "Implementé las dos decisiones explicadas como tarjetas accesibles, manteniendo separados el destinatario de los puntos y la clasificación reglamentaria; Aleatorio fuerza nominaciones y muestra el tope de tres. Verificado con pruebas y build.",
+      "previewUrl": "http://127.0.0.1:5173/"
+    }
+  }
+}

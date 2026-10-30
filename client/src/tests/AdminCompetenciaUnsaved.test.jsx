@@ -39,7 +39,7 @@ afterEach(() => {
 
 it("cancelar desde formulario o cabecera advierte; permanecer conserva valores y descartar no guarda", async () => {
   mockApi({ hasRubric: true });
-  render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   const form = await draft();
   fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
   expect(discardDialog()).toBeInTheDocument();
@@ -52,7 +52,7 @@ it("cancelar desde formulario o cabecera advierte; permanecer conserva valores y
 });
 
 it("permanecer devuelve foco al borrador y confirmar descarte lo deja en un control que continúa visible", async () => {
-  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   const form = await draft();
   const input = within(form).getByLabelText("Nombre del rubro");
   input.focus();
@@ -62,29 +62,28 @@ it("permanecer devuelve foco al borrador y confirmar descarte lo deja en un cont
   fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
   discard();
   expect(input).not.toBeInTheDocument();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Crear primer rubro" })).toHaveFocus());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Agregar rubro" })).toHaveFocus());
 });
 
-it("cambio de especialidad permanece con el formulario o descarta para seleccionar la nueva", async () => {
-  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+it("salir del catálogo a Evaluación permite permanecer o descartar el borrador", async () => {
+  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   await draft();
-  const music = within(screen.getByRole("group", { name: "Especialidades de la competencia" })).getByRole("button", { name: /Música/ });
-  fireEvent.click(music); stay();
-  expect(screen.getByRole("heading", { name: "Rubros de Danza" })).toBeInTheDocument();
+  const evaluation = screen.getByRole("button", { name: /^Evaluación / });
+  fireEvent.click(evaluation); stay();
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
-  fireEvent.click(music); discard();
-  expect(screen.getByRole("heading", { name: "Rubros de Música" })).toBeInTheDocument();
+  fireEvent.click(evaluation); discard();
+  expect(await screen.findByRole("heading", { name: "Configurar evaluación" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
 });
 
 it.each(["stepper", "footer", "back"])('el control %s advierte antes de salir y permite permanecer o descartar', async (control) => {
   mockApi(); const onBack = vi.fn();
-  render(<AdminCompetenciaPage event={event} initialStep="rubros" onBack={onBack} />);
+  render(<AdminCompetenciaPage event={event} initialStep="catalogo" onBack={onBack} />);
   await draft();
   const target = () => control === "stepper"
-    ? within(screen.getByRole("navigation", { name: "Pasos de configuración de competencia" })).getByRole("button", { name: /Jurados/ })
+    ? within(screen.getByRole("navigation", { name: "Pasos de configuración de competencia" })).getByRole("button", { name: /Especialidades/ })
     : control === "back" ? screen.getByRole("button", { name: "Volver", exact: true })
-      : screen.getByRole("button", { name: /Volver a jurados/i });
+      : screen.getByRole("button", { name: /Continuar a especialidades/i });
   fireEvent.click(target()); stay();
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
   fireEvent.click(target()); discard();
@@ -94,7 +93,7 @@ it.each(["stepper", "footer", "back"])('el control %s advierte antes de salir y 
 });
 
 it("beforeunload solo avisa mientras hay cambios; guardar libera la guardia y conserva POST legado", async () => {
-  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   const form = await draft();
   const before = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(before);
@@ -109,12 +108,12 @@ it("beforeunload solo avisa mientras hay cambios; guardar libera la guardia y co
 });
 
 it("hash externo y enlace a otra ruta no desmontan el borrador antes de decidir", async () => {
-  window.history.replaceState(null, "", "#/admin/competencia?step=rubros");
+  window.history.replaceState(null, "", "#/admin/competencia?step=catalogo");
   mockApi(); render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await draft();
   await act(async () => { window.location.hash = "#/admin/events"; });
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
-  expect(window.location.hash).toBe("#/admin/competencia?step=rubros");
+  expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
   stay();
   await act(async () => { window.location.hash = "#/admin/judges"; });
@@ -125,19 +124,19 @@ it("hash externo y enlace a otra ruta no desmontan el borrador antes de decidir"
 });
 
 it("intercepta un enlace de navegación y un hash del mismo asistente antes de cambiar de paso", async () => {
-  window.history.replaceState(null, "", "#/admin/competencia?step=rubros");
+  window.history.replaceState(null, "", "#/admin/competencia?step=catalogo");
   mockApi(); render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await draft();
   fireEvent.click(screen.getByRole("button", { name: "Abrir menu de navegacion" }));
-  const link = screen.getByRole("link", { name: /Jurados/ });
+  const link = screen.getByRole("link", { name: /Especialidades/ });
   fireEvent.click(link);
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
-  expect(window.location.hash).toBe("#/admin/competencia?step=rubros");
+  expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");
   stay();
   await act(async () => { window.location.hash = "#/admin/competencia?step=revision"; });
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
-  expect(window.location.hash).toBe("#/admin/competencia?step=rubros");
+  expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");
   discard();
   await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=revision"));
   expect(screen.queryByLabelText("Nombre del rubro")).not.toBeInTheDocument();
@@ -148,17 +147,17 @@ it("Permanecer tras history.forward conserva la entrada original y permite avanz
   mockApi();
   const view = render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await screen.findByRole("heading", { name: "Mis eventos" });
-  await act(async () => { window.location.hash = "#/admin/competencia?step=rubros"; });
+  await act(async () => { window.location.hash = "#/admin/competencia?step=catalogo"; });
   await screen.findByRole("button", { name: /Crear primer rubro|Agregar rubro/ });
   await act(async () => { window.location.hash = "#/admin/events"; });
   await waitFor(() => expect(window.location.hash).toBe("#/admin/events"));
   window.history.back();
-  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=rubros"));
+  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=catalogo"));
   await draft();
   window.history.forward();
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
   stay();
-  expect(window.location.hash).toBe("#/admin/competencia?step=rubros");
+  expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");
   view.unmount();
   window.history.forward();
   await waitFor(() => expect(window.location.hash).toBe("#/admin/events"));
@@ -169,12 +168,12 @@ it("Permanecer tras history.back conserva la entrada anterior y permite retroced
   mockApi();
   const view = render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await screen.findByRole("heading", { name: "Mis eventos" });
-  await act(async () => { window.location.hash = "#/admin/competencia?step=rubros"; });
+  await act(async () => { window.location.hash = "#/admin/competencia?step=catalogo"; });
   await draft();
   window.history.back();
   await waitFor(() => expect(discardDialog()).toBeInTheDocument());
   stay();
-  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=rubros"));
+  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=catalogo"));
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
   view.unmount();
   window.history.back();
@@ -184,7 +183,7 @@ it("Permanecer tras history.back conserva la entrada anterior y permite retroced
 it("sin Navigation API no adivina la dirección de una entrada anterior sin marcador", async () => {
   window.history.replaceState(null, "", "#/login");
   window.history.pushState(null, "", "#/admin/home");
-  window.history.pushState(null, "", "#/admin/competencia?step=rubros");
+  window.history.pushState(null, "", "#/admin/competencia?step=catalogo");
   mockApi();
   const view = render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await draft();
@@ -194,14 +193,14 @@ it("sin Navigation API no adivina la dirección de una entrada anterior sin marc
   expect(screen.queryByRole("dialog", { name: /descartar cambios/i })).not.toBeInTheDocument();
   view.unmount();
   window.history.forward();
-  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=rubros"));
+  await waitFor(() => expect(window.location.hash).toBe("#/admin/competencia?step=catalogo"));
 });
 
 it("la navegación interceptable decide antes del commit: permanecer cancela y descartar permite salir", async () => {
-  window.history.replaceState(null, "", "#/admin/competencia?step=rubros");
+  window.history.replaceState(null, "", "#/admin/competencia?step=catalogo");
   const navigation = new EventTarget();
   vi.stubGlobal("navigation", navigation);
-  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   await draft();
 
   const attempt = () => {
@@ -219,7 +218,7 @@ it("la navegación interceptable decide antes del commit: permanecer cancela y d
   let first;
   act(() => { first = attempt(); });
   expect(discardDialog()).toBeInTheDocument();
-  expect(window.location.hash).toBe("#/admin/competencia?step=rubros");
+  expect(window.location.hash).toBe("#/admin/competencia?step=catalogo");
   stay();
   await expect(first).rejects.toMatchObject({ name: "AbortError" });
   expect(screen.getByLabelText("Nombre del rubro")).toHaveValue("Coreografía");
@@ -232,7 +231,7 @@ it("la navegación interceptable decide antes del commit: permanecer cancela y d
 });
 
 it("EventPicker decide antes de alterar evento o storage y no guarda al descartar", async () => {
-  window.history.replaceState(null, "", "#/admin/competencia?step=rubros");
+  window.history.replaceState(null, "", "#/admin/competencia?step=catalogo");
   mockApi(); render(<App session={{ status: "authenticated", roles: ["ADMIN"], user: { id: "u1", name: "Admin" } }} />);
   await draft();
   const key = "carnavales.event.u1.operational";
@@ -254,7 +253,7 @@ it("EventPicker decide antes de alterar evento o storage y no guarda al descarta
 });
 
 it("Escape y cierre del modal equivalen a permanecer, sin abandonar ni POST", async () => {
-  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  mockApi(); render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   const form = await draft();
   fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
   fireEvent(discardDialog(), new Event("cancel", { bubbles: true, cancelable: true }));
@@ -266,7 +265,7 @@ it("Escape y cierre del modal equivalen a permanecer, sin abandonar ni POST", as
 });
 
 it("al desmontar quita la advertencia de descarga y ya no intercepta el hash", async () => {
-  mockApi(); const view = render(<AdminCompetenciaPage event={event} initialStep="rubros" />);
+  mockApi(); const view = render(<AdminCompetenciaPage event={event} initialStep="catalogo" />);
   await draft();
   view.unmount();
   const unload = new Event("beforeunload", { cancelable: true });

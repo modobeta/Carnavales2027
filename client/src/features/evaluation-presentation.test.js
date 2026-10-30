@@ -46,6 +46,17 @@ describe("deriveEvaluationPresentation", () => {
     expect(view.progress).not.toHaveProperty("ready");
   });
 
+  it("presents one item under every associated specialty for independent evaluation", () => {
+    const sharedItem = { id: "shared-item", name: "Presencia", specialtyId: "danza", specialtyIds: ["danza", "canto"] };
+    const view = deriveEvaluationPresentation({
+      specialties: [specialty("danza"), specialty("canto")],
+      rubrics: [rubric("shared-rubric", [sharedItem])], readiness: readiness(),
+    });
+
+    expect(view.specialties.map(({ rubrics: entries }) => entries[0].items)).toEqual([[sharedItem], [sharedItem]]);
+    expect(view.specialties.map(({ rubrics: entries }) => entries[0].shared)).toEqual([true, true]);
+  });
+
   it.each([
     ["rubric", { incompleteRubrics: [{ id: "shared", name: "shared" }] }],
     ["nomination", { incompleteNominations: [{ rubricId: "shared", troupeId: "t1" }] }],

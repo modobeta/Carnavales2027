@@ -11,19 +11,31 @@ describe("visual hierarchy system", () => {
   const admin = source("../styles/admin.css");
   const competencia = source("../styles/competencia.css");
 
-  it("uses restrained Carnaval surfaces and keeps turquoise as an accent, not a modal canvas", () => {
-    expect(tokens).toContain("--palette-page: #036B8B;");
-    expect(tokens).toContain("--palette-card: #5e46be;");
-    expect(tokens).toContain("--palette-panel: #243A53;");
-    expect(tokens).toContain("--surface-modal: var(--palette-panel);");
-    expect(tokens).toContain("--text-on-modal: #ffffff;");
+  it("uses restrained Carnaval surfaces with the official palette and theme-aware modals", () => {
+    expect(tokens).toContain("--palette-pink: #E91683;");
+    expect(tokens).toContain("--palette-blue: #3F51B5;");
+    expect(tokens).toContain("--palette-page: #FFFFFF;");
+    expect(tokens).toContain("--palette-card: #FFF5FA;");
+    expect(tokens).toContain("--palette-panel: #F8FAFC;");
+    expect(tokens).toContain("--surface-modal: var(--palette-card);");
+    expect(tokens).toContain("--text-on-modal: #111827;");
+    expect(tokens).toContain(':root[data-theme="dark"]');
   });
 
   it("removes decorative page texture and heavy elevation from the shared shell", () => {
     expect(index).not.toContain("radial-gradient(circle, rgba(255, 255, 255, 0.14)");
     expect(index).not.toContain("radial-gradient(circle at 92% -10%");
-    expect(index).toContain("background: var(--surface-base);");
+    expect(source("../styles/theme.css")).toContain("background: var(--surface-base);");
     expect(index).toContain("box-shadow: none;");
+  });
+
+  it("keeps the document as the single vertical scroll container", () => {
+    const shellSizing = index.match(/html,\s*\nbody,\s*\n#root\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(shellSizing).toContain("min-height: 100dvh !important;");
+    expect(shellSizing).toContain("overflow-x: clip !important;");
+    expect(shellSizing).not.toContain("height: 100% !important;");
+    expect(shellSizing).not.toContain("overflow-x: hidden !important;");
   });
 
   it("keeps dialogs readable on a quiet surface and supports reduced transparency", () => {

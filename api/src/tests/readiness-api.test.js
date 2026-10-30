@@ -158,14 +158,14 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
     await seedActiveJudge({ client: pool, eventId: ids.eventA, nightId: night1.id, specialtyId: specialty.id });
     await pool.query("UPDATE event_category SET active=false WHERE id=$1", [category.id]);
     const incomplete = {
-      ready: false, missing: ["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS", "NIGHTS_WITHOUT_JURY"],
+      ready: false, missing: ["INCOMPLETE_SCHEDULES", "INCOMPLETE_NOMINATIONS"],
       incompleteTroupes: [{ id: troupe.id, name: "T3 Comparsa" }],
       incompleteRubrics: [{ id: rubric.id, name: "T3 sin items", code: "SIN_ITEMS" }],
       incompleteSchedules: [{ nightId: night2.id, nightName: "T3 Noche 2" }],
       incompleteNominations: [{ rubricId: nominationRubric.id, rubricName: "T3 Nominativo", troupeId: troupe.id, troupeName: "T3 Comparsa" }],
       nightsWithoutJury: [{ nightId: night2.id, nightName: "T3 Noche 2", displayOrder: 2 }],
       humanMessages: ["Una o más jornadas no tienen comparsas programadas en el orden de pasada",
-        "Faltan participantes nominados en rubros o comparsas", "Hay jornadas de competencia sin jurado asignado"],
+        "Faltan participantes nominados en rubros o comparsas"],
     };
     const checkBoth = async (expected) => {
       for (const active of [true, false]) {
@@ -201,7 +201,7 @@ test("GET readiness autoriza el evento exacto y conserva el contrato completo si
       [ids.eventA, rubric.id, specialty.id],
     );
     const complete = { ...detailOnly, ready: true, incompleteTroupes: [], incompleteRubrics: [] };
-    await checkBoth(complete); // No new per-specialty jury requirement.
+    await checkBoth(complete); // La asignación informativa no impone una configuración adicional por especialidad.
 
     const first = await expectResponse(ids.eventA, ids.admin, 200, complete);
     await expectResponse(ids.eventA, ids.admin, 200, complete, { headers: { "Idempotency-Key": randomUUID() } });
@@ -288,9 +288,9 @@ test("readiness y apertura exponen contrato HTTP ADMIN", { skip: !process.env.TE
       "SELECT event_troupe_id FROM night_troupe_schedule WHERE night_id=$1", [night.id],
     );
     assert.deepEqual(automaticSchedule, [{ event_troupe_id: troupe.id }]);
-    await seedActiveJudge({ client: pool, eventId: event.id, nightId: night.id, specialtyId: specialty.id });
     const complete = await (await fetch(`${base}/api/v1/events/${event.id}/readiness`, { headers })).json();
     assert.equal(complete.ready, true);
+    assert.deepEqual(complete.nightsWithoutJury.map(({ nightId }) => nightId), [night.id]);
     const opened = await open(`/api/v1/events/${event.id}/open`);
     assert.equal(opened.status, 200);
     assert.equal((await opened.json()).status, "OPEN");

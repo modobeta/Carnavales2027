@@ -1,0 +1,9 @@
+{
+  "title": "Control de votación — flujo de preparación",
+  "brief": "Propuesta visual para separar asignación de jurados durante la preparación de una jornada de la operación de votación en vivo. Solo ADMIN opera; la apertura requiere un jurado titular activo. Datos de ejemplo ficticios.",
+  "artboards": [
+    { "file": "01-preparacion-y-operacion.html", "title": "Preparación y operación por etapas", "tradeoff": "Mantiene un contexto único y muestra claramente el avance; la preparación es más extensa.", "width": 1440, "height": 1000 },
+    { "file": "02-centro-de-preparacion.html", "title": "Asignaciones en preparación del evento", "tradeoff": "Separa con mayor claridad la preparación de la operación; implica reubicar el acceso de gestión.", "width": 1440, "height": 1000 },
+    { "file": "03-checklist-de-apertura.html", "title": "Checklist de apertura", "tradeoff": "Hace obvio el paso siguiente y los requisitos; es menos eficiente para operar varias jornadas en paralelo.", "width": 1360, "height": 1000 }
+  ]
+}

@@ -22,6 +22,7 @@ function groupScores(scores) {
         nightScheduleId: key,
         troupeName: score.troupeName,
         presentationOrder: score.presentationOrder ?? 0,
+        releaseOrder: score.releaseOrder ?? null,
         brandColor: score.brandColor || null,
         rubrics: {},
       };
@@ -111,6 +112,19 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     }
   }, [ballot, ballotId, eventContext]);
 
+  // Publica la jornada de la planilla para el header global del jurado.
+  useEffect(() => {
+    const setJudgeNight = eventContext?.setJudgeNight;
+    if (!setJudgeNight) return;
+    setJudgeNight(ballot?.nightName ? {
+      id: ballot.nightId ?? null,
+      eventId: ballot.eventId ?? eventContext?.activeEventId ?? null,
+      name: ballot.nightName,
+      eventDate: ballot.eventDate ?? null,
+      route: "#/judge/ballot",
+    } : null);
+  }, [ballot?.id, ballot?.nightId, ballot?.eventId, ballot?.nightName, ballot?.eventDate, eventContext?.activeEventId, eventContext?.setJudgeNight]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -136,6 +150,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       const loaded = await apiRequest(`/api/v1/judge/ballots/${ballotId}`);
       if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       setBallot(loaded);
+      if (loaded.releaseMode === "MANUAL" && loaded.activeScheduleId && !selectedTroupeId) {
+        setSelectedTroupeId(loaded.activeScheduleId);
+      }
     } catch (error) {
       if (!mountedRef.current || requestId !== ballotLoadRequestRef.current) return;
       if (redirectOnSessionEnded(error)) return;
@@ -226,9 +243,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   const readonly = ballot?.status === "SUBMITTED";
-  const groups = ballot ? Object.values(groupScores(ballot.scores)).sort((left, right) => left.presentationOrder - right.presentationOrder) : [];
+  const groups = ballot ? Object.values(groupScores(ballot.scores)).sort((left, right) =>
+    (left.releaseOrder ?? Number.MAX_SAFE_INTEGER) - (right.releaseOrder ?? Number.MAX_SAFE_INTEGER)
+      || left.presentationOrder - right.presentationOrder
+  ) : [];
   const activeGroup = ballot && !readonly
     ? groups.find((group) => {
+        if (ballot.releaseMode === "MANUAL" && String(group.nightScheduleId) !== String(ballot.activeScheduleId)) return false;
         const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
         return allScores.some((s) => s.evaluationState === "PENDING");
       })
@@ -258,12 +279,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const readonlyVisibleScoreCount = readonlyVisibleGroups.reduce((count, entry) => count + entry.scores.length, 0);
   const hasReadonlyFilters = Boolean(readonlyTroupeFilter || readonlyRubricFilter || readonlySearchFilter || readonlyStateFilter !== "ALL");
 
-  const isTargetTroupeLocked = Boolean(
-    !readonly &&
-    targetGroup &&
-    activeGroup &&
-    targetGroup.presentationOrder > activeGroup.presentationOrder
-  );
+  const isTargetTroupeLocked = Boolean(!readonly && ballot?.releaseMode === "MANUAL"
+    ? (targetGroup
+      ? targetGroup.releaseOrder == null || String(targetGroup.nightScheduleId) !== String(ballot.activeScheduleId)
+      : !ballot.activeScheduleId || (activeScore && String(activeScore.nightScheduleId) !== String(ballot.activeScheduleId)))
+    : !readonly && targetGroup && activeGroup && targetGroup.presentationOrder > activeGroup.presentationOrder);
 
   const saveDecision = async (scoreId, evaluationState, score, operationId = globalThis.crypto.randomUUID()) => {
     if (!ballot) return;
@@ -602,7 +622,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         </div>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
-        <div role="group" aria-label={`Puntuación para ${scoreItem.itemName}`} aria-describedby="score-shortcuts-hint" className="score-grid-v3">
+        <div
+          role="group"
+          aria-label={`Puntuación para ${scoreItem.itemName}`}
+          aria-describedby="score-shortcuts-hint"
+          className="score-grid-v3"
+          key={scoreItem.nightScheduleId || scoreItem.troupeId}
+          style={scoreItem.brandColor ? { "--troupe-brand": scoreItem.brandColor } : undefined}
+        >
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
             <button
               key={val}
@@ -666,50 +693,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       <div className={`ballot-layout${readonly ? " is-readonly" : ""}`}>
         {!readonly && (
         <aside className="ballot-context-rail" aria-label="Contexto de la planilla">
-          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
-            <ul>
-              {groups.map((group) => {
-                const isGroupLocked = Boolean(!readonly && activeGroup && group.presentationOrder > activeGroup.presentationOrder);
-                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
-                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
-                // Resaltada = comparsa que se está votando actualmente (primer grupo
-                // con pendientes), no la última ya votada que se esté consultando.
-                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
-                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
-                return (
-                  <li key={group.nightScheduleId}>
-                    <button
-                      type="button"
-                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
-                      disabled={isGroupLocked}
-                      aria-disabled={isGroupLocked ? "true" : undefined}
-                      aria-current={isCurrentGroup ? "true" : undefined}
-                      title={isGroupLocked ? "En espera de pasada" : undefined}
-                      onClick={() => {
-                        if (isGroupLocked) return;
-                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
-                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
-                        if (firstPending) goToScore(firstPending.id);
-                      }}
-                    >
-                      {group.brandColor && (
-                        <span
-                          className="troupe-color-dot"
-                          style={{ backgroundColor: group.brandColor }}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
-                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
-                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
           {activeScore && (() => {
             const currentGroup = groups.find((group) => group.nightScheduleId === activeScore.nightScheduleId);
             if (!currentGroup) return null;
@@ -767,15 +750,69 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </section>
             );
           })()}
+
+          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
+            <ul>
+              {groups.map((group) => {
+                const isGroupLocked = Boolean(!readonly && (ballot?.releaseMode === "MANUAL"
+                  ? (group.releaseOrder == null || String(group.nightScheduleId) !== String(ballot.activeScheduleId))
+                  : activeGroup && group.presentationOrder > activeGroup.presentationOrder));
+                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
+                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
+                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
+                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
+                return (
+                  <li key={group.nightScheduleId}>
+                    <button
+                      type="button"
+                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
+                      disabled={isGroupLocked}
+                      aria-disabled={isGroupLocked ? "true" : undefined}
+                      aria-current={isCurrentGroup ? "true" : undefined}
+                      title={isGroupLocked ? "En espera de pasada" : undefined}
+                      onClick={() => {
+                        if (isGroupLocked) return;
+                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
+                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
+                        if (firstPending) goToScore(firstPending.id);
+                      }}
+                    >
+                      {group.brandColor && (
+                        <span
+                          className="troupe-color-dot"
+                          style={{ backgroundColor: group.brandColor }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
+                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
+                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
         </aside>
         )}
 
         <div className="ballot-main">
           <header className="ballot-header ballot-header-single">
             <div>
-              <a className="back-link" href="#/judge">← Mis comparsas</a>
-              <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>
-              <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+              <p className="eyebrow">{ballot.specialtyName}</p>
+              <div className="ballot-header-troupe-row">
+                {(readonly && targetGroup) || activeScore ? (
+                  <TroupeLogo
+                    troupeId={(readonly && targetGroup ? targetGroup : activeScore)?.troupeId}
+                    hasLogo={(readonly && targetGroup ? targetGroup : activeScore)?.hasLogo}
+                    sha256={(readonly && targetGroup ? targetGroup : activeScore)?.logoSha256}
+                    alt={`Logo de ${(readonly && targetGroup ? targetGroup : activeScore)?.troupeName}`}
+                    className="ballot-troupe-logo ballot-troupe-logo-header"
+                  />
+                ) : null}
+                <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+              </div>
               {readonly && targetGroup
                 ? <p>Salida {targetGroup.presentationOrder} · Planilla con {groups.length} comparsas</p>
                 : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
@@ -1034,19 +1071,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                     } : undefined}
                   >
                     <div className="ballot-troupe-heading">
-                      <TroupeLogo
-                        troupeId={activeScore.troupeId}
-                        hasLogo={activeScore.hasLogo}
-                        sha256={activeScore.logoSha256}
-                        alt={`Logo de ${activeScore.troupeName}`}
-                        className="ballot-troupe-logo"
-                      />
-                      <RubricIcon
-                        icon={activeScore.rubricIcon}
-                        color={activeScore.brandColor}
-                        size="lg"
-                        onBrand={Boolean(activeScore.brandColor)}
-                      />
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
                       </div>
@@ -1162,7 +1186,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   ref={submitButtonRef}
                   type="button"
                   disabled={!canConfirmVoting}
-                  aria-describedby={!canConfirmVoting ? "voting-confirm-help" : "voting-confirm-summary"}
+                  aria-describedby={canConfirmVoting ? "voting-confirm-summary" : undefined}
                   onClick={beginSubmitReview}
                 >
                   {isSubmitting ? "Confirmando…" : "Confirmar votación"}
@@ -1179,7 +1203,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 )}
               </>
             )}
-            {!readonly && !canConfirmVoting && <small id="voting-confirm-help">Completá todas las puntuaciones y esperá su confirmación en el servidor para habilitar el cierre.</small>}
             {readonly && (
               <section className="locked-sheet" aria-label="Planilla confirmada">
                 <span aria-hidden="true">✓</span>

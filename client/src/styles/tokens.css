@@ -1,30 +1,38 @@
 /**
- * tokens.css — Carnavales2027_v2 Design System Foundation (Spec 020)
- * Sistema unificado de tokens semánticos, capas Marca e Instrumento,
- * accesibilidad (WCAG 2.2 AA) y variables operativas.
+ * tokens.css — Sistema de diseño de Carnavales2027
  *
- * Paleta base de client/STYLES.md:
- *   - Fondo principal:            degradado vertical #036B8B → #5e46be (§2/§2.1)
- *   - Tarjetas y paneles:         #5e46be (lavanda, §2.1) → tinta clara
- *   - Superficies del tema oscuro:#243A53  (§2)           → tinta clara
- *   - Acento / marca:             #01B2D4
- *   - Botón principal:            #d22b8f  (§3.1)
- *   - Botón secundario:           #DF3CB5  (§3.2, tinta oscura)
- *   - Botón terciario:            #243A53  (§3.3)
- *   - Botón edición:              #A500B5  (§3.4)
- *   - Éxito / Advertencia:        #2BC100 / #FF6F00 (§3.5/§3.6)
- *   - Destructivo:                #DC2626 / hover #B91C1C (§3.7)
+ * Fuente única de verdad de color, tipografía, espaciado y elevación.
+ * Implementa client/STYLES.md:
+ *
+ *   Paleta oficial (§2):
+ *     - Rosa            #E91683  → identidad y acciones principales
+ *     - Azul violáceo   #3F51B5  → navegación y acciones secundarias
+ *     - Verde oliva     #8BC34A  → confirmaciones y estados positivos
+ *     - Rojo coral      #FF5252  → errores y acciones destructivas
+ *     - Amarillo        #FFC107  → advertencias y resaltados
+ *
+ *   Temas (§11):
+ *     - Claro (por defecto): fondo #FFFFFF, texto oscuro.
+ *     - Oscuro: fondo #000000, texto claro.
+ *
+ * El tema se resuelve con `data-theme="light" | "dark"` en <html>. Lo fija
+ * `ThemeContext` a partir de la preferencia guardada o del sistema
+ * (`prefers-color-scheme`). Los HEX oficiales no se modifican para resolver
+ * contraste: se ajustan tinta, superficie y bordes (§3, §14).
  *
  * Las combinaciones críticas se verifican con `node scripts/contrast-check.mjs`.
  */
 
 :root {
+  color-scheme: light;
+
   /* ==========================================================================
      Tipografía
      ========================================================================== */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-display: var(--font-sans);
+  --serif-font: Georgia, "Times New Roman", serif;
 
   --text-xs: 0.75rem;     /* 12px */
   --text-sm: 0.875rem;    /* 14px */
@@ -40,7 +48,7 @@
   --leading-relaxed: 1.625;
 
   /* ==========================================================================
-     Espaciado (Escala base 4px)
+     Espaciado (escala base 4px)
      ========================================================================== */
   --space-0-5: 0.125rem; /* 2px */
   --space-1: 0.25rem;    /* 4px */
@@ -62,6 +70,7 @@
   --radius-md: 0.5rem;   /* 8px */
   --radius-lg: 0.75rem;  /* 12px */
   --radius-xl: 1rem;     /* 16px */
+  --radius-2xl: 1.5rem;  /* 24px */
   --radius-full: 9999px;
 
   /* ==========================================================================
@@ -70,16 +79,17 @@
   --touch-target-min: 48px;
   --touch-target-lg: 56px;
 
-  /* Elevación discreta para que las superficies no compitan con el contenido. */
-  --shadow-sm: 0 1px 2px rgba(4, 14, 24, 0.2);
-  --shadow-md: 0 4px 12px rgba(4, 14, 24, 0.22);
-  --shadow-lg: 0 12px 32px rgba(4, 14, 24, 0.3);
-  --shadow-card: none;
-  --shadow-focus: 0 0 0 3px rgba(224, 181, 68, 0.9);
+  /* Elevación discreta (§6): las superficies no compiten con el contenido. */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(63, 81, 181, 0.85);
 
   --z-base: 1;
   --z-dropdown: 100;
   --z-sticky: 200;
+  --z-header: 250;
   --z-drawer: 300;
   --z-modal: 400;
   --z-toast: 500;
@@ -88,36 +98,24 @@
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ==========================================================================
-     Paleta Carnaval (única fuente de color de la aplicación — STYLES.md §2/§3)
-     Todos los colores de la interfaz se derivan de estas variables.
+     Paleta oficial Carnaval (STYLES.md §2) — no modificar los HEX
      ========================================================================== */
-  --palette-page: #036B8B;        /* Fondo principal: extremo superior del degradado (blanco = 6.0:1) */
-  --palette-page-alt: #5e46be;    /* Extremo inferior del degradado (violeta lavanda, §2.1) */
-  --palette-brand: #01B2D4;       /* Cyan de marca: acento sobre superficies oscuras */
-  --palette-card: #5e46be;        /* Tarjetas y paneles lavanda (§2.1); blanco = 6.8:1 */
-  --palette-panel: #243A53;       /* Superficie elevada / tema oscuro (blanco = 11.6:1) */
-  --palette-panel-strong: #2F4D6E;/* Superficie elevada sobre tema oscuro */
-  --palette-deep: #16293C;        /* Superficie hundida y tinta inversa */
-  --palette-input: #243A53;       /* Campos de formulario (blanco = 11.6:1) */
-  --palette-highlight: #E0B544;   /* Resaltado / foco sobre superficies oscuras */
-  --palette-highlight-ink: #241a00;
-  --palette-confirm: #2BC100;     /* Éxito (§3.5) — tinta #0B2600 = 7.3:1 */
-  --palette-confirm-ink: #0B2600;
-  --palette-cancel: #DC2626;      /* Destructivo (§3.7) — blanco = 4.8:1 */
-  --palette-cancel-ink: #ffffff;
-  --palette-action: #01B2D4;      /* Bordes, focus y acentos (marca) */
-  --palette-action-fill: #d22b8f; /* Botón principal (§3.1) — blanco = 4.7:1 */
-  --palette-action-ink: #ffffff;
-  --palette-secondary-fill: #DF3CB5; /* Botón secundario (§3.2) — tinta oscura = 4.7:1 */
-  --palette-secondary-ink: #2E0033;
-  --palette-secondary-hover: #E85CC4;
-  --palette-edit-fill: #A500B5;   /* Botón edición (§3.4) — blanco = 6.4:1 */
-  --palette-edit-ink: #ffffff;
-  --palette-edit-hover: #7D008A;
-  --palette-modal: #A500B5;       /* Acento de modal informativo (§4.1) */
-  --palette-modal-ink: #ffffff;
-  --palette-admin-nav-active: #d22b8f; /* Navegación Admin activa = acción principal (§3.1) */
-  /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
+  --palette-pink: #E91683;    /* rosa oficial 1 - identidad y acciones principales */
+  --palette-pink-deep: #C70F6F; /* rosa oficial 2 - hover/profundidad */
+  --palette-blue: #3F51B5;    /* navegación y acciones secundarias */
+  --palette-green: #8BC34A;   /* éxito */
+  --palette-red: #FF5252;     /* errores y acciones destructivas */
+  --palette-amber: #FFC107;   /* advertencias y resaltados */
+
+  /* Tonos neutros funcionales (no son colores de marca). */
+  --palette-neutral-0: #FFFFFF;
+  --palette-neutral-50: #F8FAFC;
+  --palette-neutral-100: #F1F5F9;
+  --palette-neutral-200: #E2E8F0;
+  --palette-neutral-700: #334155;
+  --palette-neutral-800: #1F2937;
+  --palette-neutral-900: #111827;
+  /* Alta de rubro en Evaluación: paleta del formulario existente. */
   --rubric-form-panel: #4f3fa6;
   --rubric-form-field: #3a2b7a;
   --rubric-form-line: #6a5bc0;
@@ -126,107 +124,163 @@
   --rubric-form-placeholder: #cfc8f0;
   --rubric-form-check: #c4246f;
 
+  /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
+  --rubric-form-panel: #4f3fa6;
+  --rubric-form-field: #3a2b7a;
+  --rubric-form-line: #6a5bc0;
+  --rubric-form-field-line: #8c7fe0;
+  --rubric-form-muted: #e4e0f7;
+  --rubric-form-placeholder: #cfc8f0;
+  --rubric-form-check: #c4246f;
+  /* Tinta del formulario: el panel violeta es oscuro en ambos temas. */
+  --rubric-form-ink: #FFFFFF;
+
+  /* Selector de íconos de rubro: los assets son line-art oscura sobre fondo
+     transparente, así que la tarjeta se mantiene clara en ambos temas. */
+  --rubric-icon-tile: var(--palette-neutral-0);
+  --rubric-icon-tile-line: var(--palette-neutral-200);
+  --rubric-icon-tile-ink: var(--palette-neutral-800);
+  --rubric-icon-tile-ink-muted: var(--palette-neutral-700);
+
   /* ==========================================================================
-     Superficies
+     Alias de paleta (compatibilidad con estilos existentes)
      ========================================================================== */
-  --surface-base: linear-gradient(180deg, var(--palette-page) 0%, var(--palette-page-alt) 100%);
+  --palette-page: #FFFFFF;        /* Fondo general claro (§11) */
+  --palette-page-alt: #F8FAFC;    /* Fondo alternativo claro */
+  --palette-brand: #E91683;       /* Rosa de marca */
+  --palette-card: #FFF5FA;        /* Tarjetas claras con matiz rosado muy suave */
+  --palette-card-border: rgba(233, 22, 131, 0.35); /* Borde sutil con rosa oficial */
+  --palette-card-header: var(--palette-pink); /* Encabezado rosa oficial para tarjetas */
+  --palette-panel: #F8FAFC;       /* Superficie elevada clara */
+  --palette-panel-strong: #F1F5F9;/* Superficie elevada clara, más marcada */
+  --palette-deep: #E2E8F0;        /* Superficie hundida clara */
+  --palette-input: #FFFFFF;       /* Campos de formulario claros */
+  --palette-highlight: #FFC107;   /* Amarillo anaranjado oficial */
+  --palette-highlight-ink: #241A00;
+  --palette-confirm: #8BC34A;     /* Verde oliva oficial */
+  --palette-confirm-ink: #0B2600;
+  --palette-cancel: #FF5252;      /* Rojo coral oficial */
+  --palette-cancel-ink: #000000;
+  --palette-action: #3F51B5;      /* Azul violáceo oficial */
+  --palette-action-fill: var(--palette-pink); /* Rosa oficial para acciones principales */
+  --palette-action-fill-hover: var(--palette-pink-deep); /* Rosa profundo para hover, conserva tinta oscura */
+  --palette-action-ink: #000000;
+  --palette-secondary-fill: #3F51B5;
+  --palette-secondary-ink: #FFFFFF;
+  --palette-secondary-hover: #303F9F;
+  --palette-edit-fill: #3F51B5;
+  --palette-edit-ink: #FFFFFF;
+  --palette-edit-hover: #303F9F;
+  --palette-modal: #E91683;
+  --palette-modal-ink: #000000;
+  --palette-admin-nav-active: #E91683;
+
+  /* ==========================================================================
+     Superficies — tema claro (STYLES.md §11)
+     ========================================================================== */
+  --surface-base: var(--palette-page);
+  --surface-shell: #FEE9F1;
+  --surface-login-backdrop: linear-gradient(135deg, #FFFFFF 0%, #FF5252 50%, #E91E63 100%);
   --surface-card: var(--palette-card);
-  --surface-raised: var(--palette-panel);
-  --surface-raised-hover: var(--palette-panel-strong);
+  --surface-raised: #FFFFFF;
+  --surface-raised-hover: #FFF5FA;
   --surface-sunken: var(--palette-deep);
-  --surface-overlay: rgba(6, 20, 30, 0.74);
-  --surface-modal: var(--palette-panel);
-  --surface-modal-raised: var(--palette-panel-strong);
-  --surface-modal-hover: rgba(255, 255, 255, 0.1);
+  --surface-overlay: rgba(15, 23, 42, 0.55);
+  --surface-scrim: rgba(15, 23, 42, 0.45);
+  --surface-modal: var(--palette-card);
+  --surface-modal-raised: #FFFFFF;
+  --surface-modal-hover: rgba(233, 22, 131, 0.08);
 
   --surface-input: var(--palette-input);
   --surface-login-input: var(--palette-input);
-  --surface-hover-subtle: rgba(255, 255, 255, 0.08); /* Hover de navegación, no estado activo. */
-  --surface-hover-card: rgba(255, 255, 255, 0.14);   /* Hover de controles sobre tarjeta lavanda. */
-  --surface-nav-translucent: rgba(15, 34, 51, 0.92);
+  --surface-hover-subtle: rgba(15, 23, 42, 0.05);
+  --surface-hover-card: rgba(15, 23, 42, 0.07);
+  --surface-nav-translucent: rgba(255, 245, 250, 0.94);
 
   /* ==========================================================================
-     Texto (contraste AA verificado sobre cada superficie)
-     Sobre el fondo principal (degradado), las tarjetas lavanda y las
-     superficies oscuras la tinta es clara.
+     Texto — tema claro
      ========================================================================== */
-  --text-primary: #ffffff;
-  --text-secondary: #eee4f2;
-  --text-muted: #e7e0ec;
-  --text-inverse: var(--palette-deep);
-  --text-on-primary: #ffffff;
-  --text-on-accent: #ffffff;      /* Sobre rellenos sólidos de acción. */
+  --text-primary: #111827;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --text-inverse: #FFFFFF;
+  --text-on-primary: #000000;     /* Sobre el rosa oficial (4.9:1) */
+  --text-on-accent: #000000;      /* Sobre rellenos de acción */
   --text-on-highlight: var(--palette-highlight-ink);
   --text-on-confirm: var(--palette-confirm-ink);
   --text-on-cancel: var(--palette-cancel-ink);
   --text-on-secondary: var(--palette-secondary-ink);
-  --text-on-modal: #ffffff;
-  --text-on-modal-soft: #eee4f2;
+  --text-on-modal: #111827;
+  --text-on-modal-soft: #334155;
 
   /* ==========================================================================
-     Bordes (tinta clara: fondo principal y superficies oscuras)
+     Bordes — tema claro
      ========================================================================== */
-  --border-subtle: rgba(255, 255, 255, 0.14);
-  --border-default: rgba(255, 255, 255, 0.26);
-  --border-strong: rgba(255, 255, 255, 0.62);
-  --border-input: rgba(255, 255, 255, 0.4);
-  --border-card: rgba(255, 255, 255, 0.16);
-  --border-modal: rgba(255, 255, 255, 0.18);
+  --border-subtle: rgba(233, 22, 131, 0.12);
+  --border-default: rgba(233, 22, 131, 0.25);
+  --border-strong: rgba(233, 22, 131, 0.5);
+  --border-input: rgba(233, 22, 131, 0.35);
+  --border-card: rgba(233, 22, 131, 0.28);
+  --border-modal: rgba(233, 22, 131, 0.35);
+  --border-hover: var(--palette-pink);
 
   /* ==========================================================================
-     Estados operativos semánticos (superficies oscuras)
+     Estados operativos semánticos — tema claro
      ========================================================================== */
-  --success: #2BC100;
-  --success-bg: rgba(43, 193, 0, 0.2);
-  --success-text: #b6f5c4;
-  --success-border: #2BC100;
-  --success-fill: #b6f5c4;        /* Relleno claro para discos/sellos con tinta inversa. */
+  --success: #8BC34A;
+  --success-bg: rgba(139, 195, 74, 0.16);
+  --success-text: #33691E;
+  --success-border: #8BC34A;
+  --success-fill: #33691E;       /* Relleno oscuro para discos con tinta clara */
 
-  --warning: #FF6F00;
-  --warning-bg: rgba(255, 111, 0, 0.2);
-  --warning-text: #ffe08a;
-  --warning-border: #FF6F00;
-  --warning-fill: #ffe08a;
+  --warning: #FFC107;
+  --warning-bg: rgba(255, 193, 7, 0.18);
+  --warning-text: #7A4F00;
+  --warning-border: #FFC107;
+  --warning-fill: #7A4F00;
 
-  --danger: #DC2626;
-  --danger-bg: rgba(220, 38, 38, 0.22);
-  --danger-text: #ffd4d4;
-  --danger-border: #DC2626;
-  --danger-hover: #B91C1C;        /* Hover de botón danger (blanco 6.5:1). */
-  --danger-fill: #ffd4d4;
+  --danger: #FF5252;
+  --danger-bg: rgba(255, 82, 82, 0.14);
+  --danger-text: #B71C1C;
+  --danger-border: #FF5252;
+  --danger-hover: #EF5350;
+  --danger-fill: #B71C1C;
 
-  --info: #01B2D4;
-  --info-bg: rgba(1, 178, 212, 0.22);
-  --info-text: #c9e2ff;
-  --info-border: #01B2D4;
+  --info: #3F51B5;
+  --info-bg: rgba(63, 81, 181, 0.12);
+  --info-text: #283593;
+  --info-border: #3F51B5;
 
   /* ==========================================================================
      Capa predeterminada: Instrumento (alta concentración, sobriedad)
      ========================================================================== */
   --accent-primary: var(--palette-action-fill);
-  --accent-text: #bce8f5;
-  --accent-hover: #A81F70;
-  --accent-subtle: rgba(1, 178, 212, 0.22);
+  --accent-text: var(--palette-blue);
+  --accent-hover: var(--palette-pink-deep);
+  --accent-subtle: rgba(233, 22, 131, 0.14);
   --accent-secondary: var(--palette-highlight);
   --accent-tertiary: var(--palette-modal);
   --accent-seal: var(--brand-seal);
+  --accent: var(--palette-action);
   --focus-ring: var(--shadow-focus);
+  --focus-color: var(--palette-action);
 
   /* ==========================================================================
-     Mapeos heredados (Retrocompatibilidad 100% con estilos previos)
+     Mapeos heredados (retrocompatibilidad)
      ========================================================================== */
   --primary-color: var(--accent-primary);
   --primary-dark: var(--accent-hover);
-  --accent-color: var(--warning-text); /* Texto de acento claro sobre superficies oscuras. */
+  --accent-color: var(--accent-text);
   --danger-color: var(--danger);
   --success-color: var(--success);
   --bg-color: var(--surface-base);
   --surface: var(--surface-card);
   --text-color: var(--text-primary);
   --muted-color: var(--text-muted);
+  --muted: var(--text-muted);
+  --line: var(--border-subtle);
   --line-color: var(--border-subtle);
   --card-bg: var(--surface-card);
-  --focus-color: var(--palette-highlight);
   --mono-font: var(--font-mono);
   --spacing-sm: var(--space-2);
   --spacing-md: var(--space-4);
@@ -235,18 +289,18 @@
 
   /* Alias de acción explícitos (relleno vs. borde) */
   --action-fill: var(--palette-action-fill);
-  --action-fill-hover: #A81F70;
+  --action-fill-hover: var(--palette-action-fill-hover, #C70F6F);
   --action-ink: var(--palette-action-ink);
   --secondary-fill: var(--palette-secondary-fill);
   --secondary-fill-hover: var(--palette-secondary-hover);
   --secondary-ink: var(--palette-secondary-ink);
-  --tertiary-fill: var(--palette-panel);
-  --tertiary-fill-hover: var(--palette-panel-strong);
+  --tertiary-fill: var(--palette-blue);
+  --tertiary-fill-hover: var(--palette-secondary-hover);
   --confirm-fill: var(--palette-confirm);
-  --confirm-fill-hover: #26A800;
+  --confirm-fill-hover: #7CB342;
   --confirm-ink: var(--palette-confirm-ink);
   --cancel-fill: var(--palette-cancel);
-  --cancel-fill-hover: #B91C1C;
+  --cancel-fill-hover: var(--danger-hover);
   --cancel-ink: var(--palette-cancel-ink);
   --edit-fill: var(--palette-edit-fill);
   --edit-fill-hover: var(--palette-edit-hover);
@@ -255,145 +309,259 @@
   /* ==========================================================================
      Documento oficial (acta): superficie de papel, independiente del cromo
      ========================================================================== */
-  --doc-paper: #ffffff;
-  --doc-ink: #0f172a;
+  --doc-paper: #FFFFFF;
+  --doc-ink: #0F172A;
   --doc-ink-soft: #475569;
-  --doc-rule: #0f172a;
-  --doc-accent: #1e40af;
-  --doc-seal-border: #16a34a;
-  --doc-seal-bg: #f0fdf4;
-  --doc-seal-fill: #14532d; /* Relleno de sellos: blanco 9.1:1 */
+  --doc-rule: #0F172A;
+  --doc-accent: #1E40AF;
+  --doc-seal-border: #16A34A;
+  --doc-seal-bg: #F0FDF4;
+  --doc-seal-fill: #14532D;
   --doc-seal-text: #166534;
 
   /* ==========================================================================
      Tokens de estado extendidos (componentes, connection-status, anomalies)
      ========================================================================== */
-  --state-success: #b6f5c4;
-  --state-success-subtle: rgba(43, 193, 0, 0.18);
-  --state-warning: #ffe08a;
-  --state-warning-subtle: rgba(255, 111, 0, 0.18);
-  --state-danger: #ffd4d4;
-  --state-danger-subtle: rgba(220, 38, 38, 0.2);
+  --state-success: #33691E;
+  --state-success-subtle: rgba(139, 195, 74, 0.16);
+  --state-warning: #7A4F00;
+  --state-warning-subtle: rgba(255, 193, 7, 0.18);
+  --state-danger: #B71C1C;
+  --state-danger-subtle: rgba(255, 82, 82, 0.14);
 
   /* ==========================================================================
-     Escala de acción clara (texto y bordes sobre superficie oscura)
+     Escala de acción de texto (enlaces y énfasis)
      ========================================================================== */
-  --accent-light: #dbeafe;
-  --accent-lighter: #e8f1fe;
+  --accent-light: #3F51B5;
+  --accent-lighter: #303F9F;
 
   /* ==========================================================================
      Colores de texto extendidos
      ========================================================================== */
-  --text-interactive: #ffffff;
-  --danger-light: #ffd4d4;
-  --success-bright: #b6f5c4;
+  --text-interactive: var(--text-primary);
+  --danger-light: #B71C1C;
+  --success-bright: #33691E;
 
-  /* Tokens de Marca Carnaval (Spec 023) */
+  /* Tokens de Marca Carnaval */
   --brand-gold: var(--palette-highlight);
   --brand-magenta: var(--palette-secondary-fill);
-  --brand-cyan: var(--palette-brand);
-  --brand-seal: #8f2e22;    /* Sello notarial */
+  --brand-cyan: var(--palette-blue);
+  --brand-seal: #8F2E22;    /* Sello notarial */
 
   /* ==========================================================================
      Sistema unificado de modales (crear/editar, éxito, advertencia, peligro)
-     Violeta = encabezados de creación/edición y acciones habituales.
-     Verde   = éxito y operaciones completadas (tinta oscura sobre el verde).
-     Naranja = advertencias, cambios delicados y confirmaciones.
      ========================================================================== */
-  --modal-violet: #a500b5;
-  --modal-violet-strong: #7d008a;
-  --modal-violet-ink: #ffffff;
-  --modal-violet-soft: rgba(165, 0, 181, 0.16);
+  --modal-violet: #3F51B5;
+  --modal-violet-strong: #303F9F;
+  --modal-violet-ink: #FFFFFF;
+  --modal-violet-soft: rgba(63, 81, 181, 0.12);
 
-  --modal-success: #2bc100;
-  --modal-success-strong: #219900;
-  --modal-success-ink: #0b2600;
-  --modal-success-soft: rgba(43, 193, 0, 0.18);
+  --modal-success: #8BC34A;
+  --modal-success-strong: #6FA234;
+  --modal-success-ink: #0B2600;
+  --modal-success-soft: rgba(139, 195, 74, 0.16);
 
-  --modal-warning: #ff6f00;
-  --modal-warning-strong: #cc5800;
-  --modal-warning-ink: #2a1200;
-  --modal-warning-soft: rgba(255, 111, 0, 0.18);
+  --modal-warning: #FFC107;
+  --modal-warning-strong: #D9A400;
+  --modal-warning-ink: #241A00;
+  --modal-warning-soft: rgba(255, 193, 7, 0.18);
 
   --modal-danger: var(--palette-cancel);
   --modal-danger-strong: var(--danger-hover);
   --modal-danger-ink: var(--palette-cancel-ink);
-  --modal-danger-soft: rgba(220, 38, 38, 0.18);
+  --modal-danger-soft: rgba(255, 82, 82, 0.16);
 
-  --modal-info: var(--palette-brand);
-  --modal-info-strong: #018BA6;
-  --modal-info-ink: #062230;
-  --modal-info-soft: rgba(1, 178, 212, 0.18);
+  --modal-info: var(--palette-blue);
+  --modal-info-strong: var(--palette-secondary-hover);
+  --modal-info-ink: #FFFFFF;
+  --modal-info-soft: rgba(63, 81, 181, 0.12);
 
-  /* Tinta legible para mensajes de estado sobre superficies oscuras */
-  --modal-success-text: #b6f5c4;
-  --modal-warning-text: #ffd8ab;
-  --modal-danger-text: #ffd4d4;
-  --modal-info-text: #c9e2ff;
+  /* Tinta legible para mensajes de estado */
+  --modal-success-text: #33691E;
+  --modal-warning-text: #7A4F00;
+  --modal-danger-text: #B71C1C;
+  --modal-info-text: #283593;
 
   /* ==========================================================================
-     Botones 3D (STYLES.md §3): reflejo, volumen y canto inferior
+     Botones 3D (STYLES.md §5): reflejo, volumen y canto inferior.
      El reflejo y la sombra interna se confinan a los bordes verticales del
      botón (0–26% / 70–100%) para no alterar el contraste AA verificado de la
-     tinta en la zona de texto central. Los cantos (--btn-face-edge) son hex
-     más oscuros que la cara respectiva; quedan debajo del botón, sin tinta
-     encima, por lo que son decorativos.
+     tinta en la zona de texto central.
      ========================================================================== */
-  --btn-highlight: rgba(255, 255, 255, 0.18);        /* brillo superior base */
-  --btn-highlight-strong: rgba(255, 255, 255, 0.3);  /* brillo superior en hover */
-  --btn-highlight-soft: rgba(255, 255, 255, 0.1);    /* reflejo tenue en reposo */
-  --btn-shade: rgba(4, 14, 24, 0.16);                /* sombra interna inferior */
-  --btn-shade-press: rgba(4, 14, 24, 0.32);          /* hundimiento al pulsar */
-  --btn-drop: rgba(4, 14, 24, 0.34);                 /* sombra exterior de contacto */
-  --btn-drop-hover: rgba(4, 14, 24, 0.46);
-  --btn-lift: 3px;      /* grosor del canto inferior en reposo */
+  --btn-highlight: rgba(255, 255, 255, 0.24);
+  --btn-highlight-strong: rgba(255, 255, 255, 0.38);
+  --btn-highlight-soft: rgba(255, 255, 255, 0.14);
+  --btn-shade: rgba(4, 14, 24, 0.14);
+  --btn-shade-press: rgba(4, 14, 24, 0.28);
+  --btn-drop: rgba(15, 23, 42, 0.24);
+  --btn-drop-hover: rgba(15, 23, 42, 0.34);
+  --btn-lift: 3px;
   --btn-lift-hover: 4px;
   --btn-lift-press: 2px;
   --transition-btn: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Cantos por cara (hex más oscuros que la cara de STYLES.md §3.x). */
-  --btn-face-action-edge: #a42270;    /* cara acción  #d22b8f (§3.1) */
-  --btn-face-secondary-edge: #ae2f8d; /* cara secund. #DF3CB5 (§3.2) */
-  --btn-face-panel-edge: #1d2f42;     /* cara panel   #243A53 (§3.3) */
-  --btn-face-violet-edge: #81008b;    /* cara edición #A500B5 (§3.4) */
-  --btn-face-success-edge: #239e00;   /* cara éxito   #2BC100 (§3.5) */
-  --btn-face-warning-edge: #d15b00;   /* cara aviso   #FF6F00 (§3.6) */
-  --btn-face-danger-edge: #b01e1e;    /* cara destructivo #DC2626 (§3.7) */
+  /* Cantos por cara (tono más oscuro que la cara oficial). */
+  --btn-face-action-edge: #B80F66;    /* cara acción  #E91683 */
+  --btn-face-secondary-edge: #303F9F; /* cara secund. #3F51B5 */
+  --btn-face-panel-edge: #CBD5E1;     /* cara panel   #F8FAFC */
+  --btn-face-violet-edge: #303F9F;    /* cara edición #3F51B5 */
+  --btn-face-success-edge: #6FA234;   /* cara éxito   #8BC34A */
+  --btn-face-warning-edge: #D9A400;   /* cara aviso   #FFC107 */
+  --btn-face-danger-edge: #D32F2F;    /* cara destructivo #FF5252 */
 
-  /* Reflejo superior por cara: tinte claro de la MISMA tonalidad que la cara
-     (§3.1–§3.7), para que el brillo del hover coincida con el color del botón
-     en lugar de un blanco neutro. Misma alpha que los --btn-highlight* base. */
-  --btn-hl-action: rgba(255, 143, 212, 0.2);      /* sobre acción  #d22b8f */
-  --btn-hl-action-strong: rgba(255, 143, 212, 0.34);
-  --btn-hl-action-soft: rgba(255, 143, 212, 0.12);
-  --btn-hl-secondary: rgba(255, 170, 226, 0.2);   /* sobre secund. #DF3CB5 */
-  --btn-hl-secondary-strong: rgba(255, 170, 226, 0.34);
-  --btn-hl-secondary-soft: rgba(255, 170, 226, 0.12);
-  --btn-hl-panel: rgba(158, 196, 232, 0.2);       /* sobre panel   #243A53 */
+  /* Reflejo superior por cara: tinte claro de la MISMA tonalidad que la cara. */
+  --btn-hl-action: rgba(255, 172, 214, 0.24);
+  --btn-hl-action-strong: rgba(255, 172, 214, 0.4);
+  --btn-hl-action-soft: rgba(255, 172, 214, 0.14);
+  --btn-hl-secondary: rgba(197, 202, 233, 0.24);
+  --btn-hl-secondary-strong: rgba(197, 202, 233, 0.4);
+  --btn-hl-secondary-soft: rgba(197, 202, 233, 0.14);
+  --btn-hl-panel: rgba(255, 255, 255, 0.65);
+  --btn-hl-panel-strong: rgba(255, 255, 255, 0.9);
+  --btn-hl-panel-soft: rgba(255, 255, 255, 0.4);
+  --btn-hl-violet: rgba(197, 202, 233, 0.24);
+  --btn-hl-violet-strong: rgba(197, 202, 233, 0.4);
+  --btn-hl-violet-soft: rgba(197, 202, 233, 0.14);
+  --btn-hl-success: rgba(220, 237, 200, 0.3);
+  --btn-hl-success-strong: rgba(220, 237, 200, 0.48);
+  --btn-hl-success-soft: rgba(220, 237, 200, 0.18);
+  --btn-hl-warning: rgba(255, 236, 179, 0.32);
+  --btn-hl-warning-strong: rgba(255, 236, 179, 0.5);
+  --btn-hl-warning-soft: rgba(255, 236, 179, 0.2);
+  --btn-hl-danger: rgba(255, 205, 210, 0.26);
+  --btn-hl-danger-strong: rgba(255, 205, 210, 0.42);
+  --btn-hl-danger-soft: rgba(255, 205, 210, 0.16);
+
+  /* Marca de comparsa (se sobreescribe por fila desde el backend). */
+  --troupe-brand: var(--palette-action-fill);
+  --troupe-brand-ink: #000000;
+}
+
+/* ==========================================================================
+   Tema oscuro (STYLES.md §11) — fondo #000000, superficies diferenciadas.
+   Los HEX oficiales se conservan; cambian tinta, superficies y bordes.
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --palette-page: #000000;
+  --palette-page-alt: #000000;
+  --palette-card: #14000A;        /* Tarjetas oscuras con matiz rosado muy oscuro */
+  --palette-card-border: rgba(233, 22, 131, 0.45); /* Borde discreto con rosa oficial */
+  --palette-card-header: var(--palette-pink); /* Encabezado rosa oficial para tarjetas */
+  --palette-panel: #1A1A1A;
+  --palette-panel-strong: #262626;
+  --palette-deep: #000000;
+  --palette-input: #1C1C1C;
+
+  --surface-base: var(--palette-page);
+  --surface-shell: #000000;
+  --surface-login-backdrop: linear-gradient(135deg, #000000 0%, #14000A 50%, #650838 100%);
+  --surface-card: var(--palette-card);
+  --surface-raised: #0F0006;
+  --surface-raised-hover: #1A000D;
+  --surface-sunken: var(--palette-deep);
+  --surface-overlay: rgba(0, 0, 0, 0.78);
+  --surface-scrim: rgba(2, 6, 16, 0.6);
+  --surface-modal: var(--palette-card);
+  --surface-modal-raised: #0F0006;
+  --surface-modal-hover: rgba(233, 22, 131, 0.18);
+
+  --surface-input: var(--palette-input);
+  --surface-login-input: var(--palette-input);
+  --surface-hover-subtle: rgba(255, 255, 255, 0.08);
+  --surface-hover-card: rgba(255, 255, 255, 0.12);
+  --surface-nav-translucent: rgba(10, 0, 6, 0.92);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #E5E5E5;
+  --text-muted: #B3B3B3;
+  --text-inverse: #000000;
+  --text-on-primary: #000000;
+  --text-on-accent: #000000;
+  --text-on-highlight: var(--palette-highlight-ink);
+  --text-on-confirm: var(--palette-confirm-ink);
+  --text-on-cancel: var(--palette-cancel-ink);
+  --text-on-secondary: var(--palette-secondary-ink);
+  --text-on-modal: #FFFFFF;
+  --text-on-modal-soft: #E5E5E5;
+
+  --border-subtle: rgba(233, 22, 131, 0.18);
+  --border-default: rgba(233, 22, 131, 0.38);
+  --border-strong: rgba(233, 22, 131, 0.7);
+  --border-input: rgba(233, 22, 131, 0.5);
+  --border-card: rgba(233, 22, 131, 0.42);
+  --border-modal: rgba(233, 22, 131, 0.48);
+  --border-hover: var(--palette-pink);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.65);
+  --shadow-card: none;
+  --shadow-focus: 0 0 0 3px rgba(255, 193, 7, 0.9);
+
+  --success-bg: rgba(139, 195, 74, 0.2);
+  --success-text: #C5E1A5;
+  --success-fill: #C5E1A5;
+
+  --warning-bg: rgba(255, 193, 7, 0.2);
+  --warning-text: #FFE082;
+  --warning-fill: #FFE082;
+
+  --danger-bg: rgba(255, 82, 82, 0.2);
+  --danger-text: #FFCDD2;
+  --danger-fill: #FFCDD2;
+
+  --info-bg: rgba(63, 81, 181, 0.28);
+  --info-text: #C5CAE9;
+  --info-border: #7986CB;
+
+  --accent-text: #C5CAE9;
+  --accent-subtle: rgba(233, 22, 131, 0.22);
+  --accent-light: #C5CAE9;
+  --accent-lighter: #E8EAF6;
+  --focus-color: var(--palette-highlight);
+
+  --text-interactive: #FFFFFF;
+  --danger-light: #FFCDD2;
+  --success-bright: #C5E1A5;
+
+  --state-success: #C5E1A5;
+  --state-success-subtle: rgba(139, 195, 74, 0.2);
+  --state-warning: #FFE082;
+  --state-warning-subtle: rgba(255, 193, 7, 0.2);
+  --state-danger: #FFCDD2;
+  --state-danger-subtle: rgba(255, 82, 82, 0.2);
+
+  --modal-violet-soft: rgba(63, 81, 181, 0.22);
+  --modal-success-soft: rgba(139, 195, 74, 0.2);
+  --modal-warning-soft: rgba(255, 193, 7, 0.2);
+  --modal-danger-soft: rgba(255, 82, 82, 0.2);
+  --modal-info-soft: rgba(63, 81, 181, 0.24);
+
+  --modal-success-text: #C5E1A5;
+  --modal-warning-text: #FFE082;
+  --modal-danger-text: #FFCDD2;
+  --modal-info-text: #C5CAE9;
+
+  /* Volumen de botones sobre superficies negras. */
+  --btn-shade: rgba(0, 0, 0, 0.28);
+  --btn-shade-press: rgba(0, 0, 0, 0.42);
+  --btn-drop: rgba(0, 0, 0, 0.55);
+  --btn-drop-hover: rgba(0, 0, 0, 0.65);
+  --btn-face-panel-edge: #0B0B0B;
+  --btn-hl-panel: rgba(158, 196, 232, 0.2);
   --btn-hl-panel-strong: rgba(158, 196, 232, 0.34);
   --btn-hl-panel-soft: rgba(158, 196, 232, 0.12);
-  --btn-hl-violet: rgba(238, 156, 255, 0.2);      /* sobre edición #A500B5 */
-  --btn-hl-violet-strong: rgba(238, 156, 255, 0.34);
-  --btn-hl-violet-soft: rgba(238, 156, 255, 0.12);
-  --btn-hl-success: rgba(154, 255, 126, 0.2);     /* sobre éxito   #2BC100 */
-  --btn-hl-success-strong: rgba(154, 255, 126, 0.34);
-  --btn-hl-success-soft: rgba(154, 255, 126, 0.12);
-  --btn-hl-warning: rgba(255, 190, 120, 0.2);     /* sobre aviso   #FF6F00 */
-  --btn-hl-warning-strong: rgba(255, 190, 120, 0.34);
-  --btn-hl-warning-soft: rgba(255, 190, 120, 0.12);
-  --btn-hl-danger: rgba(255, 150, 150, 0.2);      /* sobre destructivo #DC2626 */
-  --btn-hl-danger-strong: rgba(255, 150, 150, 0.34);
-  --btn-hl-danger-soft: rgba(255, 150, 150, 0.12);
 }
 
 /* ==========================================================================
    Capa Marca (data-layer="brand")
-   Comparte la paleta Carnaval unificada; sólo ajusta la tipografía display.
    ========================================================================== */
 [data-layer="brand"] {
   --accent-primary: var(--palette-action-fill);
-  --accent-hover: #A81F70;
-  --accent-subtle: rgba(1, 178, 212, 0.22);
+  --accent-hover: #C70F6F;
+  --accent-subtle: rgba(233, 22, 131, 0.14);
   --accent-secondary: var(--palette-highlight);
   --accent-tertiary: var(--palette-modal);
   --accent-seal: var(--brand-seal);
@@ -405,13 +573,12 @@
 
 /* ==========================================================================
    Capa Instrumento (data-layer="instrument")
-   Mismos tokens que Marca: la identidad visual carnival es única en la app.
+   Misma identidad visual que Marca; solo cambia el énfasis tipográfico.
    ========================================================================== */
 [data-layer="instrument"] {
   --accent-primary: var(--palette-action-fill);
-  --accent-text: #bce8f5; /* Azul claro para TEXTO sobre superficies oscuras. */
-  --accent-hover: #A81F70;
-  --accent-subtle: rgba(1, 178, 212, 0.22);
+  --accent-hover: #C70F6F;
+  --accent-subtle: rgba(233, 22, 131, 0.14);
   --focus-ring: var(--shadow-focus);
 
   --primary-color: var(--accent-primary);
@@ -434,21 +601,34 @@
 
 @media (prefers-contrast: more) {
   :root {
+    --border-subtle: rgba(15, 23, 42, 0.4);
+    --border-default: rgba(15, 23, 42, 0.62);
+    --border-strong: #000000;
+    --border-card: rgba(15, 23, 42, 0.5);
+    --text-muted: #111827;
+    --focus-ring: 0 0 0 4px #000000;
+  }
+
+  :root[data-theme="dark"] {
     --border-subtle: rgba(255, 255, 255, 0.55);
     --border-default: rgba(255, 255, 255, 0.75);
-    --border-strong: #ffffff;
+    --border-strong: #FFFFFF;
     --border-card: rgba(255, 255, 255, 0.6);
-    --text-muted: #ffffff;
-    --focus-ring: 0 0 0 4px #ffffff;
+    --text-muted: #FFFFFF;
+    --focus-ring: 0 0 0 4px #FFFFFF;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --surface-overlay: #0a1a26;
-    --surface-nav-translucent: #0f2233;
+    --surface-overlay: #111827;
+    --surface-scrim: #111827;
+    --surface-nav-translucent: #FFFFFF;
+  }
+
+  :root[data-theme="dark"] {
+    --surface-overlay: #000000;
+    --surface-scrim: #000000;
+    --surface-nav-translucent: #000000;
   }
 }
-
-/* Legacy block removed — all tokens now resolve through the semantic
-   mappings in :root above. */

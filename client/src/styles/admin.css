@@ -7,6 +7,7 @@
 .admin-shell {
   max-inline-size: 1180px;
   margin-inline: auto;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .global-event-picker {
@@ -153,6 +154,24 @@
   background: var(--card-bg);
   padding: clamp(1rem, 3vw, 1.75rem);
   container-type: inline-size;
+}
+
+.night-assignment-panel {
+  margin-block-start: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-inline-start: 4px solid var(--accent-text);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.night-assignment-panel__header {
+  margin-block-end: var(--space-4);
+}
+
+.night-assignment-panel__header h3,
+.night-assignment-panel__header p {
+  margin-block: 0 var(--space-2);
 }
 
 .section-heading {
@@ -1158,7 +1177,7 @@
 }
 
 .config-progress-step.is-done {
-  border-color: var(--success);
+  border-color: var(--success-text);
 }
 
 .config-progress-step.is-current {
@@ -1170,7 +1189,7 @@
 }
 
 .config-progress-step.is-done .config-progress-bullet {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .config-progress-detail {
@@ -1298,7 +1317,7 @@
 }
 
 .admin-next-step-card.is-complete {
-  border-inline-start-color: var(--success);
+  border-inline-start-color: var(--success-text);
 }
 
 .admin-problem-list .readiness-fail {
@@ -1893,7 +1912,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  background: rgba(17, 24, 39, 0.58);
+  background: var(--surface-raised);
   box-shadow: none;
 }
 
@@ -2193,13 +2212,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
   border-radius: var(--radius-full);
   background: var(--accent-subtle);
   color: var(--accent-text);
   font-weight: 700;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   flex-shrink: 0;
 }
 
@@ -2212,7 +2231,7 @@
 
 .session-identity strong {
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -2646,8 +2665,9 @@
 
 /* Identidad visual Admin: navegación activa. */
 .app-drawer .nav-primary-link[aria-current="page"] {
-  color: var(--text-primary);
-  background: var(--palette-admin-nav-active);
+  color: var(--text-on-primary);
+  background: linear-gradient(90deg, var(--palette-pink) 0%, var(--palette-pink-deep) 100%);
+  border-color: var(--palette-pink-deep);
 }
 
 .access-section {

@@ -1,332 +1,349 @@
-# Guía de estilos — Portal Carnaval (`styles.md`)
+# styles.md — Sistema de diseño de Carnaval2027
 
 ## 1. Objetivo
 
-Este documento define los lineamientos visuales y de experiencia de usuario (UX/UI) del portal de votación de comparsas de carnaval.
+Definir un sistema visual coherente, moderno, accesible y fácil de utilizar en todo el portal de Carnaval2027.
 
-Todos los componentes, pantallas y modificaciones de la interfaz deben respetar estas reglas para garantizar una experiencia coherente, accesible y fácil de utilizar.
+La aplicación se utiliza en vivo durante los corsos, desde notebooks, tablets y celulares, incluso de noche y por personas con diferentes niveles de experiencia tecnológica.
 
-El diseño debe priorizar:
+Prioridades:
+- Claridad y rapidez de interacción.
+- Prevención de errores durante la votación.
+- Diseño responsive.
+- Accesibilidad y contraste adecuado.
+- Consistencia visual en todas las secciones.
+- Separación entre presentación visual y lógica de negocio.
 
-- La claridad y la facilidad de uso.
-- La consistencia visual entre todas las secciones.
-- La accesibilidad desde celulares, tablets y computadoras.
-- La identificación rápida de acciones y estados.
-- La prevención de errores durante las votaciones.
-- La transparencia y la confianza en el registro de puntuaciones.
+## 2. Paleta cromática oficial
 
-El sistema se utiliza durante eventos en vivo, frecuentemente al aire libre y de noche. Por eso, la legibilidad, el contraste y la facilidad de interacción son requisitos fundamentales.
+Utilizar los cinco colores oficiales sin modificarlos ni reemplazarlos por aproximaciones.
 
----
-
-## 2. Paleta de colores
-
-### 2.1. Colores principales
-
-| Elemento | Color | Código HEX |
+| Color | HEX | Uso principal |
 |---|---|---|
-| Fondo principal | degradado vertical Azul petróleo y violeta lavanda | `#01B2D4`; `#5e46be`|
-| 
-| Tarjetas y paneles | lavanda | `#5e46be` |
+| Rosa 1 | `#E91683` | Identidad, acciones principales y destacados |
+| Rosa 2 | `#C70F6F` | Hover/profundidad de rosa y elementos de énfasis |
+| Azul violáceo | `#3F51B5` | Navegación y acciones secundarias |
+| Verde oliva | `#8BC34A` | Confirmaciones y estados positivos |
+| Rojo coral | `#FF5252` | Errores y acciones destructivas |
+| Amarillo anaranjado | `#FFC107` | Advertencias y resaltados |
 
-### Reglas de aplicación
+### Fondos y superficies
 
-- Utilizar `#01B2D4` como fondo principal de la interfaz.
-- Utilizar `#243A53` para superficies del tema oscuro, áreas secundarias y elementos que necesiten distinguirse del fondo principal.
-- Utilizar `#FCD102` como color de fondo de tarjetas, paneles y agrupaciones de contenido.
-- Mantener una jerarquía visual clara entre el fondo, las tarjetas y los controles.
-- Evitar introducir colores adicionales sin una justificación funcional.
-- No utilizar todos los colores con la misma intensidad en una misma pantalla.
-- Verificar el contraste entre cada color de fondo y su contenido.
+- Tema claro: `#FEE9F1`
+- Tema oscuro: `#000000`
+- Tarjetas tema claro: superficies con matiz rosado muy tenue (`#FFF5FA`), bordes sutiles derivados de los rosas oficiales.
+- Tarjetas tema oscuro: superficies con matiz rosado muy oscuro (`#14000A`), bordes discretos derivados de los rosas oficiales.
+- Modales: superficies coherentes con el tema activo, con los mismos matices rosados.
+- Bordes, separadores: derivados de los dos rosas oficiales con transparencia para mantener sutileza.
+- Sombras: discretas para separar sin generar grandes bloques saturados.
 
-**Importante:** cuando dos elementos contiguos utilicen colores similares, diferenciarlos mediante bordes, espaciado, elevación u otro recurso visual accesible.
+Los tonos neutros son funcionales y no constituyen colores adicionales de marca. Los dos rosas oficiales (`#E91683`, `#C70F6F`) se utilizan para acentos, acciones principales y detalles destacados.
 
----
+Tarjetas: nuevo estilo rosa
 
-## 3. Paleta de botones
+Las tarjetas adoptan una identidad visual basada en los dos rosas oficiales (`#E91683`, `#C70F6F`).
 
-Los botones deben tener colores consistentes según su función. El color debe ayudar al usuario a comprender la acción, pero nunca ser el único indicador de su significado.
+No utilizar el rosa intenso como fondo sólido de todas las tarjetas, ya que puede dificultar la lectura y generar demasiada saturación visual.
 
-### 3.1. Botón principal
+Tema claro
 
-- **Color:** `#d22b8f`
-- **Uso:** acciones principales, como iniciar sesión, continuar o guardar avances.
-- Debe destacar sobre el fondo en el que aparece.
-- Si el fondo también es `#036B8B`, utilizar una variante con suficiente contraste.
+Fondo de tarjeta: matiz rosado muy suave `#FFF5FA`.
 
-### 3.2. Botón secundario
+Borde: rosa oficial con transparencia (`rgba(233, 22, 131, 0.25-0.35)`), preferentemente fino y discreto.
 
-- **Color:** `#DF3CB5`
-- **Uso:** acciones alternativas, navegación secundaria y opciones complementarias.
-- Sobre tarjetas del mismo color, utilizar una variante diferenciada, un borde o un estilo alternativo.
+Encabezados: rosa oficial `#E91683` cuando el contraste del texto sea suficiente (usar texto negro `#000000`).
 
-### 3.3. Botón terciario
+Títulos y contenido: negro o gris muy oscuro.
 
-- **Color:** `#243A53`
-- **Uso:** filtros, controles auxiliares y acciones de menor prioridad.
-- No debe competir visualmente con el botón principal.
+Sombras: suaves, para separar las tarjetas del fondo blanco.
 
-### 3.4. Botón de edición
+Radio de borde: ligeramente redondeado y consistente en toda la aplicación.
 
-- **Color:** `#A500B5`
-- **Uso:** editar usuarios, comparsas, rubros, configuraciones y otros registros.
-- Debe comunicar que la acción modifica información existente.
+Los matices claros predominan en las superficies; los tonos más intensos se reservan para bordes, encabezados, iconos y detalles destacados.
 
-### 3.5. Botón de éxito
+Tema oscuro
 
-- **Color:** `#2BC100`
-- **Uso:** acciones explícitamente relacionadas con un estado exitoso, cuando corresponda.
-- Puede utilizarse para indicar una operación exitosa, pero no debe reemplazar los mensajes que confirman el resultado de una operación.
-- No utilizarlo indiscriminadamente para todos los botones de guardado.
+Fondo general: negro `#000000`.
 
-### 3.6. Botón de advertencia
+Fondo de tarjeta: matiz rosado muy oscuro `#14000A`.
 
-- **Color:** `#FF6F00`
-- **Uso:** acciones que requieren precaución o atención especial.
-- No utilizarlo como color predeterminado de edición ni de navegación.
+Bordes y detalles: rosas oficiales con transparencia (`rgba(233, 22, 131, 0.38-0.7)`), discretos.
 
-### 3.7. Botón destructivo
+Títulos y contenido: blanco o gris muy claro.
 
-- **Color principal:** `#DC2626`
-- **Color hover:** `#B91C1C`
-- **Uso:** eliminar usuarios, comparsas, rubros, registros y otros elementos.
+Sombras: moderadas y discretas, sin depender exclusivamente de ellas para separar las tarjetas.
 
-Reglas:
+El tema oscuro debe mantener una apariencia elegante y legible, sin convertir todas las tarjetas en grandes bloques de rosa intenso. Los dos rosas oficiales se utilizan para énfasis y elementos interactivos.
 
-- Utilizar etiquetas explícitas, como «Eliminar comparsa» o «Eliminar usuario».
-- Acompañar el botón con un icono cuando aporte claridad.
-- Solicitar confirmación antes de ejecutar eliminaciones importantes.
-- No utilizar el rojo para guardar, editar o navegar.
-- Diferenciar las acciones destructivas de las acciones normales incluso cuando no se perciba el color.
+Jerarquía de tarjetas
 
-### 3.8. Reglas generales para botones
+Tarjetas informativas: fondo rosa claro y borde discreto.
 
-- Utilizar una única acción principal claramente destacada por grupo de acciones.
-- Evitar que varios botones compitan por la atención al mismo tiempo.
-- Mantener tamaños, bordes, tipografía y espaciado consistentes.
-- Definir estados `hover`, `focus`, `active`, `disabled` y `loading`.
-- No depender de efectos `hover` para revelar acciones esenciales en dispositivos táctiles.
-- Evitar envíos duplicados mediante clics repetidos.
-- Mostrar indicadores de carga cuando una operación tarde en completarse.
-- Utilizar texto claro y específico en lugar de etiquetas ambiguas.
-- Verificar el contraste de los textos sobre todos los colores de los botones.
+Tarjetas seleccionadas: borde rosa más destacado y un indicador visual adicional.
 
----
+Tarjetas interactivas: cambio sutil de sombra o borde al pasar el cursor o recibir el foco.
 
-## 4. Modales y mensajes del sistema
+Tarjetas importantes: pueden incluir una franja o encabezado rosa oficial.
 
-Los modales deben mantener una estructura consistente en todas las secciones.
+Tarjetas de comparsas: conservar sus colores configurables propios, sin reemplazarlos por el rosa de la interfaz.
 
-### 4.1. Modal informativo o de confirmación
+No aplicar simultáneamente fondos intensos, bordes gruesos, sombras fuertes y efectos luminosos a una misma tarjeta.
 
-- **Color:** `#A500B5`
-- **Uso:** información relevante, solicitudes de confirmación y decisiones que requieren la atención del usuario.
-- Debe explicar claramente qué acción se está por realizar.
-- Debe incluir botones con etiquetas explícitas.
+## 3. Contraste y accesibilidad cromática
 
-### 4.2. Modal de éxito
+**Esta sección es obligatoria para todos los componentes de la aplicación.**
 
-- **Color:** `#2BC100`
-- **Uso:** informar que una operación se completó correctamente.
-- Ejemplos: cambios guardados, configuración actualizada o registro creado.
-- No mostrarlo hasta que el sistema confirme que la operación terminó correctamente.
+No utilizar automáticamente texto blanco sobre todos los colores oficiales. La legibilidad tiene prioridad sobre la apariencia.
 
-### 4.3. Modal de advertencia
+### 3.1. Combinaciones recomendadas
 
-- **Color:** `#FF6F00`
-- **Uso:** cambios pendientes, acciones riesgosas, errores recuperables y situaciones que requieren atención.
-- Debe explicar las consecuencias de la acción cuando corresponda.
+| Fondo | Texto recomendado | Contraste aproximado | Evaluación |
+|---|---|---:|---|
+| Rosa `#E91683` | Negro `#000000` | 4,4:1 | Adecuado para texto grande; verificar texto normal |
+| Azul `#3F51B5` | Blanco `#FFFFFF` | 6,9:1 | Cumple WCAG AA |
+| Verde `#8BC34A` | Negro `#000000` | 9,9:1 | Cumple WCAG AA |
+| Rojo `#FF5252` | Negro `#000000` | 6,8:1 | Cumple WCAG AA |
+| Amarillo `#FFC107` | Negro `#000000` | 12,9:1 | Cumple WCAG AA |
 
-### 4.4. Reglas de comportamiento
+Los valores son aproximados y deben verificarse con una herramienta de contraste durante la implementación.
 
-- Incorporar modales donde sean necesarios para guardar cambios, advertir sobre modificaciones o confirmar acciones importantes.
-- Evitar abrir múltiples modales simultáneamente.
-- Permitir cancelar una acción cuando sea posible.
-- No cerrar automáticamente un modal si esto puede provocar pérdida de información.
-- No mostrar mensajes de éxito antes de recibir confirmación del servidor.
-- Mantener los mensajes breves, claros y comprensibles.
-- Adaptar los modales a la altura y anchura disponibles en celulares y tablets.
-- Si el contenido es extenso, permitir desplazamiento interno.
-- No utilizar un color como único medio para comunicar el tipo de mensaje.
+**Regla especial para el rosa:** el texto negro sobre `#E91683` puede quedar ligeramente por debajo del mínimo de 4,5:1 para texto normal. No utilizar esta combinación para texto pequeño sin comprobarla. Si no cumple, mantener el rosa oficial y utilizar una de estas alternativas:
 
-Los modales informativos no deben convertirse en una interrupción innecesaria para cada acción menor. Para operaciones rutinarias, utilizar mensajes de estado discretos cuando resulte más adecuado.
+- Usar texto blanco o negro únicamente después de verificar el contraste real.
+- Reservar el rosa para fondos de elementos grandes o decorativos.
+- Utilizar texto oscuro sobre una superficie blanca o neutra dentro del componente.
+- Emplear el rosa en bordes, iconos o indicadores y mantener el texto sobre una superficie neutra.
 
----
+No modificar el HEX oficial para solucionar un problema de contraste.
 
-## 5. Tarjetas y paneles
+### 3.2. Requisitos WCAG
 
-Las tarjetas deben utilizar `#341244` como color de superficie principal.
+Aplicar como referencia WCAG 2.2 nivel AA:
 
-Reglas:
+- Texto normal: contraste mínimo de 4,5:1.
+- Texto grande: contraste mínimo de 3:1.
+- Componentes interactivos e indicadores visuales esenciales: contraste mínimo de 3:1 respecto de los colores adyacentes relevantes.
+- Foco de teclado claramente visible.
+- Estados de error, éxito y advertencia identificables sin depender exclusivamente del color.
 
-- Agrupar información relacionada.
-- Utilizar títulos descriptivos y jerarquías visuales claras.
-- Mantener espaciados internos consistentes.
-- Evitar acumular demasiadas acciones en una misma tarjeta.
-- Diferenciar visualmente elementos seleccionados, pendientes, completados y deshabilitados.
-- Mantener un contraste adecuado entre el contenido y el fondo.
-- Utilizar bordes, separaciones o elevación cuando sea necesario distinguir tarjetas contiguas.
-- Evitar sombras excesivas y decoraciones que dificulten la lectura.
+Comprobar el contraste en los estados normal, hover, presionado, seleccionado, deshabilitado y foco, así como en ambos temas.
 
-Las tarjetas interactivas deben comunicar que pueden seleccionarse o abrirse. Las tarjetas informativas no deben parecer botones si no ejecutan una acción.
+No asumir que una combinación es accesible simplemente porque utiliza colores oficiales.
 
----
+## 4. Uso semántico de los colores
 
-## 6. Tipografía y legibilidad
+### Rosa 1 — `#E91683`
 
-- Priorizar la legibilidad por encima de los efectos decorativos.
-- Utilizar una jerarquía tipográfica consistente para títulos, subtítulos, etiquetas y contenido.
-- Utilizar aproximadamente `16px` como tamaño base para el texto principal.
-- Evitar textos secundarios excesivamente pequeños.
-- Mantener una tipografía sencilla y legible.
-- Utilizar textos breves en botones y mensajes.
-- Evitar bloques extensos de texto en pantallas destinadas a tareas rápidas.
-- Mantener suficiente interlineado y separación entre elementos.
+Color principal de identidad.
 
-La tipografía debe ser cómoda de leer desde una tablet o un celular durante el evento.
+Utilizar para botones principales, navegación activa, encabezados de tarjetas y elementos destacados. Evitar grandes superficies rosas innecesarias.
 
----
+### Rosa 2 — `#C70F6F`
 
-## 7. Formularios y controles
+Color complementario para profundidad.
 
-- Utilizar etiquetas visibles y descriptivas.
-- No depender exclusivamente de los placeholders para explicar los campos.
-- Indicar qué campos son obligatorios.
-- Mostrar errores cerca del campo correspondiente.
-- Conservar los datos ingresados cuando ocurra un error recuperable.
-- Evitar formularios innecesariamente extensos.
-- Mantener áreas táctiles cómodas.
-- Comunicar claramente los estados de validación.
-- No utilizar únicamente colores para indicar errores o campos válidos.
+Utilizar para estados hover de elementos rosas, bordes de énfasis y detalles que requieran mayor definición. Trabaja en conjunto con Rosa 1 para mantener la identidad visual.
 
-### Selectores de color
+### Azul violáceo — `#3F51B5`
 
-Los selectores de color para comparsas deben permitir:
+Color secundario.
 
-- Seleccionar un color visualmente.
-- Introducir un código HEX.
-- Ver una vista previa del color elegido.
-- Editar o restablecer la selección.
-- Identificar el color seleccionado sin depender únicamente de la percepción visual.
+Utilizar para navegación, acciones complementarias, consultas y controles de edición no destructivos.
 
----
+### Verde oliva — `#8BC34A`
 
-## 8. Diseño adaptable y accesibilidad
+Color de éxito.
 
-La interfaz debe funcionar correctamente en celulares, tablets y computadoras.
+Utilizar para indicar guardados exitosos, operaciones completadas y confirmaciones. Acompañar siempre con texto o iconografía.
 
-### Reglas generales
+### Rojo coral — `#FF5252`
 
-- Priorizar el uso táctil en las pantallas de votación.
-- Utilizar áreas táctiles de aproximadamente `44–48px` como mínimo recomendado.
-- Evitar que los modales excedan la pantalla disponible.
-- Mantener los botones importantes visibles y fáciles de alcanzar.
-- Evitar acciones que dependan exclusivamente de `hover`.
-- Mantener una navegación por teclado adecuada.
-- Proporcionar indicadores visibles de foco.
-- Utilizar etiquetas descriptivas para controles e iconos interactivos.
-- Comprobar la legibilidad en condiciones de iluminación variables.
+Color de riesgo.
+
+Utilizar para errores, eliminaciones y advertencias de pérdida de datos. Las operaciones irreversibles deben tener confirmación explícita.
+
+### Amarillo anaranjado — `#FFC107`
+
+Color de atención.
+
+Utilizar para avisos importantes, advertencias y cambios pendientes. Acompañar con mensajes que expliquen qué sucede y cómo proceder.
+
+## 5. Botones
+
+Todos los botones deben compartir dimensiones, tipografía, espaciado y comportamiento consistentes.
+
+- Principal: rosa 1 (`#E91683`).
+- Principal hover: rosa 2 (`#C70F6F`).
+- Secundario: azul violáceo.
+- Confirmación: verde oliva.
+- Cancelación: estilo neutro o azul violáceo.
+- Eliminación: rojo coral.
+- Advertencia: amarillo anaranjado.
+
+### Contraste de los botones
+
+- Azul violáceo: texto blanco.
+- Verde oliva: texto negro.
+- Rojo coral: texto negro.
+- Amarillo anaranjado: texto negro.
+- Rosa 1: texto negro (`#000000`) sobre `#E91683` (verificado). Para casos con texto pequeño, preferir texto oscuro sobre superficie neutra si el contraste no es suficiente.
+- Rosa 2: utilizar para hover/profundidad, manteniendo la tinta adecuada según el fondo.
+
+Las combinaciones indicadas deben validarse con los valores HEX definitivos.
+
+### Apariencia y comportamiento
+
+- Bordes ligeramente redondeados.
+- Sombras y luces sutiles para aportar profundidad.
+- Estados visibles de foco, hover, pulsación, carga y deshabilitado.
+- Transiciones breves.
+- Objetivos táctiles de aproximadamente 44 × 44 píxeles CSS o mayores cuando sea posible.
+- Etiquetas concretas: «Guardar», «Confirmar voto», «Cancelar» y «Eliminar».
+
+No utilizar el rojo para cancelar operaciones comunes si no existe un riesgo real.
+
+## 6. Tarjetas y contenedores
+
+- Usar superficies neutras.
+- Mantener jerarquía entre títulos, descripciones y acciones.
+- Aplicar sombras discretas.
+- Evitar bordes de colores intensos en todas las tarjetas.
+- Reservar los colores oficiales para elementos que necesiten destacar.
+- Mantener las tarjetas de comparsas diferenciadas mediante sus colores configurables, sin confundirlos con la paleta de la interfaz.
+
+## 7. Modales y diálogos
+
+Todos los modales deben seguir un patrón consistente.
+
+### Creación y edición
+
+- Título descriptivo.
+- Campos etiquetados.
+- Validaciones claras.
+- Acción principal para guardar.
+- Acción secundaria para cancelar.
+- Advertencia cuando existan cambios sin guardar.
+
+### Confirmación
+
+- Describir la operación y sus consecuencias.
+- Utilizar botones con etiquetas explícitas.
+- Permitir cancelar sin ejecutar la acción.
+- No depender únicamente de un cambio de color para comunicar el riesgo.
+
+### Eliminación
+
+- Utilizar rojo coral para destacar la acción destructiva.
+- Explicar qué elemento se eliminará.
+- Informar sobre posibles consecuencias.
+- Utilizar «Eliminar» en lugar de «Aceptar».
+- No ejecutar la operación antes de la confirmación.
 
 ### Contraste
 
-Verificar el contraste de textos, iconos, bordes y estados interactivos según las pautas WCAG 2.2 AA.
+- Tema claro: superficies blancas.
+- Tema oscuro: superficies negras o tonos oscuros diferenciados.
+- Texto legible y controles con contraste suficiente.
+- Superposición que separe el diálogo del contenido de fondo.
+- Foco visible y navegación por teclado.
 
-Como referencia:
+## 8. Formularios
 
-- Texto normal: contraste mínimo de `4.5:1`.
-- Texto grande: contraste mínimo de `3:1`.
-- Componentes de interfaz y elementos gráficos necesarios: contraste mínimo de `3:1` respecto de los colores adyacentes, cuando corresponda.
+- Etiquetas visibles.
+- Campos obligatorios identificados.
+- Errores junto al campo correspondiente.
+- Mensajes que expliquen cómo corregir los errores.
+- Valores introducidos conservados ante errores de validación.
+- Bordes y estados de foco visibles.
+- Contraste comprobado en ambos temas.
 
-No asumir que una combinación es accesible solo porque visualmente parece contrastante. Comprobarla con una herramienta de contraste.
+Los datos introducidos y las validaciones existentes deben conservar su comportamiento.
 
-Si una combinación no cumple los requisitos, ajustar el color del texto o del componente sin modificar innecesariamente la identidad visual.
+## 9. Pantalla del jurado
 
----
+La pantalla de votación tiene máxima prioridad operativa.
 
-## 9. Estados y retroalimentación
+- Identificar claramente la comparsa, el rubro y el elemento evaluado.
+- Facilitar la selección de puntuaciones.
+- Diferenciar las opciones seleccionadas.
+- Mostrar el progreso y los criterios pendientes.
+- Explicar las restricciones de horario o estado.
+- Confirmar el guardado correcto.
+- Solicitar confirmación antes de cerrar definitivamente una planilla.
+- Evitar animaciones y notificaciones distractoras.
 
-Toda operación importante debe comunicar su estado de manera clara.
+Los estados de guardado, error y confirmación deben distinguirse por color, texto e iconografía.
 
-Estados principales:
+Ningún cambio visual puede modificar los puntajes, los permisos, las validaciones o las reglas de confirmación de votos.
 
-- **Pendiente:** la acción todavía no se completó.
-- **En proceso:** la operación se está ejecutando.
-- **Guardado localmente:** los datos están almacenados en el dispositivo, pero pueden no haberse sincronizado.
-- **Sincronizando:** el sistema está intentando enviar los datos al servidor.
-- **Guardado y sincronizado:** el servidor confirmó que los datos se almacenaron correctamente.
-- **Error:** la operación no pudo completarse.
-- **Confirmado:** la acción final fue registrada y no puede modificarse desde la interfaz.
+## 10. Pantalla del administrador
 
-Cuando una operación falle:
+- Organizar las secciones mediante títulos y separadores visibles.
+- Mantener consistencia en tablas, tarjetas, formularios y modales.
+- Diferenciar acciones principales y secundarias.
+- Identificar claramente creación, edición y eliminación.
+- Mostrar estados de carga, guardado y error.
+- Mantener los permisos administrativos existentes.
+- No exponer resultados parciales del jurado como consecuencia de cambios visuales.
 
-- Explicar qué ocurrió.
-- Informar si los datos ingresados se conservaron.
-- Proporcionar una acción para reintentar cuando sea posible.
-- No indicar que se guardaron datos si el servidor no confirmó el registro.
+## 11. Tema claro y oscuro
 
----
+### Tema claro
 
-## 10. Reglas específicas de las votaciones
+- Fondo general: `#FFFFFF`.
+- Texto principal: negro o gris muy oscuro.
+- Superficies: blanco con matices rosados muy suaves (`#FFF5FA`).
+- Tarjetas: `#FFF5FA` con bordes sutiles derivados de los rosas oficiales.
+- Bordes: derivados de los rosas oficiales con transparencia.
+- Colores oficiales: acciones, estados y destacados utilizando ambos rosas.
 
-Las pantallas de votación requieren especial cuidado porque registran puntuaciones oficiales durante un evento en vivo.
+### Tema oscuro
 
-### Guardado y confirmación
+- Fondo general: `#000000`.
+- Texto principal: blanco o gris muy claro.
+- Superficies: negro con matices rosados oscuros.
+- Tarjetas: `#14000A` con bordes discretos derivados de los rosas oficiales.
+- Bordes: derivados de los rosas oficiales con transparencia.
+- Colores oficiales: conservar los HEX originales, utilizarlos para énfasis.
 
-- Diferenciar claramente entre guardar avances y confirmar definitivamente una planilla.
-- Advertir al jurado antes de confirmar y cerrar la planilla.
-- Explicar que, después de la confirmación definitiva, los votos no pueden modificarse.
-- No permitir editar votos confirmados desde la interfaz.
-- Utilizar etiquetas explícitas, como «Guardar avance» y «Confirmar y cerrar planilla».
-- No utilizar únicamente el color para distinguir estas acciones.
+El tema oscuro no debe limitarse a invertir colores. Revisar por separado tarjetas, campos, menús, modales, textos secundarios, foco y estados interactivos.
 
-### Conectividad
+Verificar todas las combinaciones de contraste en ambos temas.
 
-Si se implementa el guardado sin conexión:
+## 12. Animaciones y efectos visuales
 
-- Informar cuándo los datos se guardaron localmente.
-- Diferenciar los datos locales de los confirmados por el servidor.
-- Mostrar el estado de sincronización.
-- Evitar indicar que una planilla fue recibida oficialmente mientras no exista confirmación del servidor.
-- Proteger los datos locales y evitar duplicaciones al recuperar la conexión.
+Se permiten luces, sombras, transiciones y animaciones discretas.
 
-### Seguridad y transparencia
+- Mantener tiempos breves.
+- Evitar retrasos en las acciones.
+- No impedir la interacción durante animaciones decorativas.
+- Evitar movimientos constantes que distraigan.
+- Respetar la preferencia de movimiento reducido.
+- No mostrar una operación como exitosa antes de recibir la confirmación real del sistema.
 
-- No mostrar resultados parciales o acumulados a usuarios sin autorización.
-- Informar cuando la sesión no esté disponible por restricciones de fecha u horario.
-- Comunicar errores de forma comprensible.
-- No permitir que la apariencia de la interfaz contradiga las reglas reales de votación.
-- Registrar y validar en el servidor las acciones críticas, sin depender exclusivamente de las restricciones visuales del frontend.
+Los efectos visuales deben ser independientes de la lógica de guardado y confirmación.
 
----
+## 13. Implementación técnica
 
-## 11. Consistencia entre secciones
+1. Centralizar colores y valores visuales mediante variables CSS.
+2. Utilizar variables semánticas para fondos, textos, botones, errores y estados.
+3. Evitar repetir códigos HEX en múltiples componentes.
+4. Mantener separados los estilos y la lógica de negocio.
+5. Reutilizar componentes existentes.
+6. No duplicar componentes para resolver diferencias de apariencia.
+7. Conservar validaciones, permisos y reglas de votación.
+8. Comprobar el diseño responsive.
+9. Probar estados de carga, error, foco, selección y deshabilitado.
+10. Ejecutar las pruebas existentes y corregir las regresiones.
+11. Verificar el contraste con una herramienta automatizada y realizar comprobaciones visuales.
+12. Probar los componentes en tema claro y oscuro.
 
-Antes de crear un componente o modificar uno existente:
+## 14. Criterio final
 
-1. Comprobar si ya existe un componente equivalente.
-2. Reutilizar los estilos y patrones existentes.
-3. Respetar la paleta de colores definida.
-4. Mantener el mismo comportamiento para acciones equivalentes.
-5. Comprobar el diseño en diferentes tamaños de pantalla.
-6. Verificar contraste, legibilidad y estados interactivos.
-7. Evitar introducir colores o estilos arbitrarios.
-8. No duplicar componentes cuando sea posible reutilizar los existentes.
+La identidad visual de Carnaval2027 debe respetar la paleta oficial compuesta por dos rosas (`#E91683`, `#C70F6F`), azul violáceo (`#3F51B5`), verde oliva (`#8BC34A`), rojo coral (`#FF5252`) y amarillo anaranjado (`#FFC107`), con los dos temas: blanco con matices rosados y negro con matices rosados oscuros.
 
-Los cambios deben mantener la coherencia entre las pantallas de jurados, comisarios y administradores, respetando las diferencias funcionales de cada rol.
+El rosa identifica la marca; el azul organiza las acciones complementarias; el verde comunica éxito; el rojo identifica acciones destructivas o errores; y el amarillo señala advertencias.
 
----
+**La paleta oficial no debe modificarse para corregir problemas de accesibilidad.** Se debe adaptar el texto, la superficie, los bordes y la composición del componente para obtener un contraste adecuado.
 
-## 12. Instrucciones para futuras modificaciones
-
-Este archivo debe utilizarse como referencia principal para implementar o modificar los estilos del portal.
-
-- No rediseñar componentes existentes sin una necesidad concreta.
-- No cambiar arbitrariamente la paleta de colores.
-- No introducir nuevos colores sin una justificación funcional.
-- No alterar las reglas de votación para resolver un problema meramente visual.
-- Priorizar accesibilidad, claridad y seguridad sobre la decoración.
-- Si una regla visual entra en conflicto con una acción crítica, priorizar que el usuario comprenda sus consecuencias.
-- Si una combinación de colores no cumple los requisitos de contraste, proponer una variante accesible y coherente con la paleta.
-- Comprobar que las modificaciones no rompan el diseño adaptable ni los componentes existentes.
-
-**Objetivo final:** mantener una interfaz profesional, consistente y accesible que facilite el trabajo de jurados, comisarios y administradores, reduzca errores y contribuya a la transparencia del proceso de votación.
+La prioridad es que los jurados puedan votar con rapidez, claridad y confianza, sin errores ni confusiones. La estética debe reforzar la transparencia y la fiabilidad del sistema.

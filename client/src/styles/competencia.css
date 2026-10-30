@@ -47,7 +47,7 @@
   padding: 0.3rem;
   border: 1px solid var(--line-color);
   border-radius: var(--radius-md);
-  background: rgba(9, 13, 22, 0.5);
+  background: var(--surface-raised);
 }
 
 .competencia-tabs button {
@@ -164,7 +164,7 @@
   list-style: none;
 }
 
-.readiness-checklist li {
+.readiness-checklist > li {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -389,71 +389,10 @@
 
 .competencia-nav.competencia-stepper {
   display: block;
-}
-
-.competencia-stepper ol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin: 0;
   padding: 0;
-  list-style: none;
-}
-
-.competencia-stepper li {
-  flex: 1 1 11rem;
-  min-inline-size: 0;
-}
-
-.competencia-stepper button {
-  inline-size: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  text-align: start;
-}
-
-.competencia-stepper button:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.competencia-step-badge {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-inline-size: 1.75rem;
-  min-block-size: 1.75rem;
-  border-radius: 999px;
-  background: var(--surface-raised);
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.competencia-stepper button.active .competencia-step-badge {
-  background: var(--surface-hover-subtle);
-  color: var(--text-on-accent);
-}
-
-.competencia-step-copy {
-  display: grid;
-  gap: 0.1rem;
-  min-inline-size: 0;
-}
-
-.competencia-step-label {
-  font-weight: 750;
-  overflow-wrap: break-word;
-}
-
-.competencia-step-state {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.85;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .competencia-progress {
@@ -505,14 +444,6 @@
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-sm);
 }
-
-@media (max-width: 36rem) {
-  .competencia-stepper li {
-    flex-basis: 100%;
-  }
-}
-
-.competencia-stepper button.active .competencia-step-state { opacity: 1; }
 
 .evaluation-section-heading,
 .evaluation-list-heading {
@@ -575,6 +506,20 @@
 .rubric-create-layout { display: grid; grid-template-columns: minmax(0, 1fr) 14rem; gap: var(--space-5); align-items: start; }
 .rubric-create-main { display: flex; flex-direction: column; gap: var(--space-4); min-inline-size: 0; }
 .rubric-create-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-3); }
+.rubric-choice-fieldset { display: grid; gap: var(--space-3); margin: 0; padding: 0; border: 0; }
+.rubric-choice-fieldset legend { margin-bottom: var(--space-1); font-size: var(--text-lg); font-weight: 700; }
+.rubric-choice-fieldset > p { margin: calc(var(--space-3) * -1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.rubric-target-options, .rubric-rule-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.rubric-choice-card, .rubric-rule-card { display: flex; gap: var(--space-3); min-width: 0; padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-raised); cursor: pointer; }
+.rubric-choice-card:has(input:checked), .rubric-rule-card:has(input:checked) { border: 2px solid var(--color-primary, var(--accent)); }
+.rubric-choice-card input, .rubric-rule-card input { flex: 0 0 auto; inline-size: 1.25rem; block-size: 1.25rem; margin: 0; accent-color: var(--accent); }
+.rubric-choice-card strong, .rubric-choice-card small, .rubric-rule-card small { display: block; }
+.rubric-choice-card small, .rubric-rule-card small { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--text-sm); font-weight: 400; }
+.rubric-rule-card { display: block; }
+.rubric-rule-title { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: 700; }
+.rubric-rule-description { display: block; margin: var(--space-3) 0 0 2rem; color: var(--text-primary); }
+.rubric-create-form input[type="radio"]:focus-visible { outline: 3px solid var(--focus-color, var(--accent)); outline-offset: 2px; }
+.rubric-type-help { margin: calc(var(--space-3) * -1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); }
 .rubric-create-items { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding-block-start: var(--space-4); border-block-start: 1px solid var(--border-subtle); }
 .rubric-create-items h4 { margin: 0; }
 .rubric-create-empty { margin: 0; color: var(--text-secondary); }
@@ -594,29 +539,35 @@
 .rubric-create-form .rubric-create-actions { flex-wrap: wrap; }
 @media (max-width: 48rem) {
   .rubric-create-layout { grid-template-columns: minmax(0, 1fr); }
+  .rubric-target-options, .rubric-rule-options { grid-template-columns: minmax(0, 1fr); }
   .rubric-create-summary { position: static; }
 }
 
-/* Alta de rubro: paleta y ritmo del diseño aprobado. Los botones conservan su estilo. */
+/* Alta de rubro: usa los tokens del tema activo (claro/oscuro) y la acción rosa del proyecto. */
 .evaluation-rubrics-col .rubric-create-form {
-  --rc-panel: var(--rubric-form-panel);
-  --rc-field: var(--rubric-form-field);
-  --rc-line: var(--rubric-form-line);
-  --rc-field-line: var(--rubric-form-field-line);
-  --rc-muted: var(--rubric-form-muted);
-  gap: 24px;
-  padding: 24px;
-  border: 1px solid var(--rc-line);
+  --rc-panel: var(--surface-card);
+  --rc-field: var(--surface-input);
+  --rc-line: var(--border-subtle);
+  --rc-field-line: var(--border-input);
+  --rc-muted: var(--text-muted);
+  --rc-ink: var(--text-primary);
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--border-card);
   border-radius: 16px;
   background: var(--rc-panel);
-  color: var(--text-primary);
+  color: var(--rc-ink);
+  text-align: start;
 }
-.evaluation-rubrics-col .rubric-create-form h3 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.evaluation-rubrics-col .rubric-create-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.evaluation-rubrics-col .rubric-create-form h3 { font-size: 20px; font-weight: 700; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-create-layout { grid-template-columns: minmax(0, 1fr); }
+.evaluation-rubrics-col .rubric-create-main { gap: 16px; }
 .evaluation-rubrics-col .rubric-create-head p,
 .evaluation-rubrics-col .rubric-create-hint,
 .evaluation-rubrics-col .rubric-create-empty { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--rc-muted); }
-.evaluation-rubrics-col .rubric-create-form label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.evaluation-rubrics-col .rubric-create-form input:not([type="checkbox"]),
+.evaluation-rubrics-col .rubric-create-form label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-create-form input:not([type="checkbox"]):not([type="radio"]),
 .evaluation-rubrics-col .rubric-create-form select {
   box-sizing: border-box;
   inline-size: 100%;
@@ -625,15 +576,38 @@
   border: 1px solid var(--rc-field-line);
   border-radius: 10px;
   background: var(--rc-field);
-  color: var(--text-primary);
+  color: var(--rc-ink);
   font-size: 16px;
   font-weight: 400;
 }
-.evaluation-rubrics-col .rubric-create-form input::placeholder { color: var(--rubric-form-placeholder); }
-.evaluation-rubrics-col .rubric-create-form input[type="checkbox"] { inline-size: auto; min-block-size: auto; margin: 0; accent-color: var(--rubric-form-check); }
+.evaluation-rubrics-col .rubric-create-form input:focus-visible,
+.evaluation-rubrics-col .rubric-create-form select:focus-visible { outline: 3px solid var(--focus-color); outline-offset: 2px; }
+.evaluation-rubrics-col .rubric-create-form input::placeholder { color: var(--rc-muted); }
+.evaluation-rubrics-col .rubric-create-form input[type="checkbox"],
+.evaluation-rubrics-col .rubric-create-form input[type="radio"] { inline-size: 20px; block-size: 20px; min-block-size: 20px; padding: 0; margin: 0; accent-color: var(--accent-primary); }
+.evaluation-rubrics-col .rubric-choice-fieldset { gap: 12px; text-align: start; }
+.evaluation-rubrics-col .rubric-choice-fieldset legend { margin: 0; font-size: 17px; font-weight: 800; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-choice-fieldset > p { margin: -4px 0 0; color: var(--rc-muted); font-size: 14px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-target-options, .evaluation-rubrics-col .rubric-rule-options { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.evaluation-rubrics-col .rubric-choice-card, .evaluation-rubrics-col .rubric-rule-card { flex-direction: row; align-items: flex-start; gap: 12px; min-height: 68px; padding: 14px; border: 1px solid var(--rc-field-line); border-radius: 8px; background: var(--rc-field); }
+.evaluation-rubrics-col .rubric-create-form .rubric-rule-card { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; align-items: start; gap: 2px; min-height: 0; padding: 6px 0; border: 0; background: transparent; text-align: start; }
+.evaluation-rubrics-col .rubric-create-form .rubric-target-options .rubric-choice-card { justify-items: start; text-align: start; }
+.evaluation-rubrics-col .rubric-create-form .rubric-rule-title { justify-content: flex-start; }
+.evaluation-rubrics-col .rubric-create-form .rubric-rule-description { margin: 0 0 0 30px; }
+.evaluation-rubrics-col .rubric-create-form select { align-self: stretch; text-align: start; }
+.evaluation-rubrics-col .rubric-choice-card:has(input:checked), .evaluation-rubrics-col .rubric-choice-card:has(input:checked) { border: 2px solid var(--accent-primary); }
+.evaluation-rubrics-col .rubric-rule-card:has(input:checked) { border: 0; }
+.evaluation-rubrics-col .rubric-choice-card > span { min-width: 0; }
+.evaluation-rubrics-col .rubric-choice-card strong { font-weight: 700; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-choice-card small, .evaluation-rubrics-col .rubric-rule-card small { display: block; margin-top: 4px; color: var(--rc-muted); font-size: 13px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-rule-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-rule-description { display: block; margin: 0; color: var(--rc-muted); font-size: 14px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-rule-card small { margin: 8px 0 0 30px; }
+.evaluation-rubrics-col .rubric-evaluation-target { padding-block-start: 16px; border-block-start: 1px solid var(--rc-line); }
+.evaluation-rubrics-col .rubric-evaluation-target .rubric-choice-card { min-height: 48px; padding: 10px 12px; border-radius: 999px; }
 .evaluation-rubrics-col .rubric-create-pair { gap: 16px; }
 .evaluation-rubrics-col .rubric-create-items { gap: 12px; padding-block-start: 0; border-block-start: 0; }
-.evaluation-rubrics-col .rubric-create-items h4 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.evaluation-rubrics-col .rubric-create-items h4 { font-size: 18px; font-weight: 700; color: var(--rc-ink); }
 .evaluation-rubrics-col .rubric-create-item { gap: 12px; padding: 16px; border: 1px solid var(--rc-line); border-radius: 12px; }
 .evaluation-rubrics-col .rubric-create-item-main { gap: 12px; }
 .evaluation-rubrics-col .rubric-create-item p { color: var(--rc-muted); }
@@ -648,19 +622,27 @@
   border-radius: 12px;
   background: var(--rc-field);
 }
+.evaluation-rubrics-col .rubric-create-form .rubric-icon-picker > legend { color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-create-form .rubric-icon-picker-hint { color: var(--rc-muted); }
 .evaluation-rubrics-col .rubric-create-summary {
-  gap: 16px;
-  padding: 24px;
+  position: static;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--rc-line);
-  border-radius: 16px;
-  background: var(--rc-panel);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--rc-ink);
 }
-.evaluation-rubrics-col .rubric-create-summary h4 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
-.evaluation-rubrics-col .rubric-create-summary dl { gap: 12px; }
-.evaluation-rubrics-col .rubric-create-summary dt { font-size: 13px; color: var(--rc-muted); }
-.evaluation-rubrics-col .rubric-create-summary dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.evaluation-rubrics-col .rubric-create-summary h4 { margin: 0; font-size: 18px; font-weight: 700; color: var(--rc-ink); }
+.evaluation-rubrics-col .rubric-create-summary ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.evaluation-rubrics-col .rubric-create-summary li { display: flex; align-items: flex-start; gap: 10px; color: var(--rc-ink); font-size: 15px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-create-summary li > span { display: inline-grid; flex: 0 0 18px; inline-size: 18px; block-size: 18px; place-items: center; border: 2px solid var(--accent-primary); border-radius: 50%; color: var(--accent-primary); font-size: 12px; font-weight: 800; line-height: 1; }
 .evaluation-rubrics-col .rubric-create-note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--rc-muted); }
 .evaluation-rubrics-col .rubric-create-form .rubric-create-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); padding-block-start: 16px; border-block-start: 1px solid var(--rc-line); }
+@media (max-width: 48rem) {
+  .evaluation-rubrics-col .rubric-create-form { padding: 16px; }
+  .evaluation-rubrics-col .rubric-rule-card { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
 .rubric-group-heading { margin: 1.5rem 0 0.5rem; font-size: 1rem; }
 .evaluation-rubrics-col .rubric-card-unassigned { border-style: dashed; }
 .rubric-item-preview strong { color: var(--text-primary); font-size: var(--text-sm); }
@@ -776,94 +758,199 @@
 
 /* ==========================================================================
    Wizard Stepper & Navigation (Preparación del evento)
+   Las seis etapas conservan su navegación directa, agrupadas por tarea. En
+   pantallas angostas el conjunto se desplaza horizontalmente.
    ========================================================================== */
 
 .competencia-stepper-header {
   margin-block-end: 1.5rem;
 }
 
-.competencia-stepper-line {
+.competencia-stepper .competencia-stepper-groups {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  gap: var(--space-3);
   list-style: none;
   margin: 0;
   padding: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  width: max-content;
+  min-width: 100%;
 }
 
-.competencia-stepper-item {
+.readiness-checklist .readiness-nominations-item {
+  align-items: flex-start;
+}
+
+.incomplete-nominations-summary {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.incomplete-nominations-summary p {
+  margin: 0;
+}
+
+.incomplete-nominations-summary details {
+  margin-block-start: 0.35rem;
+}
+
+.incomplete-nominations-summary summary {
+  cursor: pointer;
+  color: var(--link, var(--text-primary));
+  font-weight: 700;
+}
+
+.incomplete-nominations-summary ul {
+  margin-block: 0.4rem;
+  padding-inline-start: 1.25rem;
+}
+
+.incomplete-nominations-summary > details > ul > li + li {
+  margin-block-start: 0.4rem;
+}
+
+.competencia-stepper .competencia-stepper-group {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  flex: 1 1 10rem;
+  min-inline-size: 10rem;
+  border-block-end: 1px solid var(--border-default);
+  scroll-snap-align: start;
+}
+
+.competencia-stepper .competencia-stepper-group:first-child {
+  flex: 3 1 27rem;
+  min-inline-size: 27rem;
+}
+
+.competencia-stepper-group-label {
+  margin: 0;
+  padding: 0.25rem 0.5rem 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.competencia-stepper .competencia-stepper-line {
+  display: flex;
+  align-items: stretch;
   flex: 1;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  box-shadow: inset 0 -1px 0 var(--border-default);
 }
 
-.competencia-stepper-item:last-child {
-  flex: 0 0 auto;
+.competencia-stepper .competencia-stepper-item {
+  display: flex;
+  flex: 1 1 0;
+  min-inline-size: 8rem;
+  scroll-snap-align: start;
 }
 
-.competencia-stepper-btn {
+.competencia-stepper .competencia-stepper-btn {
+  inline-size: 100%;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0.55rem;
   background: transparent;
-  border: none;
-  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-block-end: 3px solid transparent;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 600;
-  border-radius: var(--radius-md);
-  transition: color 0.15s ease;
-  white-space: nowrap;
+  line-height: 1.2;
+  text-align: start;
+  justify-content: flex-start;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  white-space: normal;
 }
 
-.competencia-stepper-btn:hover {
+.competencia-stepper .competencia-stepper-btn:hover {
   color: var(--text-primary);
+  background: var(--surface-hover-subtle);
+}
+
+.competencia-stepper .competencia-stepper-btn.is-active {
+  color: var(--text-primary);
+  font-weight: 700;
+  /* Mismo fondo que el contenido: la solapa queda abierta hacia el paso. */
+  background: var(--surface-base);
+  border-color: var(--border-default);
+  border-block-end-color: var(--accent-primary);
+  box-shadow: none;
+}
+
+/* Después de is-active para conservar el anillo de foco en la solapa actual. */
+.competencia-stepper .competencia-stepper-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .competencia-stepper-circle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: 1.65rem;
+  block-size: 1.65rem;
   border-radius: var(--radius-full);
   background: var(--surface-raised);
   border: 2px solid var(--border-default);
   color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 800;
   flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
 .competencia-stepper-btn.is-active .competencia-stepper-circle {
-  background: var(--palette-action);
-  border-color: var(--palette-action);
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
   color: var(--text-on-accent);
-}
-
-.competencia-stepper-btn.is-active {
-  color: var(--palette-action);
-  font-weight: 700;
-  border-block-end: 3px solid var(--palette-action);
-  border-radius: 0;
-  padding-block-end: var(--space-2);
 }
 
 .competencia-stepper-btn.is-complete .competencia-stepper-circle {
   background: var(--surface-card);
-  border-color: var(--success);
-  color: var(--success);
+  border-color: var(--success-text);
+  color: var(--success-text);
 }
 
-.competencia-stepper-divider {
-  flex: 1;
-  block-size: 2px;
-  background: var(--border-subtle);
-  margin-inline: var(--space-3);
-  min-inline-size: 1.5rem;
+.competencia-step-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-inline-size: 0;
+}
+
+.competencia-step-label {
+  font-weight: 750;
+  overflow-wrap: break-word;
+}
+
+.competencia-step-state {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.competencia-stepper-btn.is-active .competencia-step-state {
+  opacity: 1;
+}
+
+.competencia-stepper-btn.is-complete .competencia-step-state {
+  color: var(--success-text);
 }
 
 /* Sub-pestañas: [Comparsas] [Orden de pasada] */
@@ -969,7 +1056,7 @@
 }
 
 .competencia-readiness-badge.is-ready {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 /* Catálogos del paso Participantes: tipos primero, comparsas después. */
@@ -1206,7 +1293,8 @@
 }
 
 .assigned-judge-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 12.5rem) max-content;
   align-items: baseline;
   gap: var(--space-2);
 }
@@ -1391,6 +1479,98 @@
   margin: var(--space-1) 0 0;
   color: var(--text-secondary);
   font-size: var(--text-base);
+}
+
+.troupe-nominations-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.troupe-nominations-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.troupe-nominations-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.troupe-nominations-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+}
+
+.troupe-nomination-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3);
+}
+
+.troupe-nomination-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.troupe-nomination-group.is-missing {
+  border-color: var(--warning-text);
+}
+
+.troupe-nomination-group-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.troupe-nomination-group-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.troupe-nomination-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.troupe-nomination-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+}
+
+.troupe-nomination-list li > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.troupe-nomination-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.troupe-nomination-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .evaluation-panel-body {

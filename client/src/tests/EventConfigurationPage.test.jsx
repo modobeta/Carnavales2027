@@ -13,13 +13,39 @@ describe("EventConfigurationPage", () => {
     expect(container.querySelector("main.admin-shell")).toHaveAttribute("data-layer", "instrument");
   });
 
-  it("muestra solo datos del evento y jornadas, sin rubros ni comparsas", () => {
+  it("muestra datos del evento y jornadas antes del bloque de apertura", () => {
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    expect(screen.getByRole("heading", { name: "Datos del evento" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Jornadas" })).toBeInTheDocument();
+    const dataSection = screen.getByRole("heading", { name: "Datos del evento" }).closest("section");
+    const nightsSection = screen.getByRole("heading", { name: "Jornadas" }).closest("section");
+    const readinessSection = screen.getByRole("heading", { name: "Preparar y comenzar" }).closest("section");
+
+    expect(dataSection.compareDocumentPosition(nightsSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nightsSection.compareDocumentPosition(readinessSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("Rubros")).not.toBeInTheDocument();
     expect(screen.queryByText("Comparsas")).not.toBeInTheDocument();
     expect(screen.queryByText("Especialidades")).not.toBeInTheDocument();
+  });
+
+  it("abre la gestión de jurados desde la jornada en preparación", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval 2027", status: "CONFIGURING" }]);
+      if (path === "/api/v1/judges") return Promise.resolve([]);
+      if (path.endsWith("/judge-assignments")) return Promise.resolve({ quotas: [], assignments: [] });
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]);
+      if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Desfile", active: true }]);
+      if (path.endsWith("/readiness")) return Promise.resolve({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics: [], incompleteSchedules: [], incompleteNominations: [], nightsWithoutJury: [{ nightId: "night-1", nightName: "Noche 1" }] });
+      return Promise.resolve({ ready: false, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
+    });
+    render(<EventConfigurationPage
+      event={{ id: "event-1", name: "Carnaval 2027", status: "CONFIGURING" }}
+      nights={[{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]}
+    />);
+
+    fireEvent.click(await screen.findByRole("link", { name: "Preparar jurados en Jornadas" }));
+
+    const panel = await screen.findByRole("region", { name: "Jurados de Noche 1" });
+    expect(panel.querySelector(".assignment-page-embedded")).toBeInTheDocument();
+    expect(await within(panel).findByRole("button", { name: "+ Asignar jurado" })).toBeEnabled();
   });
 
   it("deja la configuracion en solo lectura cuando el evento esta OPEN", () => {
@@ -124,7 +150,7 @@ describe("EventConfigurationPage", () => {
   it("muestra el panel de preparacion del evento", async () => {
     apiRequest.mockResolvedValue({ ready: true, missing: [], incompleteTroupes: [], incompleteRubrics: [], orphanedCriteria: [] });
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} />);
-    await waitFor(() => expect(screen.getByText("Requisitos para abrir el evento")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Preparar y comenzar" })).toBeInTheDocument());
   });
 
   it("permite eliminar una jornada con confirmacion previa", async () => {
@@ -171,5 +197,6 @@ describe("EventConfigurationPage", () => {
       nights={[{ id: "n1", name: "Noche 1", displayOrder: 1, kind: "COMPETITION", eventDate: null, status: "DRAFT" }]}
     />);
     expect(screen.queryByRole("button", { name: "Eliminar jornada Noche 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preparar jurados — Noche 1" })).toBeEnabled();
   });
 });

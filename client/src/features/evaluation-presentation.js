@@ -15,7 +15,8 @@ export function deriveEvaluationPresentation({ specialties, rubrics, readiness }
   const historicalRubrics = [];
 
   for (const rubric of rubrics) {
-    const items = rubric.items.filter((item) => item.active !== false && activeIds.has(item.specialtyId));
+    const items = rubric.items.filter((item) => item.active !== false
+      && (item.specialtyIds ?? [item.specialtyId]).some((id) => activeIds.has(id)));
     if (rubric.active === false) {
       historicalRubrics.push(rubric);
       continue;
@@ -24,11 +25,11 @@ export function deriveEvaluationPresentation({ specialties, rubrics, readiness }
       pendingRubrics.push(rubric);
       continue;
     }
-    const specialtyIds = new Set(items.map((item) => item.specialtyId));
+    const specialtyIds = new Set(items.flatMap((item) => item.specialtyIds ?? [item.specialtyId]));
     for (const specialtyId of specialtyIds) {
       associations.set(specialtyId, [...(associations.get(specialtyId) ?? []), {
         rubric,
-        items: items.filter((item) => item.specialtyId === specialtyId),
+        items: items.filter((item) => (item.specialtyIds ?? [item.specialtyId]).includes(specialtyId)),
         shared: specialtyIds.size > 1,
       }]);
     }

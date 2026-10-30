@@ -1,5 +1,5 @@
 export function sendKnownError(response, error) {
-  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED", "NIGHT_REORDER_STARTED_TROUPES", "NOMINATION_ALREADY_EXISTS", "RANDOM_RUBRIC_NOMINATION_LIMIT", "NOMINATION_CONFIGURATION_INCOMPLETE"].includes(error.message)) {
+  if (["ORDER_CONFLICT", "ORDER_BOUNDARY", "CRITERION_REASSIGNMENT_REQUIRED", "NIGHT_REORDER_STARTED_TROUPES", "NOMINATION_ALREADY_EXISTS", "RANDOM_RUBRIC_NOMINATION_LIMIT", "NOMINATION_CONFIGURATION_INCOMPLETE", "VOTING_RELEASE_MODE_LOCKED", "TROUPE_ALREADY_RELEASED", "ALL_TROUPES_NOT_RELEASED", "ACTIVE_TROUPE_BALLOTS_INCOMPLETE", "TROUPE_NOT_RELEASED", "NIGHT_WITHOUT_ACTIVE_JURY", "JUDGE_ASSIGNMENT_NIGHT_OPEN"].includes(error.message)) {
     response.status(409).json({ code: error.message });
     return true;
   }
@@ -29,7 +29,8 @@ export function sendKnownError(response, error) {
   if (
     error.message === "OFFICIAL_RECORD_NOT_FOUND" ||
     error.message === "EVENT_NOT_FOUND" ||
-    error.message === "NOMINATION_TROUPE_NOT_FOUND"
+    error.message === "NOMINATION_TROUPE_NOT_FOUND" ||
+    error.message === "NIGHT_SCHEDULE_ENTRY_NOT_FOUND"
   ) {
     response.status(404).json({ code: error.message });
     return true;
@@ -103,6 +104,10 @@ export function sendKnownError(response, error) {
   }
   if (["CATEGORY_INACTIVE", "SPECIALTY_INACTIVE"].includes(error.message)) {
     response.status(409).json({ code: error.message });
+    return true;
+  }
+  if (error.message === "SPECIALTY_NOT_FOUND") {
+    response.status(404).json({ code: error.message });
     return true;
   }
   if ([
@@ -180,6 +185,12 @@ export function sendKnownError(response, error) {
     "SCORE_IMMUTABLE",
     "SCORE_NOT_FOUND",
     "TROUPE_PRECEDENCE_REQUIRED",
+    "TROUPE_NOT_RELEASED",
+    "TROUPE_ALREADY_RELEASED",
+    "TROUPE_RELEASE_ORDER_REQUIRED",
+    "ALL_TROUPES_NOT_RELEASED",
+    "ACTIVE_TROUPE_BALLOTS_INCOMPLETE",
+    "VOTING_RELEASE_MODE_LOCKED",
     "EVENT_NOT_OPEN",
     "NIGHT_NOT_OPEN",
     "NIGHT_SCHEDULE_EMPTY",
