@@ -10,6 +10,7 @@ import { useUnsavedChanges, useFormDirty } from "../hooks/useUnsavedChanges.js";
 import { apiRequest } from "../api/http.js";
 import { EventReadinessPanel } from "../features/EventReadinessPanel.jsx";
 import { NightForm, nightKindLabel } from "../features/NightForm.jsx";
+import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 
 const EMPTY_LIST = [];
 const errorMessages = {
@@ -54,6 +55,7 @@ export function EventConfigurationPage({
   const [deleteNightTarget, setDeleteNightTarget] = useState(null);
   const [deletingNight, setDeletingNight] = useState(false);
   const [votingStatuses, setVotingStatuses] = useState({});
+  const [assignmentNightId, setAssignmentNightId] = useState("");
   const [renameTarget, setRenameTarget] = useState(null);
   const [createNightTarget, setCreateNightTarget] = useState(null);
   const [editNightTarget, setEditNightTarget] = useState(null);
@@ -258,17 +260,6 @@ export function EventConfigurationPage({
       <EventStatusBanner status={currentEvent.status} />
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 
-      <EventReadinessPanel
-        event={currentEvent}
-        locked={locked}
-        refreshKey={readinessRevision}
-        onOpened={(openedEvent) => {
-          setCurrentEvent((current) => ({ ...current, ...openedEvent }));
-          onEventChange?.(openedEvent);
-        }}
-        onGoToNights={() => nightsSectionRef.current?.scrollIntoView?.({ block: "start" })}
-      />
-
       <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
         <form
@@ -310,6 +301,18 @@ export function EventConfigurationPage({
                     <td>{nightKindLabel(night.kind)}</td>
                     {(showNightActions || canEditNight) && (
                       <td>
+                        {night.kind === "COMPETITION" && night.status !== "CLOSED" && currentEvent.status !== "CLOSED" && (
+                          <button
+                            className="secondary night-assignments-action"
+                            type="button"
+                            aria-label={`${assignmentNightId === night.id ? "Cerrar jurados" : night.status === "OPEN" ? "Revisar jurados" : "Preparar jurados"} — ${night.name}`}
+                            aria-expanded={assignmentNightId === night.id}
+                            aria-controls={`night-assignment-${night.id}`}
+                            onClick={() => setAssignmentNightId((current) => current === night.id ? "" : night.id)}
+                          >
+                            {assignmentNightId === night.id ? "Cerrar jurados" : night.status === "OPEN" ? "Revisar jurados" : "Preparar jurados"}
+                          </button>
+                        )}
                         {canEditNight && <button className="secondary edit-action" type="button" aria-label={`Editar jornada ${night.name}`} onClick={(event) => openEdit(night.id, event)}>Editar</button>}
                         {canDeleteNight(night) && <button
                           className="secondary danger-action"
@@ -335,7 +338,46 @@ export function EventConfigurationPage({
             </table>
           </div>
         )}
+        {assignmentNightId && nights.some((night) => night.id === assignmentNightId && night.kind === "COMPETITION" && night.status !== "CLOSED") && (
+          <section
+            className="night-assignment-panel"
+            id={`night-assignment-${assignmentNightId}`}
+            aria-labelledby={`night-assignment-heading-${assignmentNightId}`}
+          >
+            <div className="night-assignment-panel__header">
+              <div>
+                <p className="eyebrow">Preparación de jornada</p>
+                <h3 id={`night-assignment-heading-${assignmentNightId}`}>
+                  Jurados de {nights.find((night) => night.id === assignmentNightId)?.name}
+                </h3>
+                <p>Asigná o revisá titulares y suplentes antes de operar la votación.</p>
+              </div>
+            </div>
+            <AdminAssignmentsPage
+              key={`${event.id}-${assignmentNightId}`}
+              embedded
+              fixedNight
+              initialEventId={event.id}
+              initialNightId={assignmentNightId}
+            />
+          </section>
+        )}
       </section>
+
+      <EventReadinessPanel
+        event={currentEvent}
+        locked={locked}
+        refreshKey={readinessRevision}
+        onOpened={(openedEvent) => {
+          setCurrentEvent((current) => ({ ...current, ...openedEvent }));
+          onEventChange?.(openedEvent);
+        }}
+        onGoToNights={() => nightsSectionRef.current?.scrollIntoView?.({ block: "start" })}
+        onGoToNightAssignments={(nightId) => {
+          setAssignmentNightId(nightId);
+          nightsSectionRef.current?.scrollIntoView?.({ block: "start" });
+        }}
+      />
 
       <EntityDrawer
         isOpen={drawerMode !== null && (

@@ -156,6 +156,24 @@
   container-type: inline-size;
 }
 
+.night-assignment-panel {
+  margin-block-start: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-inline-start: 4px solid var(--accent-text);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.night-assignment-panel__header {
+  margin-block-end: var(--space-4);
+}
+
+.night-assignment-panel__header h3,
+.night-assignment-panel__header p {
+  margin-block: 0 var(--space-2);
+}
+
 .section-heading {
   display: flex;
   flex-wrap: wrap;

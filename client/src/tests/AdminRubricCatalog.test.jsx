@@ -38,6 +38,7 @@ it("inicia con Rubros y ofrece los cinco pasos de preparación", async () => {
     .toEqual(["Definir evaluación", "Armar competencia", "Habilitar evento"]);
   expect(within(nav).getByRole("button", { name: /^Rubros/ })).toHaveAttribute("aria-current", "step");
   expect(await screen.findByRole("button", { name: "Agregar rubro" })).toBeInTheDocument();
+  expect(screen.getByText("Definí qué se evalúa y si cada rubro corresponde a comparsas o participantes. Después, en Evaluación, agregá los ítems y vinculalos con las especialidades.")).toBeInTheDocument();
   expect(screen.getByText("Paso 1 de 5")).toBeInTheDocument();
 });
 
@@ -47,7 +48,7 @@ it("crea un rubro de participantes sin especialidades ni ítems y lo ofrece dent
   fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Reina" } });
-  fireEvent.change(within(form).getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
+  fireEvent.click(within(form).getByRole("radio", { name: /Un participante nominado/ }));
   expect(within(form).queryByRole("button", { name: "Agregar otro ítem" })).not.toBeInTheDocument();
   expect(within(form).queryByLabelText(/Especialidad/)).not.toBeInTheDocument();
   fireEvent.submit(form);
@@ -96,7 +97,7 @@ it("separa bloqueos por especialidades de los bloqueos por asignación de jurado
   expect(states.especialidades).toBe("incomplete");
   const issues = readinessIssues(readiness);
   expect(issues.find((issue) => issue.key === "missing-ACTIVE_SPECIALTY").href).toBe("#/admin/competencia?step=especialidades");
-  expect(issues.find((issue) => issue.key === "jury-n1")).toMatchObject({ href: "#/admin/voting?nightId=n1", kind: "deferred" });
+  expect(issues.find((issue) => issue.key === "jury-n1")).toMatchObject({ href: "#/admin/events", action: "Ir a Jornadas", kind: "deferred" });
 });
 
 it.each(["red", "5xx", "sin ID"])("un POST de rubro incierto (%s) no se reenvía ni se confirma por coincidencia en GET", async (failure) => {
@@ -158,13 +159,13 @@ it("descartar una nominación reinicia el siguiente rubro como comparsa", async 
   render(<AdminCompetenciaPage event={event} />);
   fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-  fireEvent.change(within(form).getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
+  fireEvent.click(within(form).getByRole("radio", { name: /Un participante nominado/ }));
   fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
   fireEvent.click(within(await screen.findByRole("dialog", { name: /descartar cambios/i })).getByRole("button", { name: /Descartar/ }));
   fireEvent.click(screen.getByRole("button", { name: "Agregar rubro" }));
   const fresh = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-  expect(within(fresh).getByLabelText("A quién se evalúa")).toHaveValue("TROUPE");
-  expect(within(fresh).queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
+  expect(within(fresh).getByRole("radio", { name: /La comparsa/ })).toBeChecked();
+  expect(within(fresh).queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
   fireEvent.change(within(fresh).getByLabelText("Nombre del rubro"), { target: { value: "Vestuario" } });
   fireEvent.submit(fresh);
   await screen.findByText("Rubro guardado.");

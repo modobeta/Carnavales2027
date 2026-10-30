@@ -506,6 +506,20 @@
 .rubric-create-layout { display: grid; grid-template-columns: minmax(0, 1fr) 14rem; gap: var(--space-5); align-items: start; }
 .rubric-create-main { display: flex; flex-direction: column; gap: var(--space-4); min-inline-size: 0; }
 .rubric-create-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-3); }
+.rubric-choice-fieldset { display: grid; gap: var(--space-3); margin: 0; padding: 0; border: 0; }
+.rubric-choice-fieldset legend { margin-bottom: var(--space-1); font-size: var(--text-lg); font-weight: 700; }
+.rubric-choice-fieldset > p { margin: calc(var(--space-3) * -1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.rubric-target-options, .rubric-rule-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.rubric-choice-card, .rubric-rule-card { display: flex; gap: var(--space-3); min-width: 0; padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-raised); cursor: pointer; }
+.rubric-choice-card:has(input:checked), .rubric-rule-card:has(input:checked) { border: 2px solid var(--color-primary, var(--accent)); }
+.rubric-choice-card input, .rubric-rule-card input { flex: 0 0 auto; inline-size: 1.25rem; block-size: 1.25rem; margin: 0; accent-color: var(--accent); }
+.rubric-choice-card strong, .rubric-choice-card small, .rubric-rule-card small { display: block; }
+.rubric-choice-card small, .rubric-rule-card small { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--text-sm); font-weight: 400; }
+.rubric-rule-card { display: block; }
+.rubric-rule-title { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: 700; }
+.rubric-rule-description { display: block; margin: var(--space-3) 0 0 2rem; color: var(--text-primary); }
+.rubric-create-form input[type="radio"]:focus-visible { outline: 3px solid var(--focus-color, var(--accent)); outline-offset: 2px; }
+.rubric-type-help { margin: calc(var(--space-3) * -1) 0 0; color: var(--text-secondary); font-size: var(--text-sm); }
 .rubric-create-items { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding-block-start: var(--space-4); border-block-start: 1px solid var(--border-subtle); }
 .rubric-create-items h4 { margin: 0; }
 .rubric-create-empty { margin: 0; color: var(--text-secondary); }
@@ -525,6 +539,7 @@
 .rubric-create-form .rubric-create-actions { flex-wrap: wrap; }
 @media (max-width: 48rem) {
   .rubric-create-layout { grid-template-columns: minmax(0, 1fr); }
+  .rubric-target-options, .rubric-rule-options { grid-template-columns: minmax(0, 1fr); }
   .rubric-create-summary { position: static; }
 }
 
@@ -561,7 +576,21 @@
   font-weight: 400;
 }
 .evaluation-rubrics-col .rubric-create-form input::placeholder { color: var(--rubric-form-placeholder); }
-.evaluation-rubrics-col .rubric-create-form input[type="checkbox"] { inline-size: auto; min-block-size: auto; margin: 0; accent-color: var(--rubric-form-check); }
+.evaluation-rubrics-col .rubric-create-form input[type="checkbox"],
+.evaluation-rubrics-col .rubric-create-form input[type="radio"] { inline-size: 20px; block-size: 20px; min-block-size: 20px; padding: 0; margin: 0; accent-color: var(--rubric-form-check); }
+.evaluation-rubrics-col .rubric-choice-fieldset { gap: 12px; }
+.evaluation-rubrics-col .rubric-choice-fieldset legend { margin: 0; font-size: 17px; font-weight: 800; color: var(--text-primary); }
+.evaluation-rubrics-col .rubric-choice-fieldset > p { margin: -4px 0 0; color: var(--rc-muted); font-size: 14px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-target-options, .evaluation-rubrics-col .rubric-rule-options { gap: 12px; }
+.evaluation-rubrics-col .rubric-choice-card, .evaluation-rubrics-col .rubric-rule-card { flex-direction: row; align-items: flex-start; gap: 12px; min-height: 68px; padding: 14px; border: 1px solid var(--rc-line); border-radius: 8px; background: var(--rc-field); }
+.evaluation-rubrics-col .rubric-rule-card { display: block; min-height: 160px; padding: 16px; border-radius: 12px; }
+.evaluation-rubrics-col .rubric-choice-card:has(input:checked), .evaluation-rubrics-col .rubric-rule-card:has(input:checked) { border: 2px solid var(--accent); }
+.evaluation-rubrics-col .rubric-choice-card > span { min-width: 0; }
+.evaluation-rubrics-col .rubric-choice-card strong { font-weight: 700; }
+.evaluation-rubrics-col .rubric-choice-card small, .evaluation-rubrics-col .rubric-rule-card small { display: block; margin-top: 4px; color: var(--rc-muted); font-size: 13px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-rule-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; }
+.evaluation-rubrics-col .rubric-rule-description { display: block; margin: 10px 0 0 30px; color: var(--text-secondary); font-size: 14px; font-weight: 400; }
+.evaluation-rubrics-col .rubric-rule-card small { margin: 8px 0 0 30px; }
 .evaluation-rubrics-col .rubric-create-pair { gap: 16px; }
 .evaluation-rubrics-col .rubric-create-items { gap: 12px; padding-block-start: 0; border-block-start: 0; }
 .evaluation-rubrics-col .rubric-create-items h4 { font-size: 18px; font-weight: 700; color: var(--text-primary); }

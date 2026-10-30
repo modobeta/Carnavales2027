@@ -729,7 +729,7 @@ it("un PATCH de rubro con nombre igual pero destino cambiado no se concilia cont
   render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
   fireEvent.click(await screen.findByRole("button", { name: "Ver criterios de Vestuario" }));
   fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
-  fireEvent.change(screen.getByRole("combobox", { name: "A quién se evalúa" }), { target: { value: "NOMINATION" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "Objeto evaluado" }), { target: { value: "NOMINATION" } });
   fireEvent.submit(screen.getByRole("button", { name: "Guardar rubro" }).closest("form"));
   fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
   expect(await screen.findByRole("region", { name: "Participantes nominados para Vestuario" })).toBeInTheDocument();

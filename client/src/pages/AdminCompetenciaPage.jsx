@@ -430,7 +430,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
       if (isMatchingApplied) {
         resolvePendingEventOpenOperation(event.id, receipt);
         setCurrentEvent(openedEvent);
-        setOpenEventMessage("¡Competencia abierta con éxito! Ya podés gestionar las jornadas en Control de votación.");
+        setOpenEventMessage("¡Competencia abierta con éxito! Ya podés preparar jurados desde Jornadas y operar las votaciones desde Control de votación.");
         reloadProgress();
       } else {
         setOpenEventMessage("La respuesta no confirmó la apertura. Verificá el estado del evento.");
@@ -654,7 +654,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 <div className={`revision-status-banner ${isEventOpen ? "is-open" : "is-closed"}`} role="region" aria-label="Estado de la competencia">
                   <div className="revision-banner-content">
                     <h3>{isEventOpen ? "Competencia abierta" : "Competencia finalizada"}</h3>
-                    <p>{isEventOpen ? "El evento está abierto. La operación de las jornadas y la votación continúa desde Control de votación." : "El evento finalizó."}</p>
+                    <p>{isEventOpen ? "El evento está abierto. Las asignaciones se preparan desde Jornadas; la operación de cada jornada y su votación continúa desde Control de votación." : "El evento finalizó."}</p>
                     <div className="revision-banner-actions">
                       {isEventOpen && <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>}
                       <a href="#/admin/results" className="button-link secondary">Ver resultados</a>
@@ -667,7 +667,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                   <div className="revision-banner-content">
                     <h3>Competencia abierta</h3>
                     <p>
-                      El evento está abierto. Ya podés iniciar las jornadas y habilitar las votaciones desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse.
+                      El evento está abierto. Ya podés iniciar las jornadas y habilitar las votaciones desde Control de votación. Las asignaciones nuevas, los reemplazos y las revocaciones se gestionan desde Jornadas; estos últimos siguen sujetos a que no haya una planilla confirmada.
                     </p>
                     <div className="revision-banner-actions">
                       <a href="#/admin/voting" className="button-link primary">Ir a Control de votación →</a>
@@ -805,7 +805,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 onClose={() => setConfirmOpenEvent(false)}
                 onConfirm={handleOpenEvent}
                 title="¿Abrir la competencia?"
-                description="Al abrir el evento, su estado cambiará a OPEN. Esto no inicia una jornada ni habilita los votos. Después podrás iniciar cada jornada y abrir su votación desde Control de votación. Las asignaciones sin planilla confirmada todavía pueden revocarse o reemplazarse."
+                description="Al abrir el evento, su estado cambiará a OPEN. Esto no inicia una jornada ni habilita los votos. Las asignaciones de jurados se preparan desde Jornadas; después, Control de votación permite abrir cada jornada y su votación. Los reemplazos y las revocaciones de asignaciones sin planilla confirmada también se gestionan desde Jornadas."
                 confirmLabel={openingEvent ? "Abriendo…" : "Abrir competencia"}
                 cancelLabel="Cancelar"
                 confirming={openingEvent}
@@ -1990,6 +1990,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   const creatingRef = useRef(false);
   const resetCreateFlow = () => {
     setNewRubricTarget("TROUPE");
+    setNewRubricSubjectType("PERSON");
+    setNewRubricType("NOMINATIVE");
     setCreateOutcome("");
     setCreateError("");
     setReviewRequested(false);
@@ -2061,6 +2063,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
     if (!requestDiscard(() => { setShowCreateForm(false); resetCreateFlow(); })) { setShowCreateForm(false); resetCreateFlow(); }
   };
   const [newRubricTarget, setNewRubricTarget] = useState("TROUPE");
+  const [newRubricSubjectType, setNewRubricSubjectType] = useState("PERSON");
+  const [newRubricType, setNewRubricType] = useState("NOMINATIVE");
   const [editingRubricTarget, setEditingRubricTarget] = useState("TROUPE");
   const [expanded, setExpanded] = useState(null);
   const [editingRubricId, setEditingRubricId] = useState(null);
@@ -2184,6 +2188,11 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   ];
 
   const subjectTypeLabel = (value) => SUBJECT_TYPES.find((type) => type.value === value)?.label ?? value;
+  const nominationSubjectLabel = (value) => {
+    if (value === "OTHER") return "Otro tipo de participante";
+    const suffix = value === "GROUP" || value === "ELEMENT" ? "nominado" : "nominada";
+    return `${subjectTypeLabel(value)} ${suffix}`;
+  };
   const rememberAccepted = (receipt) => {
     onRememberAccepted(receipt, rubrics.find((rubric) => rubric.id === receipt.rubricId));
   };
@@ -2253,6 +2262,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
         setIsDraftDirty(false);
         setShowCreateForm(false);
         setNewRubricTarget("TROUPE");
+        setNewRubricSubjectType("PERSON");
+        setNewRubricType("NOMINATIVE");
       }
       if (incRevision) incRevision();
       reloadProgress?.();
@@ -2502,7 +2513,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
       <div className="evaluation-panel-card">
         <div className="evaluation-panel-header">
           <h2>{catalogOnly ? "Rubros" : "Evaluación"}</h2>
-          <p>{catalogOnly ? "Definí los rubros y a quién evalúan. Luego cargá participantes por comparsa y configurá los ítems en Evaluación." : "Usá los rubros ya creados para definir los ítems que puntúan los jurados en cada especialidad."}</p>
+          <p>{catalogOnly ? "Definí qué se evalúa y si cada rubro corresponde a comparsas o participantes. Después, en Evaluación, agregá los ítems y vinculalos con las especialidades." : "Usá los rubros ya creados para definir los ítems que puntúan los jurados en cada especialidad."}</p>
           {catalogOnly && !locked && <button type="button" className="primary" onClick={() => showCreateForm ? closeCreateForm() : openCreateForm()} aria-expanded={showCreateForm} aria-controls="new-rubric-form">{showCreateForm ? "Cancelar" : "Agregar rubro"}</button>}
           {!catalogOnly && evaluation?.progress.total === 0 && <p>No hay especialidades activas.</p>}
           {evaluationStatus === "loading" && <p role="status">Cargando evaluación…</p>}
@@ -2582,33 +2593,54 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
               >
                 <div className="rubric-create-head">
                   <h3>Crear rubro</h3>
-                  <p>Los participantes se cargan por comparsa. Los ítems puntuables y sus especialidades se configuran después, en Evaluación.</p>
+                  <p>Respondé estas dos preguntas: la primera indica quién recibe puntos; la segunda, qué regla del reglamento se aplica.</p>
                 </div>
                 <div className="rubric-create-layout">
                 <div className="rubric-create-main">
                 <label>Nombre del rubro<input name="name" autoFocus required placeholder="Ej. Coreografía" /></label>
-                <div className="rubric-create-pair">
-                  <label>A quién se evalúa
-                    <select name="evaluationTarget" value={newRubricTarget} onChange={(e) => setNewRubricTarget(e.target.value)}>
-                      <option value="TROUPE">Comparsa</option>
-                      <option value="NOMINATION">Nominación</option>
+                <fieldset className="rubric-choice-fieldset">
+                  <legend>1. ¿Quién recibe puntos?</legend>
+                  <p>Esto determina si cargás el rubro sobre la comparsa o sobre una nominación.</p>
+                  <div className="rubric-target-options">
+                    <label className="rubric-choice-card">
+                      <input type="radio" name="evaluationTarget" value="TROUPE" checked={newRubricTarget === "TROUPE"}
+                        disabled={newRubricType === "RANDOM"} onChange={() => setNewRubricTarget("TROUPE")} />
+                      <span><strong>La comparsa</strong><small>La puntuación corresponde al conjunto.</small></span>
+                    </label>
+                    <label className="rubric-choice-card">
+                      <input type="radio" name="evaluationTarget" value="NOMINATION" checked={newRubricTarget === "NOMINATION"}
+                        onChange={() => setNewRubricTarget("NOMINATION")} />
+                      <span><strong>Un participante nominado</strong><small>Después elegís persona, pareja, grupo, etc.</small></span>
+                    </label>
+                  </div>
+                </fieldset>
+                {newRubricTarget === "NOMINATION" && (
+                  <label>Tipo de participante
+                    <select name="expectedSubjectType" value={newRubricSubjectType} onChange={(e) => setNewRubricSubjectType(e.target.value)}>
+                      {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   </label>
-                  {newRubricTarget === "NOMINATION" && (
-                    <label>Qué tipo de participante
-                      <select name="expectedSubjectType" defaultValue="PERSON">
-                        {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
+                )}
+                <fieldset className="rubric-choice-fieldset">
+                  <legend>2. ¿Qué regla del reglamento aplica?</legend>
+                  <p>No cambia quién recibe puntos; define cómo se clasifica el rubro.</p>
+                  <div className="rubric-rule-options">
+                    <label className="rubric-rule-card">
+                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="NOMINATIVE" checked={newRubricType === "NOMINATIVE"}
+                        onChange={() => setNewRubricType("NOMINATIVE")} />Nominativo</span>
+                      <span className="rubric-rule-description">Sus puntos se suman para definir la comparsa ganadora.</span>
+                      <small>Elegí esto cuando el reglamento lo clasifique como nominativo.</small>
                     </label>
-                  )}
-                </div>
+                    <label className="rubric-rule-card">
+                      <span className="rubric-rule-title"><input type="radio" name="rubricType" value="RANDOM" checked={newRubricType === "RANDOM"}
+                        onChange={() => { setNewRubricType("RANDOM"); setNewRubricTarget("NOMINATION"); }} />Aleatorio</span>
+                      <span className="rubric-rule-description">Se permiten hasta 3 participantes nominados por comparsa en este rubro.</span>
+                      <small>La cantidad máxima se aplica por comparsa y por rubro.</small>
+                    </label>
+                  </div>
+                </fieldset>
                 <details className="advanced-options">
                   <summary>Opciones avanzadas</summary>
-                  <label>Tipo de evaluación
-                    <select name="rubricType">
-                      {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                  </label>
                   <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
                   <label>Método de resolución
                     <select name="resolutionMethod" title="Este dato describe cómo se resuelve el rubro; no ejecuta fórmulas ni decisiones automáticas.">
@@ -2631,9 +2663,10 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                 <aside className="rubric-create-summary" aria-label="Resumen del alta">
                   <h4>Resumen</h4>
                   <dl>
-                    <div><dt>Se evalúa a</dt><dd>{newRubricTarget === "NOMINATION" ? "Nominación" : "Comparsa"}</dd></div>
+                    <div><dt>Objeto evaluado</dt><dd>{newRubricTarget === "NOMINATION" ? nominationSubjectLabel(newRubricSubjectType) : "Comparsa"}</dd></div>
+                    <div><dt>Tipo de rubro</dt><dd>{newRubricType === "RANDOM" ? "Aleatorio: hasta 3 por comparsa" : "Nominativo: suma para la comparsa"}</dd></div>
                   </dl>
-                  <p className="rubric-create-note">Este rubro estará disponible para cargar participantes. Sus ítems se configuran en Evaluación.</p>
+                  <p className="rubric-create-note">{newRubricTarget === "NOMINATION" ? "Las nominaciones se cargan por comparsa." : "Se puntúa a cada comparsa."} Sus ítems se configuran en Evaluación.</p>
                 </aside>
                 </div>
               </SaveForm>
@@ -2852,25 +2885,26 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                 }}
                               >
                                 <label>Nombre<input name="name" defaultValue={rubric.name} required /></label>
-                                <label>A quién se evalúa
+                                <label>Objeto evaluado
                                   <select name="evaluationTarget" value={editingRubricTarget} onChange={(e) => setEditingRubricTarget(e.target.value)}>
                                     <option value="TROUPE">Comparsa</option>
-                                    <option value="NOMINATION">Nominación</option>
+                                    <option value="NOMINATION">Participante nominado</option>
                                   </select>
                                 </label>
-                                <label>Tipo
-                                  <select name="rubricType" defaultValue={rubric.rubricType}>
+                                <label>Tipo de rubro (según reglamento)
+                                  <select name="rubricType" defaultValue={rubric.rubricType} aria-describedby={`rubric-type-edit-help-${rubric.id}`}>
                                     {!RUBRIC_TYPES.some((type) => type.value === rubric.rubricType) && (
                                       <option value={rubric.rubricType}>{LEGACY_RUBRIC_TYPE_LABELS[rubric.rubricType] ?? `${rubric.rubricType} (histórico)`}</option>
                                     )}
                                     {RUBRIC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                                   </select>
                                 </label>
+                                <p id={`rubric-type-edit-help-${rubric.id}`} className="rubric-type-help">Clasificación del reglamento, independiente del objeto evaluado. Los rubros aleatorios admiten hasta 3 nominaciones por comparsa o agrupación.</p>
                                 <label>Detalle (opcional)<input name="evaluationObjective" defaultValue={rubric.evaluationObjective ?? ""} /></label>
                                 <details className="advanced-options">
                                   <summary>Opciones avanzadas</summary>
                                   {editingRubricTarget === "NOMINATION" && (
-                                    <label>Qué tipo de participante
+                                    <label>Tipo de participante
                                       <select name="expectedSubjectType" defaultValue={rubric.expectedSubjectType ?? "PERSON"}>
                                         {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                                       </select>

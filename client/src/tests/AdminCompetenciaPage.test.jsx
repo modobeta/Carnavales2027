@@ -157,20 +157,64 @@ describe("AdminCompetenciaPage", () => {
     expect(screen.getByRole("button", { name: /^Evaluación / })).toHaveAttribute("aria-current", "step");
   });
 
-  it("oculta el formulario de rubro hasta que se solicite y adapta el sujeto al objetivo", async () => {
+  it("explica en opciones visibles quién recibe puntos y qué regla aplica", async () => {
     mockCompetitionData();
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="catalogo" />);
 
     expect(screen.queryByRole("button", { name: "Crear rubro" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
-    const target = within(form).getByLabelText("A quién se evalúa");
-    expect(within(form).queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
+    const fields = within(form);
+    const troupe = fields.getByRole("radio", { name: /La comparsa/ });
+    const nominee = fields.getByRole("radio", { name: /Un participante nominado/ });
+    const nominative = fields.getByRole("radio", { name: /Nominativo/ });
+    expect(fields.getByText("1. ¿Quién recibe puntos?")).toBeInTheDocument();
+    expect(fields.getByText("2. ¿Qué regla del reglamento aplica?")).toBeInTheDocument();
+    expect(fields.getByText("Sus puntos se suman para definir la comparsa ganadora.")).toBeInTheDocument();
+    expect(troupe).toBeChecked();
+    expect(nominative).toBeChecked();
+    expect(fields.getByText("La comparsa", { selector: "strong" })).toBeInTheDocument();
+    expect(fields.queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
 
-    fireEvent.change(target, { target: { value: "NOMINATION" } });
-    expect(within(form).getByLabelText("Qué tipo de participante")).toBeInTheDocument();
-    fireEvent.change(target, { target: { value: "TROUPE" } });
-    expect(within(form).queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
+    fireEvent.click(nominee);
+    expect(fields.getByLabelText("Tipo de participante")).toHaveValue("PERSON");
+    expect(fields.getByText("Persona nominada", { selector: "dd" })).toBeInTheDocument();
+    fireEvent.click(troupe);
+    expect(fields.queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
+  });
+
+  it("al elegir Aleatorio pasa a nominaciones, muestra el límite y guarda el objetivo correcto", async () => {
+    const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
+    mockCompetitionData({ write });
+    render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} initialStep="catalogo" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
+
+    const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
+    const fields = within(form);
+    const targetNomination = fields.getByRole("radio", { name: /Un participante nominado/ });
+    const targetTroupe = fields.getByRole("radio", { name: /La comparsa/ });
+    const random = fields.getByRole("radio", { name: /Aleatorio/ });
+    fireEvent.click(random);
+
+    expect(targetNomination).toBeChecked();
+    expect(targetTroupe).toBeDisabled();
+    expect(fields.getByText("Se permiten hasta 3 participantes nominados por comparsa en este rubro.")).toBeInTheDocument();
+    const subjectType = fields.getByLabelText("Tipo de participante");
+    expect(subjectType).toHaveValue("PERSON");
+    expect(fields.getByText("Persona nominada", { selector: "dd" })).toBeInTheDocument();
+    expect(fields.getByText("Aleatorio: hasta 3 por comparsa")).toBeInTheDocument();
+    expect(fields.getByText("La cantidad máxima se aplica por comparsa y por rubro.")).toBeInTheDocument();
+    expect(new FormData(form).getAll("evaluationTarget")).toEqual(["NOMINATION"]);
+
+    fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Mejor Pareja de Baile" } });
+    fireEvent.change(subjectType, { target: { value: "COUPLE" } });
+    expect(fields.getByText("Pareja nominada", { selector: "dd" })).toBeInTheDocument();
+    fireEvent.submit(form);
+    await screen.findByText("Rubro guardado.");
+    expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/events/event-1/rubrics", {
+      method: "POST",
+      body: JSON.stringify({ name: "Mejor Pareja de Baile", evaluationTarget: "NOMINATION", rubricType: "RANDOM", resolutionMethod: "JURY", evaluationObjective: null, expectedSubjectType: "COUPLE", icon: null }),
+    });
   });
 
   it("filtra por especialidad usando los ítems existentes y mantiene visible el rubro compartido", async () => {
@@ -275,11 +319,11 @@ describe("AdminCompetenciaPage", () => {
     await screen.findByRole("button", { name: "Ver opciones de Coreografia" });
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
-    fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: "NOMINATION" } });
-    expect(Array.from(fields.getByLabelText("Qué tipo de participante").options, (option) => option.value))
+    fireEvent.click(fields.getByRole("radio", { name: /Un participante nominado/ }));
+    expect(Array.from(fields.getByLabelText("Tipo de participante").options, (option) => option.value))
       .toEqual(["PERSON", "COUPLE", "GROUP", "FIGURE", "ELEMENT", "OTHER"]);
     fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Figura destacada" } });
-    fireEvent.change(fields.getByLabelText("Qué tipo de participante"), { target: { value: subjectType } });
+    fireEvent.change(fields.getByLabelText("Tipo de participante"), { target: { value: subjectType } });
     fireEvent.change(fields.getByLabelText("Método de resolución"), { target: { value: "COMMITTEE" } });
     fireEvent.change(fields.getByLabelText("Detalle adicional (opcional)"), { target: { value: "Participante" } });
     fireEvent.submit(form);
@@ -322,10 +366,10 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Editar rubro" }));
     const form = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
     const fields = within(form);
-    if (initialTarget === "NOMINATION") expect(fields.getByLabelText("Qué tipo de participante")).toHaveValue(initialSubject ?? "PERSON");
-    else expect(fields.queryByLabelText("Qué tipo de participante")).not.toBeInTheDocument();
-    fireEvent.change(fields.getByLabelText("A quién se evalúa"), { target: { value: target } });
-    if (subject) fireEvent.change(fields.getByLabelText("Qué tipo de participante"), { target: { value: subject } });
+    if (initialTarget === "NOMINATION") expect(fields.getByLabelText("Tipo de participante")).toHaveValue(initialSubject ?? "PERSON");
+    else expect(fields.queryByLabelText("Tipo de participante")).not.toBeInTheDocument();
+    fireEvent.change(fields.getByLabelText("Objeto evaluado"), { target: { value: target } });
+    if (subject) fireEvent.change(fields.getByLabelText("Tipo de participante"), { target: { value: subject } });
     fireEvent.submit(form);
     expect(write).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
@@ -650,7 +694,7 @@ describe("AdminCompetenciaPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ver criterios de Coreografia" }));
     fireEvent.click(screen.getByRole("button", { name: "Editar rubro" }));
     const editor = screen.getByRole("button", { name: "Guardar rubro" }).closest("form");
-    expect(within(editor).getByLabelText("Tipo")).toHaveValue("SPECIAL");
+    expect(within(editor).getByLabelText("Tipo de rubro (según reglamento)")).toHaveValue("SPECIAL");
     fireEvent.click(screen.getByRole("tab", { name: "Ítems" }));
     expect(screen.getByRole("button", { name: "Bajar item Interpretacion" })).toBeDisabled();
   });
@@ -1313,7 +1357,7 @@ describe("AdminCompetenciaPage", () => {
       expect(title).toHaveFocus();
       expect(screen.queryByText(/Quiénes participan/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Quién evalúa/)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Qué se puntúa/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Objeto evaluado/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Revisar y cerrar/)).not.toBeInTheDocument();
     });
 
@@ -1443,7 +1487,7 @@ describe("AdminCompetenciaPage", () => {
 
       expect(await screen.findByRole("heading", { name: "Revisión final" })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Competencia abierta" })).toBeInTheDocument();
-      expect(screen.getByText(/El evento está abierto.*Control de votación/)).toBeInTheDocument();
+      expect(screen.getByText(/Las asignaciones se preparan desde Jornadas.*Control de votación/)).toBeInTheDocument();
 
       // Enlaces directos a operaciones
       const votingLinks = screen.getAllByRole("link", { name: /Ir a Control de votación/ });

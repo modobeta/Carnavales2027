@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readinessStepStates } from "./readiness-presentation.js";
+import { readinessIssues, readinessStepStates } from "./readiness-presentation.js";
 
 const ready = (overrides = {}) => ({
   ready: true,
@@ -10,6 +10,23 @@ const ready = (overrides = {}) => ({
   incompleteNominations: [],
   nightsWithoutJury: [],
   ...overrides,
+});
+
+describe("readinessIssues", () => {
+  it("dirige el jurado pendiente a Jornadas para preparar su asignación", () => {
+    const issues = readinessIssues(ready({
+      ready: true,
+      nightsWithoutJury: [{ nightId: "night 1", nightName: "Noche 1" }],
+    }));
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      key: "jury-night 1",
+      description: "Prepará la asignación en Jornadas antes de abrir esta jornada.",
+      href: "#/admin/events",
+      action: "Ir a Jornadas",
+      kind: "deferred",
+    }));
+  });
 });
 
 describe("readinessStepStates", () => {

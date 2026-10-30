@@ -65,7 +65,7 @@ export function readinessIssues(readiness) {
     key: `nomination-${item.rubricId}-${item.troupeId}`, title: `Falta un participante para ${item.rubricName} en ${item.troupeName}`, description: "Cargá al menos un participante para este rubro y esta comparsa.", href: "#/admin/competencia?step=participantes", action: "Cargar participante", kind: "blocking",
   }));
   readiness.nightsWithoutJury.forEach((night) => issues.push({
-    key: `jury-${night.nightId}`, title: `${night.nightName} todavía no tiene jurados asignados`, description: "Podés asignarlos desde Control de votación antes de abrir esta jornada.", href: `#/admin/voting?nightId=${encodeURIComponent(night.nightId)}`, action: "Preparar jornada", kind: "deferred",
+    key: `jury-${night.nightId}`, title: `${night.nightName} todavía no tiene jurados asignados`, description: "Prepará la asignación en Jornadas antes de abrir esta jornada.", href: "#/admin/events", action: "Ir a Jornadas", kind: "deferred",
   }));
   return issues;
 }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminVotingPage } from "./AdminVotingPage.jsx";
 
@@ -39,6 +39,7 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     await waitFor(() => {
       expect(getByRole("button", { name: "Abrir votación" })).toBeEnabled();
     });
+    expect(screen.queryByRole("heading", { name: "Jurados de esta jornada" })).not.toBeInTheDocument();
 
     fireEvent.click(getByRole("button", { name: "Abrir votación" }));
     fireEvent.click(getByRole("button", { name: "Confirmar" }));
@@ -50,5 +51,22 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
         getByText("Programá comparsas en la jornada antes de abrir la votación."),
       ).toBeVisible();
     });
+  });
+
+  it("dirige a preparación cuando la votación abierta no tiene planillas", async () => {
+    apiRequestMock.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([mockEvent]);
+      if (path === "/api/v1/events/event-1/nights") return Promise.resolve([{ ...mockNights[0], status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) {
+        return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0 }, total: 0 });
+      }
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      return Promise.reject(new Error(`request inesperado: ${path}`));
+    });
+
+    render(<AdminVotingPage />);
+
+    const link = await screen.findByRole("link", { name: "Revisar asignaciones de esta jornada" });
+    expect(link).toHaveAttribute("href", "#/admin/events");
   });
 });

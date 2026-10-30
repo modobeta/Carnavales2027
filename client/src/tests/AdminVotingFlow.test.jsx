@@ -81,10 +81,11 @@ describe("apertura de jornada y votación", () => {
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/e1/nights/n1/voting/open", expect.anything());
   });
 
-  it("muestra la asignación de jurados para la jornada seleccionada antes de abrirla", async () => {
+  it("mantiene la pantalla de operación enfocada en la votación, sin gestionar jurados", async () => {
     setup();
-    expect(await screen.findByRole("region", { name: "Jurados de Primera noche" })).toBeInTheDocument();
-    expect(screen.getByText("Revisá o completá las asignaciones aquí antes de abrir la jornada y su votación.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Ventana de votación" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Jurados de esta jornada" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Asignar jurado/ })).not.toBeInTheDocument();
   });
 
   it("muestra el bloqueo por cronograma vacío al intentar abrir votación", async () => {

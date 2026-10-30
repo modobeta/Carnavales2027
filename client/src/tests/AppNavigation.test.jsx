@@ -85,7 +85,7 @@ describe("AppNavigation", () => {
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
   });
 
-  it("ubica la asignación de jurados en Control de votación, no en preparación", () => {
+  it("no agrega un acceso independiente de jurados al menú de preparación de competencia", () => {
     window.location.hash = "#/admin/competencia?step=especialidades";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();

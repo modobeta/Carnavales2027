@@ -21,7 +21,7 @@ const READINESS_LABELS = {
   INCOMPLETE_SCHEDULES: ["Programá al menos una comparsa en cada jornada de Competencia", "#/admin/competencia?step=participantes"],
 };
 
-export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onReadinessChange, refreshKey = 0 }) {
+export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onGoToNightAssignments, onReadinessChange, refreshKey = 0 }) {
   const [readinessSnapshot, setReadinessSnapshot] = useState({ eventId: null, data: null });
   const [readinessUnavailable, setReadinessUnavailable] = useState(false);
   const [message, setMessage] = useState("");
@@ -230,7 +230,19 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
               </li>
             )}
             {(readiness.nightsWithoutJury ?? []).map((night) => (
-              <li key={night.nightId} className="readiness-pending"><span className="readiness-icon">&#x25cf;</span>La jornada &ldquo;{night.nightName}&rdquo; todavía no tiene jurados. Podés asignarlos antes de abrirla desde <a href={`#/admin/voting?nightId=${encodeURIComponent(night.nightId)}`}>Control de votación</a>.</li>
+              <li key={night.nightId} className="readiness-pending">
+                <span className="readiness-icon">&#x25cf;</span>
+                La jornada &ldquo;{night.nightName}&rdquo; todavía no tiene jurados. Podés prepararlos desde{" "}
+                <a
+                  href="#/admin/events"
+                  aria-label="Preparar jurados en Jornadas"
+                  onClick={(clickEvent) => {
+                    if (!onGoToNightAssignments) return;
+                    clickEvent.preventDefault();
+                    onGoToNightAssignments(night.nightId);
+                  }}
+                >Jornadas</a>.
+              </li>
             ))}
             {readiness.ready && (
               <>
@@ -251,7 +263,7 @@ export function EventReadinessPanel({ event, locked, onOpened, onGoToNights, onR
             onClose={() => setConfirmOpen(false)}
             onConfirm={() => void open()}
             title="Abrir evento"
-            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no inicia una jornada ni habilita la votación; los jurados se revisan desde Control de votación antes de abrir cada jornada. Las asignaciones que todavía no tengan una planilla confirmada podrán revocarse o reemplazarse. ¿Querés continuar?`}
+            description={`Vas a abrir el evento «${event.name ?? "Evento"}» y su estado cambiará a OPEN. Esto no inicia una jornada ni habilita la votación. Las asignaciones de jurados se preparan desde Jornadas; después, Control de votación permite abrir cada jornada y su votación. Las asignaciones sin planilla confirmada todavía podrán revocarse o reemplazarse desde Jornadas. ¿Querés continuar?`}
             confirmLabel="Abrir evento"
             confirming={opening}
             danger

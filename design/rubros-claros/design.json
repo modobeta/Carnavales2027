@@ -1,0 +1,27 @@
+{
+  "title": "Rubros claros",
+  "brief": "Prototipos para aclarar la diferencia entre quién recibe una calificación y cómo el reglamento clasifica el rubro, especialmente la confusión entre 'nominado' y 'Nominativo'.",
+  "artboards": [
+    {
+      "file": "01-dos-preguntas.html",
+      "title": "Dos preguntas, dos decisiones",
+      "tradeoff": "Conserva el formulario compacto y explica cada selector en línea; las opciones largas pueden ocupar espacio en pantallas angostas.",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "02-opciones-explicadas.html",
+      "title": "Elegí con la explicación a la vista",
+      "tradeoff": "Las tarjetas eliminan la dependencia de términos técnicos; ocupan más altura y hacen el alta más extensa.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "03-regla-primero.html",
+      "title": "Clasificación primero",
+      "tradeoff": "Prioriza la regla reglamentaria y muestra sus efectos antes del objetivo; puede sugerir una secuencia obligatoria que hoy no existe.",
+      "width": 1440,
+      "height": 1000
+    }
+  ]
+}

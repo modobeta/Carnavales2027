@@ -8,7 +8,6 @@ import { EventStatusBanner } from "../components/EventStatusBanner.jsx";
 import { useNotify } from "../components/Notifications.jsx";
 import { apiRequest } from "../api/http.js";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
-import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 
 const BALLOT_STATUS_LABELS = { SUBMITTED: "Confirmada", REOPENED: "Reabierta", OPEN: "En carga" };
 
@@ -275,10 +274,6 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
         <div><span>Reabiertas</span><strong>{status?.counts.REOPENED ?? 0}</strong></div>
         <div><span>Total</span><strong>{status?.total ?? 0}</strong></div>
       </section>
-      {selectedNight && <section className="config-section" aria-label={`Jurados de ${selectedNight.name}`}>
-        <div className="section-heading"><div><h2>Jurados de esta jornada</h2><p>Revisá o completá las asignaciones aquí antes de abrir la jornada y su votación.</p></div></div>
-        <AdminAssignmentsPage embedded fixedNight initialEventId={eventId} initialNightId={nightId} />
-      </section>}
       <section className="config-section">
         <div className="section-heading"><div><h2>Ventana de votación</h2><p>La apertura crea las planillas pendientes. El cierre exige que todas estén completas y confirma las que sigan en carga.</p></div></div>
         <label>Habilitación de comparsas
@@ -294,7 +289,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
           : "Todas las comparsas se habilitan al abrir; la mesa puede seleccionar cuál está en pista."}</p>
         <p>Estado de la jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Estado de la ventana de votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
-        {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. Revisá los <a href={`#/admin/voting?eventId=${encodeURIComponent(eventId)}&nightId=${encodeURIComponent(nightId)}`}>jurados de esta jornada</a> y luego habilitá las planillas pendientes.</p>}
+        {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. <a href="#/admin/events">Revisar asignaciones de esta jornada</a> desde Jornadas y luego habilitá las planillas pendientes.</p>}
         <div className="event-actions">
           <button type="button" disabled={Boolean(busy) || !status || !isEventOpen || nightStatus === "CLOSED" || votingStatus === "CLOSED"} onClick={(event) => requestConfirmation("open", event)}>{votingStatus === "OPEN" ? "Habilitar planillas pendientes" : nightStatus === "DRAFT" ? "Abrir jornada y votación" : "Abrir votación"}</button>
           <button ref={closeButtonRef} className="danger-action" type="button" disabled={Boolean(busy) || !isEventOpen || votingStatus !== "OPEN"} onClick={(event) => requestConfirmation("close", event)}>Cerrar votación</button>

@@ -133,17 +133,21 @@ describe("EventReadinessPanel", () => {
     expect(onGoToNights).toHaveBeenCalledTimes(1);
   });
 
-  it("presenta el jurado pendiente como aviso con acceso a la jornada, no como bloqueo del evento", async () => {
+  it("ofrece preparar el jurado pendiente desde Jornadas sin bloquear la apertura del evento", async () => {
+    const onGoToNightAssignments = vi.fn();
     apiRequest.mockResolvedValue(readiness({
       ready: true,
       missing: [],
       nightsWithoutJury: [{ nightId: "n1", nightName: "Noche inaugural" }],
     }));
-    render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} />);
+    render(<EventReadinessPanel event={{ id: "e1", name: "Evento", status: "CONFIGURING", active: true }} locked={false} onGoToNightAssignments={onGoToNightAssignments} />);
 
     await screen.findByRole("button", { name: "Abrir evento" });
-    expect(screen.getByRole("link", { name: "Control de votación" }).parentElement.textContent).toMatch(/Noche inaugural.*todavía no tiene jurados/);
-    expect(screen.getByRole("link", { name: "Control de votación" })).toHaveAttribute("href", "#/admin/voting?nightId=n1");
+    expect(screen.getByText(/Noche inaugural.*todavía no tiene jurados/)).toBeInTheDocument();
+    const prepareLink = screen.getByRole("link", { name: "Preparar jurados en Jornadas" });
+    expect(prepareLink).toHaveAttribute("href", "#/admin/events");
+    fireEvent.click(prepareLink);
+    expect(onGoToNightAssignments).toHaveBeenCalledWith("n1");
     expect(screen.getByRole("button", { name: "Abrir evento" })).toBeEnabled();
   });
 
