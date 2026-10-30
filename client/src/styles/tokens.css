@@ -132,6 +132,15 @@
   --rubric-form-muted: #e4e0f7;
   --rubric-form-placeholder: #cfc8f0;
   --rubric-form-check: #c4246f;
+  /* Tinta del formulario: el panel violeta es oscuro en ambos temas. */
+  --rubric-form-ink: #FFFFFF;
+
+  /* Selector de íconos de rubro: los assets son line-art oscura sobre fondo
+     transparente, así que la tarjeta se mantiene clara en ambos temas. */
+  --rubric-icon-tile: var(--palette-neutral-0);
+  --rubric-icon-tile-line: var(--palette-neutral-200);
+  --rubric-icon-tile-ink: var(--palette-neutral-800);
+  --rubric-icon-tile-ink-muted: var(--palette-neutral-700);
 
   /* ==========================================================================
      Alias de paleta (compatibilidad con estilos existentes)
