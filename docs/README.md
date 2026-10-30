@@ -6,7 +6,7 @@ Esta carpeta separa **reglas confirmadas**, **comportamiento implementado** y **
 | --- | --- |
 | Visión y alcance | [PRD](PRD.md), [historias y aceptación](historias-y-aceptacion.md) |
 | Dominio y acceso | [Reglas de negocio](reglas-de-negocio.md), [matriz de permisos](matriz-de-permisos.md) |
-| Implementación | [Arquitectura](arquitectura.md), [modelo de datos](modelo-de-datos.md), [contrato API](contrato-api.md) |
+| Implementación | [Arquitectura](arquitectura.md), [modelo de datos](modelo-de-datos.md), [referencia de tablas](modelo-de-datos-tablas.md), [contrato API](contrato-api.md) |
 | Interfaz | [UI/UX Design Brief](ui-ux-design-brief.md), [sistema de diseño](sistema-de-diseno.md), [flujos y pantallas](flujos-y-pantallas.md) |
 | Desarrollo | [Estilo de código](code-style.md), [plan de desarrollo](plan-de-desarrollo.md), [plan de pruebas](plan-de-pruebas.md) |
 | Operación y gobierno | [Seguridad](seguridad.md), [privacidad y retención](privacidad-y-retencion.md), [despliegue y respaldo](despliegue-y-respaldo.md), [decisiones](decisiones.md) |

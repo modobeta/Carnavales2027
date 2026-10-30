@@ -1,6 +1,6 @@
 # Modelo de datos PostgreSQL
 
-**Estado:** mapa lógico verificado contra migraciones SQL y una restauración aislada de Neon al 20/10/2026. No es un ERD completo; para columnas/constraints exactos leer `api/src/db/migrations/` y consultar `pg_catalog` de la versión desplegada. Hay 47 tablas públicas incluyendo `schema_migrations` en el corte.
+**Estado:** mapa lógico verificado contra migraciones SQL y una restauración aislada de Neon al 20/10/2026. No es un ERD completo; para columnas/constraints exactos leer `api/src/db/migrations/` y consultar `pg_catalog` de la versión desplegada. Hay 47 tablas públicas incluyendo `schema_migrations` en el corte. Para columnas, tipos, claves y relaciones por tabla, ver la [referencia de tablas](modelo-de-datos-tablas.md).
 
 ```text
 carnival_event ─┬─ night ─┬─ night_troupe_schedule ─┐
