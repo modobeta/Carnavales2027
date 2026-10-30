@@ -959,7 +959,7 @@ describe("AdminCompetenciaPage", () => {
       mockTroupes({ write });
       await openTroupesTab();
       await screen.findByText("Orden de pasada");
-      fireEvent.click(screen.getByRole("button", { name: "Bajar Estrella en Noche 1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Bajar Estrella en Noche 1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Confirmar y guardar" }));
       expect(await screen.findByText(/El orden cambio/)).toBeInTheDocument();
       expect(write).toHaveBeenCalledTimes(1);

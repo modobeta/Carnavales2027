@@ -1063,7 +1063,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               );
               return (
                 <section ref={cardSectionRef} className="ballot-card-mode ballot-single" aria-label={`Evaluación: ${activeScore.troupeName} - ${activeScore.itemName}`}>
-                  <div className="ballot-card-header">
+                  <div
+                    className={`ballot-card-header${activeScore.brandColor ? " is-branded troupe-brand-panel" : ""}`}
+                    style={activeScore.brandColor ? {
+                      "--troupe-brand": activeScore.brandColor,
+                      "--troupe-brand-ink": readableInk(activeScore.brandColor),
+                    } : undefined}
+                  >
                     <div className="ballot-troupe-heading">
                       <div>
                         <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
@@ -1180,7 +1186,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   ref={submitButtonRef}
                   type="button"
                   disabled={!canConfirmVoting}
-                  aria-describedby={!canConfirmVoting ? "voting-confirm-help" : "voting-confirm-summary"}
+                  aria-describedby={canConfirmVoting ? "voting-confirm-summary" : undefined}
                   onClick={beginSubmitReview}
                 >
                   {isSubmitting ? "Confirmando…" : "Confirmar votación"}
@@ -1197,7 +1203,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 )}
               </>
             )}
-            {!readonly && !canConfirmVoting && <small id="voting-confirm-help">Completá todas las puntuaciones y esperá su confirmación en el servidor para habilitar el cierre.</small>}
             {readonly && (
               <section className="locked-sheet" aria-label="Planilla confirmada">
                 <span aria-hidden="true">✓</span>
