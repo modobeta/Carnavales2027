@@ -12,6 +12,8 @@ import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
+import { ItemIconPicker } from "../components/ItemIconPicker.jsx";
+import { ItemIcon } from "../components/ItemIcon.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { CatalogForm } from "../features/CatalogForm.jsx";
 import { PREPARATION_STEPS, READINESS_STATE_LABELS, isInterpretableReadiness, readinessIssues, readinessStepStates } from "../features/readiness-presentation.js";
@@ -2226,8 +2228,11 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
       name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"),
       resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null,
       expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
-      icon: fd.get("icon") || null,
+      icon: fd.get("rubricIcon") || fd.get("icon") || null,
+      itemIcon: fd.get("itemIcon") || null,
     };
+    // Ensure icon is always present (default to null if not selected)
+    if (rubricBody.icon === undefined) rubricBody.icon = null;
     const first = createRowsRef.current[0];
     const code = first ? evaluationItemCode(first.name) : null;
     if (first && !createReceiptRef.current && (!code || !/^[A-Z0-9_]{1,64}$/.test(code))) {
@@ -2251,7 +2256,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
     try {
       if (!createReceiptRef.current) {
         const initialItem = first ? { name: first.name, code, specialtyId: first.specialtyId,
-          required: first.required, allowNotPresented: first.allowNotPresented } : null;
+          required: first.required, allowNotPresented: first.allowNotPresented, icon: first.itemIcon ?? null } : null;
         try {
           invalidateEvaluation();
           const saved = await apiRequest(`/api/v1/events/${event.id}/${first ? "rubrics-with-item" : "rubrics"}`, {
@@ -2284,7 +2289,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
         // An uncertain operation stops this sequence: no dependent POST follows.
         if (row.status === "uncertain") break;
         const body = { name: row.name, specialtyId: row.specialtyId,
-          required: row.required, allowNotPresented: row.allowNotPresented };
+          required: row.required, allowNotPresented: row.allowNotPresented, icon: row.itemIcon ?? null };
         try {
           invalidateEvaluation();
           const saved = await apiRequest(`/api/v1/rubrics/${createReceiptRef.current.id}/items`, {
@@ -2711,6 +2716,16 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                     </div>
                     {row.status === "confirmed" ? <p>Ítem confirmado: {row.receipt.name} ({row.receipt.id}).</p>
                       : <p>{row.name || `Ítem ${index + 1}`}: {row.status === "uncertain" ? "por comprobar" : row.status === "rejected" ? "rechazada" : "pendiente no enviada"}.</p>}
+                    <RubricIconPicker
+                      name="rubricIcon"
+                      defaultValue={row.rubricIcon ?? null}
+                      disabled={row.status === "confirmed" || row.status === "uncertain"}
+                    />
+                    <ItemIconPicker
+                      name="itemIcon"
+                      defaultValue={row.itemIcon ?? null}
+                      disabled={row.status === "confirmed" || row.status === "uncertain"}
+                    />
                   </div>)}
                   {!createReceipt && <button type="button" className="secondary rubric-create-add" disabled={creating || createOutcome === "uncertain"} onClick={() => {
                     const key = ++nextCreateRow.current;
@@ -2732,7 +2747,6 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                       {RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   </label>
-                  <RubricIconPicker name="icon" disabled={Boolean(createReceipt)} />
                 </details>
                 {createReceipt && <p role="status">Rubro confirmado: {createReceipt.name} ({createReceipt.id}).</p>}
                 {!originalSpecialtyActive && <p role="alert">La especialidad {createSpecialty.name} ya no está activa. No se enviarán ítems a otra especialidad: descartá este formulario y elegí una especialidad activa. Lo confirmado no se deshará.</p>}
@@ -2967,7 +2981,6 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                     rubricType: fd.get("rubricType"),
                                     resolutionMethod: fd.get("resolutionMethod"),
                                     evaluationObjective: fd.get("evaluationObjective") || null,
-                                    icon: fd.get("icon") || null,
                                     active: fd.get("active") === "on",
                                   };
                                    const desc = `Se actualizará la configuración del rubro ${rubric.name}. ${rubricSpecialtyScope(rubric)} Este cambio no borra el historial.`;
@@ -3009,7 +3022,6 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                     </select>
                                   </label>
                                 </details>
-                                <RubricIconPicker name="icon" defaultValue={rubric.icon} />
                                 <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
                                 <div className="form-actions">
                                   <button type="submit">Guardar rubro</button>
@@ -3120,6 +3132,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                           required: fd.get("required") === "on",
                                           allowNotPresented: fd.get("allowNotPresented") === "on",
                                           active: fd.get("active") === "on",
+                                          icon: fd.get("icon") || null,
                                         };
                                         requestMutationConfirmation("Guardar cambios del ítem", `Se actualizará el ítem ${item.name} del rubro ${rubric.name}. Especialidad de origen: ${specialtyName(item.specialtyId, item.specialtyName)}; destino: ${specialtyName(body.specialtyId)}. Solo se modifica este ítem.`, () => saveItem(rubric.id, body, "PATCH", item.id));
                                         return false;
@@ -3131,6 +3144,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                           <summary>Opciones avanzadas</summary>
                                           <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
                                           <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
+                                          <ItemIconPicker name="icon" defaultValue={item.icon} />
                                         </details>
                                         <label className="check"><input name="active" type="checkbox" defaultChecked={item.active} /> Activo</label>
                                         <div className="form-actions">
@@ -3140,6 +3154,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
                                       </SaveForm>
                                     ) : (
                                       <div className="subrecord-summary">
+                                        {item.icon && <ItemIcon icon={item.icon} size="sm" label={`Ícono del ítem: ${item.name}`} />}
                                         <strong>{item.name}</strong>
                                         <span>{item.specialtyName}</span>
                                         <span className="mono-text">Orden: {item.displayOrder}</span>
@@ -3255,6 +3270,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
             specialtyId: formData.get("specialtyId"),
             required: formData.get("required") === "on",
             allowNotPresented: formData.get("allowNotPresented") === "on",
+            icon: formData.get("icon") || null,
           };
           setMutationConfirmTarget({
             title: "Confirmar creación del ítem",
@@ -3274,6 +3290,7 @@ function AdminRubricsSection({ event, focusRubricId = null, readiness, readiness
             <option value="">Elegí una especialidad</option>
             {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
           </select></label>
+          <ItemIconPicker name="icon" />
           <details className="advanced-options">
             <summary>Opciones avanzadas</summary>
             <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>

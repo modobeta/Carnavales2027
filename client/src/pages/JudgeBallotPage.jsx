@@ -8,6 +8,7 @@ import { ProgressBar } from "../components/ProgressBar.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
+import { ItemIcon } from "../components/ItemIcon.jsx";
 import { LoadingOverlay } from "../components/LoadingOverlay.jsx";
 import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
@@ -732,6 +733,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                 size="sm"
                                 label={item.rubricName ? `Rubro: ${item.rubricName}` : undefined}
                               />
+                              {item.itemIcon && <ItemIcon icon={item.itemIcon} size="sm" label={`Ícono del ítem: ${item.itemName}`} />}
                               <span className="ballot-summary-name">{item.itemName}{item.participantName ? ` · ${item.participantName}` : ""}</span>
                             </button>
                           </li>
@@ -1020,7 +1022,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                 <li key={score.id} className={`judge-list-row${isNotPresented ? " is-np" : ""}`}>
                                   <span className="judge-list-check" aria-hidden="true">{isNotPresented ? "⊘" : "✓"}</span>
                                   <div className="judge-list-main">
-                                    <h3>{score.itemName}</h3>
+                                    <h3 className="readonly-item-name">
+                                      {score.itemIcon && <ItemIcon icon={score.itemIcon} size="sm" label={`Ícono del ítem: ${score.itemName}`} />}
+                                      {score.itemName}
+                                    </h3>
                                     <p className="readonly-item-rubric">
                                       <RubricIcon icon={score.rubricIcon} color={group.brandColor} size="sm" />
                                       {score.rubricName}
@@ -1063,7 +1068,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   >
                     <div className="ballot-troupe-heading">
                       <div>
-                        <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>
+                        <h1 className="card-rubric-name">Rubro: {activeScore.rubricName}</h1>
                       </div>
                     </div>
                   </div>
@@ -1079,7 +1084,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                       </div>
                     ) : (
                       <>
-                        <h2 className="card-item-title">{activeScore.itemName}</h2>
+                        <div className="card-item-heading">
+                          <h2 className="card-item-title">{activeScore.itemName}</h2>
+                          {activeScore.itemIcon && (
+                            <div className="card-item-icon">
+                              <ItemIcon icon={activeScore.itemIcon} label={`Ícono del ítem: ${activeScore.itemName}`} />
+                            </div>
+                          )}
+                        </div>
                         <div className="ballot-subject">
                           <span>{activeScore.participantName ? "Participante" : "Comparsa"}</span>
                           <strong>{activeScore.participantName ?? activeScore.troupeName}</strong>

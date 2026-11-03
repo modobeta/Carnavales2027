@@ -114,6 +114,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
           || filename === "089_ballot_custody.sql"
           || filename === "090_reconcile_schema_drift.sql"
           || filename === "095_primary_admin_protection.sql"
+          || filename === "096_evaluation_item_icons.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -562,6 +563,11 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     {
       filename: "095_primary_admin_protection.sql",
       version: "095",
+      applied: true,
+    },
+    {
+      filename: "096_evaluation_item_icons.sql",
+      version: "096",
       applied: true,
     },
   ]);

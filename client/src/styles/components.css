@@ -806,6 +806,13 @@
   block-size: 100%;
 }
 
+/* ItemIcon — círculo ámbar fijo para distinguir el ícono del ítem del ícono
+   del rubro (que usa el color de la comparsa). */
+.item-icon-circle {
+  background: var(--palette-highlight);
+  border-color: var(--palette-highlight);
+}
+
 /* Encabezado de comparsa pintado con su color representativo (Spec 029).
    El color y su tinta legible llegan por variables desde el componente. */
 .troupe-brand-panel {
@@ -877,14 +884,21 @@
 .rubric-icon-swatch {
   display: grid;
   place-items: center;
-  inline-size: 2.5rem;
-  block-size: 2.5rem;
+  inline-size: 3rem;
+  block-size: 3rem;
 }
 
 .rubric-icon-swatch img {
   inline-size: 100%;
   block-size: 100%;
   object-fit: contain;
+}
+
+.rubric-icon-option-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.15;
+  margin-left: var(--space-1);
 }
 
 .rubric-icon-swatch.is-empty::before {
@@ -939,7 +953,10 @@
   border-radius: var(--radius-lg);
 }
 
-.judge-ballot-page .ballot-card-header.is-branded .card-rubric-name { color: inherit; }
+/* El nombre del rubro se lee negro sobre el encabezado de marca en tema claro
+   y blanco en tema oscuro, con independencia del color de la comparsa. */
+.judge-ballot-page .ballot-card-header.is-branded .card-rubric-name { color: black; }
+:root[data-theme="dark"] .judge-ballot-page .ballot-card-header.is-branded .card-rubric-name { color: white; }
 
 .ballot-card-header h2 {
   margin: 0;
@@ -955,6 +972,22 @@
   line-height: 1.3;
   margin: 0 0 var(--space-2) 0;
   color: var(--text-primary);
+}
+
+/* Ícono del ítem junto al nombre, dentro del cuerpo de la tarjeta, sobre la
+   grilla de notas. El círculo ámbar lo aporta ItemIcon. */
+.card-item-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.card-item-heading .card-item-title { margin: 0; min-inline-size: 0; }
+.card-item-icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-block-start: 0.15rem;
 }
 
 .ballot-subject > span {

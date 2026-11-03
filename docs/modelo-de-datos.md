@@ -29,6 +29,6 @@ user ─ account / session / twoFactor / user_role / judge_profile
 
 ## Integridad y evolución
 
-Las relaciones efectivas son FKs de PostgreSQL; no inferir cascadas de un diagrama simplificado. Votos, cierres, auditoría y actas deben preservarse, por eso borrados administrativos fallan cuando hay historial. El runner `api/src/db/migrate.js` ordena migraciones, usa advisory lock y registra SHA-256; no editar SQL aplicado. La última migración del corte es `095_primary_admin_protection.sql` (la numeración no implica que existan todos los números). `084` admite solo un checksum histórico exacto de finales de línea; no es permiso para alterar migraciones.
+Las relaciones efectivas son FKs de PostgreSQL; no inferir cascadas de un diagrama simplificado. Votos, cierres, auditoría y actas deben preservarse, por eso borrados administrativos fallan cuando hay historial. El runner `api/src/db/migrate.js` ordena migraciones, usa advisory lock y registra SHA-256; no editar SQL aplicado. La última migración del corte es `096_evaluation_item_icons.sql` (la numeración no implica que existan todos los números). `084` admite solo un checksum histórico exacto de finales de línea; no es permiso para alterar migraciones.
 
 Para ampliar este documento: generar un ERD desde una base **descartable** restaurada, nunca desde producción para probar escrituras. Añadir cardinalidades y columnas a partir de `pg_constraint`/migraciones, no de suposiciones.

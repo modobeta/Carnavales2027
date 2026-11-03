@@ -989,6 +989,14 @@ button.button-link:disabled {
 .judge-now-brand { display: grid; gap: 0.6rem; }
 .judge-now-name { display: flex; align-items: center; gap: 0.75rem; min-inline-size: 0; }
 .judge-now-name h3 { min-inline-size: 0; }
+
+/* Color del h3 según el modo: blanco en oscuro, negro en claro */
+@media (prefers-color-scheme: dark) {
+  .judge-now-brand.is-branded .judge-now-name h3 { color: white !important; }
+}
+@media (prefers-color-scheme: light) {
+  .judge-now-brand.is-branded .judge-now-name h3 { color: black; }
+}
 .judge-now-logo {
   inline-size: clamp(2.75rem, 8vw, 3.5rem);
   block-size: clamp(2.75rem, 8vw, 3.5rem);
@@ -1053,6 +1061,31 @@ button.button-link:disabled {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 800;
+}
+/* Ícono de comparsa en la lista: logo circular con aro del color de la comparsa;
+   sin logo, círculo relleno con su color; sin color ni logo, se mantiene el orden. */
+.judge-list-avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--troupe-brand, var(--border-strong));
+  background: var(--surface-card);
+  overflow: hidden;
+}
+.judge-list-avatar .judge-list-avatar-logo {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  display: block;
+}
+.judge-list-avatar.is-color {
+  padding: 0;
+  background: var(--troupe-brand);
 }
 .judge-list-action {
   flex-shrink: 0;
@@ -1361,6 +1394,7 @@ button.button-link:disabled {
 .readonly-group-list { margin: 0; }
 .readonly-group-list .judge-list-row { padding: 0.6rem 0.25rem; }
 .readonly-item-rubric { display: flex; align-items: center; gap: 0.4rem; }
+.readonly-item-name { display: flex; align-items: center; gap: 0.4rem; min-inline-size: 0; }
 .readonly-group-list .judge-list-row.is-np { border-inline-start: 3px solid var(--warning-border); padding-inline-start: 0.6rem; }
 .readonly-group-toggle {
   display: inline-flex;

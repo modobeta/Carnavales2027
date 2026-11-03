@@ -44,8 +44,8 @@ it("crea 0, 1 y varios ítems con el contrato correcto y recibos individuales", 
   await screen.findByText(/Ítem confirmado: Sincronización \(i2\)/);
   const requests = posts();
   expect(requests.map(([path]) => path)).toEqual(["/api/v1/events/e1/rubrics-with-item", "/api/v1/rubrics/r2/items"]);
-  expect(JSON.parse(requests[0][1].body).initialItem).toEqual({ name: "Creatividad", code: "CREATIVIDAD", specialtyId: "s1", required: true, allowNotPresented: true });
-  expect(JSON.parse(requests[1][1].body)).toEqual({ name: "Sincronización", specialtyId: "s1", required: true, allowNotPresented: true });
+  expect(JSON.parse(requests[0][1].body).initialItem).toEqual({ name: "Creatividad", code: "CREATIVIDAD", specialtyId: "s1", required: true, allowNotPresented: true, icon: null });
+  expect(JSON.parse(requests[1][1].body)).toEqual({ name: "Sincronización", specialtyId: "s1", required: true, allowNotPresented: true, icon: null });
   expect(screen.getByText("Rubro confirmado: Coreografía (r2).")).toBeInTheDocument();
   expect(screen.getByText(/Ítem confirmado: Creatividad \(i1\)/)).toBeInTheDocument();
 });
