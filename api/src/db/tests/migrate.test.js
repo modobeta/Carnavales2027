@@ -123,6 +123,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
             || filename === "110_night_open_requires_primary_jury.sql"
             || filename === "111_freeze_jury_assignments_after_night_open.sql"
             || filename === "112_allow_assignment_replacement_after_night_open.sql"
+            || filename === "113_evaluation_item_icons.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -589,6 +590,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     { filename: "110_night_open_requires_primary_jury.sql", version: "110", applied: true },
     { filename: "111_freeze_jury_assignments_after_night_open.sql", version: "111", applied: true },
     { filename: "112_allow_assignment_replacement_after_night_open.sql", version: "112", applied: true },
+    { filename: "113_evaluation_item_icons.sql", version: "113", applied: true },
   ]);
 
   const secondRun = await migrate();

@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { apiRequest } from "../api/http.js";
+import { apiRequest, ApiError } from "../api/http.js";
 import { AdminCompetenciaPage as CompetitionPage } from "../pages/AdminCompetenciaPage.jsx";
 
 function AdminCompetenciaPage(props) { return <CompetitionPage initialStep="participantes" {...props} />; }
@@ -17,11 +17,41 @@ const ready = (incompleteRubrics = []) => ({ ready: false, missing: [], incomple
 const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
 const posts = () => apiRequest.mock.calls.filter(([, options]) => options?.method === "POST" && options?.body);
 
+async function integratedDraft(names = []) {
+  fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
+  fireEvent.click(await screen.findByRole("button", { name: /Crear primer rubro|Agregar rubro/ }));
+  const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
+  fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Coreografía" } });
+  for (const name of names) {
+    fireEvent.click(within(form).getByRole("button", { name: "Agregar otro ítem" }));
+    fireEvent.change(within(form).getByRole("textbox", { name: `Nombre del ítem ${within(form).getAllByRole("textbox", { name: /Nombre del ítem/ }).length}` }), { target: { value: name } });
+  }
+  return form;
+}
+
 async function openCatalog() {
   fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
   fireEvent.click(await screen.findByRole("button", { name: "Agregar rubro" }));
 }
 
+it("crea rubro con primer ítem sin perder el flujo de catálogo de main", async () => {
+  mockCatalog({ rubrics: () => [] });
+  const read = apiRequest.getMockImplementation();
+  apiRequest.mockImplementation(async (path, options) => {
+    if (options?.method === "POST" && path.endsWith("/rubrics-with-item")) {
+      return { id: "r2", name: "Coreografía", initialItem: { id: "i2", name: "Creatividad", specialtyId: "s1" } };
+    }
+    return read(path, options);
+  });
+  render(<AdminCompetenciaPage event={event()} initialStep="rubros" />);
+  const form = await integratedDraft(["Creatividad"]);
+  fireEvent.submit(form);
+  await screen.findByText("Rubro e ítems guardados.");
+  const requests = posts();
+  expect(requests).toHaveLength(1);
+  expect(requests[0][0]).toBe("/api/v1/events/e1/rubrics-with-item");
+  expect(JSON.parse(requests[0][1].body).initialItem).toMatchObject({ name: "Creatividad", code: "CREATIVIDAD", specialtyId: "s1" });
+});
 function mockCatalog(overrides = {}) {
   apiRequest.mockImplementation(async (path, options) => {
     if (options?.method) return { id: "r2", name: "Nuevo", active: true, items: [], criteria: [] };

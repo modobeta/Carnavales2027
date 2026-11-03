@@ -528,6 +528,8 @@
 .rubric-create-item-main { display: flex; align-items: flex-end; gap: var(--space-2); }
 .rubric-create-item-main label { flex: 1 1 auto; min-inline-size: 0; }
 .rubric-create-item-main label:nth-of-type(2) { flex: 0 1 12rem; }
+.rubric-create-item-icon { display: flex; align-items: center; gap: var(--space-2); }
+.rubric-create-item-icon label { flex: 1 1 auto; min-inline-size: 0; }
 .rubric-create-remove { min-block-size: 3rem; }
 .rubric-create-options { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
 .rubric-create-add { align-self: flex-start; }

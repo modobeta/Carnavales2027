@@ -32,6 +32,20 @@ function onlineApi() {
 describe("JudgeBallotPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+  it("muestra el ícono del ítem en un círculo sobre la grilla de notas", async () => {
+    apiRequest.mockResolvedValue({
+      ...ballot,
+      scores: ballot.scores.map((score) => score.id === "score-1" ? { ...score, itemIcon: "BateriaDeComparsa" } : score),
+    });
+    render(<JudgeBallotPage ballotId="ballot-1" />);
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+    const card = document.querySelector(".ballot-card-mode.ballot-single");
+    const icon = card.querySelector(".card-item-icon .item-icon-circle img");
+    expect(icon).toHaveAttribute("src", "/icons/items/Bater%C3%ADa%20de%20Comparsa.png");
+    const scoreGroup = within(card).getByRole("group", { name: "Comparsa Uno: Presencia" });
+    expect(icon.compareDocumentPosition(scoreGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("muestra solo faltantes anteriores al ítem actual y permite volver a ellos", async () => {
     const scores = [
       ["Omitido", "PENDING"], ["Votado", "SCORED"], ["Ausente", "NOT_PRESENTED"],

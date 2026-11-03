@@ -306,7 +306,28 @@ export function JudgeHomePage({ session }) {
                 <ul className="judge-list">
                   {upcomingEntries.map((entry) => (
                     <li key={`${entry.troupe.ballotId}-${entry.troupe.troupeId}`} className={`judge-list-row${entry.locked ? " is-locked" : ""}`}>
-                      <span className="judge-list-order" aria-hidden="true">{entry.index + 1}</span>
+                      {entry.troupe.hasLogo && entry.troupe.eventTroupeId ? (
+                        <span
+                          className="judge-list-avatar"
+                          style={entry.troupe.brandColor ? { "--troupe-brand": entry.troupe.brandColor } : undefined}
+                        >
+                          <TroupeLogo
+                            troupeId={entry.troupe.eventTroupeId}
+                            hasLogo
+                            sha256={entry.troupe.logoSha256}
+                            alt={`Logo de ${entry.troupe.troupeName}`}
+                            className="judge-list-avatar-logo"
+                          />
+                        </span>
+                      ) : entry.troupe.brandColor ? (
+                        <span
+                          className="judge-list-avatar is-color"
+                          style={{ "--troupe-brand": entry.troupe.brandColor }}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <span className="judge-list-order" aria-hidden="true">{entry.index + 1}</span>
+                      )}
                       <div className="judge-list-main">
                         <h3>{entry.troupe.troupeName}</h3>
                         <p>{entry.troupe.specialtyName}</p>

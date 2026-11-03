@@ -27,10 +27,46 @@ export const RUBRIC_ICONS = Object.freeze([
 ]);
 const RUBRIC_ICON_SET = new Set(RUBRIC_ICONS);
 
+/**
+ * Catálogo cerrado de íconos de ítem. La clave corresponde al nombre del asset
+ * versionado en `client/public/icons/items`, de modo que el cliente resuelve el
+ * archivo sin recibirlo de la API y PostgreSQL no almacena binarios de interfaz.
+ */
+export const ITEM_ICONS = Object.freeze([
+  "AnunciadorDelCarnaval",
+  "BastoneraDeComparsa",
+  "BateriaDeComparsa",
+  "CarroDeComparsa",
+  "CarrozaDeReina",
+  "ComisionDeFrente",
+  "CordonerasDeBateria",
+  "CordonerasDelCarnaval",
+  "CoreografiaDeComparsa",
+  "DisenoDeComparsa",
+  "EmbajadorDelCarnaval",
+  "InterpretacionMusical",
+  "ParejaDeBaileDelCarnaval",
+  "PresentadorDeComparsa",
+  "PortaestandarteDeBateria",
+  "ReinaDelCarnaval",
+  "TrajeFemenino",
+  "ReyDelCarnaval",
+  "PortaEstandarteDelCarnaval",
+  "ReinaDeLaComparsa",
+]);
+const ITEM_ICON_SET = new Set(ITEM_ICONS);
+
 function rubricIcon(value) {
   if (value === undefined || value === null || value === "") return null;
   const key = text(value, "icon");
   if (!RUBRIC_ICON_SET.has(key)) throw new TypeError(`icon inválido. Valores permitidos: ${RUBRIC_ICONS.join(", ")}.`);
+  return key;
+}
+
+function itemIcon(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const key = text(value, "icon");
+  if (!ITEM_ICON_SET.has(key)) throw new TypeError(`icon inválido. Valores permitidos: ${ITEM_ICONS.join(", ")}.`);
   return key;
 }
 
@@ -240,18 +276,18 @@ async function itemSpecialtyDetails(client, itemId) {
   return rows;
 }
 
-export async function createItem({ client = null, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required = true, allowNotPresented = true }) {
-  if (!client) return inTransaction((client) => createItem({ client, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required, allowNotPresented }));
+export async function createItem({ client = null, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required = true, allowNotPresented = true, icon = null }) {
+  if (!client) return inTransaction((client) => createItem({ client, rubricId, name, code, specialtyId, specialtyIds, displayOrder, required, allowNotPresented, icon }));
   const rubric = await lockConfigurationParent(client, "rubric", rubricId);
   const selectedSpecialtyIds = itemSpecialtyIds({ specialtyIds, specialtyId });
   await assertActiveItemSpecialties(client, rubric.event_id, selectedSpecialtyIds);
   if (typeof required !== "boolean") throw new TypeError("required debe ser booleano.");
   if (typeof allowNotPresented !== "boolean") throw new TypeError("allowNotPresented debe ser booleano.");
   const { rows } = await client.query(
-    `INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code,display_order,required,allow_not_presented) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO evaluation_item(event_id,rubric_id,specialty_id,name,code,display_order,required,allow_not_presented,icon) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING id,rubric_id AS "rubricId",specialty_id AS "specialtyId",name,code,active,
-               display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented"`,
-    [rubric.event_id, rubricId, selectedSpecialtyIds[0], text(name, "name"), text(code, "code"), itemOrder(displayOrder), required, allowNotPresented],
+               display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented",icon`,
+    [rubric.event_id, rubricId, selectedSpecialtyIds[0], text(name, "name"), text(code, "code"), itemOrder(displayOrder), required, allowNotPresented, itemIcon(icon)],
   );
   const item = rows[0];
   for (const id of selectedSpecialtyIds.slice(1)) {
@@ -264,13 +300,13 @@ export async function createItem({ client = null, rubricId, name, code, specialt
 export async function listItems({ client = getPool(), rubricId }) {
   const { rows } = await client.query(
     `SELECT i.id,i.rubric_id AS "rubricId",i.specialty_id AS "specialtyId",i.name,i.code,i.active,
-            i.display_order AS "displayOrder",i.required,i.allow_not_presented AS "allowNotPresented",
+            i.display_order AS "displayOrder",i.required,i.allow_not_presented AS "allowNotPresented",i.icon,
             s.name AS "specialtyName",s.code AS "specialtyCode",
             ARRAY(SELECT eis.specialty_id FROM evaluation_item_specialty eis
                    WHERE eis.evaluation_item_id=i.id ORDER BY eis.specialty_id) AS "specialtyIds",
             COALESCE((SELECT json_agg(json_build_object('specialtyId',es.id,'specialtyName',es.name,'specialtyCode',es.code) ORDER BY es.code)
                         FROM evaluation_item_specialty eis JOIN event_specialty es ON es.id=eis.specialty_id AND es.event_id=eis.event_id
-                       WHERE eis.evaluation_item_id=i.id), '[]'::json) AS specialties
+                        WHERE eis.evaluation_item_id=i.id), '[]'::json) AS specialties
        FROM evaluation_item i
        JOIN event_specialty s ON s.id=i.specialty_id
       WHERE i.rubric_id=$1
@@ -374,8 +410,8 @@ export async function setNominationActive({ client = null, nominationId, active 
   return rows[0];
 }
 
-export async function updateItem({ client = null, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented }) {
-  if (!client) return inTransaction((client) => updateItem({ client, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented }));
+export async function updateItem({ client = null, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented, icon }) {
+  if (!client) return inTransaction((client) => updateItem({ client, itemId, name, code, specialtyId, specialtyIds, active, displayOrder, required, allowNotPresented, icon }));
   const item = await lockConfigurationParent(client, "evaluation_item", itemId);
   const selectedSpecialtyIds = specialtyIds === undefined && specialtyId === undefined ? null
     : itemSpecialtyIds({ specialtyIds, specialtyId });
@@ -383,15 +419,18 @@ export async function updateItem({ client = null, itemId, name, code, specialtyI
   if (active !== undefined) boolean(active, "active");
   if (required !== undefined && typeof required !== "boolean") throw new TypeError("required debe ser booleano.");
   if (allowNotPresented !== undefined && typeof allowNotPresented !== "boolean") throw new TypeError("allowNotPresented debe ser booleano.");
+  const iconProvided = icon !== undefined;
+  const iconValue = iconProvided ? itemIcon(icon) : null;
   const { rows } = await client.query(
     `UPDATE evaluation_item
         SET name=COALESCE($2,name),code=COALESCE($3,code),specialty_id=COALESCE($4,specialty_id),
             active=COALESCE($5,active),display_order=COALESCE($6,display_order),
             required=COALESCE($7,required),allow_not_presented=COALESCE($8,allow_not_presented),
+            icon=CASE WHEN $9 THEN $10 ELSE icon END,
             updated_at=CURRENT_TIMESTAMP
        WHERE id=$1
       RETURNING id,rubric_id AS "rubricId",specialty_id AS "specialtyId",name,code,active,
-                display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented"`,
+                display_order AS "displayOrder",required,allow_not_presented AS "allowNotPresented",icon`,
     [
       text(itemId, "itemId"),
       name === undefined ? null : text(name, "name"),
@@ -401,6 +440,8 @@ export async function updateItem({ client = null, itemId, name, code, specialtyI
       displayOrder === undefined ? null : order(displayOrder),
       required ?? null,
       allowNotPresented ?? null,
+      iconProvided,
+      iconValue,
     ],
   );
   if (!rows[0]) throw new Error("EVALUATION_ITEM_NOT_FOUND");
@@ -577,6 +618,7 @@ export async function createRubricWithInitialItem({ client = null, eventId, rubr
       specialtyIds: initialItem.specialtyIds,
       required: initialItem.required,
       allowNotPresented: initialItem.allowNotPresented,
+      icon: initialItem.icon,
     });
     return { ...createdRubric, initialItem: item };
   };
