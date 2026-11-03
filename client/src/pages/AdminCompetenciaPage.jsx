@@ -12,6 +12,8 @@ import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { TroupeLogo } from "../components/TroupeLogo.jsx";
 import { RubricIcon } from "../components/RubricIcon.jsx";
 import { RubricIconPicker } from "../components/RubricIconPicker.jsx";
+import { ItemIconPicker } from "../components/ItemIconPicker.jsx";
+import { ItemIcon } from "../components/ItemIcon.jsx";
 import { TroupeForm } from "../features/TroupeForm.jsx";
 import { TroupeParticipantsSection } from "../features/TroupeParticipantsSection.jsx";
 import { IncompleteNominationsSummary } from "../features/IncompleteNominationsSummary.jsx";
@@ -21,7 +23,7 @@ import { uxStatusLabel } from "../components/admin-ux-labels.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { createPendingEventOpenOperation, resolvePendingEventOpenOperation } from "../features/event-open-operation.js";
 import { deriveEvaluationPresentation } from "../features/evaluation-presentation.js";
-import { unequivocalCreateRejection } from "../features/evaluation-create-flow.js";
+import { evaluationItemCode, unequivocalCreateRejection } from "../features/evaluation-create-flow.js";
 import { hashHistoryPosition, markHashHistoryEntry } from "../features/hash-history.js";
 
 const WriteContext = createContext(null);
@@ -1983,12 +1985,28 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   const troupes = catalog?.troupes ?? [];
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createSpecialty, setCreateSpecialty] = useState(null);
+  const [createRows, setCreateRows] = useState([]);
+  const createRowsRef = useRef([]);
+  const nextCreateRow = useRef(0);
+  const [createReceipt, setCreateReceipt] = useState(null);
+  const createReceiptRef = useRef(null);
   const [createOutcome, setCreateOutcome] = useState("");
   const [createError, setCreateError] = useState("");
   const [reviewRequested, setReviewRequested] = useState(false);
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
+  const updateCreateRows = (updater) => {
+    const next = updater(createRowsRef.current);
+    createRowsRef.current = next;
+    setCreateRows(next);
+  };
   const resetCreateFlow = () => {
+    setCreateSpecialty(null);
+    createRowsRef.current = [];
+    setCreateRows([]);
+    createReceiptRef.current = null;
+    setCreateReceipt(null);
     setNewRubricTarget("TROUPE");
     setNewRubricSubjectType("PERSON");
     setNewRubricType("NOMINATIVE");
@@ -2010,7 +2028,8 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
     if (!showCreateForm) { initialDraft.current = null; dirtyDraft.current = false; setIsDraftDirty(false); }
   }, [showCreateForm]);
   const trackDraft = (form) => {
-    dirtyDraft.current = JSON.stringify([...new FormData(form).entries()]) !== initialDraft.current;
+    dirtyDraft.current = createRowsRef.current.length > 0 || createReceiptRef.current !== null
+      || JSON.stringify([...new FormData(form).entries()]) !== initialDraft.current;
     setIsDraftDirty(dirtyDraft.current);
   };
   const requestDiscard = (action, onStay) => {
@@ -2019,7 +2038,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
       onStay?.();
       return true;
     }
-    if (!showCreateForm || !dirtyDraft.current) return false;
+    if (!showCreateForm || (!dirtyDraft.current && !createRowsRef.current.some((row) => row.status !== "confirmed"))) return false;
     const trigger = document.activeElement;
     discardTrigger.current = trigger?.isConnected && !trigger.closest(".event-picker-popover")
       ? trigger : createFormRef.current?.querySelector('[name="name"]');
@@ -2135,8 +2154,10 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   };
   const activeTroupes = troupes.filter((troupe) => troupe.active !== false).sort((a, b) => a.name.localeCompare(b.name));
   const selectedSpecialty = activeSpecialties.find((specialty) => specialty.id === selectedSpecialtyId) ?? null;
+  const originalSpecialtyActive = !createSpecialty || specialties.some((specialty) => specialty.id === createSpecialty.id && specialty.active !== false);
   const openCreateForm = () => {
     resetCreateFlow();
+    if (selectedSpecialty) setCreateSpecialty({ id: selectedSpecialty.id, name: selectedSpecialty.name });
     setShowCreateForm(true);
   };
   const itemSpecialtyIds = (item) => item.specialtyIds ?? [item.specialtyId];
@@ -2208,37 +2229,110 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
   };
 
   const submitCreate = async (form) => {
-    if (!catalogOnly || creatingRef.current || locked || createOutcome === "uncertain") return false;
+    if (!catalogOnly || creatingRef.current || locked || createOutcome === "uncertain"
+        || createRowsRef.current.some((row) => row.status === "uncertain")) return false;
+    if (createSpecialty && (selectedSpecialtyId !== createSpecialty.id || !originalSpecialtyActive)) {
+      setCreateError(`La especialidad ${createSpecialty?.name ?? "seleccionada"} ya no está activa. Descartá este formulario y elegí otra especialidad antes de crear.`);
+      return false;
+    }
     const fd = new FormData(form);
     const rubricBody = {
       name: fd.get("name"), evaluationTarget: fd.get("evaluationTarget"), rubricType: fd.get("rubricType"),
       resolutionMethod: fd.get("resolutionMethod"), evaluationObjective: fd.get("evaluationObjective") || null,
       expectedSubjectType: fd.get("evaluationTarget") === "NOMINATION" ? fd.get("expectedSubjectType") : null,
-      icon: fd.get("icon") || null,
+      icon: fd.get("rubricIcon") || fd.get("icon") || null,
     };
+    const first = createRowsRef.current[0];
+    const code = first ? evaluationItemCode(first.name) : null;
+    if (first && !createReceiptRef.current && (!code || !/^[A-Z0-9_]{1,64}$/.test(code))) {
+      setCreateError("El nombre del primer ítem debe incluir letras o números para crear un código válido. Corregí el nombre antes de guardar.");
+      setCreateOutcome("");
+      return false;
+    }
+    if (createRowsRef.current.some((row) => row.status !== "confirmed" && !row.name.trim())) {
+      setCreateError("Ingresá un nombre para cada ítem pendiente.");
+      return false;
+    }
+    const activeSpecialtyIds = new Set(activeSpecialties.map((specialty) => specialty.id));
+    if (createRowsRef.current.some((row) => row.status !== "confirmed" && !activeSpecialtyIds.has(row.specialtyId))) {
+      setCreateError("Elegí una especialidad activa para cada ítem pendiente.");
+      return false;
+    }
     creatingRef.current = true;
     setCreating(true);
     setCreateError("");
     setReviewRequested(false);
     try {
-      invalidateEvaluation();
-      const saved = await apiRequest(`/api/v1/events/${event.id}/rubrics`, { method: "POST", body: JSON.stringify(rubricBody) });
-      if (!saved?.id) throw new Error("Respuesta sin comprobante");
-      confirmCreated(saved, rubricBody, "rubric");
-      setMessage("Rubro guardado.");
-      dirtyDraft.current = false;
-      setIsDraftDirty(false);
-      setShowCreateForm(false);
-      resetCreateFlow();
-      setExpanded(saved.id);
-    } catch (error) {
-      const rejected = unequivocalCreateRejection(error);
-      invalidateEvaluation();
-      if (rejected) reloadProgress?.();
-      setCreateOutcome(rejected ? "error" : "uncertain");
-      setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
-        ? "El código ya está en uso. Corregí el nombre y reintentá la creación." : "La API rechazó la creación. Revisá los datos y reintentá."
-        : "Se interrumpió la conexión o no llegó un comprobante; no sabemos si se guardó. No vuelvas a enviar esta operación.");
+      if (!createReceiptRef.current) {
+        const initialItem = first ? { name: first.name, code, specialtyId: first.specialtyId,
+          required: first.required, allowNotPresented: first.allowNotPresented, icon: first.itemIcon ?? null } : null;
+        try {
+          invalidateEvaluation();
+          const saved = await apiRequest(`/api/v1/events/${event.id}/${first ? "rubrics-with-item" : "rubrics"}`, {
+            method: "POST", body: JSON.stringify(first ? { ...rubricBody, initialItem } : rubricBody),
+          });
+          if (!saved?.id || (first && !saved.initialItem?.id)) throw new Error("Respuesta sin comprobante");
+          createReceiptRef.current = { id: saved.id, name: saved.name ?? rubricBody.name };
+          setCreateReceipt(createReceiptRef.current);
+          confirmCreated(saved, rubricBody, "rubric");
+          if (first) {
+            updateCreateRows((rows) => rows.map((row, index) => index === 0
+              ? { ...row, status: "confirmed", receipt: { id: saved.initialItem.id, name: saved.initialItem.name ?? row.name } } : row));
+            confirmCreated(saved.initialItem, initialItem, "items", saved.id);
+          }
+        } catch (error) {
+          const rejected = unequivocalCreateRejection(error);
+          invalidateEvaluation();
+          if (rejected) reloadProgress?.();
+          setCreateOutcome(rejected ? "error" : "uncertain");
+          if (first) updateCreateRows((rows) => rows.map((row, index) => index === 0
+            ? { ...row, status: rejected ? "rejected" : "uncertain" } : row));
+          setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
+            ? "El código ya está en uso. Corregí el nombre y reintentá la creación." : "La API rechazó la creación. Revisá los datos y reintentá."
+            : "Se interrumpió la conexión o no llegó un comprobante; no sabemos si se guardó. No vuelvas a enviar esta operación.");
+          return false;
+        }
+      }
+      for (const row of createRowsRef.current) {
+        if (row.status === "confirmed") continue;
+        // An uncertain operation stops this sequence: no dependent POST follows.
+        if (row.status === "uncertain") break;
+        const body = { name: row.name, specialtyId: row.specialtyId,
+          required: row.required, allowNotPresented: row.allowNotPresented, icon: row.itemIcon ?? null };
+        try {
+          invalidateEvaluation();
+          const saved = await apiRequest(`/api/v1/rubrics/${createReceiptRef.current.id}/items`, {
+            method: "POST", body: JSON.stringify(body),
+          });
+          if (!saved?.id) throw new Error("Respuesta sin comprobante");
+          updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key
+            ? { ...candidate, status: "confirmed", receipt: { id: saved.id, name: saved.name ?? row.name } } : candidate));
+          confirmCreated(saved, body, "items", createReceiptRef.current.id);
+        } catch (error) {
+          const rejected = unequivocalCreateRejection(error);
+          invalidateEvaluation();
+          if (rejected) reloadProgress?.();
+          updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key
+            ? { ...candidate, status: rejected ? "rejected" : "uncertain" } : candidate));
+          setCreateError(rejected ? error.code === "RESOURCE_CONFLICT"
+            ? "El código ya está en uso. Corregí el nombre de este ítem antes de reintentar." : "La API rechazó este ítem. Revisá los datos antes de reintentar."
+            : "Se interrumpió la conexión o no llegó un comprobante de este ítem. No lo reenvíes sin revisión manual.");
+          break;
+        }
+      }
+      const remaining = createRowsRef.current.filter((row) => row.status !== "confirmed");
+      if (remaining.length) {
+        setCreateOutcome("partial");
+      } else {
+        const createdId = createReceiptRef.current.id;
+        setCreateOutcome("complete");
+        setMessage(first ? "Rubro e ítems guardados." : "Rubro guardado.");
+        dirtyDraft.current = false;
+        setIsDraftDirty(false);
+        setShowCreateForm(false);
+        resetCreateFlow();
+        setExpanded(createdId);
+      }
     } finally {
       creatingRef.current = false;
       setCreating(false);
@@ -2626,11 +2720,52 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                 </fieldset>
                 {newRubricTarget === "NOMINATION" && (
                   <label>Tipo de participante
-                    <select name="expectedSubjectType" value={newRubricSubjectType} onChange={(e) => setNewRubricSubjectType(e.target.value)}>
+                    <select name="expectedSubjectType" value={newRubricSubjectType} onChange={(e) => setNewRubricSubjectType(e.target.value)} disabled={Boolean(createReceipt)}>
                       {SUBJECT_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   </label>
                 )}
+                <section className="rubric-create-items" aria-labelledby="new-rubric-items-title">
+                  <h4 id="new-rubric-items-title">Ítems puntuables</h4>
+                  <p className="rubric-create-hint">Cada ítem recibe una puntuación del jurado.</p>
+                  {createRows.length === 0 && <p className="rubric-create-empty">Podés crear el rubro sin ítems; quedará sin asociación y pendiente de completar.</p>}
+                  {createRows.map((row, index) => <div className="rubric-create-item" key={row.key}>
+                    <div className="rubric-create-item-main">
+                      <label>Nombre del ítem {index + 1}
+                        <input value={row.name} required disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
+                          onChange={(e) => { const name = e.target.value; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, name } : candidate)); dirtyDraft.current = true; setIsDraftDirty(true); }} />
+                      </label>
+                      <label>Especialidad del ítem {index + 1}
+                        <select value={row.specialtyId ?? ""} required disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
+                          onChange={(e) => { const specialtyId = e.target.value; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, specialtyId } : candidate)); dirtyDraft.current = true; setIsDraftDirty(true); }}>
+                          {activeSpecialties.map((specialty) => <option key={specialty.id} value={specialty.id}>{specialty.name}</option>)}
+                        </select>
+                      </label>
+                      {row.status !== "confirmed" && row.status !== "uncertain" && !creating && <button type="button" className="secondary rubric-create-remove" aria-label={`Quitar fila: ítem ${index + 1}`}
+                        onClick={() => { updateCreateRows((rows) => rows.filter((candidate) => candidate.key !== row.key)); dirtyDraft.current = true; setIsDraftDirty(true); }}>Quitar</button>}
+                    </div>
+                    <div className="rubric-create-options">
+                      <label className="check"><input type="checkbox" checked={row.required} disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
+                        onChange={(e) => { const required = e.target.checked; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, required } : candidate)); }} /> Obligatorio</label>
+                      <label className="check"><input type="checkbox" checked={row.allowNotPresented} disabled={creating || row.status === "confirmed" || row.status === "uncertain"}
+                        onChange={(e) => { const allowNotPresented = e.target.checked; updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, allowNotPresented } : candidate)); }} /> Permite No presentado</label>
+                    </div>
+                    {row.status === "confirmed" ? <p>Ítem confirmado: {row.receipt.name} ({row.receipt.id}).</p>
+                      : <p>{row.name || `Ítem ${index + 1}`}: {row.status === "uncertain" ? "por comprobar" : row.status === "rejected" ? "rechazada" : "pendiente no enviada"}.</p>}
+                    <ItemIconPicker
+                      name={`itemIcon-${row.key}`}
+                      defaultValue={row.itemIcon ?? null}
+                      disabled={row.status === "confirmed" || row.status === "uncertain"}
+                      onChange={(itemIcon) => { updateCreateRows((rows) => rows.map((candidate) => candidate.key === row.key ? { ...candidate, itemIcon } : candidate)); dirtyDraft.current = true; setIsDraftDirty(true); }}
+                    />
+                  </div>)}
+                  {!createReceipt && <button type="button" className="secondary rubric-create-add" disabled={creating || createOutcome === "uncertain"} onClick={() => {
+                    const key = ++nextCreateRow.current;
+                    updateCreateRows((rows) => [...rows, { key, name: "", specialtyId: createSpecialty?.id ?? activeSpecialties[0]?.id ?? null, required: true, allowNotPresented: true, status: "pending" }]);
+                    dirtyDraft.current = true; setIsDraftDirty(true);
+                    requestAnimationFrame(() => createFormRef.current?.querySelector(`.rubric-create-item:last-of-type input`)?.focus());
+                  }}>Agregar otro ítem</button>}
+                </section>
                 <details className="advanced-options">
                   <summary>Opciones avanzadas</summary>
                   <label>Detalle adicional (opcional)<input name="evaluationObjective" placeholder="Por ejemplo: figura o participante" /></label>
@@ -2639,7 +2774,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                       {RESOLUTION_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   </label>
-                  <RubricIconPicker name="icon" />
+                  <RubricIconPicker name="icon" disabled={Boolean(createReceipt)} />
                 </details>
                 {createOutcome === "error" && <p role="status">Error total: ninguna operación se confirmó. Revisá los datos y reintentá la creación.</p>}
                 {createOutcome === "uncertain" && <p role="status">Resultado por comprobar: no sabemos si se guardó. No reintentes este POST sin revisión manual.</p>}
@@ -2865,7 +3000,6 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                     rubricType: fd.get("rubricType"),
                                     resolutionMethod: fd.get("resolutionMethod"),
                                     evaluationObjective: fd.get("evaluationObjective") || null,
-                                    icon: fd.get("icon") || null,
                                     active: fd.get("active") === "on",
                                   };
                                    const desc = `Se actualizará la configuración del rubro ${rubric.name}. ${rubricSpecialtyScope(rubric)} Este cambio no borra el historial.`;
@@ -2908,7 +3042,6 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                     </select>
                                   </label>
                                 </details>
-                                <RubricIconPicker name="icon" defaultValue={rubric.icon} />
                                 <label className="check"><input name="active" type="checkbox" defaultChecked={rubric.active} /> Activo</label>
                                 <div className="form-actions">
                                   <button type="submit">Guardar rubro</button>
@@ -3020,6 +3153,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                           required: fd.get("required") === "on",
                                           allowNotPresented: fd.get("allowNotPresented") === "on",
                                           active: fd.get("active") === "on",
+                                          icon: fd.get("icon") || null,
                                         };
                                         if (body.specialtyIds.length === 0) {
                                           setMessage("Seleccioná al menos una especialidad.");
@@ -3044,6 +3178,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                           <summary>Opciones avanzadas</summary>
                                           <label className="check"><input name="required" type="checkbox" defaultChecked={item.required} title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>
                                           <label className="check"><input name="allowNotPresented" type="checkbox" defaultChecked={item.allowNotPresented} title="Admite calificación 'No se presentó'." /> Permite No presentado</label>
+                                          <ItemIconPicker name="icon" defaultValue={item.icon} />
                                         </details>
                                         <label className="check"><input name="active" type="checkbox" defaultChecked={item.active} /> Activo</label>
                                         <div className="form-actions">
@@ -3053,6 +3188,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
                                       </SaveForm>
                                     ) : (
                                       <div className="subrecord-summary">
+                                        {item.icon && <ItemIcon icon={item.icon} size="sm" label={`Ícono del ítem: ${item.name}`} />}
                                         <strong>{item.name}</strong>
                                         <span>{(item.specialties ?? [{ specialtyName: item.specialtyName }]).map((specialty) => specialty.specialtyName).filter(Boolean).join(", ")}</span>
                                         <span className="mono-text">Orden: {item.displayOrder}</span>
@@ -3169,6 +3305,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
             specialtyIds: [...new Set(formData.getAll("specialtyIds"))],
             required: formData.get("required") === "on",
             allowNotPresented: formData.get("allowNotPresented") === "on",
+            icon: formData.get("icon") || null,
           };
           if (body.specialtyIds.length === 0) {
             setMessage("Seleccioná al menos una especialidad.");
@@ -3196,6 +3333,7 @@ function AdminRubricsSection({ event, catalogOnly = false, participantsTroupe = 
               <input name="specialtyIds" type="checkbox" value={specialty.id} /> {specialty.name}
             </label>)}
           </fieldset>
+          <ItemIconPicker name="icon" />
           <details className="advanced-options">
             <summary>Opciones avanzadas</summary>
             <label className="check"><input name="required" type="checkbox" defaultChecked title="Todos los items deben resolverse. Pendientes bloquean cierre." /> Obligatorio</label>

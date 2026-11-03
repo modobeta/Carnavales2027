@@ -852,6 +852,7 @@ export async function getBallot({ ballotId, userId }) {
   const { rows: scores } = await getPool().query(
     `SELECT bs.id, bs.evaluation_item_id AS "evaluationItemId",
             ei.name AS "itemName", ei.code AS "itemCode",
+            ei.icon AS "itemIcon",
             r.name AS "rubricName", r.code AS "rubricCode",
             r.icon AS "rubricIcon",
             r.evaluation_target AS "evaluationTarget",
@@ -904,6 +905,7 @@ export async function getBallot({ ballotId, userId }) {
       evaluationItemId: s.evaluationItemId,
       itemName: s.itemName,
       itemCode: s.itemCode,
+      itemIcon: s.itemIcon || null,
       rubricName: s.rubricName,
       rubricCode: s.rubricCode,
       rubricIcon: s.rubricIcon || null,

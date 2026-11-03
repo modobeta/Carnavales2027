@@ -49,7 +49,7 @@ it("crea un rubro de participantes sin especialidades ni ítems y lo ofrece dent
   const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
   fireEvent.change(within(form).getByLabelText("Nombre del rubro"), { target: { value: "Reina" } });
   fireEvent.change(within(form).getByLabelText("¿Qué se evalúa?"), { target: { value: "NOMINATION" } });
-  expect(within(form).queryByRole("button", { name: "Agregar otro ítem" })).not.toBeInTheDocument();
+  expect(within(form).getByRole("button", { name: "Agregar otro ítem" })).toBeInTheDocument();
   expect(within(form).queryByLabelText(/Especialidad/)).not.toBeInTheDocument();
   fireEvent.submit(form);
   await screen.findByText("Rubro guardado.");

@@ -104,6 +104,7 @@ export function AdminEventProvider({ children, session, judgeArea = false }) {
     const nextId = exists ? eventId : "";
     if (nextId === activeEventIdRef.current) return;
     const commit = () => {
+      if (nextId !== activeEventIdRef.current) setJudgeNightState(null);
       setActiveEventIdState(nextId);
       activeEventIdRef.current = nextId;
       setActiveNightIdState("");

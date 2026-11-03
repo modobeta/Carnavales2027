@@ -332,7 +332,10 @@ describe("AdminCompetenciaPage", () => {
   });
 
   it("permite elegir un ícono del catálogo para el rubro nuevo", async () => {
-    const write = vi.fn().mockImplementation(async (_path, options) => ({ id: "new-rubric", ...JSON.parse(options.body) }));
+    const write = vi.fn().mockImplementation(async (_path, options) => {
+      const body = JSON.parse(options.body);
+      return { id: "new-rubric", name: body.name, icon: body.icon, ...(body.initialItem ? { initialItem: { id: "item-new", ...body.initialItem } } : {}) };
+    });
     mockCompetitionData({ write });
     render(<AdminCompetenciaPage event={{ id: "event-1", status: "CONFIGURING" }} />);
     fireEvent.click(screen.getByRole("button", { name: /^Rubros / }));
@@ -341,10 +344,14 @@ describe("AdminCompetenciaPage", () => {
     const form = screen.getByRole("button", { name: "Crear rubro" }).closest("form");
     const fields = within(form);
     fireEvent.change(fields.getByLabelText("Nombre del rubro"), { target: { value: "Danza" } });
+    fireEvent.click(fields.getByRole("button", { name: "Agregar otro ítem" }));
+    fireEvent.change(fields.getByRole("textbox", { name: "Nombre del ítem 1" }), { target: { value: "Ritmo" } });
+    const rowSpecialty = Array.from(form.querySelectorAll("select")).find((select) => !select.name);
+    fireEvent.change(rowSpecialty, { target: { value: "specialty-1" } });
     fireEvent.click(fields.getByLabelText("Batería"));
     expect(fields.getByLabelText("Batería")).toBeChecked();
     fireEvent.submit(form);
-    await screen.findByText("Rubro guardado.");
+    await screen.findByText("Rubro e ítems guardados.");
     expect(JSON.parse(write.mock.calls[0][1].body).icon).toBe("Bateria");
   });
 
@@ -372,7 +379,7 @@ describe("AdminCompetenciaPage", () => {
     await screen.findByText("Rubro guardado.");
     expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1", {
       method: "PATCH",
-      body: JSON.stringify({ name: "Coreografia", evaluationTarget: target, expectedSubjectType: subject, rubricType: "NOMINATIVE", resolutionMethod: "JURY", evaluationObjective: null, icon: null, active: true }),
+      body: JSON.stringify({ name: "Coreografia", evaluationTarget: target, expectedSubjectType: subject, rubricType: "NOMINATIVE", resolutionMethod: "JURY", evaluationObjective: null, active: true }),
     });
   });
 
@@ -1113,6 +1120,8 @@ describe("AdminCompetenciaPage", () => {
       fireEvent.change(within(form).getByRole("textbox", { name: "Nuevo item puntuable para Coreografia" }), { target: { value: "Colorido" } });
       fireEvent.click(within(form).getByRole("checkbox", { name: /Danza/ }));
       fireEvent.click(within(form).getByRole("checkbox", { name: /Canto/ }));
+      fireEvent.click(within(form).getByLabelText("Batería de comparsa"));
+      expect(within(form).getByLabelText("Batería de comparsa")).toBeChecked();
       fireEvent.submit(form);
 
       expect(write).not.toHaveBeenCalled();
@@ -1120,7 +1129,7 @@ describe("AdminCompetenciaPage", () => {
       await screen.findByText("Item guardado.");
       expect(write).toHaveBeenCalledExactlyOnceWith("/api/v1/rubrics/rubric-1/items", {
         method: "POST",
-         body: JSON.stringify({ name: "Colorido", specialtyId: "specialty-1", specialtyIds: ["specialty-1", "specialty-2"], required: true, allowNotPresented: true }),
+        body: JSON.stringify({ name: "Colorido", specialtyId: "specialty-1", specialtyIds: ["specialty-1", "specialty-2"], required: true, allowNotPresented: true, icon: "BateriaDeComparsa" }),
       });
       expect(screen.queryByRole("dialog", { name: "Crear ítem en Coreografia" })).not.toBeInTheDocument();
     });
