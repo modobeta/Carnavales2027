@@ -9,6 +9,7 @@ Esta carpeta separa **reglas confirmadas**, **comportamiento implementado** y **
 | Implementación | [Arquitectura](arquitectura.md), [modelo de datos](modelo-de-datos.md), [referencia de tablas](modelo-de-datos-tablas.md), [contrato API](contrato-api.md) |
 | Interfaz | [UI/UX Design Brief](ui-ux-design-brief.md), [sistema de diseño](sistema-de-diseno.md), [flujos y pantallas](flujos-y-pantallas.md) |
 | Desarrollo | [Estilo de código](code-style.md), [plan de desarrollo](plan-de-desarrollo.md), [plan de pruebas](plan-de-pruebas.md) |
+| Colaboración | [Flujo Git y Pull Requests](flujo-de-colaboracion.md) |
 | Operación y gobierno | [Seguridad](seguridad.md), [privacidad y retención](privacidad-y-retencion.md), [despliegue y respaldo](despliegue-y-respaldo.md), [decisiones](decisiones.md) |
 | Antecedentes fechados | [Archivo histórico](historico/README.md) — no usar como fuente del estado actual |
 

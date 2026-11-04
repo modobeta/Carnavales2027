@@ -1,9 +1,9 @@
 name: Pilot checks
 on:
   push:
-    branches: [main, feat/piloto-produccion, 'integration/**']
+    branches: [main, developer, feat/piloto-produccion, 'integration/**']
   pull_request:
-    branches: [main]
+    branches: [main, developer]
 permissions:
   contents: read
 jobs:
