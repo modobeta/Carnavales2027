@@ -9,7 +9,7 @@ Aplicación web de gestión y votación de comparsas: configuración de eventos/
 - **Usuarios y responsables:** [flujos y pantallas](docs/flujos-y-pantallas.md), [reglas de negocio](docs/reglas-de-negocio.md), [privacidad](docs/privacidad-y-retencion.md).
 - **Desarrollo:** [mapa de documentación](docs/README.md), [API](api/README.md), [cliente](client/README.md), [arquitectura](docs/arquitectura.md), [modelo de datos](docs/modelo-de-datos.md), [contrato HTTP](docs/contrato-api.md).
 - **Operación:** [plan de pruebas](docs/plan-de-pruebas.md), [seguridad](docs/seguridad.md), [despliegue y respaldo](docs/despliegue-y-respaldo.md).
-- **Agentes/colaboradores:** leer [AGENTS.md](AGENTS.md) y el `AGENTS.md` del módulo antes de cambiar comportamiento. [MEMORY.md](MEMORY.md) es el resumen durable, sin secretos.
+- **Agentes/colaboradores:** leer [AGENTS.md](AGENTS.md), el `AGENTS.md` del módulo y el [flujo Git y Pull Requests](docs/flujo-de-colaboracion.md) antes de cambiar comportamiento. [MEMORY.md](MEMORY.md) es el resumen durable, sin secretos.
 
 La [spec 029](specs/029-piloto-produccion/spec.md) aprueba únicamente el piloto de infraestructura. **No hay reglamento general completo aprobado** en este repositorio; ver pendientes en [PRD](docs/PRD.md) y [decisiones](docs/decisiones.md). La implementación de desempates/actas no equivale a aprobación reglamentaria universal.
 
