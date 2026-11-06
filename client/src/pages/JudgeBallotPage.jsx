@@ -1097,7 +1097,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                           <h2 className="card-item-title">{activeScore.itemName}</h2>
                           {activeScore.itemIcon && (
                             <div className="card-item-icon">
-                              <ItemIcon icon={activeScore.itemIcon} label={`Ícono del ítem: ${activeScore.itemName}`} />
+                              <ItemIcon
+                                icon={activeScore.itemIcon}
+                                size="lg"
+                                className="ballot-active-item-icon"
+                                label={`Ícono del ítem: ${activeScore.itemName}`}
+                              />
                             </div>
                           )}
                         </div>

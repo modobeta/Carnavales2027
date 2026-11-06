@@ -32,7 +32,7 @@ function onlineApi() {
 describe("JudgeBallotPage", () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-  it("muestra el ícono del ítem en un círculo sobre la grilla de notas", async () => {
+  it("muestra grande y sin fondo el ícono del ítem activo sobre la grilla de notas", async () => {
     apiRequest.mockResolvedValue({
       ...ballot,
       scores: ballot.scores.map((score) => score.id === "score-1" ? { ...score, itemIcon: "BateriaDeComparsa" } : score),
@@ -42,6 +42,7 @@ describe("JudgeBallotPage", () => {
     const card = document.querySelector(".ballot-card-mode.ballot-single");
     const icon = card.querySelector(".card-item-icon .item-icon-circle img");
     expect(icon).toHaveAttribute("src", "/icons/items/Bater%C3%ADa%20de%20Comparsa.png");
+    expect(icon.closest(".item-icon-circle")).toHaveClass("is-lg", "ballot-active-item-icon");
     const scoreGroup = within(card).getByRole("group", { name: "Comparsa Uno: Presencia" });
     expect(icon.compareDocumentPosition(scoreGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
