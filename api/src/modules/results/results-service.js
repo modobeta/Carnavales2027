@@ -8,6 +8,7 @@ import {
   flushEventScope,
   runInEventScope,
 } from "../monitor/monitor-event-bus.js";
+import { deriveReinaPlacements } from "./reina-placements.js";
 
 function requireText(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -505,6 +506,7 @@ export async function computeResults({ eventId, actorUserId, client: injectedCli
       rubricRankings,
       overallRanking,
       bestTroupe,
+      reinaPlacements: deriveReinaPlacements(rubricRankings),
     };
 
     if (actor) {

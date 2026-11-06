@@ -404,4 +404,27 @@ describe("results DB", () => {
     assert.ok(Array.isArray(troupeA.penalties));
     assert.equal(troupeA.penalties[0].penaltyPoints, 4);
   });
+
+  it("computeResults expone los puestos de princesa derivados de Reina del Carnaval", async () => {
+    // El rubro aleatorio del fixture tiene dos nominadas (10 y 5 puntos); se renombra a REINA_CARNAVAL.
+    const data = await setupResultFixtures({ withRandomRubric: true });
+    await client.query(
+      "UPDATE rubric SET code = 'REINA_CARNAVAL' WHERE event_id = $1 AND code = 'BAILARINA'",
+      [data.event.id],
+    );
+    const adminId = (await client.query('SELECT id FROM "user" WHERE name = $1', ["Admin"])).rows[0]?.id;
+    await releaseResults({ eventId: data.event.id, actorUserId: adminId, client });
+
+    const result = await computeResults({ eventId: data.event.id, actorUserId: adminId, client });
+
+    assert.ok(Array.isArray(result.reinaPlacements.placements));
+    const [primera, segunda] = result.reinaPlacements.placements;
+    assert.equal(primera.code, "PRIMERA_PRINCESA");
+    assert.equal(primera.status, "AWARDED");
+    assert.equal(primera.nomination.participantName, "Bailarina B");
+    assert.equal(primera.nomination.totalScore, 5);
+    assert.equal(segunda.code, "SEGUNDA_PRINCESA");
+    assert.equal(segunda.status, "NOT_ENOUGH_NOMINEES");
+    assert.equal(segunda.nomination, null);
+  });
 });
