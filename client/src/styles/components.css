@@ -996,6 +996,22 @@
   margin-block-start: 0.15rem;
 }
 
+/* El ícono del ítem activo funciona como ilustración de la planilla: se muestra
+   grande y sin el círculo ámbar usado por los íconos compactos de las listas. */
+.rubric-icon-circle.item-icon-circle.ballot-active-item-icon {
+  inline-size: clamp(5.5rem, 8vw, 8rem);
+  block-size: clamp(5.5rem, 8vw, 8rem);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.ballot-active-item-icon .item-icon {
+  object-fit: contain;
+}
+
 .ballot-subject > span {
   margin: 0;
   color: var(--text-muted);
