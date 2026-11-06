@@ -1,6 +1,7 @@
 // Catálogo reglamentario Carnaval 2027 — datos puros, sin acceso a BD.
 //
-// Origen: pedido de seed de rubros reales (25 nominativos + 11 aleatorios).
+// Origen: pedido de seed de rubros reales (25 nominativos + 9 aleatorios; las
+// princesas se derivan de Reina del Carnaval y no son rubros propios).
 // Fuentes SDD vigentes: Spec 010 (solo NOMINATIVE integra Mejor Comparsa),
 // Spec 017 (rubric_type, evaluation_target, expected_subject_type, matriz
 // rubro-especialidad derivada de los ítems), Spec 004 (PENDING bloquea,
@@ -59,8 +60,8 @@ export const NOMINATIVE_RUBRICS = [
 
 export const RANDOM_RUBRICS = [
   { code: "REINA_CARNAVAL", name: "Reina del Carnaval", order: 1, specialty: "VESTUARIO", expectedSubjectType: "PERSON" },
-  { code: "PRIMERA_PRINCESA", name: "Primera Princesa", order: 2, specialty: "VESTUARIO", expectedSubjectType: "PERSON" },
-  { code: "SEGUNDA_PRINCESA", name: "Segunda Princesa", order: 3, specialty: "VESTUARIO", expectedSubjectType: "PERSON" },
+  // Primera y Segunda Princesa no son rubros propios: el reglamento las define
+  // como 2do y 3er puesto de la elección de Reina del Carnaval (ver reina-placements.js).
   { code: "EMBAJADORES_INFANTILES_CARNAVAL", name: "Embajador y Embajadora Infantil del Carnaval", order: 4, specialty: "VESTUARIO", expectedSubjectType: "COUPLE" },
   { code: "REY_CARNAVAL", name: "Rey del Carnaval", order: 5, specialty: "VESTUARIO", expectedSubjectType: "PERSON" },
   { code: "ESPIRITU_CARNAVAL", name: "Espíritu del Carnaval", order: 6, specialty: "BAILE", expectedSubjectType: "GROUP" },

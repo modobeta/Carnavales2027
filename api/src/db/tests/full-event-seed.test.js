@@ -77,12 +77,12 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     assert.equal(first.nights.length, 3);
     assert.equal(first.troupes, 7);
     assert.equal(first.nominative, 25);
-    assert.equal(first.random, 11);
-    assert.equal(first.rubrics, 36);
+    assert.equal(first.random, 9);
+    assert.equal(first.rubrics, 34);
     assert.equal(first.jurors, 9);
     assert.equal(first.assignments, 9);
     assert.equal(first.participations, 21);
-    assert.equal(first.nominations, 77);
+    assert.equal(first.nominations, 63);
     assert.equal(first.coverage, 175);
     assert.equal(first.ballots, 0);
     assert.equal(first.votes, 0);
@@ -102,7 +102,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     const lines = [];
     printFullEventSummary(first, (line) => lines.push(line));
     assert.ok(lines.some((line) => line.includes("0 iniciales; 9")));
-    assert.ok(lines.some((line) => line.includes("77 placeholders ficticios")));
+    assert.ok(lines.some((line) => line.includes("63 placeholders ficticios")));
     assert.ok(!lines.join("\n").includes(password));
     const audit = (await pool.query("SELECT actor_user_id,after_data FROM audit_event WHERE action='EVENT_CONFIGURED_FROM_SEED' AND entity_id=$1", [eventId])).rows;
     assert.equal(audit.length, 1);
@@ -275,7 +275,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
       const ballots = (await pool.query("SELECT id FROM ballot WHERE night_id=$1", [night.id])).rows;
       assert.equal(ballots.length, 3);
       const scores = (await pool.query("SELECT score,evaluation_state FROM ballot_score WHERE ballot_id=ANY($1)", [ballots.map((b) => b.id)])).rows;
-      assert.equal(scores.length, 36 * 7);
+      assert.equal(scores.length, 34 * 7);
       assert.ok(scores.every((s) => s.score === null && s.evaluation_state === "PENDING"));
     }
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM ballot WHERE event_id=$1", [eventId])).rows[0].n, 9);
