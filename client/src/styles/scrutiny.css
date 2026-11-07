@@ -22,6 +22,10 @@
   gap: 1rem;
 }
 
+.record-page-heading { margin-block-end: 1rem; }
+.record-page-heading h1 { margin: .1rem 0 .35rem; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+.record-page-heading p:last-child { margin: 0; color: var(--muted-color); }
+
 .record-event-selector {
   display: flex;
   align-items: center;
@@ -34,17 +38,39 @@
 }
 
 .record-pending-card {
-  text-align: center;
-  padding: 3rem 1.5rem;
+  text-align: start;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  max-inline-size: 48rem;
+  margin-inline: auto;
   background: var(--card-bg);
   border: 1px solid var(--line-color);
   border-radius: 0.75rem;
 }
 
 .record-pending-card .pending-icon {
-  font-size: 3rem;
-  display: block;
-  margin-block-end: 0.5rem;
+  font-size: 2rem;
+  display: inline-block;
+  margin-block-end: .5rem;
+}
+
+.record-pending-card h2 {
+  margin: .25rem 0 .5rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.record-pending-card > p:not(.eyebrow) { max-inline-size: 42rem; color: var(--muted-color); line-height: 1.55; }
+.record-pending-card .eyebrow { margin: 0; color: var(--accent-text); font-weight: 750; }
+.record-pending-card .record-certify-box { border-block-start: 1px solid var(--line-color); padding-block-start: 1rem; }
+.record-pending-card .record-certify-box > p { color: var(--muted-color); }
+
+.results-page-summary { margin: .35rem 0 0; color: var(--muted-color); }
+.results-page .workflow-step[aria-current="step"] { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+@media (max-width: 36rem) {
+  .record-controls-header { align-items: stretch; }
+  .record-controls-header > * { inline-size: 100%; }
+  .record-event-selector { align-items: stretch; flex-direction: column; }
+  .record-event-selector select { min-block-size: var(--touch-target-min, 3rem); }
 }
 
 .record-certify-box {
@@ -152,6 +178,12 @@
   border-radius: 0.25rem;
   letter-spacing: 0.05rem;
 }
+
+.record-seal-banner.is-unverified {
+  border-color: var(--danger-color);
+  background: color-mix(in srgb, var(--danger-color) 10%, var(--doc-paper));
+}
+.record-seal-banner.is-unverified .seal-badge { background: var(--danger-color); }
 
 .seal-hash-label {
   font-size: 0.78rem;
