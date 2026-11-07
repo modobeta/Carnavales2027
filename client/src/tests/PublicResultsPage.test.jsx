@@ -135,6 +135,7 @@ describe("PublicResultsPage (Spec 024)", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("renderiza el portal bajo la capa de marca y muestra estado no liberado", async () => {

@@ -315,7 +315,7 @@ describe("JudgeBallotPage", () => {
 
     // Modelo un-ítem-por-vez (Fase 1): la tarjeta bloqueada se ve al navegar al ítem
     fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
-    expect(screen.getByText(/Se habilitará automáticamente al completar la comparsa anterior \(Comparsa Uno\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Se habilitará automáticamente al completar la comparsa anterior \(Comparsa Uno\)/i)).toBeInTheDocument();
   });
 
   it("en readonly muestra resumen sin grilla de voto ni navegación (Fase 3)", async () => {

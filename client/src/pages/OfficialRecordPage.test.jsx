@@ -105,7 +105,7 @@ describe("OfficialRecordPage", () => {
       expect(screen.getByText(/Acta Oficial emitida y sellada/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText("ACTA-2027-EVT1-01")).toBeInTheDocument();
+    expect(await screen.findByText("ACTA-2027-EVT1-01")).toBeInTheDocument();
     expect(screen.getByText("✓ INTEGRIDAD DIGITAL VERIFICADA")).toBeInTheDocument();
   });
 
