@@ -4,6 +4,7 @@ import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { apiRequest } from "../api/http.js";
 import { useSession } from "../auth/session-context.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
 
 export function OfficialRecordPage() {
   const session = useSession();
@@ -19,6 +20,7 @@ export function OfficialRecordPage() {
   const [recordData, setRecordData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const events = adminEvent?.events ?? localEvents;
@@ -101,8 +103,10 @@ export function OfficialRecordPage() {
         method: "POST",
       });
       setRecordData(response.record ? { ...response.record, integrityVerified: response.integrityVerified } : response);
+      setConfirmOpen(false);
       setMessage("✓ Acta Oficial emitida y sellada criptográficamente con éxito.");
     } catch (err) {
+      setConfirmOpen(false);
       if (err.code === "OFFICIAL_RECORD_EMISSION_FORBIDDEN_FOR_ADMIN") {
         setError("Por normativa de segregación de funciones, la emisión corresponde exclusivamente a Escrutinio o Escribanía.");
       } else if (err.code === "RESULTS_NOT_RELEASED") {
@@ -128,6 +132,11 @@ export function OfficialRecordPage() {
     <PageShell layer="instrument" className="official-record-page">
       {/* Barra de control y navegación en pantalla (se oculta al imprimir) */}
       <section className="record-controls-panel no-print" aria-label="Controles del acta">
+        <div className="record-page-heading">
+          <p className="eyebrow">Escrutinio · Paso 4 de 4</p>
+          <h1>Acta oficial</h1>
+          <p>Consultá el acta emitida o completá la certificación cuando el escrutinio esté listo.</p>
+        </div>
         <div className="record-controls-header">
           <a className="secondary button-link" href="#/admin/results">← Volver a Escrutinio</a>
             {!adminEvent && <div className="record-event-selector">
@@ -149,7 +158,6 @@ export function OfficialRecordPage() {
             </button>
           )}
         </div>
-        <p className="workflow-context">Paso 4 de 4 · Emisión y consulta del Acta Oficial</p>
         {message && <p className="feedback-message is-success" role="status">{message}</p>}
         {error && <p className="feedback-message is-error" role="alert">{error}</p>}
       </section>
@@ -160,18 +168,19 @@ export function OfficialRecordPage() {
       {!loading && selectedEventId && !recordData && (
         <section className="record-pending-card no-print" aria-label="Estado de emisión de acta">
           <span className="pending-icon" aria-hidden="true">📜</span>
-          <h2>Acta Oficial no emitida</h2>
-          <p>El evento <strong>{currentEvent?.name || "seleccionado"}</strong> no cuenta aún con un Acta Notarial definitiva registrada.</p>
+          <p className="eyebrow">Paso final · Certificación</p>
+          <h2>El acta todavía no fue emitida</h2>
+          <p>Para <strong>{currentEvent?.name || "el evento seleccionado"}</strong>, la emisión registra el resultado oficial y su huella de integridad.</p>
           {canCertify ? (
             <div className="record-certify-box">
-              <p>Como autoridad habilitada de <strong>Escrutinio / Escribanía</strong>, podés proceder al cierre solemne y certificación criptográfica.</p>
+              <p>Antes de continuar, verificá que los resultados estén liberados y que cualquier desempate ya esté resuelto.</p>
               <button
                 type="button"
                 className="primary-action certify-btn"
                 disabled={busy}
-                onClick={handleCertify}
+                onClick={() => setConfirmOpen(true)}
               >
-                {busy ? "Certificando y sellando…" : "Certificar y emitir Acta Oficial"}
+                Certificar y emitir acta
               </button>
              </div>
            ) : (
@@ -183,6 +192,18 @@ export function OfficialRecordPage() {
           )}
         </section>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => { if (!busy) setConfirmOpen(false); }}
+        onConfirm={handleCertify}
+        title="Confirmar emisión del acta"
+        description={`Vas a emitir y certificar el acta oficial de ${currentEvent?.name || "este evento"}. Se registrarán la autoridad, la fecha y la huella de integridad. Revisá el evento antes de confirmar.`}
+        confirmLabel="Emitir acta oficial"
+        cancelLabel="Volver a revisar"
+        confirming={busy}
+        tone="success"
+      />
 
       {/* Documento Notarial Formal (apto para pantalla y @media print) */}
       {!loading && selectedEventId && recordData && payload && (
@@ -196,10 +217,12 @@ export function OfficialRecordPage() {
             <p className="record-number-badge">{recordData.record_number}</p>
           </header>
 
-          <section className="record-seal-banner" aria-label="Sello de Integridad Digital">
+          <section className={`record-seal-banner ${recordData.integrityVerified ? "is-verified" : "is-unverified"}`} aria-label="Estado de integridad del acta">
             <div className="seal-info">
-              <span className="seal-badge">✓ INTEGRIDAD DIGITAL VERIFICADA</span>
-              <p className="seal-hash-label">Firma canónica SHA-256 (RFC 8785):</p>
+              <span className="seal-badge" role="status">
+                {recordData.integrityVerified ? "Integridad digital verificada" : "No se pudo verificar la integridad"}
+              </span>
+              <p className="seal-hash-label">Huella del contenido canónico (SHA-256 · RFC 8785):</p>
               <code className="seal-hash">{recordData.record_hash}</code>
             </div>
             <div className="seal-meta">
