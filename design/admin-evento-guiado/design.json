@@ -1,0 +1,11 @@
+{
+  "title": "Crear y preparar un evento · Asistente ADMIN",
+  "status": "approved-integrated",
+  "brief": "Cuatro etapas con tareas breves, contexto único y avance por configuración guardada. Termina en evento listo para abrir; no incluye jurados ni operación de votación.",
+  "artboards": [
+    { "file": "index.html#evento", "title": "Evento y calendario", "width": 1440, "height": 900 },
+    { "file": "index.html#evaluacion", "title": "Evaluación, un subpaso por vez", "width": 1440, "height": 900 },
+    { "file": "index.html#comparsas", "title": "Comparsas y programación", "width": 1440, "height": 900 },
+    { "file": "index.html#revision", "title": "Revisión sin apertura automática", "width": 1440, "height": 900 }
+  ]
+}

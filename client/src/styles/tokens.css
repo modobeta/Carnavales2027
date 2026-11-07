@@ -115,6 +115,9 @@
   --palette-neutral-700: #334155;
   --palette-neutral-800: #1F2937;
   --palette-neutral-900: #111827;
+  /* Neutros de la jerarquía operativa del Jurado; no modifican la marca. */
+  --judge-focus-divider: #D0D5DD;
+  --judge-focus-control: #79818E;
   /* Alta de rubro en Evaluación: paleta del formulario aprobado (botones sin cambios) */
   --rubric-form-panel: #4f3fa6;
   --rubric-form-field: #3a2b7a;
@@ -433,6 +436,8 @@
    Los HEX oficiales se conservan; cambian tinta, superficies y bordes.
    ========================================================================== */
 :root[data-theme="dark"] {
+  --judge-focus-divider: #383138;
+  --judge-focus-control: #71616C;
   color-scheme: dark;
 
   --palette-page: #000000;

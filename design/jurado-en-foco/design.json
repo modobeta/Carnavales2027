@@ -1,0 +1,11 @@
+{
+  "title": "Jurado en foco",
+  "status": "approved-and-integrated",
+  "brief": "Maqueta aprobada del recorrido del jurado, primero para computadora, conservando paleta, reglas y adaptación responsive. Integrada en la aplicación con estilos y cabecera aislados por área.",
+  "artboards": [
+    { "file": "index.html#inicio", "title": "Inicio: próxima acción", "width": 1440, "height": 900 },
+    { "file": "index.html#evaluacion", "title": "Evaluación: un ítem por vez", "width": 1440, "height": 900 },
+    { "file": "index.html#revision", "title": "Revisión: cierre de planilla completa", "width": 1440, "height": 900 },
+    { "file": "index.html#confirmada", "title": "Confirmada: solo consulta", "width": 1440, "height": 900 }
+  ]
+}

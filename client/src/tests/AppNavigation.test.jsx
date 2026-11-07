@@ -73,7 +73,7 @@ describe("AppNavigation", () => {
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     expect(screen.getByRole("link", { name: "Rubros" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByText("Rubros", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+    expect(screen.getByText("Rubros", { selector: ".admin-header-section" })).toBeInTheDocument();
   });
 
   it("marca activo el ítem Evaluación dentro de Preparación de competencia al navegar por step=rubros", () => {
@@ -99,7 +99,7 @@ describe("AppNavigation", () => {
     mockMatchMedia(true);
     window.location.hash = "#/admin/competencia?step=jurados&tab=asignaciones";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
-    expect(screen.getByText("Control de votación", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+    expect(screen.getByText("Control de votación", { selector: ".admin-header-section" })).toBeInTheDocument();
   });
 
   it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {

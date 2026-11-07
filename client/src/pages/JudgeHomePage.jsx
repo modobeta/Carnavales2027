@@ -138,6 +138,7 @@ export function JudgeHomePage({ session }) {
   const closed = troupes.filter((troupe) => troupe.status === "SUBMITTED").length;
   const resolved = troupes.reduce((sum, troupe) => sum + troupe.resolved, 0);
   const total = troupes.reduce((sum, troupe) => sum + troupe.total, 0);
+  const scoredTroupes = troupes.filter((troupe) => troupe.total > 0 && troupe.resolved >= troupe.total).length;
   // Completado real = todas las comparsas confirmadas (SUBMITTED), no solo
   // puntuadas: una planilla 100% votada pero sin cierre sigue pendiente.
   const completed = troupes.length > 0 && closed === troupes.length;
@@ -188,35 +189,46 @@ export function JudgeHomePage({ session }) {
       eventId: headerNight.eventId ?? eventContext?.activeEventId ?? null,
       name: headerNight.nightName,
       eventDate: headerNight.eventDate ?? null,
+      specialtyName: headerNight.specialtyName,
+      ballotStatus: headerNight.status,
       route: "#/judge",
     } : null);
-  }, [setJudgeNight, eventContext?.activeEventId, headerNight?.nightId, headerNight?.nightName, headerNight?.eventDate]);
+  }, [setJudgeNight, eventContext?.activeEventId, headerNight?.nightId, headerNight?.nightName, headerNight?.eventDate, headerNight?.specialtyName, headerNight?.status]);
+
+  const contextLabel = (troupe) => {
+    const differentNight = (troupe.nightId ?? troupe.nightName) !== (headerNight?.nightId ?? headerNight?.nightName);
+    return differentNight || troupe.specialtyName !== headerNight?.specialtyName
+      ? `${troupe.nightName} · ${troupe.specialtyName}`
+      : null;
+  };
 
   return (
-    <PageShell layer="instrument" className="judge-home judge-operation-shell">
+    <PageShell layer="instrument" className="judge-home judge-operation-shell judge-focus-home">
       <section className="judge-home-intro">
-        <p className="eyebrow">Noche de competencia</p>
-        <h1>Buenas noches, {session?.user?.name?.split(" ")[0] ?? "Jurado"}</h1>
-        <p>{troupes[0] ? `${troupes[0].nightName} · ${troupes[0].specialtyName}` : "Tus planillas habilitadas aparecerán aquí."}</p>
+        <h1>Evaluación</h1>
+        {!eventContext && headerNight && <p>{headerNight.nightName} · {headerNight.specialtyName}</p>}
       </section>
-      <section className="judge-progress-card" aria-label="Progreso general">
+      {total > 0 && <section className="judge-progress-card" aria-label="Progreso general">
+        <div className="judge-progress-copy">
+          <strong>{visibleBallots.length > 1 ? "Avance de tus planillas" : "Avance de la planilla"}</strong>
+          <p>{completed ? "Cierre confirmado" : resolved === total ? "Puntuación completa · cierre pendiente" : "El cierre se realiza al terminar las comparsas de cada planilla."}</p>
+        </div>
         <ProgressBar
-          value={resolved}
-          max={total}
-          label="Progreso de la noche"
-          sublabel={`${resolved} de ${total} ítems · ${closed} de ${troupes.length} comparsas confirmadas`}
+          value={scoredTroupes}
+          max={troupes.length}
+          label="Comparsas puntuadas"
+          sublabel={`${scoredTroupes} de ${troupes.length} comparsas`}
         />
         {completed && (
           <div className="judge-completion-message" role="status">
             <span className="completion-icon" aria-hidden="true">✓</span>
             <div>
               <strong>Votación completada</strong>
-              <p>Confirmaste las {troupes.length} de {troupes.length} comparsas asignadas.</p>
               <p>No tenés votaciones pendientes.</p>
             </div>
           </div>
         )}
-      </section>
+      </section>}
       <section className="judge-home-content">
         {!profile && <p>Tu cuenta tiene rol JUDGE, pero no está vinculada a un perfil del padrón. Contactá a un administrador.</p>}
         {profile?.registrationStatus === "SUSPENDED" && <div className="suspension-notice" role="alert"><h2>Acceso suspendido</h2><p>Tus sesiones operativas fueron revocadas. Contactá a la administración para revisar tu estado.</p></div>}
@@ -228,11 +240,10 @@ export function JudgeHomePage({ session }) {
           <>
             {currentEntry && (
               <section aria-label="Comparsa actual" className="judge-now">
-                <p className="eyebrow">Ahora</p>
                 <article className="judge-now-card">
                   <h2 className="sr-only">Comparsa actual</h2>
                   <div className="judge-now-header">
-                    <p className="eyebrow">{currentEntry.troupe.nightName} · {currentEntry.troupe.specialtyName}</p>
+                    <p className="eyebrow">Ahora{currentEntry.troupe.presentationOrder ? ` · Salida ${currentEntry.troupe.presentationOrder}` : ""}</p>
                     <StatusPill status={currentEntry.state.statusKey} label={currentEntry.state.label} />
                   </div>
                   <div
@@ -255,11 +266,6 @@ export function JudgeHomePage({ session }) {
                       ) : null}
                       <h3>{currentEntry.troupe.troupeName}</h3>
                     </div>
-                    <ProgressBar
-                      value={currentEntry.troupe.resolved}
-                      max={currentEntry.troupe.total}
-                      sublabel={`${currentEntry.troupe.resolved} de ${currentEntry.troupe.total} ítems completados`}
-                    />
                   </div>
                   {currentRemaining > 1 && <p className="judge-now-remaining">Faltan {currentRemaining} puntuaciones</p>}
                   {currentRemaining === 1 && <p className="judge-now-remaining">Falta 1 puntuación</p>}
@@ -274,6 +280,7 @@ export function JudgeHomePage({ session }) {
               <section aria-label="Lista para confirmar" className="judge-review-ready">
                 <strong>Todas las comparsas puntuadas</strong>
                 <p>Revisá y confirmá la planilla para el cierre definitivo.</p>
+                <a className="button-link judge-now-cta" href={`${ballotHref(actionable[0].troupe)}&review=1`}>Revisar planilla →</a>
               </section>
             )}
             {(evaluatedEntries.length > 0 || upcomingEntries.length > 0) && (
@@ -287,7 +294,7 @@ export function JudgeHomePage({ session }) {
                       <span className="judge-list-check" aria-hidden="true">✓</span>
                       <div className="judge-list-main">
                         <h3>{entry.troupe.troupeName}</h3>
-                        <p>Planilla confirmada</p>
+                        <p>Planilla confirmada{contextLabel(entry.troupe) ? ` · ${contextLabel(entry.troupe)}` : ""}</p>
                       </div>
                       <a className="button-link secondary judge-list-action" href={ballotHref(entry.troupe)}>
                         Ver planilla →
@@ -299,7 +306,7 @@ export function JudgeHomePage({ session }) {
             )}
             {upcomingEntries.length > 0 && (
               <section aria-label="Próximas comparsas" className="judge-upcoming">
-                <h2 className="judge-section-title">Próximas</h2>
+                <h2 className="judge-section-title">{upcomingEntries.every((entry) => entry.troupe.resolved >= entry.troupe.total) ? "Puntuadas" : "Próximas"}</h2>
                 {hasLockedUpcoming && (
                   <p className="judge-note">Las siguientes comparsas se habilitan según el orden de pasada.</p>
                 )}
@@ -330,12 +337,12 @@ export function JudgeHomePage({ session }) {
                       )}
                       <div className="judge-list-main">
                         <h3>{entry.troupe.troupeName}</h3>
-                        <p>{entry.troupe.specialtyName}</p>
+                        {contextLabel(entry.troupe) && <p>{contextLabel(entry.troupe)}</p>}
                       </div>
                       <StatusPill status={entry.state.statusKey} label={entry.state.label} />
                       {!entry.locked && (
                         <a className="button-link secondary judge-list-action" href={ballotHref(entry.troupe)}>
-                          {entry.troupe.resolved === 0 ? "Comenzar evaluación →" : "Continuar evaluación →"}
+                          {entry.troupe.resolved >= entry.troupe.total ? "Revisar planilla →" : entry.troupe.resolved === 0 ? "Comenzar evaluación →" : "Continuar evaluación →"}
                         </a>
                       )}
                     </li>

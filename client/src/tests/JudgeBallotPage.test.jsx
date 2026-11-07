@@ -68,7 +68,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Comparsa Uno: Omitido" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Faltantes anteriores/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
   });
 
   it("no incluye el ítem actual ni futuros cuando no hay faltantes anteriores", async () => {
@@ -89,11 +89,11 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
-    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
     // Una sola barra en pantalla: el total de la planilla se lee como dato compacto.
     expect(screen.getAllByRole("progressbar")).toHaveLength(1);
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
-    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 0/2");
+    expect(document.querySelector(".ballot-planilla-meter")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
@@ -105,8 +105,8 @@ describe("JudgeBallotPage", () => {
     // Modelo un-ítem-por-vez (Fase 1): el banner de continuidad es la única vía
     // a la siguiente comparsa (sin Siguiente duplicado mientras está abierto).
     await waitFor(() => expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1"));
-    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 1/2");
-    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
+    expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
     const continuity = await screen.findByRole("region", { name: "Pasada completada" });
     fireEvent.click(within(continuity).getByRole("button", { name: /Comenzar siguiente pasada/i }));
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
@@ -118,12 +118,13 @@ describe("JudgeBallotPage", () => {
       expect.objectContaining({ method: "PUT" }),
     ));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeEnabled());
-    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 2/2");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeEnabled());
+    expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1");
     // Sello de puntaje confirmado en grande + indicador de guardado en servidor.
     expect(screen.getByText("8", { selector: ".sealed-score-value" })).toBeInTheDocument();
     expect(screen.getByText("☁✓")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/judge/ballots/ballot-1/submit",
@@ -149,7 +150,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toBeInTheDocument();
     // El ítem se anuncia una sola vez: sin etiqueta "Ítem a evaluar" duplicada.
     expect(screen.queryByText("Ítem a evaluar")).not.toBeInTheDocument();
-    expect(screen.getByText("Participante")).toBeInTheDocument();
+    expect(screen.getByText("Persona")).toBeInTheDocument();
     expect(screen.getByText("Maria")).toBeInTheDocument();
 
     // Botón de excepción con ícono de alerta.
@@ -168,7 +169,8 @@ describe("JudgeBallotPage", () => {
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
     const subject = document.querySelector(".ballot-subject");
-    expect(subject).toHaveTextContent("ComparsaComparsa Uno");
+    expect(subject).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Comparsa Uno", level: 1 })).toBeInTheDocument();
   });
 
   it("conserva el ítem pendiente cuando no hay conexión", async () => {
@@ -182,8 +184,8 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirmar votación" })).toBeDisabled();
-    expect(document.querySelector(".ballot-planilla-meter")).toHaveTextContent("Planilla 0/2");
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(document.querySelector(".ballot-planilla-meter")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Comparsa Uno: Presencia" })).toBeInTheDocument();
   });
 
@@ -191,8 +193,8 @@ describe("JudgeBallotPage", () => {
     apiRequest.mockResolvedValue(ballot);
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
-    expect(screen.getByRole("button", { name: "Confirmar votaci\u00f3n" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/judge/ballots/ballot-1/submit", { method: "POST" });
   });
@@ -206,7 +208,8 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     expect(await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" })).toBeInTheDocument();
   });
@@ -226,11 +229,12 @@ describe("JudgeBallotPage", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-1" />);
-    fireEvent.click(await screen.findByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar planilla" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
 
     await screen.findByText("No hay conexión. Volvé a intentarlo para confirmar la planilla.");
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
 
     await screen.findByRole("region", { name: "Planilla confirmada" });
@@ -469,6 +473,69 @@ describe("JudgeBallotPage", () => {
     expect(window.location.hash).toContain("ballot-1");
   });
 
+  it("abre revisión solicitada por URL solo si no quedan decisiones pendientes", async () => {
+    apiRequest.mockResolvedValue(ballot);
+    render(<JudgeBallotPage ballotId="ballot-1" reviewRequested />);
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
+  });
+
+  it("revisa participantes y notas sin reenviar votos y puede volver a evaluar", async () => {
+    apiRequest.mockResolvedValue({ ...ballot, scores: ballot.scores.map((score) => ({ ...score, participantName: "María", score: 8, evaluationState: "SCORED" })) });
+    render(<JudgeBallotPage ballotId="ballot-1" reviewRequested />);
+    const reviewHeading = await screen.findByRole("heading", { name: "Revisá tu planilla" });
+    await waitFor(() => expect(reviewHeading).toHaveFocus());
+    expect(screen.getByRole("table")).toHaveTextContent("María");
+    expect(screen.getByRole("table")).toHaveTextContent("Comparsa Uno");
+    expect(screen.getByRole("table")).toHaveTextContent("Comparsa Dos");
+    expect(screen.queryByRole("button", { name: "Votar 8" })).not.toBeInTheDocument();
+    expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "← Volver a la evaluación" }));
+    expect(screen.getByRole("heading", { name: "Comparsa Uno", level: 1 })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Revisar planilla" })).toHaveFocus());
+  });
+
+  it("bloquea notas y confirmación de modal si se pierde conexión, sin reintento automático", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    try {
+      apiRequest.mockResolvedValue(ballot);
+      render(<JudgeBallotPage ballotId="ballot-1" />);
+      await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+      fireEvent.click(screen.getByRole("button", { name: "Votar 8" }));
+      const dialog = screen.getByRole("dialog", { name: "Confirmación de voto" });
+      online.mockReturnValue(false);
+      fireEvent(window, new Event("offline"));
+      expect(within(dialog).getByRole("button", { name: "Confirmar" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+      expect(screen.getByRole("button", { name: "Votar 8" })).toBeDisabled();
+      fireEvent.keyDown(document.body, { key: "8" });
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      online.mockReturnValue(true);
+      fireEvent(window, new Event("online"));
+      expect(screen.getByRole("button", { name: "Votar 8" })).toBeEnabled();
+      expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
+    } finally { online.mockRestore(); }
+  });
+
+  it("no permite cerrar si la conexión se pierde durante la confirmación final", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    try {
+      apiRequest.mockResolvedValue({ ...ballot, scores: ballot.scores.map((score) => ({ ...score, score: 8, evaluationState: "SCORED" })) });
+      render(<JudgeBallotPage ballotId="ballot-1" reviewRequested />);
+      await screen.findByRole("heading", { name: "Revisá tu planilla" });
+      fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
+      const dialog = screen.getByRole("dialog", { name: "Cierre definitivo de planilla" });
+      online.mockReturnValue(false);
+      fireEvent(window, new Event("offline"));
+      expect(within(dialog).getByRole("button", { name: "Confirmar y cerrar" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+      expect(screen.getByRole("button", { name: "Confirmar y cerrar planilla" })).toBeDisabled();
+      expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
+    } finally { online.mockRestore(); }
+  });
+
   it("el modal de cierre habla de la planilla completa con todas las comparsas", async () => {
     const complete = { ...ballot, scores: ballot.scores.map((s) => ({ ...s, evaluationState: "SCORED", score: 7 })) };
     apiRequest.mockImplementation((path, options) => {
@@ -478,7 +545,9 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
+    expect(apiRequest.mock.calls.filter(([path]) => path.endsWith("/submit"))).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     const dialog = await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" });
     expect(within(dialog).getByText(/No se cierra una sola comparsa/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Comparsa Uno/)).toBeInTheDocument();

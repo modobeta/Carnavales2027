@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function EventPicker({ adminEvent, canCreateEvents = false }) {
+export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow = false }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const close = () => setOpen(false);
@@ -40,7 +40,7 @@ export function EventPicker({ adminEvent, canCreateEvents = false }) {
   };
 
   const createEvent = () => {
-    window.location.hash = "#/admin/home";
+    window.location.hash = "#/admin/prepare?stage=event&task=data&new=1";
     close();
   };
 
@@ -58,7 +58,7 @@ export function EventPicker({ adminEvent, canCreateEvents = false }) {
           <span className="event-picker-label">Evento actual</span>
           <span className="event-picker-value">{displayName}</span>
         </span>
-        <span className="event-picker-chevron" aria-hidden="true">⌄</span>
+        <span className="event-picker-chevron" aria-hidden="true">{compactArrow ? <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v10m-4-4 4 4 4-4" /></svg> : "⌄"}</span>
       </button>
 
       {open && (
