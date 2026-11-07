@@ -51,6 +51,30 @@ describe("AppNavigation", () => {
     expect(screen.getByText("Jurado")).toBeInTheDocument();
   });
 
+  it("muestra al Escribano con identidad, evento actual y sección en la cabecera operativa", async () => {
+    mockMatchMedia(true);
+    window.location.hash = "#/admin/record";
+    const session = { user: { name: "Gonzalo" }, roles: ["ESCRIBANO"] };
+    apiRequest.mockResolvedValue([{ id: "event-1", name: "Carnavales 2027", status: "OPEN" }]);
+
+    const { container } = render(
+      <AdminEventProvider session={session}>
+        <AppNavigation session={session} />
+      </AdminEventProvider>,
+    );
+
+    expect(container.querySelector(".app-navigation")).toHaveClass("is-scribe-route");
+    expect(screen.getByText("Gonzalo")).toBeInTheDocument();
+    expect(screen.getByText("Escribano")).toBeInTheDocument();
+    expect(await screen.findByText("Carnavales 2027")).toBeInTheDocument();
+    expect(screen.getByText("Competencia abierta")).toBeInTheDocument();
+    expect(screen.getByText("Acta oficial")).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(screen.getByText("Gonzalo"));
+    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /tema/i })).toBeInTheDocument();
+  });
+
   it("agrupa las rutas existentes por etapa y marca la sección activa", () => {
     window.location.hash = "#/admin/competencia?step=participantes";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);

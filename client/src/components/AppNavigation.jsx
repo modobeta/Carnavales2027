@@ -6,6 +6,7 @@ import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 import { canAccessAdminArea } from "../auth/role-routes.js";
 import { ThemeToggle } from "./ThemeToggle.jsx";
+import { ScribeHeader } from "./ScribeHeader.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -83,6 +84,8 @@ export function AppNavigation({ session }) {
   const drawerOpen = isDesktop || open;
   const isAdmin = session.roles?.includes("ADMIN");
   const isJudge = session.roles?.includes("JUDGE");
+  const hasScrutinyRole = session.roles?.some((role) => ["SCRUTINEER", "ESCRIBANO"].includes(role));
+  const isScribeRoute = !isAdmin && hasScrutinyRole && ["#/admin/results", "#/admin/record"].includes(currentRoute);
   // El Jurado mantiene su pantalla de trabajo despejada; una cuenta ADMIN conserva navegación global.
   const hideDrawer = isJudge && !isAdmin && currentRoute.startsWith("#/judge");
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
@@ -278,7 +281,24 @@ function formatNightDate(value) {
 
   return (
     <>
-    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isScribeRoute ? "is-scribe-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+      {isScribeRoute ? (
+        <ScribeHeader session={session} context={adminEvent} label={breadcrumb.label} closing={closing} onSignOut={signOut}>
+          {!isDesktop && !hideDrawer && (
+            <button
+              ref={toggleRef}
+              className="nav-toggle"
+              type="button"
+              aria-expanded={open}
+              aria-controls="app-drawer"
+              aria-label={open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"}
+              onClick={() => setOpen((value) => !value)}
+            >
+              <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+            </button>
+          )}
+        </ScribeHeader>
+      ) : <>
       <div className="header-left">
         {isJudgeRoute && sessionUser}
         {!isDesktop && !hideDrawer && (
@@ -354,6 +374,7 @@ function formatNightDate(value) {
           <span>Salir</span>
         </button>
       </div>
+      </>}
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
       {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}
     </header>
