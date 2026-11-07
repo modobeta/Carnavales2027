@@ -14,6 +14,8 @@ import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
 import { isSessionEndedError, redirectToLoginExpired, useSession } from "../auth/session-context.jsx";
 import { readableInk } from "../lib/brand-color.js";
+import { useOnlineStatus } from "../hooks/useOnlineStatus.js";
+import { JudgeBallotReview } from "../components/JudgeBallotReview.jsx";
 
 function groupScores(scores) {
   return scores.reduce((groups, score) => {
@@ -62,8 +64,11 @@ function getPendingItems(scores, details) {
   });
 }
 
-export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
+export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewRequested = false }) {
   const eventContext = useAdminEvent();
+  const online = useOnlineStatus();
+  const [reviewOpen, setReviewOpen] = useState(reviewRequested);
+  useEffect(() => { setReviewOpen(reviewRequested); }, [ballotId, reviewRequested]);
   const session = useSession();
   const syncedBallotRef = useRef(null);
   // Si la sesión venció a mitad de la votación, volver al login con aviso y
@@ -89,7 +94,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const [incompleteDialog, setIncompleteDialog] = useState(null);
   const [submitConfirm, setSubmitConfirm] = useState(false);
   const [continuityPrompt, setContinuityPrompt] = useState(null); // { completedTroupeName, nextTroupeName, nextNightScheduleId }
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(() => window.matchMedia?.("(min-width: 64rem)").matches ?? false);
   const [showAllReadonlyGroups, setShowAllReadonlyGroups] = useState(false);
   const [readonlyTroupeFilter, setReadonlyTroupeFilter] = useState("");
   const [readonlyRubricFilter, setReadonlyRubricFilter] = useState("");
@@ -122,9 +127,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
       eventId: ballot.eventId ?? eventContext?.activeEventId ?? null,
       name: ballot.nightName,
       eventDate: ballot.eventDate ?? null,
+      specialtyName: ballot.specialtyName,
+      ballotStatus: ballot.status,
       route: "#/judge/ballot",
     } : null);
-  }, [ballot?.id, ballot?.nightId, ballot?.eventId, ballot?.nightName, ballot?.eventDate, eventContext?.activeEventId, eventContext?.setJudgeNight]);
+  }, [ballot?.id, ballot?.nightId, ballot?.eventId, ballot?.nightName, ballot?.eventDate, ballot?.specialtyName, ballot?.status, eventContext?.activeEventId, eventContext?.setJudgeNight]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -280,6 +287,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const readonlyVisibleScoreCount = readonlyVisibleGroups.reduce((count, entry) => count + entry.scores.length, 0);
   const hasReadonlyFilters = Boolean(readonlyTroupeFilter || readonlyRubricFilter || readonlySearchFilter || readonlyStateFilter !== "ALL");
 
+  const effectiveIndex = Math.min(Math.max(0, activeItemIndex), Math.max(0, (ballot?.scores.length ?? 0) - 1));
+  const activeScore = ballot?.scores[effectiveIndex];
+
   const isTargetTroupeLocked = Boolean(!readonly && ballot?.releaseMode === "MANUAL"
     ? (targetGroup
       ? targetGroup.releaseOrder == null || String(targetGroup.nightScheduleId) !== String(ballot.activeScheduleId)
@@ -287,6 +297,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     : !readonly && targetGroup && activeGroup && targetGroup.presentationOrder > activeGroup.presentationOrder);
 
   const saveDecision = async (scoreId, evaluationState, score, operationId = globalThis.crypto.randomUUID()) => {
+    if (!online) return;
     if (!ballot) return;
     setItemStatuses((prev) => ({
       ...prev,
@@ -342,6 +353,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   const handleScoreClick = (scoreItem, value, troupeName, rubricName) => {
+    if (!online) return;
     // Spec 007 RF-77: cada tap en 1-10 abre modal de confirmación, sin preselección in situ
     setScoreConfirm({
       scoreId: scoreItem.id,
@@ -362,6 +374,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   const markTroupeAbsent = async (nightScheduleId) => {
+    if (!online) return;
     if (!ballot || markingAbsent) return;
     setMarkingAbsent(true);
     setMessage("");
@@ -403,7 +416,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   const submit = async () => {
-    if (!ballot || isSubmitting) return;
+    if (!online || !ballot || isSubmitting) return;
     setMessage("");
     const pendingItems = getPendingItems(ballot.scores);
     if (pendingItems.length > 0) {
@@ -446,12 +459,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   // Keyboard navigation for desktop (RF-189): digits open Spec 007 modal, no staged state
-  useEffect(() => {
+  // El atajo debe estar disponible al mostrar el ítem, no recién después del paint.
+  useLayoutEffect(() => {
     const handleKeyDown = (e) => {
       if (
         e.target.tagName === "INPUT" ||
         e.target.tagName === "TEXTAREA" ||
-        notPresentedConfirm ||
+        !online || reviewOpen || notPresentedConfirm ||
         troupeAbsentConfirm ||
         scoreConfirm ||
         pendingDialogOpen ||
@@ -490,7 +504,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ballot, activeItemIndex, itemStatuses, scoreConfirm, notPresentedConfirm, troupeAbsentConfirm, pendingDialogOpen, incompleteDialog, submitConfirm]);
+  }, [ballot, activeItemIndex, itemStatuses, scoreConfirm, notPresentedConfirm, troupeAbsentConfirm, pendingDialogOpen, incompleteDialog, submitConfirm, online, reviewOpen]);
 
   if (!ballotId) {
     return (
@@ -524,14 +538,16 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <div className="card guard-card">
           <span className="guard-icon" aria-hidden="true">🔒</span>
           <p className="eyebrow">
-            Salida {targetGroup.presentationOrder} · {targetGroup.troupeName}
+            {targetGroup ? `Salida ${targetGroup.presentationOrder} · ${targetGroup.troupeName}` : "En espera de habilitación"}
           </p>
           <h1>Comparsa en espera de pasada</h1>
           <p className="guard-description">
-            Debes calificar y confirmar los rubros de <strong>{activeGroup.troupeName}</strong> antes de acceder a esta planilla.
+            {ballot.releaseMode === "MANUAL"
+              ? "Esta comparsa todavía no está habilitada para evaluar. Administración debe habilitar su pasada desde Control de votación."
+              : <>Debes calificar y confirmar los rubros de <strong>{activeGroup?.troupeName}</strong> antes de acceder a esta planilla.</>}
           </p>
           <div className="guard-actions">
-            <a
+            {activeGroup && <a
               className="button button-primary button-link"
               href={`#/judge/ballot?ballotId=${ballotId}&troupeId=${encodeURIComponent(activeGroup.nightScheduleId)}`}
               onClick={() => {
@@ -539,7 +555,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               }}
             >
               Ir a comparsa actual →
-            </a>
+            </a>}
             <a className="button button-secondary button-link" href="#/judge">
               ← Volver a mis comparsas
             </a>
@@ -553,21 +569,18 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   const total = ballot.scores.length;
   const scoreTotal = ballot.scores.reduce((sum, score) => sum + (typeof score.score === "number" ? score.score : 0), 0);
   const pendingScores = ballot.scores.filter((score) => score.evaluationState === "PENDING");
-  const effectiveIndex = Math.min(Math.max(0, activeItemIndex), Math.max(0, total - 1));
   const previousPendingScores = ballot.scores.slice(0, effectiveIndex).filter((score) => score.evaluationState === "PENDING");
-  const activeScore = ballot.scores[effectiveIndex];
   const troupeScores = activeScore ? ballot.scores.filter((score) => score.nightScheduleId === activeScore.nightScheduleId) : [];
   const troupeResolved = troupeScores.filter((score) => score.evaluationState !== "PENDING").length;
-  const troupeProgress = troupeScores.length ? Math.round(troupeResolved / troupeScores.length * 100) : 0;
   const activeTroupePending = troupeScores.filter((score) => score.evaluationState === "PENDING").length;
-  const canConfirmVoting = total > 0 && resolved === total && !isSubmitting
+  const canConfirmVoting = online && total > 0 && resolved === total && !isSubmitting
     && !Object.values(itemStatuses).some((item) => item.status === "saving");
 
   const beginSubmitReview = () => {
     if (!canConfirmVoting || readonly) return;
     const pendingItems = getPendingItems(ballot.scores);
     if (pendingItems.length > 0) setIncompleteDialog(pendingItems);
-    else setSubmitConfirm(true);
+    else setReviewOpen(true);
   };
 
   const goToScore = (scoreId) => {
@@ -617,10 +630,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
         <p id="score-shortcuts-hint" className="sr-only">
           Atajos de teclado: las teclas 1 a 9 eligen la nota; la tecla 0 equivale a 10.
         </p>
-        <div className="score-copy">
-          <span className="score-copy-name">{scoreItem.itemName}</span>
-          {scoreItem.participantName && <span className="score-copy-name">{SUBJECT_LABELS[scoreItem.participantType] ?? "Participante"}: {scoreItem.participantName}</span>}
-        </div>
+        <p className="judge-score-label">Seleccioná la puntuación</p>
 
         {/* 1-10 grid: solo números, cada tap abre modal Spec 007 RF-77 */}
         <div
@@ -636,7 +646,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               key={val}
               type="button"
               aria-label={`Votar ${val}`}
-              disabled={readonly || scoreItem.status === "LOCKED" || isItemSaving}
+              disabled={!online || readonly || scoreItem.status === "LOCKED" || isItemSaving}
               className="score-option-btn score-num-only"
               onClick={() => handleScoreClick(scoreItem, val, troupeName, rubricName)}
             >
@@ -650,7 +660,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           <button
             type="button"
             className="not-presented-btn"
-            disabled={readonly || scoreItem.status === "LOCKED" || isItemSaving}
+            disabled={!online || readonly || scoreItem.status === "LOCKED" || isItemSaving}
             onClick={() => setNotPresentedConfirm({
               id: scoreItem.id,
               troupeName,
@@ -679,6 +689,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <button
               type="button"
               className="item-retry-btn"
+              disabled={!online}
               onClick={() => handleRetry(scoreItem.id)}
             >
               Reintentar
@@ -690,10 +701,66 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
   };
 
   return (
-    <PageShell layer="instrument" className={`judge-ballot-page judge-operation-shell${readonly ? " is-readonly" : ""}`}>
+    <PageShell layer="instrument" className={`judge-ballot-page judge-operation-shell judge-focus-ballot${readonly ? " is-readonly" : ""}`}>
+      {reviewOpen && !readonly && pendingScores.length === 0 ? (
+        <JudgeBallotReview
+          ballot={ballot} groups={groups} online={online} message={message}
+          canSubmit={canConfirmVoting} isSubmitting={isSubmitting}
+          onBack={() => {
+            setReviewOpen(false);
+            requestAnimationFrame(() => submitButtonRef.current?.focus());
+          }}
+          onConfirm={() => { if (canConfirmVoting) setSubmitConfirm(true); }}
+        />
+      ) : (
       <div className={`ballot-layout${readonly ? " is-readonly" : ""}`}>
         {!readonly && (
         <aside className="ballot-context-rail" aria-label="Contexto de la planilla">
+          <a className="judge-back-link" href="#/judge">← Volver al inicio</a>
+          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
+            <ul>
+              {groups.map((group) => {
+                const isGroupLocked = Boolean(!readonly && (ballot?.releaseMode === "MANUAL"
+                  ? (group.releaseOrder == null || String(group.nightScheduleId) !== String(ballot.activeScheduleId))
+                  : activeGroup && group.presentationOrder > activeGroup.presentationOrder));
+                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
+                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
+                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
+                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
+                return (
+                  <li key={group.nightScheduleId}>
+                    <button
+                      type="button"
+                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
+                      disabled={isGroupLocked}
+                      aria-disabled={isGroupLocked ? "true" : undefined}
+                      aria-current={isCurrentGroup ? "true" : undefined}
+                      title={isGroupLocked ? "En espera de pasada" : undefined}
+                      onClick={() => {
+                        if (isGroupLocked) return;
+                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
+                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
+                        if (firstPending) goToScore(firstPending.id);
+                      }}
+                    >
+                      {group.brandColor && (
+                        <span
+                          className="troupe-color-dot"
+                          style={{ backgroundColor: group.brandColor }}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
+                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
+                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
           {activeScore && (() => {
             const currentGroup = groups.find((group) => group.nightScheduleId === activeScore.nightScheduleId);
             if (!currentGroup) return null;
@@ -740,7 +807,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                                 size="sm"
                                 label={item.rubricName ? `Rubro: ${item.rubricName}` : undefined}
                               />
-                              {item.itemIcon && <ItemIcon icon={item.itemIcon} size="sm" label={`Ícono del ítem: ${item.itemName}`} />}
                               <span className="ballot-summary-name">{item.itemName}{item.participantName ? ` · ${item.participantName}` : ""}</span>
                             </button>
                           </li>
@@ -753,56 +819,13 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             );
           })()}
 
-          <nav className="ballot-troupe-navigation" aria-label="Comparsas">
-            <ul>
-              {groups.map((group) => {
-                const isGroupLocked = Boolean(!readonly && (ballot?.releaseMode === "MANUAL"
-                  ? (group.releaseOrder == null || String(group.nightScheduleId) !== String(ballot.activeScheduleId))
-                  : activeGroup && group.presentationOrder > activeGroup.presentationOrder));
-                const groupTotal = Object.values(group.rubrics).reduce((n, r) => n + r.scores.length, 0);
-                const groupResolved = Object.values(group.rubrics).reduce((n, r) => n + r.scores.filter((s) => s.evaluationState !== "PENDING").length, 0);
-                const currentKey = activeGroup ? activeGroup.nightScheduleId : activeScore?.nightScheduleId;
-                const isCurrentGroup = Boolean(currentKey && String(group.nightScheduleId) === String(currentKey));
-                return (
-                  <li key={group.nightScheduleId}>
-                    <button
-                      type="button"
-                      className={`ballot-sidebar-item${isGroupLocked ? " is-locked" : ""}${isCurrentGroup ? " is-current" : ""}`}
-                      disabled={isGroupLocked}
-                      aria-disabled={isGroupLocked ? "true" : undefined}
-                      aria-current={isCurrentGroup ? "true" : undefined}
-                      title={isGroupLocked ? "En espera de pasada" : undefined}
-                      onClick={() => {
-                        if (isGroupLocked) return;
-                        const allScores = Object.values(group.rubrics).flatMap((r) => r.scores);
-                        const firstPending = allScores.find((s) => s.evaluationState === "PENDING") ?? allScores[0];
-                        if (firstPending) goToScore(firstPending.id);
-                      }}
-                    >
-                      {group.brandColor && (
-                        <span
-                          className="troupe-color-dot"
-                          style={{ backgroundColor: group.brandColor }}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span className="ballot-sidebar-name">{group.presentationOrder}. {group.troupeName}</span>
-                      <span className={`ballot-sidebar-status ${isGroupLocked ? "is-locked" : groupResolved === groupTotal ? "is-done" : groupResolved > 0 ? "is-progress" : ""}`}>
-                        {isGroupLocked ? "🔒" : `${groupResolved}/${groupTotal}`}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
         </aside>
         )}
 
         <div className="ballot-main">
           <header className="ballot-header ballot-header-single">
             <div>
-              <p className="eyebrow">{ballot.specialtyName}</p>
+              {!eventContext && <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>}
               <div className="ballot-header-troupe-row">
                 {(readonly && targetGroup) || activeScore ? (
                   <TroupeLogo
@@ -820,12 +843,6 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
             </div>
             <div className="ballot-header-status">
-              <span
-                className="ballot-planilla-meter"
-                aria-label={`Avance de la planilla: ${resolved} de ${total} decisiones registradas`}
-              >
-                Planilla <strong>{resolved}/{total}</strong>
-              </span>
               <StatusPill status={ballot.status} />
             </div>
           </header>
@@ -835,9 +852,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               value={troupeResolved}
               max={troupeScores.length}
               label="Avance de la comparsa"
-              sublabel={`${troupeResolved} de ${troupeScores.length} · ${troupeProgress}%`}
+              sublabel={`${troupeResolved} de ${troupeScores.length} puntuaciones`}
             />
           </section>
+
+          {!online && !readonly && <p className="judge-connection-notice" role="alert">Sin conexión. Las puntuaciones y el cierre solo se confirman cuando la API acepta la operación.</p>}
 
           <p className="feedback" role="status" aria-live="polite">{message}</p>
 
@@ -1077,7 +1096,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   >
                     <div className="ballot-troupe-heading">
                       <div>
-                        <h1 className="card-rubric-name">Rubro: {activeScore.rubricName}</h1>
+                        {activeScore.rubricName !== ballot.specialtyName && <p className="card-rubric-name">Rubro: {activeScore.rubricName}</p>}
                       </div>
                     </div>
                   </div>
@@ -1106,10 +1125,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                             </div>
                           )}
                         </div>
-                        <div className="ballot-subject">
-                          <span>{activeScore.participantName ? "Participante" : "Comparsa"}</span>
-                          <strong>{activeScore.participantName ?? activeScore.troupeName}</strong>
-                        </div>
+                        {activeScore.participantName && <div className="ballot-subject">
+                          <span>{SUBJECT_LABELS[activeScore.participantType] ?? "Participante"}</span>
+                          <strong>{activeScore.participantName}</strong>
+                        </div>}
                         {(activeScore.evaluationObjective || activeScore.expectedSubjectType) && <p className="evaluation-context">
                           {activeScore.evaluationObjective && <span><strong>Detalle de evaluación:</strong> {activeScore.evaluationObjective}</span>}
                           {activeScore.expectedSubjectType && <span><strong>Sujeto esperado:</strong> {SUBJECT_LABELS[activeScore.expectedSubjectType] ?? activeScore.expectedSubjectType}</span>}
@@ -1120,7 +1139,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                             <button
                               type="button"
                               className="troupe-absent-btn"
-                              disabled={markingAbsent}
+                              disabled={!online || markingAbsent}
                               onClick={() => setTroupeAbsentConfirm({
                                 nightScheduleId: activeScore.nightScheduleId,
                                 troupeName: activeScore.troupeName,
@@ -1148,7 +1167,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                           ← Anterior
                         </button>
                         <span className="nav-counter" aria-live="polite">
-                          Ítem {effectiveIndex + 1} de {total}
+                          Ítem {troupeScores.findIndex((score) => score.id === activeScore.id) + 1} de {troupeScores.length}
                         </span>
                         {/* Sin duplicar el avance: mientras el banner de continuidad ofrece
                           "Comenzar siguiente pasada", el Siguiente genérico se oculta. */}
@@ -1184,7 +1203,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
             <section className="review-ready-banner" aria-label="Lista para revisar">
               <div>
                 <strong>Lista para revisar</strong>
-                <p>{total} de {total} puntuaciones completas. Usá el botón Confirmar votación de abajo para el cierre definitivo.</p>
+                <p>Las puntuaciones están completas. Revisá todas las comparsas antes de cerrar la planilla.</p>
               </div>
             </section>
           )}
@@ -1206,7 +1225,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                   aria-describedby={canConfirmVoting ? "voting-confirm-summary" : undefined}
                   onClick={beginSubmitReview}
                 >
-                  {isSubmitting ? "Confirmando…" : "Confirmar votación"}
+                  {isSubmitting ? "Confirmando…" : "Revisar planilla"}
                 </button>
                 {canConfirmVoting && (
                   <small id="voting-confirm-summary" className="voting-confirm-summary" aria-live="polite">
@@ -1232,6 +1251,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
           </footer>
         </div>
       </div>
+      )}
 
       {/* Faltantes Dialog (RF-188) */}
       <Dialog
@@ -1328,6 +1348,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </Button>
               <Button
                 variant="primary"
+                disabled={!online}
                 onClick={() => {
                   const target = scoreConfirm;
                   setScoreConfirm(null);
@@ -1363,6 +1384,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </Button>
               <Button
                 variant="danger"
+                disabled={!online}
                 onClick={() => {
                   const target = notPresentedConfirm;
                   setNotPresentedConfirm(null);
@@ -1396,7 +1418,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
               </Button>
               <Button
                 variant="danger"
-                disabled={markingAbsent}
+                disabled={!online || markingAbsent}
                 onClick={() => {
                   const target = troupeAbsentConfirm;
                   setTroupeAbsentConfirm(null);
@@ -1460,7 +1482,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId }) {
                 setSubmitConfirm(false);
                 void submit();
               }}
-              disabled={isSubmitting}
+              disabled={!online || isSubmitting}
             >
               Confirmar y cerrar
             </Button>

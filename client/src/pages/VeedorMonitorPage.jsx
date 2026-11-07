@@ -100,6 +100,7 @@ export function VeedorMonitorPage() {
   const requestSequenceRef = useRef(0);
   const activeEventIdRef = useRef(eventId);
   const activeNightIdRef = useRef(nightId);
+  const userNightSelectionRef = useRef(null);
   const eventContextRef = useRef(Boolean(eventContext));
   const activeTabRef = useRef(activeTab);
 
@@ -264,16 +265,27 @@ export function VeedorMonitorPage() {
 
   const selectedEvent = events.find((event) => event.id === eventId);
   const nights = selectedEvent?.nights ?? [];
-  const selectedNight = nights.find((night) => night.id === nightId) ?? nights[0];
+  const userNightSelection = userNightSelectionRef.current;
+  const preferredNightId = userNightSelection?.eventId === selectedEvent?.id
+    && nights.some((night) => night.id === userNightSelection.nightId)
+    ? userNightSelection.nightId
+    : nightId;
+  const selectedNight = nights.find((night) => night.id === preferredNightId) ?? nights[0];
   const total = selectedNight?.total ?? 0;
   const submitted = selectedNight?.counts?.SUBMITTED ?? 0;
   const progress = total > 0 ? Math.round((submitted / total) * 100) : 0;
 
   useEffect(() => {
-    if (selectedEvent && !nights.some((night) => night.id === nightId)) {
+    if (!selectedEvent) return;
+    if (userNightSelection?.eventId === selectedEvent.id
+      && nights.some((night) => night.id === userNightSelection.nightId)) {
+      if (nightId !== userNightSelection.nightId) chooseNight(userNightSelection.nightId);
+      return;
+    }
+    if (!nights.some((night) => night.id === nightId)) {
       chooseNight(nights[0]?.id ?? "");
     }
-  }, [eventId, nightId, nights, selectedEvent, chooseNight]);
+  }, [eventId, nightId, nights, selectedEvent, chooseNight, userNightSelection]);
 
   useEffect(() => {
     if (activeTab !== "resumen" && selectedEvent?.id && selectedNight?.id) {
@@ -502,7 +514,10 @@ export function VeedorMonitorPage() {
                 <select
                   value={eventId}
                   onChange={(event) => {
-                    setEventId(event.target.value);
+                    const nextEventId = event.target.value;
+                    activeEventIdRef.current = nextEventId;
+                    userNightSelectionRef.current = null;
+                    setEventId(nextEventId);
                     setLocalNightId("");
                   }}
                 >
@@ -523,7 +538,10 @@ export function VeedorMonitorPage() {
                   key={night.id}
                   type="button"
                   className={`monitor-night-tab ${night.id === selectedNight?.id ? "is-active" : ""}`}
-                  onClick={() => chooseNight(night.id)}
+                  onClick={() => {
+                    userNightSelectionRef.current = { eventId: selectedEvent.id, nightId: night.id };
+                    chooseNight(night.id);
+                  }}
                   aria-pressed={night.id === selectedNight?.id}
                 >
                   {night.name}

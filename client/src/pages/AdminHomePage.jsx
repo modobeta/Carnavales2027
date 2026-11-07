@@ -39,9 +39,7 @@ export function AdminHomePage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showDeleted, setShowDeleted] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState(null);
-  const createTriggerRef = useRef(null);
   const confirmTriggerRef = useRef(null);
 
   const activeEvents = adminEvent?.events ?? catalog.filter((event) => event.active !== false);
@@ -114,26 +112,7 @@ export function AdminHomePage() {
   };
 
   const handleAdminister = (event) => {
-    goWithEvent(event, "#/admin/events");
-  };
-
-  const create = async (formEvent) => {
-    formEvent.preventDefault();
-    const form = formEvent.currentTarget;
-    const data = new FormData(form);
-    try {
-      const created = await apiRequest("/api/v1/events", {
-        method: "POST",
-        body: JSON.stringify({ name: data.get("name") }),
-      });
-      await refreshEvents();
-      adminEvent?.setActiveEvent?.(created);
-      setIsCreateOpen(false);
-      form.reset();
-      setMessage(`Evento ${created?.name ?? data.get("name")} creado.`);
-    } catch (error) {
-      setMessage(error?.code === "RESOURCE_CONFLICT" ? "Ya existe un evento equivalente." : "No se pudo crear el evento.");
-    }
+    goWithEvent(event, event.status === "CONFIGURING" ? "#/admin/prepare?stage=event&task=nights" : "#/admin/events");
   };
 
   const confirmAction = async () => {
@@ -190,7 +169,7 @@ export function AdminHomePage() {
           <h1>{showDeleted ? "Eventos eliminados" : "Mis eventos"}</h1>
           <p>{showDeleted ? "Eventos desactivados; podés reactivarlos desde su menú." : "Elegí el evento que querés administrar."}</p>
         </div>
-        <button ref={createTriggerRef} type="button" className="my-events-create" onClick={() => setIsCreateOpen(true)}>
+        <button type="button" className="my-events-create" onClick={() => { window.location.hash = "#/admin/prepare?stage=event&task=data&new=1"; }}>
           <span aria-hidden="true">+</span>
           <span>Crear evento</span>
         </button>
@@ -224,7 +203,7 @@ export function AdminHomePage() {
         <section className="my-events-empty card" aria-label="Catálogo de eventos vacío">
           <h2>Todavía no hay eventos</h2>
           <p>Creá el primero para comenzar la configuración del carnaval.</p>
-          <button type="button" onClick={() => setIsCreateOpen(true)}>Crear primer evento</button>
+          <button type="button" onClick={() => { window.location.hash = "#/admin/prepare?stage=event&task=data&new=1"; }}>Crear primer evento</button>
         </section>
       ) : filteredEvents.length === 0 ? (
         <p className="my-events-empty-filter">
@@ -308,21 +287,7 @@ export function AdminHomePage() {
         </div>
       </Dialog>
 
-      <Dialog
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Nuevo evento"
-        description="Creá un evento para luego configurar sus jornadas y competencia."
-        focusReturnRef={createTriggerRef}
-      >
-        <form className="config-card" onSubmit={create}>
-          <label>Nombre del evento<input name="name" required autoFocus /></label>
-          <div className="dialog-actions">
-            <button type="button" className="secondary" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
-            <button type="submit">Crear evento</button>
-          </div>
-        </form>
-      </Dialog>
+
     </PageShell>
   );
 }

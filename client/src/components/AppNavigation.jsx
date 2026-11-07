@@ -6,6 +6,8 @@ import { EventPicker } from "./EventPicker.jsx";
 import { PublicResultsLink } from "./PublicResultsLink.jsx";
 import { canAccessAdminArea } from "../auth/role-routes.js";
 import { ThemeToggle } from "./ThemeToggle.jsx";
+import { JudgeHeader } from "./JudgeHeader.jsx";
+import { AdminHeader } from "./AdminHeader.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -78,16 +80,17 @@ export function AppNavigation({ session }) {
   );
   const [currentLocation, setCurrentLocation] = useState(() => window.location.hash || "#/");
   const currentRoute = currentLocation.split("?")[0];
+  const isPreparing = currentRoute === "#/admin/prepare";
   const toggleRef = useRef(null);
   const drawerRef = useRef(null);
-  const drawerOpen = isDesktop || open;
+  const drawerOpen = (isDesktop && !isPreparing) || open;
   const isAdmin = session.roles?.includes("ADMIN");
   const isJudge = session.roles?.includes("JUDGE");
   // El Jurado mantiene su pantalla de trabajo despejada; una cuenta ADMIN conserva navegación global.
   const hideDrawer = isJudge && !isAdmin && currentRoute.startsWith("#/judge");
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
   // los demás roles tienen enlaces de solo texto que no caben en el rail.
-  const canCollapse = isDesktop && isAdmin;
+  const canCollapse = isDesktop && isAdmin && !isPreparing;
   const isRail = canCollapse && collapsed;
   const railTitle = (label) => (isRail ? label : undefined);
   const expandRail = () => {
@@ -119,7 +122,7 @@ export function AppNavigation({ session }) {
   }, []);
 
   useEffect(() => {
-    if (!open || isDesktop) return;
+    if (!open || (isDesktop && !isPreparing)) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeButton = drawerRef.current?.querySelector("[data-drawer-close]");
@@ -152,7 +155,7 @@ export function AppNavigation({ session }) {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, isDesktop]);
+  }, [open, isDesktop, isPreparing]);
 
   const closeDrawer = () => {
     setOpen(false);
@@ -229,30 +232,34 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function formatNightDate(value) {
+function formatNightDate(value, long = false) {
   if (!value) return "";
+  const format = (date) => long
+    ? new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "2-digit", month: "long" }).formatToParts(date).filter((part) => ["weekday", "day", "month"].includes(part.type)).map((part) => part.value).join(" ")
+    : date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
   if (typeof value === "string") {
     const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (match) {
       const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
       if (!Number.isNaN(date.getTime())) {
-        return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+        return format(date);
       }
     }
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return format(date);
 }
 
   const isHomeRoute = currentRoute === "#/admin/home";
   const isJudgeRoute = currentRoute.startsWith("#/judge");
+  const isJudgeHome = currentRoute === "#/judge";
   const judgeNight = isJudgeRoute
     && adminEvent?.judgeNight?.route === currentRoute
     && (!adminEvent?.activeEventId || adminEvent.judgeNight.eventId === adminEvent.activeEventId)
     ? adminEvent.judgeNight
     : null;
-  const judgeNightDate = judgeNight ? formatNightDate(judgeNight.eventDate) : "";
+  const judgeNightDate = judgeNight ? formatNightDate(judgeNight.eventDate, isJudgeHome) : "";
   const isUsersRoute = currentRoute === "#/admin/judges" || currentRoute === "#/admin/users";
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
@@ -278,9 +285,17 @@ function formatNightDate(value) {
 
   return (
     <>
-    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+    <header className={`app-navigation ${isAdmin && currentRoute.startsWith("#/admin/") ? "is-admin-route" : ""} ${isPreparing ? "is-preparation-header" : ""} ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isJudgeHome ? "judge-home-navigation" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+      {isJudgeRoute ? (
+        <JudgeHeader key={currentRoute} home={isJudgeHome} session={session} adminEvent={adminEvent} night={judgeNight} nightDate={judgeNightDate} roles={roleLabels} closing={closing} onSignOut={signOut}>
+          {!hideDrawer && <button className="nav-toggle" type="button" ref={toggleRef} aria-controls="app-drawer" aria-expanded={isDesktop ? !collapsed : open} aria-label={isDesktop ? "Menú lateral" : open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"} onClick={() => isDesktop ? setCollapsed((value) => !value) : setOpen((value) => !value)}><span aria-hidden="true">☰</span></button>}
+        </JudgeHeader>
+      ) : isAdmin && currentRoute.startsWith("#/admin/") ? (
+        <AdminHeader session={session} context={adminEvent} globalPage={isGlobalAdminRoute} newEvent={isPreparing && new URLSearchParams(currentLocation.split("?")[1]).get("new") === "1"} preparing={isPreparing} label={isPreparing ? "Preparación del evento" : breadcrumb.label} closing={closing} onSignOut={signOut}>
+          {(!isDesktop || isPreparing) ? <button className="nav-toggle" type="button" ref={toggleRef} aria-controls="app-drawer" aria-expanded={open} aria-label={open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"} onClick={() => setOpen((value) => !value)}><span aria-hidden="true">☰</span></button> : <button className="nav-toggle nav-collapse-toggle" type="button" aria-controls="app-drawer" aria-expanded={!collapsed} aria-label="Menú lateral" title={collapsed ? "Expandir menú lateral" : "Contraer menú lateral"} onClick={() => setCollapsed((value) => !value)}><span aria-hidden="true">☰</span></button>}
+        </AdminHeader>
+      ) : <>
       <div className="header-left">
-        {isJudgeRoute && sessionUser}
         {!isDesktop && !hideDrawer && (
         <button
           ref={toggleRef}
@@ -308,7 +323,7 @@ function formatNightDate(value) {
         </button>
         )}
         <a className="brand" href="#" onClick={(e) => { e.preventDefault(); window.location.reload(); }}><span>Carnavales</span> <strong>2027</strong></a>
-        {isDesktop && !isJudgeRoute && (
+        {isDesktop && (
           <nav className="header-breadcrumb" aria-label="Ruta de navegación">
             {breadcrumb.isHome ? (
               canAccessAdminArea(session) ? (
@@ -333,16 +348,7 @@ function formatNightDate(value) {
       </div>
       <div className="session-actions">
         {adminEvent && !hideEventPicker && <EventPicker adminEvent={adminEvent} canCreateEvents={isAdmin} />}
-        {judgeNight && (
-          <div
-            className="session-night"
-            aria-label={`Jornada actual: ${judgeNight.name}${judgeNightDate ? `, ${judgeNightDate}` : ""}`}
-          >
-            <span className="session-night-name">{judgeNight.name}</span>
-            {judgeNightDate && <span className="session-night-date">{judgeNightDate}</span>}
-          </div>
-        )}
-        {!isJudgeRoute && sessionUser}
+        {sessionUser}
         <ThemeToggle iconOnly className="theme-toggle--nav" />
         <span className="session-divider" aria-hidden="true" />
         <button className="session-signout secondary" type="button" disabled={closing} onClick={signOut}>
@@ -354,10 +360,11 @@ function formatNightDate(value) {
           <span>Salir</span>
         </button>
       </div>
+      </>}
       {message && <p className="navigation-feedback" role="alert">{message}</p>}
       {adminEvent?.error && <p className="navigation-feedback" role="alert">{adminEvent.error} <button type="button" onClick={() => void adminEvent.refreshEvents()}>Reintentar eventos</button></p>}
     </header>
-    {!hideDrawer && open && !isDesktop && (
+    {!hideDrawer && open && (!isDesktop || isPreparing) && (
       <button
         className="app-drawer-backdrop"
         type="button"
@@ -365,7 +372,7 @@ function formatNightDate(value) {
         onClick={() => setOpen(false)}
       />
     )}
-    {!hideDrawer && <nav
+    {!hideDrawer && (!isPreparing || open) && <nav
       ref={drawerRef}
       id="app-drawer"
       className={`app-drawer${drawerOpen ? " is-open" : ""}${isRail ? " is-collapsed" : ""}`}
@@ -404,6 +411,7 @@ function formatNightDate(value) {
                 <span>Preparación de competencia</span>
               </summary>
               <div className="nav-group-links">
+                {navLink("#/admin/prepare?stage=event&task=nights", "Preparar evento")}
                 {navLink("#/admin/competencia?step=catalogo", "Rubros")}
                 {navLink("#/admin/competencia?step=especialidades", "Especialidades")}
                 {navLink("#/admin/competencia?step=rubros", "Evaluación")}

@@ -92,6 +92,7 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/invitations/accepted` | Confirmación de aceptación de jurado |
 | `#/cuenta` | Cuenta y cambio de contraseña; su pantalla usa el estado de sesión |
 | `#/admin/home` | Inicio global; catálogo, creación y gestión de eventos (ADMIN) |
+| `#/admin/prepare?stage=...&task=...` | Asistente de preparación en cuatro etapas; `new=1` crea un evento (ADMIN) |
 | `#/admin/events` | Configuración global de eventos y jornadas (ADMIN) |
 | `#/admin/competencia?step=...` | Preparación completa de la competencia (ADMIN) |
 | `#/admin/judges`, `#/admin/assignments` | Personas/jurados y asignaciones (ADMIN) |
@@ -99,7 +100,7 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/admin/penalties` | Penalizaciones; ADMIN o COMISARIO |
 | `#/admin/results`, `#/admin/record` | Resultados y acta; ADMIN, SCRUTINEER o ESCRIBANO |
 | `#/judge`, `#/judge/assignment` | Inicio y asignaciones del jurado |
-| `#/judge/ballot?ballotId=...&troupeId=...` | Planilla; JUDGE. El parámetro `troupeId` identifica aquí la entrada de programación (`nightScheduleId`) |
+| `#/judge/ballot?ballotId=...&troupeId=...` | Planilla; JUDGE. El parámetro `troupeId` identifica aquí la entrada de programación (`nightScheduleId`). `review=1` solicita la revisión previa al cierre, solo si todas las decisiones están registradas; no confirma operaciones. |
 | `#/veedor` | Supervisión; ADMIN o VEEDOR, sujeta a autorización de la API |
 | `#/resultados?eventId=...` | Portal público; selección de evento opcional |
 
@@ -121,7 +122,9 @@ El panel administrativo está reservado a ADMIN global. Las cuentas con otros ro
 
 1. **Inicio (`#/admin/home`)**: Vista ejecutiva global con eventos activos, creación, reactivación y acciones de gestión. Incluye resumen de jornadas, comparsas, jurados y rubros cuando están disponibles.
 2. **Eventos y jornadas (`#/admin/events`)**: Gestión global de alta, edición y estado de eventos, jornadas y apertura. El panel **Preparar y comenzar** aparece primero para mostrar readiness y dirigir cada bloqueo a su sección de resolución; cuando el evento ya está abierto, ofrece continuar a Control de votación. Guardar el nombre del evento, agregar o editar una jornada y otras acciones sensibles requieren confirmación explícita; los cambios aparecen solo cuando la API los acepta (la programación automática de comparsas la hace el servidor). El borrado y el cierre de jornadas se rigen por las validaciones de estado e historial del backend.
-3. **Preparación del evento (`#/admin/competencia`)**: Asistente de cinco secciones con navegación superior e inferior. Los pasos aparecen en el orden recomendado, pero se pueden seleccionar directamente; no todos dependen linealmente del anterior:
+3. **Preparación guiada (`#/admin/prepare`)**: Crear desde Inicio o desde el selector abre datos del evento; una creación aceptada selecciona el nuevo evento y continúa con jornadas. Cuatro etapas: Evento (datos/jornadas), Evaluación (rubros/especialidades/ítems), Comparsas (comparsa/participantes y orden), Revisión. Reutiliza los editores existentes y sus confirmaciones. El progreso deriva de readiness oficial, no de pantallas visitadas; errores o respuestas incompletas no habilitan finalizar. Protege borradores al cambiar de paso, evento o ruta. Finalizar solo indica preparación lista: no abre el evento ni exige jurados de jornadas futuras. Cabecera ADMIN compacta con cuenta, evento/estado y salida a Mis eventos; menú lateral a demanda durante el asistente. No modifica la cabecera del Jurado.
+
+**Edición directa (`#/admin/competencia`)**: Se conservan las cinco secciones anteriores y sus accesos directos. Los pasos aparecen en el orden recomendado, pero se pueden seleccionar directamente; no todos dependen linealmente del anterior:
    - **Paso 1 — Rubros (`?step=catalogo`, entrada por defecto)**: Crear el catálogo indicando si cada rubro evalúa comparsas o participantes nominados. No requiere especialidades ni ítems. Conserva edición, desactivación e historial; **Configurar ítems en Evaluación** abre el rubro existente en su especialidad. El estado de este paso comprueba `ACTIVE_RUBRIC`; los ítems pendientes se reflejan en Evaluación.
    - **Paso 2 — Especialidades (`?step=especialidades`)**: Crear y administrar las especialidades que se usarán en Evaluación. Esta sección no asigna jurados.
    - **Paso 3 — Evaluación (`?step=rubros`)**: Configurar ítems y subítems de los rubros existentes, asignándolos a una o más especialidades ya creadas. **Crear ítem en [rubro]** permite marcar especialidades adicionales; cada especialidad lo evalúa y puntúa de forma independiente. Se muestran los participantes activos del rubro. Los ítems pertenecen al rubro y se comparten entre sus participantes de distintas comparsas. Se conservan criterios descriptivos, edición, nominaciones e historial, con confirmación del impacto antes de modificar.

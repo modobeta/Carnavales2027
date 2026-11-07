@@ -43,6 +43,10 @@ export function EventConfigurationPage({
   onBack,
   onCompetencia,
   onEventChange,
+  guidedTask = null,
+  onPreparationChange,
+  onRegisterGuard,
+  onContinue,
 }) {
   const [currentEvent, setCurrentEvent] = useState(event);
   const [nights, setNights] = useState(initialNights);
@@ -72,13 +76,22 @@ export function EventConfigurationPage({
   const canEditNight = canRenameEvent;
   const canDeleteNight = () => !locked;
   const { notify } = useNotify();
-  const { dirty, markDirty } = useFormDirty(drawerMode);
+  const { dirty, markDirty, reset: resetDirty } = useFormDirty(drawerMode);
+  const dirtyGuard = useRef(dirty);
+  dirtyGuard.current = dirty;
   const { promptOpen, requestLeave, keepEditing, discard } = useUnsavedChanges({ isDirty: dirty });
+  const cancelNavigation = useRef(null);
+  useEffect(() => {
+    if (!guidedTask || !onRegisterGuard) return undefined;
+    onRegisterGuard(dirty ? (proceed, cancel) => { if (!dirtyGuard.current) return false; cancelNavigation.current = cancel; requestLeave(proceed); return true; } : null);
+    return () => onRegisterGuard(null);
+  }, [guidedTask, dirty, requestLeave, onRegisterGuard]);
+  useEffect(() => { if (readinessRevision > 0) onPreparationChange?.(); }, [readinessRevision, onPreparationChange]);
 
   useEffect(() => setNights(initialNights), [initialNights]);
 
   useEffect(() => {
-    if (currentEvent.status !== "OPEN") {
+    if (guidedTask || currentEvent.status !== "OPEN") {
       setVotingStatuses({});
       return undefined;
     }
@@ -92,7 +105,7 @@ export function EventConfigurationPage({
       }
     })).then((entries) => { if (current) setVotingStatuses(Object.fromEntries(entries)); });
     return () => { current = false; };
-  }, [currentEvent.id, currentEvent.status, nights]);
+  }, [currentEvent.id, currentEvent.status, nights, guidedTask]);
 
   const save = async (path, body, { form, method = "POST", onSaved, reset = method === "POST" } = {}) => {
     try {
@@ -246,8 +259,10 @@ export function EventConfigurationPage({
     }
   };
 
+  const ContentShell = guidedTask ? "section" : PageShell;
   return (
-    <PageShell layer="instrument" className="admin-shell">
+    <ContentShell layer="instrument" className={guidedTask ? "preparation-editor guided-event-configuration" : "admin-shell"}>
+      {!guidedTask && <>
       <PageHeader
         eyebrow={currentEvent.status === "OPEN" ? "Evento abierto" : currentEvent.status === "CLOSED" ? "Evento finalizado" : "Evento en configuracion"}
         title={currentEvent.name ?? "Evento"}
@@ -258,24 +273,28 @@ export function EventConfigurationPage({
         </>}
       />
       <EventStatusBanner status={currentEvent.status} />
+      </>}
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 
-      <section className="config-section">
+      {(!guidedTask || guidedTask === "data") && <section className="config-section">
         <div className="section-heading"><h2>Datos del evento</h2><p>Identidad del evento.</p></div>
         <form
           className="config-card"
+          onChange={guidedTask ? markDirty : undefined}
           onSubmit={(formEvent) => {
             formEvent.preventDefault();
             renameTriggerRef.current = formEvent.nativeEvent?.submitter ?? null;
-            setRenameTarget(String(new FormData(formEvent.currentTarget).get("name") ?? ""));
+            const name = String(new FormData(formEvent.currentTarget).get("name") ?? "");
+            if (guidedTask && name === currentEvent.name) { dirtyGuard.current = false; resetDirty(); onContinue?.(); return; }
+            setRenameTarget(name);
           }}
         >
           <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
-          <button disabled={locked}>Guardar evento</button>
+          <button disabled={locked}>{guidedTask ? "Guardar y continuar" : "Guardar evento"}</button>
         </form>
-      </section>
+      </section>}
 
-      <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
+      {(!guidedTask || guidedTask === "nights") && <section className="config-section" ref={nightsSectionRef} aria-label="Jornadas">
         <div className="section-heading"><h2>Jornadas</h2><p>Calendario de la competencia.</p></div>
         {canCreateNight && <button type="button" onClick={openCreate}>+ Agregar jornada</button>}
         {orderedNights.length === 0 ? (
@@ -301,7 +320,7 @@ export function EventConfigurationPage({
                     <td>{nightKindLabel(night.kind)}</td>
                     {(showNightActions || canEditNight) && (
                       <td>
-                        {night.kind === "COMPETITION" && night.status !== "CLOSED" && currentEvent.status !== "CLOSED" && (
+                        {!guidedTask && night.kind === "COMPETITION" && night.status !== "CLOSED" && currentEvent.status !== "CLOSED" && (
                           <button
                             className="secondary night-assignments-action"
                             type="button"
@@ -320,7 +339,7 @@ export function EventConfigurationPage({
                           aria-label={`Eliminar jornada ${night.name}`}
                           onClick={(event) => { deleteNightTriggerRef.current = event.currentTarget; setDeleteNightTarget(night); }}
                         >Eliminar</button>}
-                        {currentEvent.status === "OPEN" && night.status !== "CLOSED" && <>
+                        {!guidedTask && currentEvent.status === "OPEN" && night.status !== "CLOSED" && <>
                           {night.kind === "COMPETITION" && (night.status !== "OPEN" || votingStatuses[night.id] !== "CLOSED") && <small> Abrí y cerrá la votación antes de finalizar.</small>}
                           <button
                             className="secondary"
@@ -338,7 +357,7 @@ export function EventConfigurationPage({
             </table>
           </div>
         )}
-        {assignmentNightId && nights.some((night) => night.id === assignmentNightId && night.kind === "COMPETITION" && night.status !== "CLOSED") && (
+        {!guidedTask && assignmentNightId && nights.some((night) => night.id === assignmentNightId && night.kind === "COMPETITION" && night.status !== "CLOSED") && (
           <section
             className="night-assignment-panel"
             id={`night-assignment-${assignmentNightId}`}
@@ -362,9 +381,9 @@ export function EventConfigurationPage({
             />
           </section>
         )}
-      </section>
+      </section>}
 
-      <EventReadinessPanel
+      {!guidedTask && <EventReadinessPanel
         event={currentEvent}
         locked={locked}
         refreshKey={readinessRevision}
@@ -377,7 +396,7 @@ export function EventConfigurationPage({
           setAssignmentNightId(nightId);
           nightsSectionRef.current?.scrollIntoView?.({ block: "start" });
         }}
-      />
+      />}
 
       <EntityDrawer
         isOpen={drawerMode !== null && (
@@ -406,8 +425,8 @@ export function EventConfigurationPage({
 
       <UnsavedChangesDialog
         isOpen={promptOpen}
-        onKeepEditing={keepEditing}
-        onDiscard={discard}
+        onKeepEditing={() => { cancelNavigation.current?.(); cancelNavigation.current = null; keepEditing(); }}
+        onDiscard={() => { resetDirty(); discard(); }}
       />
 
       <ConfirmDialog
@@ -450,9 +469,10 @@ export function EventConfigurationPage({
         onClose={() => { if (!renaming) setRenameTarget(null); }}
         onConfirm={async () => {
           setRenaming(true);
-          await save(`/api/v1/events/${event.id}`, { name: renameTarget }, { method: "PATCH", onSaved: setCurrentEvent, reset: false });
+          const saved = await save(`/api/v1/events/${event.id}`, { name: renameTarget }, { method: "PATCH", onSaved: setCurrentEvent, reset: false });
           setRenaming(false);
-          setRenameTarget(null);
+          if (saved || !guidedTask) setRenameTarget(null);
+          if (saved) { dirtyGuard.current = false; resetDirty(); if (guidedTask) onContinue?.(); }
         }}
         title="Guardar cambios del evento"
         description={`El nombre del evento cambiará a «${renameTarget ?? ""}».`}
@@ -474,6 +494,6 @@ export function EventConfigurationPage({
         tone="danger"
       />
 
-    </PageShell>
+    </ContentShell>
   );
 }

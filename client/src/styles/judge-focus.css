@@ -1,0 +1,209 @@
+/* Jerarquía operativa aprobada. Alcance exclusivo: rutas y pantallas del Jurado. */
+:where(.app-navigation.is-judge-route, .judge-focus-home, .judge-focus-ballot) {
+  --judge-line: var(--judge-focus-divider);
+  --judge-control-line: var(--judge-focus-control);
+  --judge-track: var(--judge-focus-control);
+}
+.app-navigation.is-judge-route {
+  position: sticky;
+  inset-block-start: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .75rem 1.75rem;
+  gap: .5rem 1.5rem;
+  border-color: var(--judge-line);
+  background: var(--surface-base);
+  backdrop-filter: none;
+}
+.is-judge-route .judge-header-context, .is-judge-route .judge-header-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .75rem; min-inline-size: 0; }
+.is-judge-route .judge-header-context { flex: 1 1 30rem; }
+.is-judge-route .judge-header-tools { margin-inline-start: auto; }
+.is-judge-route .event-picker-trigger { min-block-size: 48px; padding: .5rem .65rem; border-color: transparent; border-radius: var(--radius-sm); background: transparent; box-shadow: none; }
+.is-judge-route .event-picker-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.is-judge-route .event-picker-value { font-size: .875rem; font-weight: 650; max-inline-size: 18rem; overflow-wrap: anywhere; }
+.is-judge-route .session-night { flex-direction: row; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .25rem .75rem; border: 0; border-inline-start: 1px solid var(--judge-line); border-radius: 0; background: transparent; white-space: normal; font-size: .8125rem; }
+.is-judge-route .session-night-name { overflow: visible; overflow-wrap: anywhere; }
+.is-judge-route .judge-header-specialty { padding: .2rem .6rem; border: 1px solid var(--judge-line); border-radius: var(--radius-sm); font-size: .8125rem; overflow-wrap: anywhere; }
+.is-judge-route .judge-header-state { color: var(--text-muted); font-size: .75rem; }
+.is-judge-route .judge-connection { color: var(--success-text); font-size: .8125rem; white-space: nowrap; }
+.is-judge-route .judge-connection > span { font-size: .625rem; }
+.is-judge-route .judge-connection.is-offline { color: var(--warning-text); }
+.is-judge-route .judge-account { position: relative; }
+.is-judge-route .judge-account summary { display: flex; align-items: center; gap: .5rem; min-block-size: 48px; padding: .25rem; list-style: none; cursor: pointer; font-size: .8125rem; }
+.is-judge-route .judge-account summary::-webkit-details-marker { display: none; }
+.is-judge-route .judge-account summary strong { max-inline-size: 15rem; overflow-wrap: anywhere; font-weight: 600; }
+.is-judge-route .judge-account-role { color: var(--text-muted); }
+.is-judge-route .judge-account-menu { position: absolute; inset-inline-end: 0; inset-block-start: 100%; z-index: 20; display: grid; gap: .75rem; padding: 1rem; min-inline-size: 14rem; max-inline-size: calc(100vw - 2rem); border: 1px solid var(--judge-line); border-radius: var(--radius-md); background: var(--surface-card); box-shadow: var(--shadow-lg); }
+.is-judge-route .judge-account-signout { background: transparent; color: var(--text-secondary); border: 1px solid var(--judge-control-line); box-shadow: none; min-block-size: 48px; }
+.is-judge-route .judge-header-night-meta { display: contents; }
+.judge-focus-home, .judge-focus-ballot { max-inline-size: 1184px; padding: 2.5rem 2rem; margin-inline: auto; }
+.judge-focus-home { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1.75rem; }
+.judge-focus-home .judge-home-intro { padding: 0; }
+.judge-focus-home .judge-home-intro h1 { font-size: 1.875rem; line-height: 1.2; letter-spacing: -.035em; }
+.judge-focus-home .judge-progress-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 1.5rem 3rem; margin: 0; padding: 0 0 1.75rem; border: 0; border-block-end: 1px solid var(--judge-line); border-radius: 0; background: transparent; }
+.judge-focus-home .judge-progress-copy p { margin: .25rem 0 0; font-size: .875rem; color: var(--text-muted); }
+.judge-focus-home .judge-progress-copy > strong { font-size: 1rem; font-weight: 650; }
+.judge-focus-home .judge-completion-message { grid-column: 1 / -1; padding: 1rem; margin: 0; }
+.judge-focus-home .judge-home-content { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(16rem, 1fr); gap: 2rem; align-items: start; }
+.judge-focus-home .judge-home-content > :not(.judge-now):not(.judge-lists):not(.judge-review-ready) { grid-column: 1 / -1; }
+.judge-focus-home .judge-now { margin: 0; }
+.judge-focus-home .judge-now-card { padding: 2rem; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: none; background: var(--surface-card); }
+.judge-focus-home .judge-now-brand { margin-block: 1.75rem 1rem; }
+.judge-focus-home .judge-now-name h3 { font-size: 2.75rem; line-height: 1.15; letter-spacing: -.04em; color: var(--text-primary); }
+/* Respeta el tema explícito, no la preferencia del SO heredada por el CSS anterior. */
+.judge-focus-home .judge-now-brand.is-branded .judge-now-name h3 { color: var(--text-primary) !important; }
+.judge-focus-home .judge-now-remaining { margin: 0 0 1.75rem; color: var(--text-muted); }
+.judge-focus-home .judge-now-cta { inline-size: auto; min-block-size: 48px; padding: .75rem 1.25rem; font-size: .875rem; font-weight: 650; }
+.judge-focus-home .judge-now-card .judge-now-cta { inline-size: fit-content; justify-self: start; background: var(--palette-pink); color: var(--text-on-primary); border-color: var(--palette-pink); box-shadow: none; }
+.judge-focus-home .judge-lists { display: flex; flex-direction: column; gap: 1.5rem; min-inline-size: 0; }
+.judge-focus-home .judge-upcoming { order: -1; }
+.judge-focus-home .judge-section-title { font-size: 1rem; letter-spacing: 0; }
+.judge-focus-home .judge-list-row { flex-wrap: wrap; padding: 1rem 0; border: 0; border-block-start: 1px solid var(--judge-line); border-radius: 0; background: transparent; }
+.judge-focus-home .judge-upcoming .judge-list-row.is-locked { border-inline-start: 0; }
+.judge-focus-home .judge-list-action { padding-inline: 0; min-block-size: 48px; background: transparent; border: 0; box-shadow: none; color: var(--text-secondary); text-decoration: underline; }
+.judge-focus-home .judge-review-ready { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); padding: 2rem; background: var(--surface-card); }
+.judge-focus-home .judge-review-ready strong { font-size: 1.5rem; }
+.judge-focus-home .judge-review-ready p { color: var(--text-muted); }
+.judge-focus-home .app-progress-header, .judge-focus-ballot .app-progress-header { flex-wrap: wrap; gap: .5rem; font-size: .8125rem; }
+.judge-focus-home .app-progress-label, .judge-focus-ballot .app-progress-label { color: var(--text-muted); font-weight: 500; }
+.judge-focus-home .app-progress-sublabel, .judge-focus-ballot .app-progress-sublabel { color: var(--text-primary); font-size: .875rem; }
+.judge-focus-home .app-progress-track, .judge-focus-ballot:not(.is-readonly) .ballot-progress .app-progress-track { block-size: 10px; border: 1px solid var(--judge-line); background: var(--judge-track); }
+.judge-focus-home .app-progress-fill, .judge-focus-ballot .app-progress-fill { background: var(--palette-pink); }
+.judge-focus-ballot .ballot-layout { gap: 2rem; grid-template-columns: minmax(0, 1fr); }
+.judge-focus-ballot:not(.is-readonly) .ballot-context-rail { display: flex; gap: 1rem; position: static; max-block-size: none; overflow: visible; align-self: start; }
+.judge-focus-ballot .ballot-context-rail > .ballot-summary { order: 2; }
+.judge-focus-ballot .judge-back-link { min-block-size: 48px; display: inline-flex; align-items: center; color: var(--text-muted); font-size: .875rem; }
+.judge-focus-ballot .ballot-troupe-navigation, .judge-focus-ballot:not(.is-readonly) .ballot-summary { padding: .75rem 0; border: 0; border-block-end: 1px solid var(--judge-line); background: transparent; border-radius: 0; }
+.judge-focus-ballot .ballot-sidebar-item, .judge-focus-ballot .ballot-summary-item { min-block-size: 48px; box-shadow: none; }
+.judge-focus-ballot .ballot-troupe-navigation ul { list-style: none; margin: 0; padding: 0; }
+.judge-focus-ballot .ballot-sidebar-item { display: flex; align-items: center; justify-content: space-between; gap: .5rem; inline-size: 100%; padding: .6rem; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); text-align: start; font-size: .8125rem; }
+.judge-focus-ballot .ballot-sidebar-item.is-current { border-color: var(--border-strong); background: var(--surface-card); }
+.judge-focus-ballot .ballot-sidebar-item:disabled { background: transparent; color: var(--text-muted); }
+.judge-focus-ballot .ballot-summary .judge-section-title { font-size: .875rem; font-weight: 600; letter-spacing: 0; }
+.judge-focus-ballot .ballot-summary-item .ballot-summary-name { white-space: normal; text-overflow: clip; font-size: .8125rem; font-weight: 500; }
+.judge-focus-ballot:not(.is-readonly) .ballot-header { padding: 0; margin: 0 0 1.5rem; align-items: center; }
+.judge-focus-ballot .ballot-main { text-align: start; }
+.judge-focus-ballot .ballot-workspace { grid-template-columns: minmax(0, 1fr); }
+.judge-focus-ballot .ballot-card-mode, .judge-focus-ballot .card-item-body, .judge-focus-ballot .bottom-bar-content { min-inline-size: 0; max-inline-size: 100%; }
+.judge-focus-ballot .ballot-header-single .ballot-header-support { font-size: 1.875rem !important; line-height: 1.2 !important; }
+.judge-focus-ballot:not(.is-readonly) .ballot-progress { display: block; margin: 0 0 1.5rem; padding: 0; background: transparent; border: 0; }
+.judge-focus-ballot .feedback:empty { display: none; }
+.judge-focus-ballot:not(.is-readonly) .ballot-card-mode { height: auto; margin: 0; padding: 1.75rem; border: 1px solid var(--judge-line); border-radius: var(--radius-lg); background: var(--surface-card); box-shadow: none; }
+.judge-focus-ballot:not(.is-readonly) .ballot-card-header { margin: 0 0 .5rem; padding: 0; background: transparent; }
+.judge-focus-ballot:not(.is-readonly) .card-rubric-name { font-size: .8125rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0; text-transform: none; }
+.judge-focus-ballot:not(.is-readonly) .card-item-title { font-size: 1.75rem; line-height: 1.3; font-weight: 650; letter-spacing: -.025em; }
+.judge-focus-ballot .card-item-heading { margin-block-end: 1.75rem; }
+.judge-focus-ballot .score-copy { display: none; }
+.judge-focus-ballot:not(.is-readonly) .score-grid-v3 { display: grid; grid-template-columns: repeat(5, minmax(48px, 1fr)); gap: .5rem; max-inline-size: none; margin: 0; }
+.judge-focus-ballot:not(.is-readonly) .score-grid-v3 .score-option-btn { min-inline-size: 48px; min-block-size: 52px; padding: 0; border: 1px solid var(--judge-control-line); border-radius: var(--radius-sm); background: var(--surface-base); color: var(--text-primary); box-shadow: none; }
+.judge-focus-ballot:not(.is-readonly) .score-grid-v3 .score-option-btn:hover:not(:disabled) { background: var(--palette-pink); border-color: var(--palette-pink); color: var(--text-on-primary); box-shadow: none; }
+.judge-focus-ballot .score-num { font-size: 1.25rem; font-weight: 600; }
+.judge-focus-ballot:not(.is-readonly) .score-option-btn.score-num-only .score-num { font-size: 1.25rem; font-weight: 600; }
+.judge-focus-ballot .judge-score-label { font-size: .875rem; font-weight: 600; margin: 0 0 .75rem; }
+.judge-focus-ballot:not(.is-readonly) .ballot-footer { position: static; display: flex; flex-wrap: wrap; justify-content: space-between; margin-block-start: 1.5rem; padding: 1rem 0; border: 0; border-block-start: 1px solid var(--judge-line); border-radius: 0; background: transparent; box-shadow: none; }
+.judge-focus-ballot .voting-confirm-summary { flex-basis: 100%; font-size: .8125rem; color: var(--text-muted); }
+.judge-focus-ballot .ballot-item-nav { margin-block-start: 1.5rem; padding: 0; border: 0; }
+.judge-focus-ballot .ballot-item-nav .bottom-bar-content { gap: .75rem; }
+.judge-focus-ballot .not-presented-section, .judge-focus-ballot .troupe-absent-actions { margin-block-start: 1rem; }
+.judge-focus-ballot:not(.is-readonly) .troupe-absent-actions .troupe-absent-btn { background: transparent; color: var(--warning-text); border: 1px solid var(--judge-control-line); box-shadow: none; min-block-size: 48px; }
+.judge-focus-ballot .ballot-footer > button:disabled { background: transparent; color: var(--text-muted); border: 1px solid var(--judge-control-line); box-shadow: none; }
+.judge-connection-notice { padding: 1rem; border: 1px solid var(--judge-line); border-inline-start: 3px solid var(--palette-amber); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: .875rem; background: var(--surface-card); }
+.judge-ballot-review .judge-review-heading h1 { font-size: 1.875rem; margin: 1rem 0 .75rem; }
+.judge-ballot-review .judge-review-heading h1:focus { outline: none; }
+.judge-review-heading p { color: var(--text-muted); margin-block-end: 2rem; }
+.judge-review-back { background: transparent; border: 0; padding-inline: 0; color: var(--text-muted); box-shadow: none; text-decoration: underline; min-block-size: 48px; }
+.judge-review-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18.75rem; gap: 2rem; align-items: start; }
+.judge-review-table { inline-size: 100%; border-collapse: collapse; font-size: .875rem; }
+.judge-review-table th, .judge-review-table td { padding: 1rem; text-align: start; border-block-end: 1px solid var(--judge-line); overflow-wrap: anywhere; }
+.judge-review-table th:last-child, .judge-review-table td:last-child { text-align: end; }
+.judge-review-table .judge-review-group th { text-align: start; font-size: 1rem; background: var(--surface-card); }
+.judge-review-table small { display: block; color: var(--text-muted); font-weight: 400; margin-block-start: .25rem; }
+.judge-review-aside { border: 1px solid var(--judge-line); border-radius: var(--radius-lg); padding: 1.5rem; }
+.judge-review-aside h2 { font-size: 1.125rem; margin-block-start: 0; }
+.judge-review-aside p, .judge-review-aside small { color: var(--text-muted); font-size: .875rem; }
+.judge-review-aside button { inline-size: 100%; margin-block: .5rem 1rem; }
+.judge-focus-ballot .judge-review-aside button:not(:disabled) { background: var(--palette-pink); color: var(--text-on-primary); border-color: var(--palette-pink); box-shadow: none; }
+@media (min-width: 64rem) {
+  .judge-focus-ballot:not(.is-readonly) .ballot-layout { grid-template-columns: 14rem minmax(0, 1fr); gap: 2rem; }
+  .judge-focus-ballot:not(.is-readonly) .ballot-context-rail { position: sticky; inset-block-start: 8rem; max-block-size: calc(100dvh - 9rem); overflow-y: auto; }
+}
+@media (min-width: 80rem) {
+  .judge-focus-ballot:not(.is-readonly) .score-grid-v3 { grid-template-columns: repeat(10, minmax(48px, 1fr)); }
+}
+@media (max-width: 63.99rem) {
+  .judge-focus-ballot .ballot-troupe-navigation ul { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .judge-focus-ballot .ballot-troupe-navigation li { flex: 1 1 9rem; }
+  .judge-focus-ballot .ballot-context-rail > .ballot-summary { order: 0; }
+}
+@media (max-width: 47.99rem) {
+  .app-navigation.is-judge-route { padding: .5rem 1rem; gap: .25rem; }
+  .is-judge-route .judge-header-context { flex-basis: 100%; gap: .25rem .5rem; }
+  .is-judge-route .judge-header-tools { inline-size: 100%; justify-content: space-between; }
+  .is-judge-route .event-picker-value { max-inline-size: 14rem; }
+  .is-judge-route .judge-account summary strong { max-inline-size: 10rem; }
+  .judge-focus-home, .judge-focus-ballot { padding: 1.75rem 1rem; }
+  .judge-focus-home .judge-home-content, .judge-focus-home .judge-progress-card, .judge-review-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .judge-focus-home .judge-now-card { padding: 1.5rem; }
+  .judge-focus-home .judge-now-name h3 { font-size: 2.25rem; }
+  .judge-focus-home .judge-now-cta { inline-size: 100%; }
+  .judge-focus-home .judge-now-card .judge-now-cta { inline-size: 100%; }
+  .judge-focus-ballot:not(.is-readonly) .ballot-card-mode { padding: 1.25rem; }
+  .judge-focus-ballot:not(.is-readonly) .card-item-title { font-size: 1.5rem; }
+  .judge-focus-ballot:not(.is-readonly) .ballot-header { flex-direction: row; flex-wrap: wrap; text-align: start; align-items: center; }
+  .judge-focus-ballot .ballot-header-troupe-row { justify-content: flex-start; }
+  .judge-review-table th, .judge-review-table td { padding: .75rem .5rem; }
+}
+@media (max-width: 22.5rem) {
+  .judge-focus-ballot:not(.is-readonly) .score-grid-v3 { grid-template-columns: repeat(4, minmax(48px, 1fr)); }
+  .judge-focus-ballot .bottom-bar-nav-btns { inline-size: 100%; min-inline-size: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .judge-focus-ballot .bottom-bar-nav-btns .nav-counter { grid-column: 1 / -1; grid-row: 1; text-align: center; }
+}
+@media (prefers-contrast: more) {
+  :where(.app-navigation.is-judge-route, .judge-focus-home, .judge-focus-ballot) { --judge-line: var(--text-primary); --judge-control-line: var(--text-primary); }
+}
+
+/* Inicio del Jurado: identidad / jornada / evento, sin alterar la planilla. */
+.app-navigation.is-judge-route.judge-home-navigation {
+  --judge-heading-color: var(--palette-pink-deep);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+[data-theme="dark"] .app-navigation.judge-home-navigation { --judge-heading-color: var(--palette-pink); }
+.judge-home-navigation .judge-account summary strong, .judge-home-navigation .session-night-name, .judge-home-navigation .event-picker-value { color: var(--judge-heading-color); }
+.judge-home-navigation .judge-home-identity { display: flex; align-items: center; gap: .75rem; min-inline-size: 0; }
+.judge-home-navigation .judge-account { min-inline-size: 0; }
+.judge-home-navigation .judge-account summary { display: grid; grid-template-columns: minmax(0, 1fr) 22px; gap: .2rem .75rem; padding: 0; }
+.judge-home-navigation .judge-account summary strong { grid-column: 1; max-inline-size: none; font-size: 1.5rem; font-weight: 800; line-height: 1.25; }
+.judge-home-navigation .judge-account-role { grid-column: 1; font-size: .875rem; }
+.judge-home-navigation .judge-account-arrow { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; justify-content: center; }
+.judge-home-navigation .judge-account[open] .judge-account-arrow { transform: rotate(180deg); }
+.judge-home-navigation .judge-account-menu { inset-inline-start: 0; inset-inline-end: auto; }
+.judge-home-navigation .judge-home-night { display: grid; justify-items: center; min-inline-size: 0; gap: .25rem; text-align: center; }
+.judge-home-navigation .session-night { display: flex; flex-direction: column; gap: .25rem; padding: 0; border: 0; align-items: center; max-inline-size: 100%; }
+.judge-home-navigation .session-night-name { font-size: 1.5rem; font-weight: 800; line-height: 1.25; }
+.judge-home-navigation .session-night-date { font-size: .875rem; }
+.judge-home-navigation .judge-header-night-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .4rem; color: var(--text-muted); }
+.judge-home-navigation .judge-header-specialty, .judge-home-navigation .judge-header-state { border: 0; padding: 0; font-size: .8125rem; }
+.judge-home-navigation .judge-home-event { display: grid; grid-template-columns: minmax(0, auto) 12px; align-items: center; justify-content: end; gap: .25rem .75rem; min-inline-size: 0; }
+.judge-home-navigation .judge-home-event > :not(.judge-connection) { min-inline-size: 0; max-inline-size: 100%; }
+.judge-home-navigation .judge-home-event > .judge-header-night-meta { grid-column: 1; grid-row: 2; justify-content: flex-end; }
+.judge-home-navigation .judge-home-event > .judge-connection { grid-column: 2; grid-row: 1; }
+.judge-home-navigation .event-picker-chevron { display: inline-flex; align-items: center; justify-content: center; }
+.judge-home-navigation .event-picker-trigger { max-inline-size: 100%; padding-inline: .25rem; }
+.judge-home-navigation .event-picker-text { min-inline-size: 0; }
+.judge-home-navigation .event-picker-value { max-inline-size: 100%; font-size: 1.125rem; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
+.judge-home-navigation .judge-connection { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 12px; }
+.judge-home-navigation .judge-connection-led { display: block; inline-size: 12px; block-size: 12px; border-radius: var(--radius-full); background: var(--palette-green); box-shadow: 0 0 .5rem var(--palette-green); }
+.judge-home-navigation .judge-connection.is-offline .judge-connection-led { background: var(--palette-red); box-shadow: 0 0 .5rem var(--palette-red); }
+@media (max-width: 47.99rem) {
+  .app-navigation.is-judge-route.judge-home-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
+  .judge-home-navigation .judge-home-identity { grid-column: 1; grid-row: 1; }
+  .judge-home-navigation .judge-home-event { grid-column: 2; grid-row: 1; }
+  .judge-home-navigation .judge-home-night { grid-column: 1 / -1; grid-row: 2; }
+  .judge-home-navigation .judge-account summary strong { font-size: 1.25rem; }
+  .judge-home-navigation .event-picker-value { font-size: 1rem; }
+}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es-AR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jurado en foco · Propuesta UI/UX</title>
+  <link rel="stylesheet" href="../../client/src/styles/tokens.css">
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <div class="preview-bar">
+    <div><strong>Propuesta UI/UX</strong><span>Datos de ejemplo · no registra votos</span></div>
+    <nav aria-label="Pantallas de la propuesta">
+      <a href="#inicio">Inicio</a><a href="#evaluacion">Evaluación</a><a href="#revision">Revisión</a><a href="#confirmada">Confirmada</a>
+    </nav>
+    <label class="scenario-label">Escenario
+      <select id="scenario">
+        <option value="initial">Sin empezar</option>
+        <option value="partial">En progreso</option>
+        <option value="troupe">Comparsa puntuada</option>
+        <option value="ready">Lista para cerrar</option>
+        <option value="submitted">Planilla confirmada</option>
+        <option value="offline">Sin conexión</option>
+        <option value="error">Error de guardado</option>
+        <option value="empty">Sin planillas</option>
+      </select>
+    </label>
+  </div>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header class="app-header">
+    <div class="header-context">
+      <span class="event-name">Carnaval 2027</span>
+      <span class="header-divider" aria-hidden="true"></span>
+      <div class="night-context"><strong>Noche 1</strong><span>07 nov 2026</span><span class="night-state">Abierta</span></div>
+      <span class="specialty">Baile</span>
+    </div>
+    <div class="header-tools">
+      <span id="connection" class="connection"><span aria-hidden="true">●</span> Con conexión</span>
+      <details class="account">
+        <summary>Gonzalo <span class="muted">· Jurado</span><span aria-hidden="true">⌄</span></summary>
+        <div class="account-menu"><p>Cuenta de ejemplo</p><button id="theme-toggle" type="button">Cambiar a tema claro</button><p>La salida de sesión se conserva en la aplicación real.</p></div>
+      </details>
+    </div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="prototype-note">Maqueta para revisión · Los escenarios y la navegación superior no forman parte de la aplicación.</footer>
+  <dialog id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <form method="dialog"><button class="close-dialog" aria-label="Cerrar confirmación">×</button></form>
+    <div id="dialog-content"></div>
+  </dialog>
+  <script type="application/json" id="prototype-metadata">{"purpose":"visual-review-only","network":false,"persistence":false}</script>
+</body>
+</html>

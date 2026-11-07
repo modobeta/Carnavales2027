@@ -8,6 +8,7 @@ import { useSession } from "./auth/session-context.jsx";
 import { AppNavigation } from "./components/AppNavigation.jsx";
 import { AdminEventsPage } from "./pages/AdminEventsPage.jsx";
 import { AdminHomePage } from "./pages/AdminHomePage.jsx";
+import { AdminPreparationPage } from "./pages/AdminPreparationPage.jsx";
 import { AdminCompetenciaPage } from "./pages/AdminCompetenciaPage.jsx";
 import { AdminJudgesPage } from "./pages/AdminJudgesPage.jsx";
 import { AdminUsersPage } from "./pages/AdminUsersPage.jsx";
@@ -117,6 +118,10 @@ export default function App({ session: providedSession }) {
   const currentLayer = isBrandRoute ? "brand" : "instrument";
 
   const renderContent = () => {
+    if (route === "#/admin/prepare") {
+      const params = new URLSearchParams(query);
+      return <RoleArea session={session} admin><AdminPreparationPage initialStage={params.get("stage") ?? "event"} initialTask={params.get("task") ?? "data"} newEvent={params.get("new") === "1"} /></RoleArea>;
+    }
     if (route === "#/resultados") {
       const eventId = new URLSearchParams(query).get("eventId") ?? null;
       const content = <PublicResultsPage initialEventId={eventId} embedded={session.status === "authenticated"} />;
@@ -194,7 +199,7 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} role="JUDGE"><JudgeHomePage session={session} /></RoleArea>;
   }
   if (route === "#/judge/ballot") {
-    return <RoleArea session={session} role="JUDGE"><JudgeBallotPage ballotId={new URLSearchParams(query).get("ballotId") ?? ""} troupeId={new URLSearchParams(query).get("troupeId") ?? ""} userId={session.user?.id ?? ""} /></RoleArea>;
+    return <RoleArea session={session} role="JUDGE"><JudgeBallotPage ballotId={new URLSearchParams(query).get("ballotId") ?? ""} troupeId={new URLSearchParams(query).get("troupeId") ?? ""} reviewRequested={new URLSearchParams(query).get("review") === "1"} userId={session.user?.id ?? ""} /></RoleArea>;
   }
     return <main id="main-content" className="container"><div className="card"><h1>Página no encontrada</h1><a href="#/login">Volver al inicio</a></div></main>;
   };
@@ -207,7 +212,7 @@ export default function App({ session: providedSession }) {
     route === "#/resultados"
   );
   const content = (
-    <div className={`app-shell${isAdminArea ? " is-admin" : ""}`} data-layer={currentLayer}>
+    <div className={`app-shell${isAdminArea ? " is-admin" : ""}${route === "#/admin/prepare" ? " is-preparation" : ""}`} data-layer={currentLayer}>
       {showNavigation && <AppNavigation session={session} />}
       {!showNavigation && <ThemeToggle iconOnly floating className="theme-toggle--page" />}
       <TransitionWrapper motionKey={route}>

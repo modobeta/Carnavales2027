@@ -130,7 +130,7 @@ function incompleteStepGuidance(stepKey, readiness) {
   return messages.join(" ");
 }
 
-export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", initialTab = "" }) {
+export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", initialTab = "", embedded = false, preparationTask, onPreparationChange, onRegisterGuard, onPreparationNavigate }) {
   const adminEvent = useAdminEvent();
   const draftGuard = useRef(null);
   const [hasDraftGuard, setHasDraftGuard] = useState(false);
@@ -147,14 +147,19 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   const requestLeave = (action) => {
     if (!draftGuard.current?.(action)) action();
   };
-  useEffect(() => hasDraftGuard ? adminEvent?.registerEventChangeGuard?.((commit) => draftGuard.current?.(commit) ?? false) : undefined,
-    [hasDraftGuard, adminEvent?.registerEventChangeGuard]);
+  useEffect(() => !embedded && hasDraftGuard ? adminEvent?.registerEventChangeGuard?.((commit) => draftGuard.current?.(commit) ?? false) : undefined,
+    [embedded, hasDraftGuard, adminEvent?.registerEventChangeGuard]);
+  useEffect(() => {
+    if (!embedded || !onRegisterGuard) return undefined;
+    onRegisterGuard(hasDraftGuard ? (proceed, cancel) => draftGuard.current?.(proceed, cancel) ?? false : null);
+    return () => onRegisterGuard(null);
+  }, [embedded, hasDraftGuard, onRegisterGuard]);
 
   // The Navigation API can hold a same-document traversal before it commits.
   // Legacy hashchange runs after history moved: App marks visited entries so
   // we can traverse back to the draft without replacing the destination.
   useEffect(() => {
-    if (!hasDraftGuard) return undefined;
+    if (embedded || !hasDraftGuard) return undefined;
     const navigation = window.navigation;
     const acceptedHash = window.location.hash;
     const acceptedPosition = markHashHistoryEntry();
@@ -202,7 +207,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
       navigation?.removeEventListener?.("navigate", onNavigate);
       window.removeEventListener("hashchange", onHashChange, true);
     };
-  }, [hasDraftGuard]);
+  }, [hasDraftGuard, embedded]);
   const availableSteps = PREPARATION_STEPS;
   const getTabFromHash = () => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("tab") ?? "";
   const requestedTab = initialTab || getTabFromHash();
@@ -210,6 +215,8 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   const validInitialStep = availableSteps.some((item) => item.key === requestedStep) ? requestedStep : "catalogo";
   const [step, setStep] = useState(validInitialStep);
   const [troupeTab, setTroupeTab] = useState("comparsas");
+  useEffect(() => { if (embedded) setStep(validInitialStep); }, [embedded, validInitialStep]);
+  useEffect(() => { if (embedded) setTroupeTab(preparationTask === "orden" ? "orden" : "comparsas"); }, [embedded, preparationTask]);
   const [rubricTab, setRubricTab] = useState("rubros");
   const [pending, setPending] = useState(false);
   const [focusRubricId, setFocusRubricId] = useState(null);
@@ -222,6 +229,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   const [readinessState, setReadinessState] = useState({ eventId: null, status: "unqueried", data: null });
   const [dataRevision, setDataRevision] = useState(0);
   const [readinessRevision, setReadinessRevision] = useState(0);
+  useEffect(() => { if (dataRevision || readinessRevision) onPreparationChange?.(); }, [dataRevision, readinessRevision, onPreparationChange]);
   const [currentEvent, setCurrentEvent] = useState(event);
   const [openingEvent, setOpeningEvent] = useState(false);
   const [confirmOpenEvent, setConfirmOpenEvent] = useState(false);
@@ -406,6 +414,12 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   }, [step]);
 
   const goStep = (key) => {
+    if (embedded) {
+      if (key === "participantes") onPreparationNavigate?.("troupes", "comparsas");
+      else if (key === "revision") onPreparationNavigate?.("review");
+      else if (availableSteps.some((item) => item.key === key)) onPreparationNavigate?.("evaluation", key);
+      return;
+    }
     // Solo se navega a pasos visibles: un paso oculto no se alcanza ni monta sus consultas.
     if (key !== step && availableSteps.some((item) => item.key === key)) requestLeave(() => setStep(key));
   };
@@ -458,10 +472,12 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
   };
   const eventStatusLabel = uxStatusLabel(currentEvent?.status, "No disponible");
 
+  const ContentShell = embedded ? "section" : PageShell;
   return (
     <WriteContext.Provider value={{ writing, setPending: (value) => { if (event.id === activeEventId.current) setPending(value); }, reloadProgress, invalidateEvaluation, registerConfirmed, dataRevision, incRevision: () => { if (event.id !== activeEventId.current) return; invalidateEvaluation(); setDataRevision((r) => r + 1); }, refreshReadiness: () => { if (event.id !== activeEventId.current) return; invalidateEvaluation(); reloadProgress(); setReadinessRevision((r) => r + 1); } }}>
-      <PageShell layer="instrument" className="admin-shell" aria-busy={pending}>
+      <ContentShell layer="instrument" className={embedded ? "preparation-editor guided-competencia" : "admin-shell"} aria-busy={pending}>
         <fieldset aria-label="Configuracion de competencia" disabled={pending} className="fieldset-reset">
+          {!embedded && <>
           <header className="event-header competencia-header">
             <div>
               <p className="eyebrow">Competencia</p>
@@ -523,6 +539,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
             </ol>
           </nav>
           {progressError && <LoadErrorAlert message="No se pudo cargar el resumen de la preparación." onRetry={reloadProgress} />}
+          </>}
           {step === "catalogo" && (
             <section aria-labelledby="competencia-step-title">
               <h2 id="competencia-step-title" ref={stepTitleRef} tabIndex={-1}>Catálogo de rubros</h2>
@@ -532,7 +549,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 unreflected={unreflected} confirmedEntries={confirmedEditor.eventId === event.id ? confirmedEditor.entries : {}}
                 onRememberAccepted={rememberConfirmedEditor} editorSpecialties={editorSpecialties.eventId === event.id ? editorSpecialties.data : []}
                 onRetryEvaluation={retryEvaluation} registerDraftGuard={registerDraftGuard}
-                onConfigure={(rubricId) => { setFocusRubricId(rubricId); goStep("rubros"); }} />
+                onConfigure={(rubricId) => { setFocusRubricId(rubricId); if (embedded) onPreparationNavigate?.("evaluation", "rubros"); else goStep("rubros"); }} />
             </section>
           )}
           {step === "participantes" && (
@@ -565,15 +582,15 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 </button>
               </div>
 
-              <div
+              {(!embedded || troupeTab === "comparsas") && <div
                 role="tabpanel"
                 id="panel-sub-comparsas"
                 aria-labelledby="tab-sub-comparsas"
                 className={`competencia-tab-panel ${troupeTab === "comparsas" ? "is-active" : "is-hidden"}`}
               >
-                <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
+                {embedded ? <details className="preparation-types" id="seccion-tipos-participacion"><summary>Administrar tipos de participación</summary><AdminCategoriesSection key={`categories-${event.id}`} event={event} /></details> : <section className="competencia-subblock participants-types-block" aria-label="Bloque 1 de 3: Tipos de participación" id="seccion-tipos-participacion">
                   <AdminCategoriesSection key={`categories-${event.id}`} event={event} />
-                </section>
+                </section>}
                 <section className="competencia-subblock participants-troupes-block" aria-label="Bloque 2 de 3: Comparsas">
                   <AdminTroupesSection key={`troupes-${event.id}`} event={event}
                     renderParticipants={(troupe, onBack) => (
@@ -588,9 +605,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                         onRetryEvaluation={retryEvaluation} />
                     )} />
                 </section>
-              </div>
+              </div>}
 
-              <div
+              {(!embedded || troupeTab === "orden") && <div
                 role="tabpanel"
                 id="panel-sub-orden"
                 aria-labelledby="tab-sub-orden"
@@ -599,7 +616,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 <section className="competencia-subblock" aria-label="Bloque 3 de 3: Orden de pasada por jornada">
                   <TroupeScheduleSection key={`schedule-${event.id}`} event={event} />
                 </section>
-              </div>
+              </div>}
             </section>
           )}
           {step === "especialidades" && (
@@ -644,8 +661,13 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
                 tab={rubricTab}
               />
               </div>
-              <CompetenciaOverview key={`overview-${event.id}`} event={event} catalog={evaluation ? paired : null} evaluationStatus={evaluationStatus} />
-              <EvaluationStepSummary progress={evaluation ? paired : null} progressError={["error", "unreflected"].includes(evaluationStatus)} readiness={currentReadiness} readinessStatus={currentReadinessStatus} evaluation={evaluation} />
+              {embedded ? <details className="preparation-evaluation-details"><summary>Ver resumen y criterios pendientes</summary>
+                <CompetenciaOverview key={`overview-${event.id}`} event={event} catalog={evaluation ? paired : null} evaluationStatus={evaluationStatus} />
+                <EvaluationStepSummary progress={evaluation ? paired : null} progressError={["error", "unreflected"].includes(evaluationStatus)} readiness={currentReadiness} readinessStatus={currentReadinessStatus} evaluation={evaluation} />
+              </details> : <>
+                <CompetenciaOverview key={`overview-${event.id}`} event={event} catalog={evaluation ? paired : null} evaluationStatus={evaluationStatus} />
+                <EvaluationStepSummary progress={evaluation ? paired : null} progressError={["error", "unreflected"].includes(evaluationStatus)} readiness={currentReadiness} readinessStatus={currentReadinessStatus} evaluation={evaluation} />
+              </>}
             </section>
           )}
           {step === "revision" && (
@@ -815,7 +837,7 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
               />
             </section>
           )}
-          <WizardFooterNav
+          {!embedded && <WizardFooterNav
             activeIndex={activeIndex}
             steps={steps}
             onStepChange={goStep}
@@ -824,9 +846,9 @@ export function AdminCompetenciaPage({ event, onBack, initialStep = "catalogo", 
             onOpenEvent={() => setConfirmOpenEvent(true)}
             allowOpen
             opening={openingEvent}
-          />
+          />}
         </fieldset>
-      </PageShell>
+      </ContentShell>
     </WriteContext.Provider>
   );
 }

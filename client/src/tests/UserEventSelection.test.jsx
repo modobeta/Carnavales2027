@@ -103,7 +103,8 @@ describe("identidad y selección de evento", () => {
     const session = { user: { id: "j1", name: "Juez Uno" }, roles: ["JUDGE"], judgeProfile: { registrationStatus: "REGISTERED" } };
     const { container } = render(<AdminEventProvider session={session} judgeArea><AppNavigation session={session} /><JudgeHomePage session={session} /></AdminEventProvider>);
     await waitFor(() => expect(container.querySelector(".session-night-name")).toHaveTextContent("Jornada 1"));
-    expect(container.querySelector(".session-night-date")).toHaveTextContent("06/02/2027");
+    expect(container.querySelector(".session-night-date")).toHaveTextContent("sábado 06 febrero");
+    expect(container.querySelector("header")).toHaveClass("judge-home-navigation");
   });
 
   it("muestra la fecha de la jornada en el header al abrir una planilla", async () => {

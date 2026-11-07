@@ -59,7 +59,7 @@ describe("App", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.location.hash = "#/judge";
     render(<App session={{ status: "authenticated", roles: ["JUDGE"], adminEvents: [{ id: "e1" }], judgeProfile: { registrationStatus: "REGISTERED" }, user: { name: "Jurado" } }} />);
-    expect(await screen.findByRole("heading", { name: "Buenas noches, Jurado" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Evaluación" })).toBeInTheDocument();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/v1/judge/profile"))).toBe(true));
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/v1/events"))).toBe(false);
   });

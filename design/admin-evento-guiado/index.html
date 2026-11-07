@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es-AR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preparar un evento · Propuesta UI/UX</title>
+  <link rel="stylesheet" href="../../client/src/styles/tokens.css">
+  <link rel="stylesheet" href="prototype.css">
+  <script src="prototype.js" defer></script>
+</head>
+<body>
+  <div class="preview-bar">
+    <div><strong>Propuesta UI/UX · Administrador</strong><span>Datos de ejemplo · no crea ni abre eventos reales</span></div>
+    <label>Escenario
+      <select id="scenario">
+        <option value="new">Desde cero</option>
+        <option value="progress">Preparación en curso</option>
+        <option value="ready">Listo para revisar</option>
+        <option value="blocked">Revisión con un faltante</option>
+        <option value="error">Error de revisión</option>
+      </select>
+    </label>
+  </div>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header class="app-header">
+    <div class="header-identity">
+      <button class="menu-toggle" type="button" aria-label="Abrir navegación" aria-expanded="false" aria-controls="navigation">☰</button>
+      <details class="account">
+        <summary><strong>Gonzalo</strong><span>Administrador</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10m-4-4 4 4 4-4" /></svg></summary>
+        <div class="account-menu"><button type="button" id="theme-toggle">Cambiar a tema claro</button><button type="button" data-action="demo-signout">Salir</button></div>
+      </details>
+    </div>
+    <div class="event-context"><strong id="event-name">Nuevo evento</strong><span id="event-state">Sin crear</span></div>
+    <button class="quiet exit-button" type="button" data-action="exit">Guardar y salir</button>
+  </header>
+  <nav id="navigation" class="navigation" aria-label="Navegación administrativa" hidden>
+    <button type="button" data-action="exit">Mis eventos</button>
+    <button type="button" data-action="close-navigation" aria-current="page">Preparación del evento</button>
+    <p>Jurados y votación se gestionan después, por jornada.</p>
+  </nav>
+  <main id="main" tabindex="-1">
+    <section class="preparation-progress" aria-label="Progreso de preparación">
+      <div class="progress-caption"><span>Preparación del evento</span><span id="progress-count">0 de 4 etapas completas</span></div>
+      <div class="progress-track" role="progressbar" aria-label="Etapas de preparación completas" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0"><span id="progress-fill"></span></div>
+      <ol id="stepper" class="stepper" aria-label="Etapas del asistente"></ol>
+    </section>
+    <div id="screen"></div>
+    <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+  </main>
+  <footer class="prototype-note">Maqueta para revisión. La barra superior y el selector de escenarios no forman parte de la aplicación. Los cambios se pierden al recargar.</footer>
+  <dialog id="confirmation" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <form method="dialog"><button class="close-dialog" aria-label="Cerrar diálogo">×</button></form>
+    <div id="dialog-content"></div>
+  </dialog>
+</body>
+</html>
