@@ -67,6 +67,15 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
+  it("muestra la cabecera compacta del Escribano en actas", () => {
+    window.location.hash = "#/admin/record";
+    render(<AppNavigation session={{ user: { name: "Escribana" }, roles: ["ESCRIBANO"] }} />);
+
+    expect(screen.getByText("Escribana")).toBeInTheDocument();
+    expect(screen.getByText("Escribano")).toBeInTheDocument();
+    expect(screen.getByText("Acta oficial", { selector: ".scribe-header-section" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Navegacion principal" })).not.toBeInTheDocument();
+  });
   it.each(["", "?step=catalogo"])("marca Rubros como paso inicial y breadcrumb con ruta %s", (query) => {
     mockMatchMedia(true);
     window.location.hash = `#/admin/competencia${query}`;
