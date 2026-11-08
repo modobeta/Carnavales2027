@@ -30,7 +30,7 @@ function getApiErrorMessage(error, defaultMsg = "Ocurrió un error inesperado.")
   return error?.message || defaultMsg;
 }
 
-export function AdminPenaltiesPage() {
+export function AdminPenaltiesPage({ session }) {
   const adminEvent = useAdminEvent();
   const [localEvents, setLocalEvents] = useState([]);
   const [localEventId, setLocalEventId] = useState("");
@@ -225,10 +225,11 @@ export function AdminPenaltiesPage() {
   };
 
   const selectedEvent = adminEvent?.activeEvent ?? events.find((e) => e.id === eventId);
+  const isComisario = session?.roles?.includes("COMISARIO") && !session?.roles?.includes("ADMIN");
 
   return (
-    <PageShell layer="instrument" className="admin-shell penalties-page">
-      <PageHeader
+    <PageShell layer="instrument" className={`admin-shell penalties-page${isComisario ? " is-commissioner" : ""}`}>
+      {!isComisario && <PageHeader
         eyebrow="Comisariato"
         title="Gestión de Penalizaciones"
         status={selectedEvent?.status}
@@ -246,8 +247,8 @@ export function AdminPenaltiesPage() {
                 ))}
               </select>
             </label> : null}
-      />
-      {selectedEvent && <EventStatusBanner status={selectedEvent.status} />}
+      />}
+      {!isComisario && selectedEvent && <EventStatusBanner status={selectedEvent.status} />}
 
       <p className="feedback" role="status" aria-live="polite">
         {message}
@@ -257,12 +258,10 @@ export function AdminPenaltiesPage() {
 
       {!loading && selectedEvent && (
         <>
+          <div className={isComisario ? "penalties-workspace" : undefined}>
           <section className="config-section" aria-labelledby="form-penalties-title">
-            <h2 id="form-penalties-title">Registrar sanción reglamentaria</h2>
-            <p className="section-description">
-              Las penalizaciones descuentan puntos en la tabla general de Mejor Comparsa sin
-              alterar las planillas de los jurados ni los premios por rubro individual.
-            </p>
+            <h2 id="form-penalties-title">{isComisario ? "Nueva penalización" : "Registrar sanción reglamentaria"}</h2>
+            <p className="section-description">{isComisario ? "Afecta el total general de Mejor Comparsa; no altera votos ni premios por rubro." : <>Las penalizaciones descuentan puntos en la tabla general de Mejor Comparsa sin alterar las planillas de los jurados ni los premios por rubro individual.</>}</p>
 
             <form onSubmit={handleSubmitPenalty} className="penalty-form">
               <div className="penalty-form-grid">
@@ -342,14 +341,15 @@ export function AdminPenaltiesPage() {
             </form>
           </section>
 
-          <section className="penalties-list-section" aria-labelledby="penalties-list-title">
+          <section className={`penalties-list-section${isComisario ? " penalties-history" : ""}`} aria-labelledby="penalties-list-title">
             <div className="section-heading">
               <div>
-                <h2 id="penalties-list-title">Sanciones del evento</h2>
-                <p>Historial auditado de penalizaciones aplicadas y revocadas.</p>
+                <h2 id="penalties-list-title">{isComisario ? "Historial" : "Sanciones del evento"}</h2>
+                {!isComisario && <p>Historial auditado de penalizaciones aplicadas y revocadas.</p>}
               </div>
             </div>
 
+            <div className="penalties-history-scroll" role={isComisario ? "region" : undefined} tabIndex={isComisario ? 0 : undefined} aria-label={isComisario ? "Historial de penalizaciones. Desplazate dentro de la lista para ver más registros." : undefined}>
             {penalties.length === 0 ? (
               <p className="empty-state">No hay sanciones registradas para este evento.</p>
             ) : (
@@ -420,7 +420,9 @@ export function AdminPenaltiesPage() {
                 })}
               </div>
             )}
+            </div>
           </section>
+          </div>
         </>
       )}
 
