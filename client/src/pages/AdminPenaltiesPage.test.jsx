@@ -82,6 +82,24 @@ describe("AdminPenaltiesPage", () => {
     expect(getAllByText("Revocar")).toHaveLength(1);
   });
 
+  it("usa una vista compacta para Comisario sin repetir cabecera y estado del evento", async () => {
+    apiRequestMock.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ ...mockEvent, status: "OPEN" }]);
+      if (path === "/api/v1/events/event-1/nights") return Promise.resolve(mockNights);
+      if (path === "/api/v1/events/event-1/troupes") return Promise.resolve(mockTroupes);
+      if (path === "/api/v1/events/event-1/penalties") return Promise.resolve(mockPenalties);
+      return Promise.reject(new Error(`request inesperado: ${path}`));
+    });
+
+    const { container, getByRole } = render(<AdminPenaltiesPage session={{ roles: ["COMISARIO"] }} />);
+
+    await waitFor(() => expect(getByRole("heading", { name: "Nueva penalización" })).toBeVisible());
+    expect(container.querySelector(".penalties-page.is-commissioner")).toBeInTheDocument();
+    expect(container.querySelector(".admin-page-header")).not.toBeInTheDocument();
+    expect(container.querySelector(".event-status-banner")).not.toBeInTheDocument();
+    expect(container.querySelector(".penalties-workspace")).toBeInTheDocument();
+    expect(container.querySelector(".penalties-history-scroll")).toHaveAttribute("tabindex", "0");
+  });
   it("permite registrar una nueva penalización y actualiza el listado", async () => {
     let currentPenalties = [mockPenalties[0]];
     apiRequestMock.mockImplementation((path, options) => {

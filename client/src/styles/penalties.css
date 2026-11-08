@@ -1,6 +1,40 @@
 /* Spec 014 — Gestión de Penalizaciones (Comisariato)
    Reglas desacopladas de index.css para modularización arquitectónica. */
 .penalties-page { display: grid; gap: 1.25rem; }
+.penalties-page.is-commissioner {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  block-size: calc(100dvh - 4.25rem);
+  min-block-size: 30rem;
+  overflow: hidden;
+  padding-block: .65rem;
+}
+.penalties-workspace { display: grid; grid-template-columns: minmax(20rem, .9fr) minmax(0, 1.1fr); gap: .75rem; flex: 1; min-block-size: 0; }
+.penalties-page.is-commissioner .feedback:empty { display: none; }
+.penalties-page.is-commissioner .config-section,
+.penalties-page.is-commissioner .penalties-history { min-inline-size: 0; min-block-size: 0; margin: 0; padding: 1rem; overflow: hidden; }
+.penalties-page.is-commissioner .config-section { display: flex; flex-direction: column; gap: .5rem; }
+.penalties-page.is-commissioner .config-section h2,
+.penalties-page.is-commissioner .penalties-history h2 { margin: 0; font-size: 1.1rem; }
+.penalties-page.is-commissioner .section-description { margin: 0; font-size: .8rem; line-height: 1.35; }
+.penalties-page.is-commissioner .penalty-form { gap: .6rem; min-block-size: 0; }
+.penalties-page.is-commissioner .penalty-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.penalties-page.is-commissioner .penalty-form-grid label:last-child { grid-column: 1 / -1; }
+.penalties-page.is-commissioner .penalty-form label { gap: .25rem; font-size: .8rem; }
+.penalties-page.is-commissioner .penalty-form input,
+.penalties-page.is-commissioner .penalty-form select { min-block-size: 2.75rem; padding: .55rem .65rem; font-size: .9rem; }
+.penalties-page.is-commissioner .penalty-form textarea { min-block-size: 4.25rem; padding: .55rem .65rem; font-size: .9rem; }
+.penalties-page.is-commissioner .penalty-form button[type="submit"] { min-block-size: 2.75rem; justify-self: stretch; padding: .55rem 1rem; }
+.penalties-page.is-commissioner .penalties-history { display: flex; flex-direction: column; gap: .65rem; }
+.penalties-page.is-commissioner .penalties-history .section-heading { margin: 0; }
+.penalties-history-scroll { min-block-size: 0; overflow: visible; }
+.penalties-page.is-commissioner .penalties-history-scroll { flex: 1; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.penalties-page.is-commissioner .penalties-history-scroll:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.penalties-page.is-commissioner .penalties-row { grid-template-columns: 5.5rem minmax(7rem, 1fr) 4rem minmax(8rem, 1.4fr) 6rem 6rem; gap: .5rem; padding: .6rem .75rem; font-size: .82rem; }
+.penalties-page.is-commissioner .penalties-header-row { grid-template-columns: 5.5rem minmax(7rem, 1fr) 4rem minmax(8rem, 1.4fr) 6rem 6rem; gap: .5rem; padding: .4rem .75rem; font-size: .68rem; }
+.penalties-page.is-commissioner .penalty-cell-reason { font-size: .8rem; }
 .penalties-page .section-description { color: var(--muted-color); font-size: .9rem; margin-block-start: -.25rem; margin-block-end: 1rem; }
 .penalty-form { display: grid; gap: 1rem; }
 .penalty-form-grid {
@@ -210,6 +244,22 @@
 }
 
 @media (max-width: 48rem) {
+  .penalties-page.is-commissioner { block-size: calc(100dvh - 7.125rem); min-block-size: 32rem; padding-inline: .75rem; }
+  .penalties-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: .55rem; }
+  .penalties-page.is-commissioner .config-section,
+  .penalties-page.is-commissioner .penalties-history { padding: .75rem; }
+  .penalties-page.is-commissioner .config-section { gap: .35rem; }
+  .penalties-page.is-commissioner .config-section h2,
+  .penalties-page.is-commissioner .penalties-history h2 { font-size: 1rem; }
+  .penalties-page.is-commissioner .section-description { display: block; font-size: .72rem; line-height: 1.25; }
+  .penalties-page.is-commissioner .penalty-form { gap: .45rem; }
+  .penalties-page.is-commissioner .penalty-form-grid { gap: .45rem; }
+  .penalties-page.is-commissioner .penalty-form label { font-size: .75rem; }
+  .penalties-page.is-commissioner .penalty-form input,
+  .penalties-page.is-commissioner .penalty-form select { min-block-size: 2.5rem; padding: .4rem .5rem; font-size: .85rem; }
+  .penalties-page.is-commissioner .penalty-form textarea { min-block-size: 3rem; padding: .4rem .5rem; font-size: .85rem; }
+  .penalties-page.is-commissioner .penalty-form button[type="submit"] { min-block-size: 2.5rem; }
+  .penalties-page.is-commissioner .penalties-history-scroll { max-block-size: 19dvh; }
   .penalties-header-row { display: none; }
   .penalties-row {
     grid-template-columns: 1fr;
@@ -220,6 +270,7 @@
 }
 
 @media (max-width: 36rem) {
+  .penalties-page.is-commissioner { block-size: calc(100dvh - 7.125rem); min-block-size: 32rem; }
   .penalty-modal-overlay { place-items: end center; padding: .65rem; }
   .penalty-modal { max-block-size: calc(100dvb - 1.3rem); }
   .penalty-modal-actions { display: grid; }

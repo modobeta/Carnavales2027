@@ -91,6 +91,16 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
 
+  it("muestra cabecera compacta para el Comisario sin duplicar el selector de evento", () => {
+    window.location.hash = "#/admin/penalties";
+    render(<AppNavigation session={{ user: { name: "María" }, roles: ["COMISARIO"] }} />);
+
+    expect(document.querySelector(".app-navigation.is-comisario-route")).toBeInTheDocument();
+    expect(screen.getByText("María")).toBeInTheDocument();
+    expect(screen.getByText("Comisario")).toBeInTheDocument();
+    expect(screen.getByText("Penalizaciones", { selector: ".comisario-header-section" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Competencia/ })).not.toBeInTheDocument();
+  });
   it.each(["", "?step=catalogo"])("marca Rubros como paso inicial y breadcrumb con ruta %s", (query) => {
     mockMatchMedia(true);
     window.location.hash = `#/admin/competencia${query}`;

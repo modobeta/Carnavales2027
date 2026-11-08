@@ -175,7 +175,7 @@ export default function App({ session: providedSession }) {
     return <RoleArea session={session} admin><AdminVotingPage initialEventId={params.get("eventId") ?? ""} initialNightId={params.get("nightId") ?? ""} /></RoleArea>;
   }
   if (route === "#/admin/penalties") {
-    const content = <RequirePenaltiesRole session={session}><AdminPenaltiesPage /></RequirePenaltiesRole>;
+    const content = <RequirePenaltiesRole session={session}><AdminPenaltiesPage session={session} /></RequirePenaltiesRole>;
     return content;
   }
   if (route === "#/admin/results") {

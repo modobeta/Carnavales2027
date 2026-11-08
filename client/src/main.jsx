@@ -8,6 +8,7 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { registerServiceWorker } from "./pwa/register-service-worker.js";
 import "./index.css";
 import "./styles/scribe-header.css";
+import "./styles/comisario-header.css";
 
 registerServiceWorker();
 

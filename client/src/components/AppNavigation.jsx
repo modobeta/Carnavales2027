@@ -7,6 +7,7 @@ import { PublicResultsLink } from "./PublicResultsLink.jsx";
 import { canAccessAdminArea } from "../auth/role-routes.js";
 import { ThemeToggle } from "./ThemeToggle.jsx";
 import { ScribeHeader } from "./ScribeHeader.jsx";
+import { ComisarioHeader } from "./ComisarioHeader.jsx";
 
 const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
@@ -86,6 +87,7 @@ export function AppNavigation({ session }) {
   const isJudge = session.roles?.includes("JUDGE");
   const hasScrutinyRole = session.roles?.some((role) => ["SCRUTINEER", "ESCRIBANO"].includes(role));
   const isScribeRoute = !isAdmin && hasScrutinyRole && ["#/admin/results", "#/admin/record"].includes(currentRoute);
+  const isComisarioRoute = !isAdmin && session.roles?.includes("COMISARIO") && currentRoute === "#/admin/penalties";
   // El Jurado mantiene su pantalla de trabajo despejada; una cuenta ADMIN conserva navegación global.
   const hideDrawer = isJudge && !isAdmin && currentRoute.startsWith("#/judge");
   // El modo solo-iconos existe solo para el menú de Administrador en desktop;
@@ -281,7 +283,7 @@ function formatNightDate(value) {
 
   return (
     <>
-    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isScribeRoute ? "is-scribe-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
+    <header className={`app-navigation ${session.roles?.includes("JUDGE") ? "judge-navigation" : ""} ${isJudgeRoute ? "is-judge-route" : ""} ${isScribeRoute ? "is-scribe-route" : ""} ${isComisarioRoute ? "is-comisario-route" : ""} ${isHomeRoute ? "is-home" : ""}`}>
       {isScribeRoute ? (
         <ScribeHeader session={session} context={adminEvent} label={breadcrumb.label} closing={closing} onSignOut={signOut}>
           {!isDesktop && !hideDrawer && (
@@ -298,6 +300,10 @@ function formatNightDate(value) {
             </button>
           )}
         </ScribeHeader>
+      ) : isComisarioRoute ? (
+        <ComisarioHeader session={session} context={adminEvent} closing={closing} onSignOut={signOut}>
+          {!isDesktop && !hideDrawer && <button className="nav-toggle" type="button" ref={toggleRef} aria-controls="app-drawer" aria-expanded={open} aria-label={open ? "Cerrar menu de navegacion" : "Abrir menu de navegacion"} onClick={() => setOpen((value) => !value)}><span aria-hidden="true">☰</span></button>}
+        </ComisarioHeader>
       ) : <>
       <div className="header-left">
         {isJudgeRoute && sessionUser}
