@@ -9,6 +9,7 @@ import { registerServiceWorker } from "./pwa/register-service-worker.js";
 import "./index.css";
 import "./styles/judge-focus.css";
 import "./styles/admin-preparation.css";
+import "./styles/scribe-header.css";
 
 registerServiceWorker();
 
