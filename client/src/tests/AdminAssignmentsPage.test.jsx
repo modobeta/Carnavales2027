@@ -32,7 +32,7 @@ describe("AdminAssignmentsPage", () => {
     });
     render(<AdminAssignmentsPage />);
     expect(await screen.findByRole("button", { name: "Noche 1" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Configurar cupo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Configurar cupo y asignar" }));
     fireEvent.change(screen.getByLabelText("Cupo máximo"), { target: { value: "3" } });
     fireEvent.submit(screen.getByRole("button", { name: "Guardar cupo" }).closest("form"));
 
@@ -40,7 +40,40 @@ describe("AdminAssignmentsPage", () => {
       "/api/v1/events/event-1/nights/night-1/specialties/specialty-1/judge-quota",
       { method: "PUT", body: JSON.stringify({ maxAssignments: 3 }) },
     ));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
     expect(screen.queryByText(/puntuar/i)).not.toBeInTheDocument();
+  });
+
+  it("guía la asignación por la configuración del cupo en jornadas futuras borrador", async () => {
+    let quotaConfigured = false;
+    apiRequest.mockImplementation((path, options = {}) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path === "/api/v1/judges") return Promise.resolve([{ id: "judge-1", name: "Jurado Uno", registrationStatus: "REGISTERED" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche futura", kind: "COMPETITION", status: "DRAFT" }]);
+      if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
+      if (path.endsWith("/judge-assignments") && options.method === "POST") return Promise.resolve({ id: "assignment-1" });
+      if (path.endsWith("/judge-assignments")) return Promise.resolve({ quotas: quotaConfigured ? [{ nightId: "night-1", specialtyId: "specialty-1", maxAssignments: 1, activeAssignments: 0 }] : [], assignments: [] });
+      if (path.endsWith("/judge-quota") && options.method === "PUT") {
+        quotaConfigured = true;
+        return Promise.resolve({ maxAssignments: 1 });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminAssignmentsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Configurar cupo y asignar" }));
+    expect(screen.getByText(/mientras la jornada siga en borrador/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Cupo máximo"), { target: { value: "1" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Guardar cupo" }).closest("form"));
+
+    const judgeSelector = await screen.findByLabelText("Jurado");
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/events/event-1/nights/night-1/specialties/specialty-1/judge-quota",
+      { method: "PUT", body: JSON.stringify({ maxAssignments: 1 }) },
+    );
+    fireEvent.change(judgeSelector, { target: { value: "judge-1" } });
+    fireEvent.submit(judgeSelector.closest("form"));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/event-1/judge-assignments", expect.objectContaining({ method: "POST" })));
   });
 
   it("bloquea altas nuevas cuando la jornada ya está abierta y conserva las acciones de reemplazo", async () => {
@@ -98,7 +131,7 @@ describe("AdminAssignmentsPage", () => {
       if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
       if (path.endsWith("/judge-assignments") && !options) {
         return Promise.resolve({
-          quotas: [],
+          quotas: [{ nightId: "night-1", specialtyId: "specialty-1", maxAssignments: 3, activeAssignments: 1 }],
           assignments: [
             { id: "primary-1", judgeName: "Titular", judgeProfileId: "judge-1", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
           ],
@@ -142,7 +175,7 @@ describe("AdminAssignmentsPage", () => {
       if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
       if (path.endsWith("/judge-assignments") && !options) {
         return Promise.resolve({
-          quotas: [],
+          quotas: [{ nightId: "night-1", specialtyId: "specialty-1", maxAssignments: 3, activeAssignments: 2 }],
           assignments: [
             { id: "primary-1", judgeName: "Titular A", judgeProfileId: "judge-1", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
             { id: "primary-2", judgeName: "Titular B", judgeProfileId: "judge-3", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
@@ -182,7 +215,7 @@ describe("AdminAssignmentsPage", () => {
       if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "DRAFT" }]);
       if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
       if (path.endsWith("/judge-assignments") && !options) {
-        return Promise.resolve({ quotas: [], assignments: [] });
+        return Promise.resolve({ quotas: [{ nightId: "night-1", specialtyId: "specialty-1", maxAssignments: 1, activeAssignments: 0 }], assignments: [] });
       }
       if (path === "/api/v1/events/event-1/judge-assignments") return Promise.resolve({});
       return Promise.resolve({});
@@ -206,7 +239,7 @@ describe("AdminAssignmentsPage", () => {
       if (path.endsWith("/specialties")) return Promise.resolve([{ id: "specialty-1", name: "Baile", active: true }]);
       if (path.endsWith("/judge-assignments") && !options) {
         return Promise.resolve({
-          quotas: [],
+          quotas: [{ nightId: "night-1", specialtyId: "specialty-1", maxAssignments: 3, activeAssignments: 1 }],
           assignments: [
             { id: "primary-1", judgeName: "Titular", judgeProfileId: "judge-1", nightId: "night-1", nightName: "Noche 1", specialtyId: "specialty-1", specialtyName: "Baile", assignmentType: "PRIMARY", status: "ACTIVE", nightStatus: "DRAFT" },
           ],

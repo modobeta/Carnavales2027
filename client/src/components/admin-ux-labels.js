@@ -31,6 +31,8 @@ export const UX_ERROR_HINTS = {
     "El cupo ya está completo. Aumentá el cupo antes de asignar otro jurado.",
   JUDGE_QUOTA_BELOW_ASSIGNMENTS:
     "El nuevo cupo no puede ser menor que las asignaciones activas. Conservá o aumentá el valor actual.",
+  JUDGE_QUOTA_NIGHT_NOT_DRAFT:
+    "El cupo solo puede cambiarse mientras la jornada está en borrador. Para modificarlo, usá una jornada futura que todavía no se haya abierto.",
   JUDGE_ALREADY_ASSIGNED:
     "Este jurado ya tiene una asignación activa en la jornada. Elegí otro jurado o revisá su asignación existente.",
   JUDGE_ASSIGNMENT_NIGHT_OPEN:
