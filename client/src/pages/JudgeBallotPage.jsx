@@ -233,7 +233,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
     setExpandedGroups((prev) => {
       const base = prev ?? (hasReadonlyFilters
         ? new Set(readonlyVisibleGroups.map((entry) => String(entry.group.nightScheduleId)))
-        : defaultExpandedGroups(groups, targetGroup));
+        : defaultExpandedGroups(groups, readonlySelectedGroup ?? targetGroup));
       const next = new Set(base);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -243,7 +243,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
   const goToReadonlyGroup = (group) => {
     const key = String(group.nightScheduleId);
     setExpandedGroups((prev) => {
-      const next = new Set(prev ?? defaultExpandedGroups(groups, targetGroup));
+      const next = new Set(prev ?? defaultExpandedGroups(groups, readonlySelectedGroup ?? targetGroup));
       next.add(key);
       return next;
     });
@@ -265,6 +265,11 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
 
   const targetGroup = ballot && selectedTroupeId
     ? groups.find((g) => g.nightScheduleId === selectedTroupeId || String(g.nightScheduleId) === String(selectedTroupeId))
+    : null;
+  const readonlySelectedGroup = readonly
+    ? readonlyTroupeFilter
+      ? groups.find((group) => String(group.nightScheduleId) === readonlyTroupeFilter) ?? null
+      : showAllReadonlyGroups ? null : targetGroup
     : null;
 
   const readonlyVisibleGroups = groups
@@ -537,6 +542,12 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
   const previousPendingScores = ballot.scores.slice(0, effectiveIndex).filter((score) => score.evaluationState === "PENDING");
   const troupeScores = activeScore ? ballot.scores.filter((score) => score.nightScheduleId === activeScore.nightScheduleId) : [];
   const troupeResolved = troupeScores.filter((score) => score.evaluationState !== "PENDING").length;
+  const readonlyProgressScores = readonlySelectedGroup
+    ? ballot.scores.filter((score) => String(score.nightScheduleId) === String(readonlySelectedGroup.nightScheduleId))
+    : ballot.scores;
+  const progressScores = readonly ? readonlyProgressScores : troupeScores;
+  const progressResolved = progressScores.filter((score) => score.evaluationState !== "PENDING").length;
+  const progressLabel = readonly && !readonlySelectedGroup ? "Avance de la planilla" : "Avance de la comparsa";
   const activeTroupePending = troupeScores.filter((score) => score.evaluationState === "PENDING").length;
   const canConfirmVoting = online && total > 0 && resolved === total && !isSubmitting
     && !Object.values(itemStatuses).some((item) => item.status === "saving");
@@ -789,20 +800,22 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
             <div>
               {!eventContext && <p className="eyebrow">{ballot.nightName} · {ballot.specialtyName}</p>}
               <div className="ballot-header-troupe-row">
-                {(readonly && targetGroup) || activeScore ? (
+                {(readonly && readonlySelectedGroup) || activeScore ? (
                   <TroupeLogo
-                    troupeId={(readonly && targetGroup ? targetGroup : activeScore)?.troupeId}
-                    hasLogo={(readonly && targetGroup ? targetGroup : activeScore)?.hasLogo}
-                    sha256={(readonly && targetGroup ? targetGroup : activeScore)?.logoSha256}
-                    alt={`Logo de ${(readonly && targetGroup ? targetGroup : activeScore)?.troupeName}`}
+                    troupeId={(readonly && readonlySelectedGroup ? readonlySelectedGroup : activeScore)?.troupeId}
+                    hasLogo={(readonly && readonlySelectedGroup ? readonlySelectedGroup : activeScore)?.hasLogo}
+                    sha256={(readonly && readonlySelectedGroup ? readonlySelectedGroup : activeScore)?.logoSha256}
+                    alt={`Logo de ${(readonly && readonlySelectedGroup ? readonlySelectedGroup : activeScore)?.troupeName}`}
                     className="ballot-troupe-logo ballot-troupe-logo-header"
                   />
                 ) : null}
-                <h1 className="ballot-header-support">{readonly && targetGroup ? targetGroup.troupeName : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
+                <h1 className="ballot-header-support">{readonly ? readonlySelectedGroup?.troupeName ?? "Resumen de la planilla" : activeScore ? activeScore.troupeName : ballot.nightName}</h1>
               </div>
-              {readonly && targetGroup
-                ? <p>Salida {targetGroup.presentationOrder} · Planilla con {groups.length} comparsas</p>
-                : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
+              {readonly && readonlySelectedGroup
+                ? <p>Salida {readonlySelectedGroup.presentationOrder} · Planilla con {groups.length} comparsas</p>
+                : readonly
+                  ? <p>Planilla confirmada · {groups.length} comparsas</p>
+                  : activeScore && <p>Salida {activeScore.presentationOrder}</p>}
             </div>
             <div className="ballot-header-status">
               <StatusPill status={ballot.status} />
@@ -811,10 +824,10 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
 
           <section className="ballot-progress" aria-label="Progreso de la votación">
             <ProgressBar
-              value={troupeResolved}
-              max={troupeScores.length}
-              label="Avance de la comparsa"
-              sublabel={`${troupeResolved} de ${troupeScores.length} puntuaciones`}
+              value={readonly ? progressResolved : troupeResolved}
+              max={progressScores.length}
+              label={progressLabel}
+              sublabel={`${readonly ? progressResolved : troupeResolved} de ${progressScores.length} puntuaciones`}
             />
           </section>
 
@@ -931,13 +944,14 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
                     </select>
                   </label>
                   {targetGroup && groups.length > 1 && <button type="button" className="secondary" onClick={() => {
-                    setShowAllReadonlyGroups((value) => !value);
+                    const showingWholeBallot = showAllReadonlyGroups && !readonlyTroupeFilter;
+                    setShowAllReadonlyGroups(!showingWholeBallot);
                     setReadonlyTroupeFilter("");
                     setReadonlyRubricFilter("");
                     setReadonlySearchFilter("");
                     setReadonlyStateFilter("ALL");
                     setExpandedGroups(null);
-                  }}>{showAllReadonlyGroups ? "Ver solo la comparsa seleccionada" : "Ver resumen de todas las comparsas"}</button>}
+                  }}>{showAllReadonlyGroups && !readonlyTroupeFilter ? "Ver solo la comparsa seleccionada" : "Ver resumen de todas las comparsas"}</button>}
                   {hasReadonlyFilters && <button type="button" className="secondary" onClick={() => {
                     setReadonlyTroupeFilter("");
                     setReadonlyRubricFilter("");
@@ -965,7 +979,7 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
                 )}
                 {readonlyVisibleGroups.map(({ group, scores: groupScores }, groupIndex) => {
                   const groupTotal = groupScores.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
-                  const isSelected = Boolean(targetGroup && String(group.nightScheduleId) === String(targetGroup.nightScheduleId));
+                  const isSelected = Boolean(readonlySelectedGroup && String(group.nightScheduleId) === String(readonlySelectedGroup.nightScheduleId));
                   const isOpen = isGroupOpen(group, isSelected, groupIndex === 0);
                   return (
                     <article
