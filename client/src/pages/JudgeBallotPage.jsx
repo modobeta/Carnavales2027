@@ -1308,19 +1308,26 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
         isOpen={Boolean(scoreConfirm)}
         onClose={() => setScoreConfirm(null)}
         title="Confirmación de voto"
-        description="Una vez confirmada, esta decisión no podrá modificarse."
-        tone="violet"
+        description="Después de confirmarla, no vas a poder cambiarla."
+        tone="default"
+        icon={false}
+        className="judge-score-confirm-dialog"
       >
         {scoreConfirm && (
           <div className="score-dialog-content">
-            <p><strong>{scoreConfirm.troupeName}</strong></p>
-            <p>{scoreConfirm.rubricName} — {scoreConfirm.itemName}</p>
-            {scoreConfirm.participantName && <p><strong>{SUBJECT_LABELS[scoreConfirm.participantType] ?? "Participante"}:</strong> {scoreConfirm.participantName}</p>}
+            <div className="score-dialog-context">
+              <strong>{scoreConfirm.troupeName}</strong>
+              <p>{scoreConfirm.itemName}</p>
+              {scoreConfirm.rubricName !== scoreConfirm.itemName && <span>Rubro: {scoreConfirm.rubricName}</span>}
+              {scoreConfirm.participantName && <span>{SUBJECT_LABELS[scoreConfirm.participantType] ?? "Participante"}: {scoreConfirm.participantName}</span>}
+            </div>
             <p className="confirm-score-display is-solid">
-              Usted está por votar <strong className="confirm-score-value">{scoreConfirm.score}</strong>. ¿Desea confirmar?
+              <span>Vas a guardar </span>
+              <strong className="confirm-score-value">{scoreConfirm.score}</strong>
+              <span> puntos. ¿Confirmás?</span>
             </p>
             <DialogFooter>
-              <Button variant="secondary" onClick={() => setScoreConfirm(null)}>
+              <Button variant="ghost" onClick={() => setScoreConfirm(null)}>
                 Cancelar
               </Button>
               <Button
