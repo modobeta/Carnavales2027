@@ -131,6 +131,8 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       || filename === "118_schedule_future_draft_nights.sql"
       || filename === "119_scope_future_draft_schedule.sql"
       || filename === "120_retire_veedor_role.sql"
+      || filename === "121_allow_pending_ballots_while_advancing.sql"
+      || filename === "122_voting_release_is_operational.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -605,6 +607,8 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     { filename: "118_schedule_future_draft_nights.sql", version: "118", applied: true },
     { filename: "119_scope_future_draft_schedule.sql", version: "119", applied: true },
     { filename: "120_retire_veedor_role.sql", version: "120", applied: true },
+    { filename: "121_allow_pending_ballots_while_advancing.sql", version: "121", applied: true },
+    { filename: "122_voting_release_is_operational.sql", version: "122", applied: true },
   ]);
 
   const secondRun = await migrate();

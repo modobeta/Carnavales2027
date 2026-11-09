@@ -130,7 +130,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
         return false;
       }
       const messages = {
-        EVENT_NOT_OPEN: "El evento debe estar abierto para habilitar la votación.",
+        EVENT_NOT_OPEN: "El evento debe estar abierto para poner una comparsa en pista.",
         NIGHT_NOT_OPEN: "Primero abrí la jornada. Actualizá el estado para ver su situación actual.",
         NIGHT_SCHEDULE_EMPTY: "Programá comparsas en la jornada antes de abrir la votación.",
         NIGHT_CLOSED: "La jornada está cerrada y no se puede reabrir.",
@@ -138,11 +138,11 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
         VOTING_WINDOW_NOT_OPEN: "La votación todavía no está abierta.",
         NIGHT_WITHOUT_ACTIVE_JURY: "Asigná al menos un jurado titular activo a esta jornada antes de abrirla.",
         VOTING_RELEASE_MODE_LOCKED: "El modo ya no se puede cambiar después de abrir la votación.",
-        TROUPE_ALREADY_RELEASED: "Esta comparsa ya fue habilitada.",
+        TROUPE_ALREADY_RELEASED: "Esta comparsa ya está marcada en pista.",
         TROUPE_RELEASE_ORDER_REQUIRED: "Habilitá las comparsas en el orden de pasada.",
-        ACTIVE_TROUPE_BALLOTS_INCOMPLETE: "No se puede habilitar otra comparsa: todavía hay planillas o ítems pendientes para la comparsa actual.",
-        TROUPE_NOT_RELEASED: "Esta comparsa todavía no está habilitada para votar.",
-        ALL_TROUPES_NOT_RELEASED: "Abrí nuevamente la votación para habilitar todas las comparsas.",
+        ACTIVE_TROUPE_BALLOTS_INCOMPLETE: "La mesa permite avanzar con planillas pendientes. Actualizá el estado e intentá de nuevo.",
+        TROUPE_NOT_RELEASED: "No se pudo guardar la puntuación. Actualizá la planilla y reintentá.",
+        ALL_TROUPES_NOT_RELEASED: "No se pudo guardar la puntuación. Actualizá la planilla y reintentá.",
         EVENT_LOCKED: "El estado del evento o la jornada cambió. Actualizá el estado antes de reintentar.",
         NETWORK_ERROR: "No se recibió confirmación. Actualizá el estado antes de reintentar.",
       };
@@ -191,13 +191,13 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
       await action("release-mode", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/release-mode`, {
         method: "PATCH", body: JSON.stringify({ releaseMode }),
       }), () => releaseMode === "MANUAL"
-        ? "Modo actualizado: habilitar una comparsa por vez."
-        : "Modo actualizado: todas las comparsas quedarán habilitadas al abrir la votación.");
+        ? "Modo actualizado: puesta en pista manual."
+        : "Modo actualizado: la mesa puede marcar cualquier comparsa en pista.");
     } else if (kind.startsWith("release:")) {
       const scheduleId = kind.slice("release:".length);
       await action("release-troupe", () => apiRequest(`/api/v1/events/${eventId}/nights/${nightId}/voting/release`, {
         method: "POST", body: JSON.stringify({ scheduleId }),
-      }), () => "Comparsa habilitada para votar.");
+      }), () => "Comparsa puesta en pista.");
     }
   };
   const runwayTroupes = [...(status?.troupes ?? [])].sort((a, b) => a.presentationOrder - b.presentationOrder);
@@ -235,7 +235,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
         tone: "warning",
         title: "Confirmar modo de habilitación",
         description: nextMode === "MANUAL"
-          ? "Las comparsas se habilitarán de a una y en orden de pasada. La siguiente requerirá que todas las planillas de la actual estén completas."
+          ? "El modo manual marca el orden y la comparsa en pista; no habilita ni bloquea las votaciones. Cada jurado puede puntuar todas las comparsas de su planilla."
           : "Todas las comparsas quedarán habilitadas al abrir la votación y la mesa elegirá cuál está en pista.",
         confirmLabel: "Guardar modo",
       };
@@ -245,9 +245,9 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
       return releaseMode === "MANUAL"
         ? {
           tone: "success",
-          title: "Confirmar habilitación de comparsa",
-          description: `Se habilitará ${troupeName} para que los jurados puedan evaluarla. No podrás habilitar la siguiente hasta que todas sus planillas estén completas.`,
-          confirmLabel: "Habilitar comparsa",
+          title: "Confirmar puesta en pista",
+          description: `Se marcará ${troupeName} como la comparsa actual del desfile. Esto es un control operativo y no habilita ni bloquea las puntuaciones de los jurados.`,
+          confirmLabel: "Poner en pista",
         }
         : {
           tone: "success",
@@ -348,7 +348,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
           </select>
         </label>
         <p>{(status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL") === "MANUAL"
-          ? "La siguiente comparsa solo se habilita cuando todas las planillas de la actual estén completas."
+          ? "El orden de pista es operativo: cada jurado puede puntuar cualquier comparsa de su planilla. El cierre sigue requiriendo completar todas las puntuaciones."
           : "Todas las comparsas se habilitan al abrir; la mesa puede seleccionar cuál está en pista."}</p>
         <p>Estado de la jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Estado de la ventana de votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
@@ -416,8 +416,8 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
               <p>{votingStatus !== "OPEN"
                 ? "Las pasadas comenzarán cuando abras la votación."
                 : releaseMode === "MANUAL"
-                  ? "Habilitá la próxima comparsa para que los jurados puedan evaluarla."
-                  : "Seleccioná la comparsa que está en pista para comenzar la evaluación."}</p>
+                  ? "Marcá la comparsa que está en pista; las puntuaciones no dependen de esta selección."
+                  : "Seleccioná qué comparsa está en pista; esto no habilita ni bloquea puntuaciones."}</p>
             </div>
           )}
 
@@ -434,9 +434,9 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
                 >
                   {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "MANUAL" && !troupe.released
                     && troupe.scheduleId === runwayTroupes.find((entry) => !entry.released)?.scheduleId && <button type="button"
-                    disabled={Boolean(busy) || Boolean(status.activeTroupe)}
+                    disabled={Boolean(busy)}
                     onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
-                    {status.activeTroupe ? "Esperando planillas" : "Habilitar para votar"}
+                    Poner en pista
                   </button>}
                   {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "ALL" && troupe.released && <button type="button"
                     disabled={Boolean(busy) || isCurrent}
@@ -457,7 +457,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
                             : "status-pill-pending"
                       }`}
                     >
-                      {isDone ? "COMPLETADA" : isCurrent ? "EN PISTA" : "EN ESPERA"}
+                      {isDone ? "COMPLETADA" : isCurrent ? "EN PISTA" : troupe.released ? "SALIDA REGISTRADA" : "PENDIENTE DE PISTA"}
                     </span>
                   </div>
                   <div className="runway-troupe-progress">

@@ -18,7 +18,7 @@ async function withServer(app, run) {
   }
 }
 
-test("marca una comparsa completa como no presentada respetando precedencia e idempotencia", {
+test("marca cualquier comparsa completa como no presentada con idempotencia", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   context.after(async () => {
@@ -145,13 +145,14 @@ test("marca una comparsa completa como no presentada respetando precedencia e id
     const t1ScheduleId = t1Scores[0].nightScheduleId;
     const t2ScheduleId = t2Scores[0].nightScheduleId;
 
-    // 1. Marcar ausente la comparsa 2 con la 1 pendiente -> bloqueado por precedencia.
-    const blocked = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/troupes/${t2ScheduleId}/mark-absent`, {
+    // 1. La puesta en pista no bloquea la decisión de ausencia en otra comparsa.
+    const mark2 = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/troupes/${t2ScheduleId}/mark-absent`, {
       method: "POST",
       headers: judgeHeaders,
     });
-    assert.equal(blocked.status, 409);
-    assert.equal((await blocked.json()).code, "TROUPE_PRECEDENCE_REQUIRED");
+    assert.equal(mark2.status, 200);
+    const mark2Body = await mark2.json();
+    assert.equal(mark2Body.updatedScoreIds.length, 2);
 
     // 2. Marcar ausente la comparsa 1 -> éxito, marca sus 2 ítems.
     const mark1 = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/troupes/${t1ScheduleId}/mark-absent`, {
@@ -184,14 +185,16 @@ test("marca una comparsa completa como no presentada respetando precedencia e id
       `SELECT action FROM ballot_audit_log WHERE ballot_id = $1 AND action = 'TROUPE_MARKED_ABSENT'`,
       [ballotId],
     );
-    assert.equal(auditRows.length, 1);
+    assert.equal(auditRows.length, 2);
 
-    // 5. Ahora la comparsa 2 queda desbloqueada y puede marcarse ausente.
-    const mark2 = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/troupes/${t2ScheduleId}/mark-absent`, {
+    // 5. Replay de la otra comparsa tampoco re-incrementa la revisión.
+    const replay2 = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/troupes/${t2ScheduleId}/mark-absent`, {
       method: "POST",
       headers: judgeHeaders,
     });
-    assert.equal(mark2.status, 200);
-    assert.equal((await mark2.json()).updatedScoreIds.length, 2);
+    assert.equal(replay2.status, 200);
+    const replay2Body = await replay2.json();
+    assert.equal(replay2Body.updatedScoreIds.length, 0);
+    assert.equal(Number(replay2Body.revision), Number(mark1Body.revision));
   });
 });

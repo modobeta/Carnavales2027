@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
 import { AdminVotingPage } from "../pages/AdminVotingPage.jsx";
@@ -150,7 +150,7 @@ describe("AdminVotingPage", () => {
 
     // Cronograma secuencial
     expect(screen.getByText("COMPLETADA")).toBeInTheDocument();
-    expect(screen.getByText("EN ESPERA")).toBeInTheDocument();
+    expect(screen.getByText("PENDIENTE DE PISTA")).toBeInTheDocument();
     expect(screen.getAllByText("Comparsa Fénix").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Comparsa Bella Samba").length).toBeGreaterThanOrEqual(1);
 
@@ -200,22 +200,22 @@ describe("AdminVotingPage", () => {
 
     expect(await screen.findByText("SIN COMPARSA EN PISTA")).toBeInTheDocument();
     expect(screen.queryByText("DESFILE FINALIZADO")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Habilitar para votar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Poner en pista" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Confirmar habilitación de comparsa" });
+    const dialog = screen.getByRole("dialog", { name: "Confirmar puesta en pista" });
     expect(dialog).toHaveTextContent("Arami Demo");
-    expect(dialog).not.toHaveTextContent("cierre");
+    expect(dialog).toHaveTextContent("no habilita ni bloquea las puntuaciones");
     expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("/voting/release"), expect.anything());
 
-    fireEvent.click(screen.getByRole("button", { name: "Habilitar comparsa" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Poner en pista" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/release",
       { method: "POST", body: JSON.stringify({ scheduleId: "sch-1" }) },
     ));
-    expect(await screen.findByText("Comparsa habilitada para votar.")).toBeInTheDocument();
+    expect(await screen.findByText("Comparsa puesta en pista.")).toBeInTheDocument();
     expect(await screen.findByText("Salida #1")).toBeInTheDocument();
     expect(screen.getAllByText("EN PISTA").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole("button", { name: "Esperando planillas" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Poner en pista" })).toBeEnabled();
   });
 
   it("mantiene la pista pendiente cuando falla la habilitación", async () => {
@@ -229,18 +229,69 @@ describe("AdminVotingPage", () => {
       });
       if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
       if (path.endsWith("/voting/release") && options?.method === "POST") {
-        return Promise.reject({ code: "ACTIVE_TROUPE_BALLOTS_INCOMPLETE" });
+        return Promise.reject({ code: "EVENT_NOT_OPEN" });
       }
       return Promise.resolve({});
     });
     render(<AdminVotingPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Habilitar para votar" }));
-    fireEvent.click(screen.getByRole("button", { name: "Habilitar comparsa" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Poner en pista" }));
+    const dialog = screen.getByRole("dialog", { name: "Confirmar puesta en pista" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Poner en pista" }));
 
-    expect(await screen.findByText(/todavía hay planillas o ítems pendientes/)).toBeInTheDocument();
+    expect(await screen.findByText("El evento debe estar abierto para poner una comparsa en pista.")).toBeInTheDocument();
     expect(screen.getByText("SIN COMPARSA EN PISTA")).toBeInTheDocument();
     expect(screen.queryByText("DESFILE FINALIZADO")).not.toBeInTheDocument();
+  });
+
+  it("permite habilitar la siguiente comparsa aunque haya planillas pendientes de la anterior", async () => {
+    let latest = {
+      nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", releaseMode: "MANUAL",
+      counts: { OPEN: 2, SUBMITTED: 0, REOPENED: 0 }, total: 2,
+      activeScheduleId: "sch-1",
+      activeTroupe: { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 4, resolvedScores: 1, released: true, releaseOrder: 1, status: "IN_RUNWAY" },
+      troupes: [
+        { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 4, resolvedScores: 1, released: true, releaseOrder: 1, status: "IN_RUNWAY" },
+        { scheduleId: "sch-2", presentationOrder: 2, troupeName: "Aymara Demo", totalScores: 4, resolvedScores: 0, released: false, releaseOrder: null, status: "WAITING" },
+      ],
+    };
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve(latest);
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      if (path.endsWith("/voting/release") && options?.method === "POST") {
+        latest = {
+          ...latest,
+          activeScheduleId: "sch-2",
+          activeTroupe: { ...latest.troupes[1], released: true, releaseOrder: 2, status: "IN_RUNWAY" },
+          troupes: [
+            { ...latest.troupes[0], status: "RELEASED" },
+            { ...latest.troupes[1], released: true, releaseOrder: 2, status: "IN_RUNWAY" },
+          ],
+        };
+        return Promise.resolve({ scheduleId: "sch-2", releaseOrder: 2, activeScheduleId: "sch-2" });
+      }
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    const enableNext = await screen.findByRole("button", { name: "Poner en pista" });
+    expect(enableNext).toBeEnabled();
+    fireEvent.click(enableNext);
+    const dialog = screen.getByRole("dialog", { name: "Confirmar puesta en pista" });
+    expect(dialog).toHaveTextContent("Aymara Demo");
+    expect(dialog).toHaveTextContent("no habilita ni bloquea las puntuaciones");
+    expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("/voting/release"), expect.anything());
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Poner en pista" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/events/event-1/nights/night-1/voting/release",
+      { method: "POST", body: JSON.stringify({ scheduleId: "sch-2" }) },
+    ));
+    expect(await screen.findByText("Comparsa puesta en pista.")).toBeInTheDocument();
+    expect(screen.getByText("SALIDA REGISTRADA")).toBeInTheDocument();
+    expect(screen.getAllByText("EN PISTA").length).toBeGreaterThanOrEqual(1);
   });
 
   it("solo anuncia desfile finalizado cuando todas las comparsas están completas", async () => {
