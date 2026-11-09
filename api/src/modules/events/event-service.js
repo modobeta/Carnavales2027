@@ -75,7 +75,8 @@ export async function getEvent({ client = getPool(), eventId }) {
 export async function listNights({ client = getPool(), eventId }) {
   await requireEventExists({ client, eventId });
   const { rows } = await client.query(
-    `SELECT id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate"
+    `SELECT id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate",
+            voting_release_mode AS "votingReleaseMode"
      FROM night WHERE event_id = $1 ORDER BY display_order`,
     [requireText(eventId, "eventId")],
   );
@@ -167,8 +168,9 @@ export async function createNight({ client = getPool(), eventId, name, displayOr
   );
   if (releases[0].released) throw new Error("EVENT_LOCKED");
   const { rows } = await client.query(
-    `INSERT INTO night (event_id, name, display_order, kind, event_date, voting_release_mode) VALUES ($1, $2, $3, $4, $5, 'MANUAL')
-     RETURNING id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate"`,
+    `INSERT INTO night (event_id, name, display_order, kind, event_date, voting_release_mode) VALUES ($1, $2, $3, $4, $5, 'ALL')
+     RETURNING id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate",
+               voting_release_mode AS "votingReleaseMode"`,
     [id, requireText(name, "name"), requirePositiveInteger(displayOrder, "displayOrder"), requireText(kind, "kind"), eventDate],
   );
   if (events[0].status === "OPEN") {
