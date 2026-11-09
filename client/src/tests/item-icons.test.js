@@ -36,11 +36,11 @@ describe("catálogo de íconos de ítem", () => {
   });
 
   it("resuelve el asset versionado del repositorio", () => {
-    expect(itemIconUrl("BateriaDeComparsa")).toBe("/icons/items/Bater%C3%ADa%20de%20Comparsa.png");
-    expect(itemIconUrl("ReinaDelCarnaval")).toBe("/icons/items/Reina%20del%20carnaval.png");
-    expect(itemIconUrl("ReyDelCarnaval")).toBe("/icons/items/Rey%20del%20carnaval.png");
-    expect(itemIconUrl("PortaEstandarteDelCarnaval")).toBe("/icons/items/Porta%20Estandarte%20del%20Carnaval.png");
-    expect(itemIconUrl("ReinaDeLaComparsa")).toBe("/icons/items/Reina%20de%20la%20comparsa.png");
+    expect(itemIconUrl("BateriaDeComparsa")).toBe("/assets/evaluation/items/Bater%C3%ADa%20de%20Comparsa.png");
+    expect(itemIconUrl("ReinaDelCarnaval")).toBe("/assets/evaluation/items/Reina%20del%20carnaval.png");
+    expect(itemIconUrl("ReyDelCarnaval")).toBe("/assets/evaluation/items/Rey%20del%20carnaval.png");
+    expect(itemIconUrl("PortaEstandarteDelCarnaval")).toBe("/assets/evaluation/items/Porta%20Estandarte%20del%20Carnaval.png");
+    expect(itemIconUrl("ReinaDeLaComparsa")).toBe("/assets/evaluation/items/Reina%20de%20la%20comparsa.png");
   });
 
   it("no construye rutas fuera del catálogo", () => {

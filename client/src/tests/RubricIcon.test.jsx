@@ -11,7 +11,7 @@ describe("RubricIcon", () => {
     expect(circle).not.toBeNull();
     expect(circle.style.backgroundColor).toBe("rgb(94, 70, 190)");
     const img = container.querySelector("img.rubric-icon");
-    expect(img).toHaveAttribute("src", "/icons/rubros/Musica.png");
+    expect(img).toHaveAttribute("src", "/assets/evaluation/rubrics/Musica.png");
     expect(circle).toHaveAttribute("aria-hidden", "true");
   });
 

@@ -11,7 +11,7 @@ describe("ItemIcon", () => {
     expect(circle).not.toBeNull();
     expect(circle).toHaveClass("rubric-icon-circle");
     const img = container.querySelector("img.item-icon");
-    expect(img).toHaveAttribute("src", "/icons/items/Bater%C3%ADa%20de%20Comparsa.png");
+    expect(img).toHaveAttribute("src", "/assets/evaluation/items/Bater%C3%ADa%20de%20Comparsa.png");
     expect(circle).toHaveAttribute("aria-hidden", "true");
   });
 

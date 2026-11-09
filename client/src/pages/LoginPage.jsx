@@ -283,7 +283,7 @@ export function LoginPage({ onAuthenticated }) {
       <div className="card login-card">
         <div className="login-brand-column">
           <h1 className="sr-only">Carnavales</h1>
-          <img className="login-emblem" src="/icons/logotipo.webp" alt="" width="2575" height="1148" />
+          <img className="login-emblem" src="/assets/branding/logotipo.webp" alt="" width="2575" height="1148" />
           <p className="login-brand-kicker">Portal de Jurados</p>
           <p className="login-brand-note">Sistema oficial de votación</p>
         </div>
