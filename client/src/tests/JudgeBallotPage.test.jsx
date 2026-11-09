@@ -306,11 +306,17 @@ describe("JudgeBallotPage", () => {
   });
 
   it("en readonly muestra resumen sin grilla de voto ni navegación (Fase 3)", async () => {
-    const submitted = { ...ballot, status: "SUBMITTED" };
+    const submitted = {
+      ...ballot,
+      status: "SUBMITTED",
+      scores: ballot.scores.map((score) => ({ ...score, evaluationState: "SCORED", score: 7 })),
+    };
     apiRequest.mockResolvedValue(submitted);
     render(<JudgeBallotPage ballotId="ballot-1" />);
 
-    await screen.findByRole("heading", { name: /Comparsa Uno/, level: 1 });
+    await screen.findByRole("heading", { name: "Resumen de la planilla", level: 1 });
+    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuenow", "2");
+    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuemax", "2");
     expect(screen.getByRole("region", { name: "Planilla confirmada" })).toBeInTheDocument();
 
     // Resumen de lectura con los ítems y sus valores
@@ -449,6 +455,30 @@ describe("JudgeBallotPage", () => {
     expect(group.getAttribute("aria-current")).toBe("true");
     // Header muestra la comparsa seleccionada, no la primera
     expect(screen.getByRole("heading", { name: "Comparsa Dos", level: 1 })).toBeInTheDocument();
+  });
+
+  it("sincroniza encabezado y progreso con la comparsa elegida en el resumen confirmado", async () => {
+    const submitted = {
+      ...ballot,
+      status: "SUBMITTED",
+      scores: ballot.scores.map((score) => ({ ...score, evaluationState: "SCORED", score: 7 })),
+    };
+    apiRequest.mockResolvedValue(submitted);
+    render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
+
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Ir a Comparsa Dos" }));
+
+    expect(screen.getByRole("heading", { name: "Comparsa Dos", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuemax", "1");
+    expect(document.getElementById("readonly-group-schedule-2")).toHaveAttribute("aria-current", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver resumen de todas las comparsas" }));
+    expect(screen.getByRole("heading", { name: "Resumen de la planilla", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuenow", "2");
+    expect(screen.getByRole("progressbar", { name: "Avance de la planilla" })).toHaveAttribute("aria-valuemax", "2");
+    expect(document.getElementById("readonly-group-schedule-2")).not.toHaveAttribute("aria-current", "true");
   });
 
   it("redirige al login con aviso de sesión expirada si la sesión venció a mitad de votación", async () => {
