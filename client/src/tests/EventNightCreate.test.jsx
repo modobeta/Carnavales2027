@@ -72,10 +72,14 @@ describe("alta de jornada como ADMIN", () => {
 });
 
 describe("alta de jornada: límites de estado", () => {
-  it("bloquea la alta cuando la competencia está abierta", () => {
-    mockApi(async () => created);
+  it("permite agregar una jornada futura en borrador cuando el evento está abierto", async () => {
+    mockApi(async () => ({ ...created, name: "Noche futura" }));
     render(<EventConfigurationPage event={{ ...event, status: "OPEN" }} />);
-    expect(screen.queryByRole("button", { name: "+ Agregar jornada" })).not.toBeInTheDocument();
+    expect(screen.getByText(/jornadas futuras en borrador/i)).toBeInTheDocument();
+    submitNight("Noche futura");
+    fireEvent.click(within(await confirmDialog()).getByRole("button", { name: "Confirmar alta" }));
+    expect(await screen.findByText("Noche futura", { selector: "strong" })).toBeInTheDocument();
+    expect(postCalls()).toEqual([["/api/v1/events/e1/nights", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "Noche futura", displayOrder: 1, kind: "COMPETITION", eventDate: null }) })]]);
   });
 
   it("ADMIN puede gestionar una jornada durante la preparación", () => {

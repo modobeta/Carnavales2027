@@ -408,7 +408,7 @@ test("API troupe activity toggles preserve the scheduled row, position, and acti
   });
 });
 
-test("API automatic programming rejects invalid and locked creations without partial rows or audits, and does not backfill", {
+test("API automatic programming allows future draft nights but rejects locked troupe creation and does not backfill", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   context.after(async () => {
@@ -493,14 +493,24 @@ test("API automatic programming rejects invalid and locked creations without par
       });
       assert.equal(createTroupe.status, 409, `${key} troupe create`);
       assert.equal((await createTroupe.json()).code, "EVENT_LOCKED");
-      const createNight = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights`, {
-        method: "POST", headers,
-        body: JSON.stringify({ name: `Rejected night ${key}`, displayOrder: 2, kind: "COMPETITION" }),
-      });
-      assert.equal(createNight.status, 409, `${key} night create`);
-      assert.equal((await createNight.json()).code, "EVENT_LOCKED");
+      if (key === "closed") {
+        const createNight = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights`, {
+          method: "POST", headers,
+          body: JSON.stringify({ name: `Rejected night ${key}`, displayOrder: 2, kind: "COMPETITION" }),
+        });
+        assert.equal(createNight.status, 409, `${key} night create`);
+        assert.equal((await createNight.json()).code, "EVENT_LOCKED");
+      }
     }
-    assert.deepEqual((await snapshot()).map(({ rows }) => rows), before.map(({ rows }) => rows));
+    const futureNight = await fetch(`${baseUrl}/api/v1/events/${events.open.id}/nights`, {
+      method: "POST", headers,
+      body: JSON.stringify({ name: "Future draft", displayOrder: 1, kind: "COMPETITION" }),
+    });
+    assert.equal(futureNight.status, 201);
+    assert.equal((await futureNight.json()).status, "DRAFT");
+    const afterFutureNight = await snapshot();
+    assert.deepEqual(afterFutureNight[0].rows, before[0].rows, "no troupes are added by creating a night");
+    assert.deepEqual(afterFutureNight[1].rows, before[1].rows, "no schedule is backfilled into preexisting nights");
     assert.deepEqual(
       (await pool.query("SELECT id FROM night_troupe_schedule WHERE event_id=$1", [events.configuring.id])).rows,
       [],

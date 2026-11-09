@@ -152,12 +152,28 @@ export async function deleteEvent({ client = null, eventId, actorUserId = null }
   }
 }
 export async function createNight({ client = getPool(), eventId, name, displayOrder, kind, eventDate = null }) {
-  await requireConfiguringEvent({ client, eventId });
+  const id = requireText(eventId, "eventId");
+  const { rows: events } = await client.query(
+    "SELECT id, status, active FROM carnival_event WHERE id = $1",
+    [id],
+  );
+  if (!events[0]) throw new Error("EVENT_NOT_FOUND");
+  if (!events[0].active || !["CONFIGURING", "OPEN"].includes(events[0].status)) {
+    throw new Error("EVENT_LOCKED");
+  }
+  const { rows: releases } = await client.query(
+    "SELECT EXISTS (SELECT 1 FROM results_release WHERE event_id = $1) AS released",
+    [id],
+  );
+  if (releases[0].released) throw new Error("EVENT_LOCKED");
   const { rows } = await client.query(
     `INSERT INTO night (event_id, name, display_order, kind, event_date, voting_release_mode) VALUES ($1, $2, $3, $4, $5, 'MANUAL')
      RETURNING id, event_id AS "eventId", name, display_order AS "displayOrder", kind, status, event_date AS "eventDate"`,
-    [requireText(eventId, "eventId"), requireText(name, "name"), requirePositiveInteger(displayOrder, "displayOrder"), requireText(kind, "kind"), eventDate],
+    [id, requireText(name, "name"), requirePositiveInteger(displayOrder, "displayOrder"), requireText(kind, "kind"), eventDate],
   );
+  if (events[0].status === "OPEN") {
+    await client.query("SELECT set_config('app.allow_future_draft_night_schedule', 'true', true)");
+  }
   return rows[0];
 }
 const NIGHT_DELETE_BLOCKERS = [

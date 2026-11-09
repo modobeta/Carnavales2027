@@ -154,9 +154,15 @@ export async function addTroupeToSchedule({ client = null, eventId, nightId, tro
   if (!uuid.test(eventId) || !uuid.test(nightId) || !uuid.test(troupeId)) throw new TypeError("IDs invalidos.");
   const { rows: events } = await client.query("SELECT status FROM carnival_event WHERE id=$1 FOR UPDATE", [eventId]);
   if (!events[0]) throw new Error("EVENT_NOT_FOUND");
-  if (events[0].status !== "CONFIGURING") throw new Error("EVENT_LOCKED");
-  const { rows: nights } = await client.query("SELECT id FROM night WHERE id=$1 AND event_id=$2", [nightId, eventId]);
+  const { rows: nights } = await client.query("SELECT id, status FROM night WHERE id=$1 AND event_id=$2", [nightId, eventId]);
   if (!nights[0]) throw new Error("NIGHT_NOT_FOUND");
+  const { rows: [schedulePermission] } = await client.query(
+    "SELECT current_setting('app.allow_future_draft_night_schedule', true) AS enabled",
+  );
+  if (events[0].status !== "CONFIGURING"
+      && !(events[0].status === "OPEN" && nights[0].status === "DRAFT" && schedulePermission.enabled === "true")) {
+    throw new Error("EVENT_LOCKED");
+  }
   const { rows: troupes } = await client.query("SELECT id FROM event_troupe WHERE id=$1 AND event_id=$2 AND active", [troupeId, eventId]);
   if (!troupes[0]) throw new Error("TROUPE_NOT_FOUND");
   const { rows: existing } = await client.query(
@@ -204,13 +210,22 @@ export async function addActiveTroupesToNight({ client, eventId, nightId, actorU
       ORDER BY created_at, id`,
     [text(eventId, "eventId")],
   );
-  const scheduled = [];
-  for (const troupe of troupes) {
-    scheduled.push(await addTroupeToSchedule({
-      client, eventId, nightId, troupeId: troupe.id, actorUserId,
-    }));
+  const { rows: [schedulePermission] } = await client.query(
+    "SELECT current_setting('app.allow_future_draft_night_schedule', true) AS enabled",
+  );
+  try {
+    const scheduled = [];
+    for (const troupe of troupes) {
+      scheduled.push(await addTroupeToSchedule({
+        client, eventId, nightId, troupeId: troupe.id, actorUserId,
+      }));
+    }
+    return scheduled;
+  } finally {
+    if (schedulePermission.enabled === "true") {
+      await client.query("SELECT set_config('app.allow_future_draft_night_schedule', 'false', true)");
+    }
   }
-  return scheduled;
 }
 
 export async function removeScheduleEntry({ client = null, scheduleId, actorUserId = null }) {

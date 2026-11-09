@@ -56,6 +56,13 @@ describe("EventConfigurationPage", () => {
     expect(screen.getByText(/ya no puede modificarse/)).toBeInTheDocument();
   });
 
+  it("permite solo el alta de jornada futura en evento OPEN", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", name: "Carnaval 2027", status: "OPEN" }} />);
+    expect(screen.getByLabelText("Nombre del evento")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "+ Agregar jornada" })).toBeEnabled();
+    expect(screen.getByText(/jornadas futuras en borrador/i)).toBeInTheDocument();
+  });
+
   it("muestra el boton de Competencia", () => {
     const onCompetencia = vi.fn();
     render(<EventConfigurationPage event={{ id: "event-1", status: "CONFIGURING" }} onCompetencia={onCompetencia} />);
