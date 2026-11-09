@@ -294,8 +294,17 @@ test("readiness y apertura exponen contrato HTTP ADMIN", { skip: !process.env.TE
     const opened = await open(`/api/v1/events/${event.id}/open`);
     assert.equal(opened.status, 200);
     assert.equal((await opened.json()).status, "OPEN");
+    const futureNightResponse = await post(`/api/v1/events/${event.id}/nights`, { name: "Noche futura", displayOrder: 2, kind: "COMPETITION" });
+    assert.equal(futureNightResponse.status, 201);
+    const futureNight = await futureNightResponse.json();
+    assert.equal(futureNight.status, "DRAFT");
+    assert.equal(futureNight.name, "Noche futura");
+    const futureNightSchedule = await pool.query(
+      "SELECT event_troupe_id FROM night_troupe_schedule WHERE night_id=$1",
+      [futureNight.id],
+    );
+    assert.deepEqual(futureNightSchedule.rows, [{ event_troupe_id: troupe.id }]);
     const lockedWrites = [
-      post(`/api/v1/events/${event.id}/nights`, { name: "Noche bloqueada", displayOrder: 2, kind: "COMPETITION" }),
       post(`/api/v1/events/${event.id}/categories`, { name: "Categoría bloqueada", code: "BLOQUEADA", displayOrder: 2 }),
       post(`/api/v1/events/${event.id}/troupes`, { name: "Comparsa bloqueada", categoryId: category.id }),
       post(`/api/v1/events/${event.id}/specialties`, { name: "Especialidad bloqueada", code: "BLOQUEADA", displayOrder: 2 }),

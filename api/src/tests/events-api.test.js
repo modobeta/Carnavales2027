@@ -29,7 +29,7 @@ async function withServer(app, run) {
   }
 }
 
-test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
+test("la API ADMIN gestiona eventos y permite agregar jornadas futuras en eventos OPEN", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   context.after(async () => {
@@ -365,6 +365,27 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
         replayed: false,
       },
     });
+    const futureNightResponse = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-session": "admin" },
+      body: JSON.stringify({ name: "Noche futura", displayOrder: 2, kind: "COMPETITION" }),
+    });
+    const futureNight = await futureNightResponse.json();
+    assert.equal(futureNightResponse.status, 201, JSON.stringify(futureNight));
+    assert.deepEqual(futureNight, {
+      id: futureNight.id,
+      eventId: event.id,
+      name: "Noche futura",
+      displayOrder: 2,
+      kind: "COMPETITION",
+      status: "DRAFT",
+      eventDate: null,
+    });
+    const scheduledTroupes = await pool.query(
+      `SELECT count(*)::int AS count FROM night_troupe_schedule WHERE event_id=$1 AND night_id=$2`,
+      [event.id, futureNight.id],
+    );
+    assert.ok(scheduledTroupes.rows[0].count > 0, "la nueva jornada debe heredar las comparsas activas");
     const openedState = await pool.query("SELECT id,status,active FROM carnival_event WHERE id=$1", [event.id]);
     assert.deepEqual(openedState.rows, [{ id: event.id, status: "OPEN", active: true }]);
     const operationStatus = await fetch(`${baseUrl}/api/v1/events/${event.id}/open-operations/${opened.operation.operationId}`, {
@@ -397,6 +418,13 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
       resultsReleased: false,
     });
     await pool.query("INSERT INTO results_release (event_id, released_by) VALUES ($1, $2)", [event.id, adminId]);
+    const releasedNightResponse = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-session": "admin" },
+      body: JSON.stringify({ name: "Jornada posterior a publicación", displayOrder: 3, kind: "COMPETITION" }),
+    });
+    assert.equal(releasedNightResponse.status, 409);
+    assert.deepEqual(await releasedNightResponse.json(), { code: "EVENT_LOCKED" });
     await assert.rejects(
       () => pool.query("UPDATE carnival_event SET name = 'Cambio directo no permitido' WHERE id = $1", [event.id]),
       /EVENT_LOCKED/,
@@ -765,7 +793,7 @@ test("PATCH evento requiere ADMIN global para todos los cambios", {
   });
 });
 
-test("POST jornadas requiere ADMIN global y permite operar en cualquier evento configurable", {
+test("POST jornadas requiere ADMIN global y permite alta futura en evento OPEN", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -855,7 +883,6 @@ test("POST jornadas requiere ADMIN global y permite operar en cualquier evento c
       [ids.target, "judge", 403, { code: "ADMIN_REQUIRED" }],
       [ids.inactiveEvent, "assigned", 403, { code: "ADMIN_REQUIRED" }],
       [ids.openEvent, "assigned", 403, { code: "ADMIN_REQUIRED" }],
-      [ids.openEvent, "admin", 409, { code: "EVENT_LOCKED" }],
       [ids.inactiveEvent, "admin", 409, { code: "EVENT_LOCKED" }],
       [randomUUID(), "admin", 404, { code: "EVENT_NOT_FOUND" }],
       ["not-a-uuid", "admin", 400, { code: "VALIDATION_ERROR" }],
