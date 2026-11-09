@@ -42,7 +42,7 @@ describe("AdminVotingPage NIGHT_SCHEDULE_EMPTY", () => {
     expect(screen.queryByRole("heading", { name: "Jurados de esta jornada" })).not.toBeInTheDocument();
 
     fireEvent.click(getByRole("button", { name: "Abrir votación" }));
-    fireEvent.click(getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Abrir votación" })[1]);
 
 
 

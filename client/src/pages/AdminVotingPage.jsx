@@ -167,6 +167,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
   const confirmAction = async () => {
     const kind = confirmation;
     setConfirmation(null);
+    if (!kind) return;
     if (kind === "open") {
       if (nightStatus === "DRAFT") {
         const ok = await action("night", async () => {
@@ -200,6 +201,68 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
     }
   };
   const runwayTroupes = [...(status?.troupes ?? [])].sort((a, b) => a.presentationOrder - b.presentationOrder);
+  const releaseMode = status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL";
+  const allTroupesCompleted = runwayTroupes.length > 0
+    && runwayTroupes.every((troupe) => troupe.status === "COMPLETED");
+  const releaseScheduleId = confirmation?.startsWith("release:")
+    ? confirmation.slice("release:".length)
+    : null;
+  const confirmationTroupe = runwayTroupes.find((troupe) => troupe.scheduleId === releaseScheduleId);
+  const confirmationConfig = (() => {
+    if (confirmation === "open") {
+      return {
+        tone: "violet",
+        title: nightStatus === "DRAFT"
+          ? "Confirmar apertura de jornada y votación"
+          : "Confirmar apertura de votación",
+        description: `Jornada: ${selectedNight?.name ?? ""}. ${nightStatus === "DRAFT"
+          ? "Se abrirá la jornada y se habilitarán las planillas de los jurados asignados."
+          : "Se habilitarán las planillas de los jurados asignados."}`,
+        confirmLabel: "Abrir votación",
+      };
+    }
+    if (confirmation === "close") {
+      return {
+        tone: "danger",
+        title: "Confirmar cierre de votación",
+        description: `Jornada: ${selectedNight?.name ?? ""}. El cierre es definitivo y requiere planillas completas.`,
+        confirmLabel: "Cerrar votación",
+      };
+    }
+    if (confirmation?.startsWith("mode:")) {
+      const nextMode = confirmation.slice("mode:".length);
+      return {
+        tone: "warning",
+        title: "Confirmar modo de habilitación",
+        description: nextMode === "MANUAL"
+          ? "Las comparsas se habilitarán de a una y en orden de pasada. La siguiente requerirá que todas las planillas de la actual estén completas."
+          : "Todas las comparsas quedarán habilitadas al abrir la votación y la mesa elegirá cuál está en pista.",
+        confirmLabel: "Guardar modo",
+      };
+    }
+    if (confirmation?.startsWith("release:")) {
+      const troupeName = confirmationTroupe?.troupeName ?? "la comparsa seleccionada";
+      return releaseMode === "MANUAL"
+        ? {
+          tone: "success",
+          title: "Confirmar habilitación de comparsa",
+          description: `Se habilitará ${troupeName} para que los jurados puedan evaluarla. No podrás habilitar la siguiente hasta que todas sus planillas estén completas.`,
+          confirmLabel: "Habilitar comparsa",
+        }
+        : {
+          tone: "success",
+          title: "Confirmar comparsa en pista",
+          description: `${troupeName} quedará seleccionada como la comparsa activa para la evaluación.`,
+          confirmLabel: "Poner en pista",
+        };
+    }
+    return {
+      tone: "warning",
+      title: "Confirmar operación",
+      description: "Revisá la acción antes de continuar.",
+      confirmLabel: "Confirmar",
+    };
+  })();
   const reorderView = reorderIds ?? runwayTroupes.map((troupe) => troupe.scheduleId);
   const frozenThrough = runwayTroupes.reduce(
     (lastStarted, troupe, index) => Number(troupe.resolvedScores) > 0
@@ -342,10 +405,19 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
                 />
               </div>
             </div>
-          ) : (
+          ) : allTroupesCompleted ? (
             <div className="runway-all-completed-card">
               <span className="status-pill status-pill-submitted">DESFILE FINALIZADO</span>
               <p>Todas las comparsas de la noche han completado su pasada y cuentan con votos resueltos.</p>
+            </div>
+          ) : (
+            <div className="runway-all-completed-card">
+              <span className="status-pill status-pill-pending">SIN COMPARSA EN PISTA</span>
+              <p>{votingStatus !== "OPEN"
+                ? "Las pasadas comenzarán cuando abras la votación."
+                : releaseMode === "MANUAL"
+                  ? "Habilitá la próxima comparsa para que los jurados puedan evaluarla."
+                  : "Seleccioná la comparsa que está en pista para comenzar la evaluación."}</p>
             </div>
           )}
 
@@ -362,9 +434,9 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
                 >
                   {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "MANUAL" && !troupe.released
                     && troupe.scheduleId === runwayTroupes.find((entry) => !entry.released)?.scheduleId && <button type="button"
-                    disabled={Boolean(busy)}
+                    disabled={Boolean(busy) || Boolean(status.activeTroupe)}
                     onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
-                    Habilitar para votar
+                    {status.activeTroupe ? "Esperando planillas" : "Habilitar para votar"}
                   </button>}
                   {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "ALL" && troupe.released && <button type="button"
                     disabled={Boolean(busy) || isCurrent}
@@ -439,12 +511,10 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
     <ConfirmDialog
       isOpen={confirmation !== null}
       onClose={() => setConfirmation(null)}
-      tone={confirmation === "open" ? "violet" : "danger"}
-      title={confirmation === "open"
-        ? nightStatus === "DRAFT" ? "Confirmar apertura de jornada y votación" : "Confirmar apertura de votación"
-        : "Confirmar cierre de votación"}
-      description={`Jornada: ${selectedNight?.name ?? ""}. ${confirmation === "open" ? (nightStatus === "DRAFT" ? "Se abrirá la jornada y se habilitarán las planillas de los jurados asignados." : "Se habilitarán las planillas de los jurados asignados.") : "El cierre es definitivo y requiere planillas completas."}`}
-      confirmLabel="Confirmar"
+      tone={confirmationConfig.tone}
+      title={confirmationConfig.title}
+      description={confirmationConfig.description}
+      confirmLabel={confirmationConfig.confirmLabel}
       focusReturnRef={actionButtonRef}
       confirming={Boolean(busy)}
       onConfirm={() => void confirmAction()}

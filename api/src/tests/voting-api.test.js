@@ -89,8 +89,8 @@ test("API votación: ciclo completo de planilla", {
     "INSERT INTO event_troupe(event_id, category_id, name) VALUES($1,$2,$3) RETURNING id",
     [event.id, category.id, "Comparsa 2"],
   );
-  await pool.query(
-    "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order, status) VALUES($1,$2,$3,$4,$5)",
+  const { rows: [secondSchedule] } = await pool.query(
+    "INSERT INTO night_troupe_schedule(event_id, night_id, event_troupe_id, presentation_order, status) VALUES($1,$2,$3,$4,$5) RETURNING id",
     [event.id, night.id, secondTroupe.id, 2, "SCHEDULED"],
   );
   await pool.query(
@@ -205,7 +205,14 @@ test("API votación: ciclo completo de planilla", {
     const unauth = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/open`, { method: "POST" });
     assert.equal(unauth.status, 401);
 
-    // 2. Open voting → 201
+    // 2. Configure the UI-created default: one troupe at a time.
+    const manualMode = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/release-mode`, {
+      method: "PATCH", headers: adminHeaders, body: JSON.stringify({ releaseMode: "MANUAL" }),
+    });
+    assert.equal(manualMode.status, 200);
+    assert.equal((await manualMode.json()).releaseMode, "MANUAL");
+
+    // 3. Open voting → 201
     const openRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/open`, {
       method: "POST", headers: adminHeaders,
     });
@@ -213,7 +220,7 @@ test("API votación: ciclo completo de planilla", {
     const openData = await openRes.json();
     assert.equal(openData.ballotsCreated, 1);
 
-    // 3. Get voting status → 200
+    // 4. Manual mode starts without a troupe in the runway.
     const statusRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/status`, { headers: adminHeaders });
     assert.equal(statusRes.status, 200);
     const statusData = await statusRes.json();
@@ -221,15 +228,17 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(statusData.total, 1);
     assert.equal(Array.isArray(statusData.troupes), true);
     assert.equal(statusData.troupes.length, 2);
+    assert.equal(statusData.releaseMode, "MANUAL");
     assert.equal(statusData.troupes[0].presentationOrder, 1);
     assert.equal(statusData.troupes[0].troupeName, "Comparsa 1");
-    assert.equal(statusData.troupes[0].status, "IN_RUNWAY");
+    assert.equal(statusData.troupes[0].released, false);
+    assert.equal(statusData.troupes[0].status, "WAITING");
     assert.equal(statusData.troupes[1].presentationOrder, 2);
     assert.equal(statusData.troupes[1].troupeName, "Comparsa 2");
     assert.equal(statusData.troupes[1].status, "WAITING");
-    assert.equal(statusData.activeTroupe?.presentationOrder, 1);
+    assert.equal(statusData.activeTroupe, null);
 
-    // 4. List night ballots → 200
+    // 5. List night ballots → 200
     const listRes = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/ballots`, { headers: adminHeaders });
     assert.equal(listRes.status, 200);
     const listData = await listRes.json();
@@ -245,7 +254,7 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(otherBallotsRes.status, 200);
     assert.deepEqual(await otherBallotsRes.json(), []);
 
-    // 5. Judge gets ballot → 200
+    // 6. Judge gets ballot → 200
     const ballotRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}`, { headers: judgeHeaders });
     const ballotBody = await ballotRes.json();
     assert.equal(ballotRes.status, 200, JSON.stringify(ballotBody));
@@ -259,7 +268,39 @@ test("API votación: ciclo completo de planilla", {
     assert.ok(Object.prototype.hasOwnProperty.call(firstScore, "rubricIcon"));
     assert.ok(Object.prototype.hasOwnProperty.call(firstScore, "itemIcon"));
 
-    // 6. A different judge cannot edit the ballot.
+    const blockedBeforeRelease = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${firstScore.id}`, {
+      method: "PUT", headers: judgeHeaders,
+      body: JSON.stringify({ evaluationState: "SCORED", score: 7 }),
+    });
+    assert.equal(blockedBeforeRelease.status, 409);
+    assert.equal((await blockedBeforeRelease.json()).code, "TROUPE_NOT_RELEASED");
+
+    const outOfOrderRelease = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/release`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ scheduleId: secondSchedule.id }),
+    });
+    assert.equal(outOfOrderRelease.status, 409);
+    assert.equal((await outOfOrderRelease.json()).code, "TROUPE_RELEASE_ORDER_REQUIRED");
+
+    const firstRelease = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/release`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ scheduleId: schedule.id }),
+    });
+    assert.equal(firstRelease.status, 200);
+    assert.deepEqual(await firstRelease.json(), { scheduleId: schedule.id, releaseOrder: 1, activeScheduleId: schedule.id });
+
+    const releasedStatus = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/status`, { headers: adminHeaders });
+    assert.equal(releasedStatus.status, 200);
+    const releasedStatusData = await releasedStatus.json();
+    assert.equal(releasedStatusData.activeScheduleId, schedule.id);
+    assert.equal(releasedStatusData.activeTroupe?.scheduleId, schedule.id);
+    assert.equal(releasedStatusData.activeTroupe?.status, "IN_RUNWAY");
+
+    const blockedNextRelease = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/release`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ scheduleId: secondSchedule.id }),
+    });
+    assert.equal(blockedNextRelease.status, 409);
+    assert.equal((await blockedNextRelease.json()).code, "ACTIVE_TROUPE_BALLOTS_INCOMPLETE");
+
+    // 7. A different judge cannot edit the ballot.
     const forbiddenSave = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${firstScore.id}`, {
       method: "PUT", headers: otherJudgeHeaders,
       body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
@@ -267,7 +308,7 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(forbiddenSave.status, 409, JSON.stringify(await forbiddenSave.clone().json()));
     assert.equal((await forbiddenSave.json()).code, "BALLOT_ACCESS_DENIED");
 
-    // 7. Offline sync applies once, detects identifier reuse and rejects stale revisions.
+    // 8. Offline sync applies once, detects identifier reuse and rejects stale revisions.
     assert.equal(ballotData.revision, 0);
     const offlineOperationId = randomUUID();
     const syncPayload = {
@@ -313,7 +354,20 @@ test("API votación: ciclo completo de planilla", {
     assert.equal(staleBody.details.ballot.id, ballotId);
     assert.equal(staleBody.details.ballot.revision, 1);
 
-    // 8. Submit rejects unresolved items with their stable error code.
+    const secondRelease = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/release`, {
+      method: "POST", headers: adminHeaders, body: JSON.stringify({ scheduleId: secondSchedule.id }),
+    });
+    assert.equal(secondRelease.status, 200);
+    assert.deepEqual(await secondRelease.json(), { scheduleId: secondSchedule.id, releaseOrder: 2, activeScheduleId: secondSchedule.id });
+
+    const secondReleasedStatus = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/status`, { headers: adminHeaders });
+    assert.equal(secondReleasedStatus.status, 200);
+    const secondReleasedStatusData = await secondReleasedStatus.json();
+    assert.equal(secondReleasedStatusData.activeTroupe?.scheduleId, secondSchedule.id);
+    assert.equal(secondReleasedStatusData.troupes[0].status, "COMPLETED");
+    assert.equal(secondReleasedStatusData.troupes[1].status, "IN_RUNWAY");
+
+    // 9. Submit rejects unresolved items with their stable error code.
     const incompleteSubmit = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/submit`, {
       method: "POST", headers: judgeHeaders,
     });
