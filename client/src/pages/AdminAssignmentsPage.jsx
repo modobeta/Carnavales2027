@@ -7,6 +7,8 @@ import { StatusPill } from "../components/StatusPill.jsx";
 import { apiRequest } from "../api/http.js";
 import { JudgeAssignmentDialog } from "../features/JudgeAssignmentDialog.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { uxErrorHint } from "../components/admin-ux-labels.js";
+import { AssignmentReasonField, assignmentReasonFromForm } from "../features/AssignmentReasonField.jsx";
 
 const typeLabels = { PRIMARY: "Titular", SUBSTITUTE: "Suplente" };
 
@@ -110,7 +112,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
         PRIMARY_BALLOT_SUBMITTED: "El titular ya presentó su planilla; no se puede revocar ni reemplazar esta asignación.",
         STANDBY_NOT_FOUND: "Esta asignación no tiene un suplente activo vinculado.",
       };
-      setMessage(messages[error.code] ?? "No se pudo completar la operación.");
+      setMessage(uxErrorHint(error.code, messages[error.code] ?? "No se pudo completar la operación. Revisá el estado de la jornada y el cupo antes de reintentar."));
     } finally {
       setBusy("");
     }
@@ -181,7 +183,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
     if (!actionTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const { assignment, action: actionName } = actionTarget;
-    const reason = values.get("reason");
+    const reason = assignmentReasonFromForm(values);
     closeDialogs();
     if (actionName === "revoke") {
       await action(`revoke-${assignment.id}`, () => apiRequest(`/api/v1/judge-assignments/${assignment.id}/revoke`, {
@@ -384,10 +386,9 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
               </select>
             </>
           )}
-          <label htmlFor="action-reason">
-            {actionTarget?.action === "revoke" ? "Motivo de revocación" : actionTarget?.action === "replace" ? "Motivo" : "Motivo de activación"}
-          </label>
-          <input id="action-reason" name="reason" required />
+          <AssignmentReasonField
+            label={actionTarget?.action === "revoke" ? "Motivo de revocación" : actionTarget?.action === "activate" ? "Motivo de activación" : "Motivo del reemplazo"}
+          />
           <p>⚠ Esta acción quedará registrada.</p>
           <DialogFooter>
             <button type="button" className="secondary" onClick={closeDialogs}>Cancelar</button>

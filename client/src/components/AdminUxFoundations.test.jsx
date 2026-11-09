@@ -17,6 +17,9 @@ describe("Spec 027/A1 — fundaciones admin", () => {
     expect(uxFieldLabel("displayOrder")).toBe("Orden de visualización");
     expect(uxFieldLabel("standbyForAssignmentId")).toBe("Suplente de");
     expect(uxErrorHint("RESOURCE_CONFLICT")).toMatch(/ya está en uso/);
+    expect(uxErrorHint("JUDGE_QUOTA_REQUIRED")).toMatch(/configurá el cupo y volvé a intentar/i);
+    expect(uxErrorHint("JUDGE_ASSIGNMENT_NIGHT_OPEN")).toMatch(/no admite altas nuevas/);
+    expect(uxErrorHint("PRIMARY_BALLOT_SUBMITTED")).toMatch(/conservá la asignación y su evidencia/i);
   });
 
   it("ConfirmDialog confirma y cancela sin window.confirm", () => {
