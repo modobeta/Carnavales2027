@@ -19,6 +19,7 @@ Los archivos servidos directamente por Vite se organizan por responsabilidad baj
 - `decorations/`: texturas e imágenes ornamentales sin significado funcional;
 - `evaluation/items/`: catálogo visual de ítems evaluables;
 - `evaluation/rubrics/`: catálogo visual de rubros.
+- `troupes/`: logos institucionales de las comparsas, con nombres de archivo normalizados para uso en URLs.
 
 No agregar imágenes en la raíz de `client/` ni recrear carpetas paralelas. Antes de sumar un archivo, comprobar por contenido que no exista ya y actualizar las pruebas que validan su URL pública.
 

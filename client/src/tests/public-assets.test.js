@@ -17,6 +17,22 @@ function imageFiles(directory) {
 }
 
 describe("organización de recursos gráficos públicos", () => {
+  it("conserva el catálogo normalizado de logos de comparsas", () => {
+    const troupeLogos = readdirSync(join(assetRoot, "troupes"), { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .sort();
+
+    expect(troupeLogos).toEqual([
+      "arami.png",
+      "aymara.png",
+      "itavera.png",
+      "oh-bahia.png",
+      "poramba.png",
+      "tropical.png",
+    ]);
+  });
+
   it("no deja imágenes sueltas en la raíz del cliente ni fuera de public/assets", () => {
     const looseClientImages = readdirSync(clientRoot, { withFileTypes: true })
       .filter((entry) => entry.isFile() && imageExtensions.has(extname(entry.name).toLowerCase()))
