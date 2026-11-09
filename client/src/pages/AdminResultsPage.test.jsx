@@ -99,7 +99,7 @@ describe("AdminResultsPage", () => {
       return Promise.reject(new Error(`request inesperado: ${path}`));
     });
     const { getByRole } = render(<AdminResultsPage />);
-    const button = await waitFor(() => getByRole("button", { name: "Liberar resultados" }));
+    const button = await waitFor(() => getByRole("button", { name: "Publicar resultados" }));
     fireEvent.click(button);
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
       "/api/v1/events/event-1/results/release", { method: "POST" },
@@ -118,7 +118,7 @@ describe("AdminResultsPage", () => {
       return Promise.reject(new Error(`request inesperado: ${path}`));
     });
     const { getByRole } = render(<AdminResultsPage />);
-    fireEvent.click(await waitFor(() => getByRole("button", { name: "Liberar resultados" })));
+    fireEvent.click(await waitFor(() => getByRole("button", { name: "Publicar resultados" })));
     await waitFor(() => expect(updateEvent).toHaveBeenCalledWith({ id: "event-1", resultsReleased: true }));
   });
 
@@ -132,8 +132,8 @@ describe("AdminResultsPage", () => {
       return Promise.reject(new Error(`request inesperado: ${path}`));
     });
     const { getByRole, queryByRole } = render(<AdminResultsPage />);
-    await waitFor(() => expect(getByRole("note")).toHaveTextContent(/corresponde exclusivamente a Escrutinio o Escribanía/i));
-    expect(queryByRole("button", { name: "Liberar resultados" })).not.toBeInTheDocument();
+    await waitFor(() => expect(getByRole("note")).toHaveTextContent(/cuenta habilitada de Escrutinio o Escribanía/i));
+    expect(queryByRole("button", { name: "Publicar resultados" })).not.toBeInTheDocument();
   });
 
   it("muestra las tres columnas de puntaje bruto, penalizaciones y neto en el ranking general", async () => {
@@ -223,7 +223,7 @@ describe("AdminResultsPage", () => {
     expect(netCell).toHaveAttribute("data-label", "Puntaje final neto");
   });
 
-  it("aplica data-layer='instrument' y muestra el panel de condiciones previas cuando los resultados no están liberados (RF-200, RF-204)", async () => {
+  it("muestra requisitos en lenguaje cotidiano y evita códigos internos cuando los resultados no están publicados", async () => {
     const notReleased = Object.assign(new Error("RESULTS_NOT_RELEASED"), { code: "RESULTS_NOT_RELEASED" });
     apiRequestMock.mockImplementation((path) => {
       if (path === "/api/v1/results/events") return Promise.resolve([event]);
@@ -234,13 +234,31 @@ describe("AdminResultsPage", () => {
 
     const { container, getByRole, getByText } = render(<AdminResultsPage />);
 
-    await waitFor(() => expect(getByRole("heading", { name: "Condiciones previas para liberar resultados (RF-94a)" })).toBeVisible());
+    await waitFor(() => expect(getByRole("heading", { name: "Antes de publicar" })).toBeVisible());
     const main = container.querySelector("main");
     expect(main).toHaveAttribute("data-layer", "instrument");
-    expect(getByText(/Votación de todas las jornadas cerrada por el Administrador/)).toBeVisible();
-    expect(getByText(/Todas las planillas en estado Confirmada/)).toBeVisible();
-    expect(getByText(/Cero ítems pendientes de calificación/)).toBeVisible();
-    expect(getByText(/Rol autorizado: Escrutinio/)).toBeVisible();
+    expect(getByText(/La votación de todas las jornadas debe estar cerrada/)).toBeVisible();
+    expect(getByText(/Todas las planillas deben estar completas/)).toBeVisible();
+    expect(getByText(/No debe quedar ninguna calificación pendiente/)).toBeVisible();
+    expect(container.textContent).not.toMatch(/RF-94a|SUBMITTED|REPLACED|SCRUTINEER|2FA/);
+    expect(getByRole("button", { name: "Publicar resultados" })).toBeVisible();
+  });
+
+  it("reemplaza el estado de publicaciÃ³n pendiente por un aviso claro si la API aÃºn no permite publicar", async () => {
+    const notReleased = Object.assign(new Error("RESULTS_NOT_RELEASED"), { code: "RESULTS_NOT_RELEASED" });
+    const notReady = Object.assign(new Error("RESULTS_NOT_READY"), { code: "RESULTS_NOT_READY" });
+    apiRequestMock.mockImplementation((path, options) => {
+      if (path === "/api/v1/results/events") return Promise.resolve([event]);
+      if (path === "/api/v1/results/events/event-1/troupes") return Promise.resolve([]);
+      if (path === "/api/v1/events/event-1/results") return Promise.reject(notReleased);
+      if (path === "/api/v1/events/event-1/results/release" && options?.method === "POST") return Promise.reject(notReady);
+      return Promise.reject(new Error(`request inesperado: ${path}`));
+    });
+    const { getByRole, getByText, queryByText } = render(<AdminResultsPage />);
+    fireEvent.click(await waitFor(() => getByRole("button", { name: "Publicar resultados" })));
+    await waitFor(() => expect(getByText(/El servidor todavía no permite publicar/)).toBeVisible());
+    expect(queryByText("La publicación todavía no se confirmó. Revisá los requisitos antes de continuar.")).not.toBeInTheDocument();
+    expect(getByRole("heading", { name: "Falta completar la votación" })).toBeVisible();
   });
 });
 
