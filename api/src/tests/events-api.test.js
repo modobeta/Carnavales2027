@@ -149,7 +149,9 @@ test("la API ADMIN gestiona eventos y permite agregar jornadas futuras en evento
       headers: { "x-test-session": "admin" },
     });
     assert.equal(listNights.status, 200);
-    assert.equal((await listNights.json()).length, 1);
+    const listedNights = await listNights.json();
+    assert.equal(listedNights.length, 1);
+    assert.equal(listedNights[0].votingReleaseMode, "ALL");
 
     const updateEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}`, {
       method: "PATCH",
@@ -380,6 +382,7 @@ test("la API ADMIN gestiona eventos y permite agregar jornadas futuras en evento
       kind: "COMPETITION",
       status: "DRAFT",
       eventDate: null,
+      votingReleaseMode: "ALL",
     });
     const scheduledTroupes = await pool.query(
       `SELECT count(*)::int AS count FROM night_troupe_schedule WHERE event_id=$1 AND night_id=$2`,
@@ -862,9 +865,10 @@ test("POST jornadas requiere ADMIN global y permite alta futura en evento OPEN",
       kind: "COMPETITION",
       status: createdNight.status,
       eventDate: null,
+      votingReleaseMode: "ALL",
     });
     assert.deepEqual(
-      (await pool.query("SELECT id, event_id AS \"eventId\", name, display_order AS \"displayOrder\", kind, status, event_date AS \"eventDate\" FROM night WHERE id=$1", [createdNight.id])).rows,
+      (await pool.query("SELECT id, event_id AS \"eventId\", name, display_order AS \"displayOrder\", kind, status, event_date AS \"eventDate\", voting_release_mode AS \"votingReleaseMode\" FROM night WHERE id=$1", [createdNight.id])).rows,
       [createdNight],
     );
     assert.deepEqual(
