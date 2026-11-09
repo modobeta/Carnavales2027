@@ -29,6 +29,8 @@ function summarizeTroupes(ballot, scores) {
       total: 0,
       resolved: 0,
       presentationOrder: score.presentationOrder ?? 0,
+      releaseOrder: score.releaseOrder ?? null,
+      releaseMode: ballot.releaseMode ?? "ALL",
     };
     result[id].total += 1;
     if (score.evaluationState !== "PENDING") result[id].resolved += 1;
@@ -37,25 +39,7 @@ function summarizeTroupes(ballot, scores) {
   return Object.values(groups).sort((left, right) => left.presentationOrder - right.presentationOrder);
 }
 
-export function isTroupeLockedInSequence(troupeIndex, troupesList) {
-  const current = troupesList[troupeIndex];
-  if (!current || current.status === "SUBMITTED") {
-    return false;
-  }
-
-  for (let j = 0; j < troupeIndex; j++) {
-    const prior = troupesList[j];
-    const sameNight = (current.nightName && prior.nightName)
-      ? current.nightName === prior.nightName
-      : current.ballotId === prior.ballotId;
-
-    if (sameNight) {
-      const isPriorComplete = prior.status === "SUBMITTED" || (prior.total > 0 && prior.resolved >= prior.total);
-      if (!isPriorComplete) {
-        return true;
-      }
-    }
-  }
+export function isTroupeLockedInSequence() {
   return false;
 }
 
@@ -84,6 +68,7 @@ export function JudgeHomePage({ session }) {
             ...ballot,
             total: ballot.totalScores ?? 0,
             resolved: ballot.resolvedScores ?? 0,
+            releaseMode: ballot.releaseMode ?? "ALL",
             troupes: (ballot.troupes || []).map((t) => ({
               ballotId: ballot.id,
               troupeId: t.troupeId ?? `ballot-${ballot.id}`,
@@ -102,6 +87,8 @@ export function JudgeHomePage({ session }) {
               total: t.total ?? 0,
               resolved: t.resolved ?? 0,
               presentationOrder: t.presentationOrder ?? 0,
+              releaseOrder: t.releaseOrder ?? null,
+              releaseMode: ballot.releaseMode ?? "ALL",
             })),
           }));
           if (current) setBallots(processed);
@@ -153,10 +140,7 @@ export function JudgeHomePage({ session }) {
 
   // Partición puramente visual (TAREA 1): reutiliza getState + bloqueo
   // secuencial existentes. No es regla de negocio nueva.
-  const entries = troupes.map((troupe, index) => {
-    const locked = isTroupeLockedInSequence(index, troupes);
-    return { troupe, index, locked, state: getState(troupe, locked) };
-  });
+  const entries = troupes.map((troupe, index) => ({ troupe, index, locked: false, state: getState(troupe, false) }));
   const isActionable = (entry) => !entry.locked && entry.troupe.status !== "SUBMITTED";
   const actionable = entries.filter(isActionable);
   // "Ahora" = primera comparsa con pendientes (la que se está votando actualmente),
@@ -164,11 +148,11 @@ export function JudgeHomePage({ session }) {
   // no hay comparsa actual: corresponde revisar/confirmar la planilla.
   const currentEntry = actionable.find((entry) => entry.troupe.resolved < entry.troupe.total)
     ?? null;
-  const allActionableResolved = actionable.length > 0
-    && actionable.every((entry) => entry.troupe.resolved >= entry.troupe.total);
+  const allActionableResolved = entries.length > 0
+    && entries.every((entry) => entry.troupe.status === "SUBMITTED"
+      || (entry.troupe.total > 0 && entry.troupe.resolved >= entry.troupe.total));
   const evaluatedEntries = entries.filter((entry) => entry.troupe.status === "SUBMITTED");
   const upcomingEntries = entries.filter((entry) => entry.troupe.status !== "SUBMITTED" && entry !== currentEntry);
-  const hasLockedUpcoming = upcomingEntries.some((entry) => entry.locked);
 
   const currentRemaining = currentEntry ? currentEntry.troupe.total - currentEntry.troupe.resolved : 0;
   const currentCta = currentEntry && currentEntry.troupe.resolved === 0
@@ -269,18 +253,19 @@ export function JudgeHomePage({ session }) {
                   </div>
                   {currentRemaining > 1 && <p className="judge-now-remaining">Faltan {currentRemaining} puntuaciones</p>}
                   {currentRemaining === 1 && <p className="judge-now-remaining">Falta 1 puntuación</p>}
-                  {currentRemaining === 0 && <p className="judge-now-remaining">Todos los ítems puntuados. Revisá y confirmá la planilla.</p>}
+                  {currentRemaining === 0 && <p className="judge-now-remaining">Todos los ítems puntuados. Podés seguir con otra comparsa o cerrar cuando la planilla esté completa.</p>}
                   <a className="button-link judge-now-cta" href={ballotHref(currentEntry.troupe)}>
                     {currentCta}
                   </a>
                 </article>
               </section>
             )}
-            {allActionableResolved && (
-              <section aria-label="Lista para confirmar" className="judge-review-ready">
-                <strong>Todas las comparsas puntuadas</strong>
-                <p>Revisá y confirmá la planilla para el cierre definitivo.</p>
-                <a className="button-link judge-now-cta" href={`${ballotHref(actionable[0].troupe)}&review=1`}>Revisar planilla →</a>
+            {allActionableResolved && !completed && actionable.length > 0 && (
+                <section aria-label="Planilla lista para cerrar" className="judge-review-ready">
+                <strong>Planilla lista para cerrar</strong>
+                <p>Ya podés confirmar el cierre. El resumen de puntuaciones aparece antes de confirmar; revisarlo por separado es opcional.</p>
+                <a className="button-link judge-now-cta" href={ballotHref(actionable[0].troupe)}>Continuar al cierre →</a>
+                <a className="button-link secondary" href={`${ballotHref(actionable[0].troupe)}&review=1`}>Revisar puntuaciones (opcional)</a>
               </section>
             )}
             {(evaluatedEntries.length > 0 || upcomingEntries.length > 0) && (
@@ -307,9 +292,7 @@ export function JudgeHomePage({ session }) {
             {upcomingEntries.length > 0 && (
               <section aria-label="Próximas comparsas" className="judge-upcoming">
                 <h2 className="judge-section-title">{upcomingEntries.every((entry) => entry.troupe.resolved >= entry.troupe.total) ? "Puntuadas" : "Próximas"}</h2>
-                {hasLockedUpcoming && (
-                  <p className="judge-note">Las siguientes comparsas se habilitan según el orden de pasada.</p>
-                )}
+                <p className="judge-note">Podés evaluar cualquier comparsa de tu planilla. El control de pista es operativo y no bloquea tus puntuaciones.</p>
                 <ul className="judge-list">
                   {upcomingEntries.map((entry) => (
                     <li key={`${entry.troupe.ballotId}-${entry.troupe.troupeId}`} className={`judge-list-row${entry.locked ? " is-locked" : ""}`}>
@@ -342,7 +325,7 @@ export function JudgeHomePage({ session }) {
                       <StatusPill status={entry.state.statusKey} label={entry.state.label} />
                       {!entry.locked && (
                         <a className="button-link secondary judge-list-action" href={ballotHref(entry.troupe)}>
-                          {entry.troupe.resolved >= entry.troupe.total ? "Revisar planilla →" : entry.troupe.resolved === 0 ? "Comenzar evaluación →" : "Continuar evaluación →"}
+                          {entry.troupe.resolved >= entry.troupe.total ? "Ver puntuaciones →" : entry.troupe.resolved === 0 ? "Comenzar evaluación →" : "Continuar evaluación →"}
                         </a>
                       )}
                     </li>

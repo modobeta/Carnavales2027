@@ -19,7 +19,7 @@ async function withServer(app, run) {
   }
 }
 
-test("Spec 025: Backend Defense (RF-193) — Votación secuencial por orden de pasada", {
+test("Spec 025: puntuaci?n independiente del orden de pasada", {
   skip: !process.env.TEST_DATABASE_URL,
 }, async (context) => {
   context.after(async () => {
@@ -175,102 +175,37 @@ test("Spec 025: Backend Defense (RF-193) — Votación secuencial por orden de p
     assert.equal(t2Scores.length, 2);
     assert.equal(t3Scores.length, 2);
 
-    // 3. Intento de calificar Comparsa 2 estando Comparsa 1 pendiente -> Debe fallar con 409 TROUPE_PRECEDENCE_REQUIRED
+    // Las comparsas siguientes se pueden puntuar aunque las anteriores sigan pendientes.
     const outOfOrderRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t2Scores[0].id}`, {
       method: "PUT",
       headers: judgeHeaders,
       body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
     });
-    assert.equal(outOfOrderRes.status, 409);
-    const outOfOrderBody = await outOfOrderRes.json();
-    assert.equal(outOfOrderBody.code, "TROUPE_PRECEDENCE_REQUIRED");
+    assert.equal(outOfOrderRes.status, 200);
 
-    // 4. Intento directo vía servicio saveScore -> Debe rechazar con TROUPE_PRECEDENCE_REQUIRED
-    await assert.rejects(
-      async () => {
-        await saveScore({
-          actorUserId: judgeUserId,
-          ballotId,
-          scoreId: t3Scores[0].id,
-          evaluationState: "SCORED",
-          score: 7,
-        });
-      },
-      (err) => {
-        assert.equal(err.message, "TROUPE_PRECEDENCE_REQUIRED");
-        assert.equal(err.code, "TROUPE_PRECEDENCE_REQUIRED");
-        return true;
-      },
-    );
-
-    // 5. Calificar ítem 1 de Comparsa 1 -> Debe tener éxito
-    const t1Score1Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t1Scores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 9 }),
+    const directSave = await saveScore({
+      actorUserId: judgeUserId,
+      ballotId,
+      scoreId: t3Scores[0].id,
+      evaluationState: "SCORED",
+      score: 7,
     });
-    assert.equal(t1Score1Res.status, 200);
+    assert.equal(directSave.evaluationState, "SCORED");
 
-    // 6. Comparsa 1 aún tiene ítem 2 pendiente -> Comparsa 2 sigue bloqueada
-    const stillBlockedRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t2Scores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
-    });
-    assert.equal(stillBlockedRes.status, 409);
-    const stillBlockedBody = await stillBlockedRes.json();
-    assert.equal(stillBlockedBody.code, "TROUPE_PRECEDENCE_REQUIRED");
+    for (const [score, decision] of [
+      [t1Scores[0], { evaluationState: "SCORED", score: 9 }],
+      [t1Scores[1], { evaluationState: "NOT_PRESENTED", score: 0 }],
+      [t2Scores[1], { evaluationState: "SCORED", score: 9 }],
+      [t3Scores[1], { evaluationState: "SCORED", score: 9 }],
+    ]) {
+      const saved = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${score.id}`, {
+        method: "PUT",
+        headers: judgeHeaders,
+        body: JSON.stringify(decision),
+      });
+      assert.equal(saved.status, 200);
+    }
 
-    // 7. Calificar ítem 2 de Comparsa 1 como NOT_PRESENTED -> Debe tener éxito y completar Comparsa 1
-    const t1Score2Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t1Scores[1].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "NOT_PRESENTED", score: 0 }),
-    });
-    assert.equal(t1Score2Res.status, 200);
-
-    // 8. Ahora Comparsa 2 está desbloqueada -> Calificar ítem 1 de Comparsa 2 tiene éxito
-    const t2Score1Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t2Scores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
-    });
-    assert.equal(t2Score1Res.status, 200);
-
-    // 9. Comparsa 3 permanece bloqueada porque Comparsa 2 tiene ítem 2 pendiente
-    const t3BlockedRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t3Scores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 10 }),
-    });
-    assert.equal(t3BlockedRes.status, 409);
-    assert.equal((await t3BlockedRes.json()).code, "TROUPE_PRECEDENCE_REQUIRED");
-
-    // 10. Completar Comparsa 2 con su ítem 2
-    const t2Score2Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t2Scores[1].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 9 }),
-    });
-    assert.equal(t2Score2Res.status, 200);
-
-    // 11. Ahora Comparsa 3 está desbloqueada -> Calificar ítem 1 de Comparsa 3 tiene éxito
-    const t3Score1Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t3Scores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 10 }),
-    });
-    assert.equal(t3Score1Res.status, 200);
-
-    // 12. Calificar ítem 2 de Comparsa 3 -> 100% de la planilla completa
-    const t3Score2Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${t3Scores[1].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 9 }),
-    });
-    assert.equal(t3Score2Res.status, 200);
-
-    // 13. Confirmar la planilla completa
     const submitRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/submit`, {
       method: "POST",
       headers: judgeHeaders,

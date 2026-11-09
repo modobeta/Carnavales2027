@@ -129,7 +129,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
 
     // Avanzar a la segunda tarjeta (Afinación)
     fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
-    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
 
     // Votar 7 y confirmar en el modal
     fireEvent.click(screen.getByRole("button", { name: "Votar 7" }));
@@ -145,7 +145,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     // La tarjeta de Afinación queda bloqueada y visible: si el bug regresara a la
     // primera tarjeta, este texto nunca aparecería (Ritmo y Cadencia sigue PENDING).
     await screen.findByText("Decisión registrada");
-    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Ritmo y Cadencia", level: 2 })).not.toBeInTheDocument();
   });
 
@@ -365,7 +365,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Ir al ítem Afinación" }));
-    expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
     expect(screen.getByText("Ítem 2 de 2")).toBeInTheDocument();
   });
 
@@ -399,12 +399,11 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     render(<JudgeBallotPage ballotId="ballot-v3" />);
     await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
-    const banner = screen.getByRole("region", { name: "Lista para revisar" });
+    const banner = screen.getByRole("region", { name: "Planilla lista para cerrar" });
     expect(banner).toHaveTextContent("Las puntuaciones están completas");
     // Sin duplicar el cierre: el banner es solo informativo, la única vía es
     // el botón Confirmar votación del footer.
     expect(within(banner).queryByRole("button")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     expect(await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" })).toBeInTheDocument();
   });

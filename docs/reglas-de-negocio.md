@@ -18,6 +18,7 @@
 | Totales | Suma de puntuaciones; no descarte automático de máxima/mínima; penalizaciones confirmadas descuentan | `AGENTS.md` §2 |
 | Borrado | Bloquear eliminación física de recursos con votos, sesiones, cierres, actas, auditoría u otra historia | `AGENTS.md` §2; guards de DB/API |
 | Conectividad | Guardado online-first; timeout/offline no confirma localmente; reintento manual | `AGENTS.md` §5; `client/AGENTS.md` |
+| Pista y votación | La puesta en pista registra el estado operativo del desfile, pero no habilita ni bloquea la votación. El jurado puede puntuar cualquier comparsa de su planilla abierta. El cierre de planilla requiere todas las puntuaciones confirmadas; la revisión previa separada es opcional. | Aprobación del responsable (D-10); `ballot-service.js`, migración 122 |
 | Evidencia | Votos, cierres, penalizaciones y acciones sensibles auditables; registros append-only | `AGENTS.md` §7 |
 | Documentos | Hash SHA-256 sobre bytes exactos del archivo si un archivo se declara oficial; nueva versión no sobrescribe | `AGENTS.md` §8 |
 

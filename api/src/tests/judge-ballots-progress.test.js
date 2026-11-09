@@ -250,15 +250,13 @@ test("API jurado: include=progress y brand_color de comparsa", {
     assert.equal(blueLogo[0].hasLogo, false);
     assert.equal(blueLogo[0].logoSha256, null);
 
-    // Attempting to score Comparsa Azul while Comparsa Verde has pending scores must fail with 409 TROUPE_PRECEDENCE_REQUIRED (RF-193)
+    // La puesta en pista/orden no bloquea la puntuación de otra comparsa.
     const outOfOrderRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${blueScores[0].id}`, {
       method: "PUT",
       headers: judgeHeaders,
       body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
     });
-    assert.equal(outOfOrderRes.status, 409);
-    const outOfOrderData = await outOfOrderRes.json();
-    assert.equal(outOfOrderData.code, "TROUPE_PRECEDENCE_REQUIRED");
+    assert.equal(outOfOrderRes.status, 200);
 
     // Save one score on Comparsa Verde
     const saveScoreRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${greenScores[0].id}`, {
@@ -268,15 +266,13 @@ test("API jurado: include=progress y brand_color de comparsa", {
     });
     assert.equal(saveScoreRes.status, 200);
 
-    // Comparsa Verde still has greenScores[1] pending, so Comparsa Azul is still blocked
-    const stillBlockedRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${blueScores[0].id}`, {
+    // También puede resolver otro ítem de Comparsa Azul mientras Verde sigue pendiente.
+    const stillBlockedRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${blueScores[1].id}`, {
       method: "PUT",
       headers: judgeHeaders,
       body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
     });
-    assert.equal(stillBlockedRes.status, 409);
-    const stillBlockedData = await stillBlockedRes.json();
-    assert.equal(stillBlockedData.code, "TROUPE_PRECEDENCE_REQUIRED");
+    assert.equal(stillBlockedRes.status, 200);
 
     // Save another score on Comparsa Verde as NOT_PRESENTED
     const saveScore2Res = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${greenScores[1].id}`, {
@@ -286,21 +282,13 @@ test("API jurado: include=progress y brand_color de comparsa", {
     });
     assert.equal(saveScore2Res.status, 200);
 
-    // Now that Comparsa Verde is 100% resolved, scoring Comparsa Azul succeeds
-    const blueSuccessRes = await fetch(`${baseUrl}/api/v1/judge/ballots/${ballotId}/scores/${blueScores[0].id}`, {
-      method: "PUT",
-      headers: judgeHeaders,
-      body: JSON.stringify({ evaluationState: "SCORED", score: 8 }),
-    });
-    assert.equal(blueSuccessRes.status, 200);
-
-    // Re-check progress: 3 resolved out of 4
+    // Re-check progress: all four decisions are resolved sin depender de un orden secuencial.
     const listProgAfterRes = await fetch(`${baseUrl}/api/v1/judge/ballots?include=progress`, {
       headers: judgeHeaders,
     });
     assert.equal(listProgAfterRes.status, 200);
     const listProgAfterData = await listProgAfterRes.json();
     assert.equal(listProgAfterData[0].totalScores, 4);
-    assert.equal(listProgAfterData[0].resolvedScores, 3);
+    assert.equal(listProgAfterData[0].resolvedScores, 4);
   });
 });
