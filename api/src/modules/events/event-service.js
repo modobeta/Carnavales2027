@@ -48,9 +48,12 @@ export async function createEvent({ client = getPool(), name }) {
 }
 export async function listEvents({ client = getPool(), userId = null } = {}) {
   const query = userId === null
-    ? ["SELECT id, name, status, active FROM carnival_event ORDER BY created_at", []]
+    ? [`SELECT event.id, event.name, event.status, event.active,
+              EXISTS (SELECT 1 FROM results_release release WHERE release.event_id = event.id) AS \"resultsReleased\"
+         FROM carnival_event event ORDER BY event.created_at`, []]
     : [
-      `SELECT event.id, event.name, event.status, event.active
+      `SELECT event.id, event.name, event.status, event.active,
+              EXISTS (SELECT 1 FROM results_release release WHERE release.event_id = event.id) AS \"resultsReleased\"
          FROM carnival_event AS event
          JOIN admin_event_assignment AS assignment ON assignment.event_id = event.id
         WHERE assignment.user_id = $1 AND assignment.is_active = TRUE
@@ -61,7 +64,12 @@ export async function listEvents({ client = getPool(), userId = null } = {}) {
   return rows;
 }
 export async function getEvent({ client = getPool(), eventId }) {
-  const { rows } = await client.query("SELECT id, name, status, active FROM carnival_event WHERE id = $1", [requireText(eventId, "eventId")]);
+  const { rows } = await client.query(
+    `SELECT event.id, event.name, event.status, event.active,
+            EXISTS (SELECT 1 FROM results_release release WHERE release.event_id = event.id) AS \"resultsReleased\"
+       FROM carnival_event event WHERE event.id = $1`,
+    [requireText(eventId, "eventId")],
+  );
   return rows[0] ?? null;
 }
 export async function listNights({ client = getPool(), eventId }) {
@@ -80,11 +88,24 @@ export async function updateEvent({ client = getPool(), eventId, name, active })
   const hasActive = active !== undefined;
   if (!hasName && !hasActive) throw new TypeError("Nada para actualizar.");
   if (hasActive && typeof active !== "boolean") throw new TypeError("active debe ser booleano.");
-  const { rows: current } = await client.query("SELECT id, status FROM carnival_event WHERE id = $1", [id]);
+  const { rows: current } = await client.query(
+    "SELECT id, status, active FROM carnival_event WHERE id = $1 FOR UPDATE",
+    [id],
+  );
   if (!current[0]) throw new Error("EVENT_NOT_FOUND");
-  if (current[0].status !== "CONFIGURING") throw new Error("EVENT_LOCKED");
+  const event = current[0];
+  const renameOnly = hasName && !hasActive;
+  const { rows: releaseRows } = await client.query("SELECT EXISTS (SELECT 1 FROM results_release WHERE event_id = $1) AS released", [id]);
+  const resultsReleased = releaseRows[0].released;
+  if (resultsReleased && renameOnly) throw new Error("EVENT_RESULTS_ALREADY_RELEASED");
+  if (event.status !== "CONFIGURING" && !(renameOnly && ["OPEN", "CLOSED"].includes(event.status))) {
+    throw new Error("EVENT_LOCKED");
+  }
   const { rows } = await client.query(
-    "UPDATE carnival_event SET name = COALESCE($2, name), active = COALESCE($3, active), updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, name, status, active",
+    `UPDATE carnival_event SET name = COALESCE($2, name), active = COALESCE($3, active), updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING id, name, status, active,
+        EXISTS (SELECT 1 FROM results_release release WHERE release.event_id = carnival_event.id) AS \"resultsReleased\"`,
     [id, hasName ? requireText(name, "name") : null, hasActive ? active : null],
   );
   if (!rows[0]) throw new Error("EVENT_NOT_FOUND");

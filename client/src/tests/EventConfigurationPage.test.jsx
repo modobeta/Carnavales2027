@@ -48,9 +48,10 @@ describe("EventConfigurationPage", () => {
     expect(await within(panel).findByRole("button", { name: "Configurar cupo y asignar" })).toBeEnabled();
   });
 
-  it("deja la configuracion en solo lectura cuando el evento esta OPEN", () => {
-    render(<EventConfigurationPage event={{ id: "event-1", status: "OPEN" }} />);
+  it("permite corregir solo el nombre tras publicar y deja el resto bloqueado", () => {
+    render(<EventConfigurationPage event={{ id: "event-1", status: "OPEN", resultsReleased: true }} />);
     expect(screen.getByLabelText("Nombre del evento")).toBeDisabled();
+    expect(screen.getByText(/Los resultados ya se publicaron/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ Agregar jornada" })).not.toBeInTheDocument();
     expect(screen.getByText(/ya no puede modificarse/)).toBeInTheDocument();
   });
