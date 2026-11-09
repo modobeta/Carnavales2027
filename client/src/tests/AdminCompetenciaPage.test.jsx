@@ -989,7 +989,7 @@ describe("AdminCompetenciaPage", () => {
       mockTroupes({ write });
       await openTroupesTab();
       expect(await screen.findByText("Orden de pasada")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Subir Estrella en Noche 1" })).toBeDisabled();
+      expect(await screen.findByRole("button", { name: "Subir Estrella en Noche 1" })).toBeDisabled();
       expect(screen.getByRole("button", { name: "Bajar Apagada en Noche 1" })).toBeDisabled();
       fireEvent.click(screen.getByRole("button", { name: "Bajar Estrella en Noche 1" }));
       expect(write).not.toHaveBeenCalled();
