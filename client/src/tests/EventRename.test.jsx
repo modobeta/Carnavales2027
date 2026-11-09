@@ -68,11 +68,23 @@ describe("renombrar evento como ADMIN", () => {
 describe("renombrar evento: rechazo de autorización y límites", () => {
   it.each([
     [{ ...event, active: false }],
-    [{ ...event, status: "OPEN" }],
+    [{ ...event, status: "OPEN", resultsReleased: true }],
+    [{ ...event, status: "CLOSED", resultsReleased: true }],
   ])("la acción de renombrar depende del estado de la competencia (%o)", (target) => {
     mockApi(async () => target);
     render(<EventConfigurationPage event={target} />);
     expect(screen.getByRole("button", { name: "Guardar evento" })).toBeInTheDocument();
-    if (target.status === "OPEN") expect(screen.getByRole("button", { name: "Guardar evento" })).toBeDisabled();
+    if (target.resultsReleased) expect(screen.getByRole("button", { name: "Guardar evento" })).toBeDisabled();
+  });
+
+  it.each(["OPEN", "CLOSED"])("permite renombrar mientras %s y los resultados siguen sin publicar", async (status) => {
+    const publishedWindow = { ...event, status, resultsReleased: false };
+    mockApi(async () => ({ ...publishedWindow, name: "Nombre corregido" }));
+    render(<EventConfigurationPage event={publishedWindow} />);
+    expect(screen.getByLabelText("Nombre del evento")).toBeEnabled();
+    rename("Nombre corregido");
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(patchCalls()).toHaveLength(1));
+    expect(patchCalls()[0][1].body).toBe(JSON.stringify({ name: "Nombre corregido" }));
   });
 });

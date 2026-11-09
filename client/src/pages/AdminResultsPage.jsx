@@ -101,6 +101,7 @@ export function AdminResultsPage() {
     setMessage("");
     try {
       await apiRequest(`/api/v1/events/${eventId}/results/release`, { method: "POST" });
+      adminEvent?.updateEvent({ id: eventId, resultsReleased: true });
       setRefreshVersion((version) => version + 1);
     } catch (error) {
       if (error?.code === "RESULTS_RELEASE_FORBIDDEN_FOR_ADMIN") {

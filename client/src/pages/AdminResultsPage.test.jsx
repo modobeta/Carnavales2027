@@ -7,6 +7,8 @@ vi.mock("../api/http.js", () => ({ apiRequest: apiRequestMock }));
 
 const useSessionMock = vi.hoisted(() => vi.fn(() => ({ roles: ["SCRUTINEER"] })));
 vi.mock("../auth/session-context.jsx", () => ({ useSession: useSessionMock }));
+const useAdminEventMock = vi.hoisted(() => vi.fn(() => null));
+vi.mock("../context/AdminEventContext.jsx", () => ({ useAdminEvent: useAdminEventMock }));
 
 const event = { id: "event-1", name: "test_prueba" };
 const tieError = Object.assign(new Error("TIE_BREAKER_REQUIRES_MANUAL_DRAW"), {
@@ -30,6 +32,7 @@ describe("AdminResultsPage", () => {
     cleanup();
     apiRequestMock.mockReset();
     useSessionMock.mockReturnValue({ roles: ["SCRUTINEER"] });
+    useAdminEventMock.mockReturnValue(null);
   });
 
   it("carga test_prueba y muestra el empate listo para sorteo ceremonial", async () => {
@@ -102,6 +105,21 @@ describe("AdminResultsPage", () => {
       "/api/v1/events/event-1/results/release", { method: "POST" },
     ));
     await waitFor(() => expect(resultCalls).toBe(2));
+  });
+
+  it("marca en el contexto del administrador que los resultados quedaron publicados", async () => {
+    const updateEvent = vi.fn();
+    useAdminEventMock.mockReturnValue({ events: [event], activeEventId: event.id, updateEvent });
+    const notReleased = Object.assign(new Error("RESULTS_NOT_RELEASED"), { code: "RESULTS_NOT_RELEASED" });
+    apiRequestMock.mockImplementation((path, options) => {
+      if (path === "/api/v1/results/events/event-1/troupes") return Promise.resolve([]);
+      if (path === "/api/v1/events/event-1/results") return Promise.reject(notReleased);
+      if (path === "/api/v1/events/event-1/results/release" && options?.method === "POST") return Promise.resolve({ eventId: "event-1" });
+      return Promise.reject(new Error(`request inesperado: ${path}`));
+    });
+    const { getByRole } = render(<AdminResultsPage />);
+    fireEvent.click(await waitFor(() => getByRole("button", { name: "Liberar resultados" })));
+    await waitFor(() => expect(updateEvent).toHaveBeenCalledWith({ id: "event-1", resultsReleased: true }));
   });
 
   it("muestra nota explicativa y no muestra el botón de liberar si el usuario es ADMIN", async () => {

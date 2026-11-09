@@ -306,9 +306,9 @@ test("readiness y apertura exponen contrato HTTP ADMIN", { skip: !process.env.TE
       assert.equal(response.status, 409);
       assert.equal((await response.json()).code, "EVENT_LOCKED");
     }
-    const edit = await fetch(`${base}/api/v1/events/${event.id}`, { method: "PATCH", headers, body: JSON.stringify({ name: "No permitido" }) });
-    assert.equal(edit.status, 409);
-    assert.equal((await edit.json()).code, "EVENT_LOCKED");
+    const edit = await fetch(`${base}/api/v1/events/${event.id}`, { method: "PATCH", headers, body: JSON.stringify({ name: "Nombre actualizado" }) });
+    assert.equal(edit.status, 200);
+    assert.equal((await edit.json()).name, "Nombre actualizado");
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
