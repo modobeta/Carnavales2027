@@ -43,7 +43,7 @@ describe("apertura de jornada y votación", () => {
     expect(apiRequest.mock.calls.some(([, options]) => options?.method === "PATCH")).toBe(false);
     fireEvent.click(openButton);
     expect(screen.getByRole("dialog", { name: "Confirmar apertura de jornada y votación" })).toHaveTextContent("Se abrirá la jornada y se habilitarán las planillas");
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir votación" }));
     expect(await screen.findByText(/Votación abierta. 0 planilla/)).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/nights/n1", { method: "PATCH", body: JSON.stringify({ name: "Primera noche", displayOrder: 1, kind: "COMPETITION", eventDate: "2027-02-01", status: "OPEN" }) });
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/e1/nights/n1/voting/open", { method: "POST" });
@@ -66,7 +66,7 @@ describe("apertura de jornada y votación", () => {
     const button = await screen.findByRole("button", { name: "Abrir jornada y votación" });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir votación" }));
     expect(await screen.findByText(/El estado del evento o la jornada cambió/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Abrir jornada y votación" })).toBeEnabled();
   });
@@ -76,7 +76,7 @@ describe("apertura de jornada y votación", () => {
     const button = await screen.findByRole("button", { name: "Abrir jornada y votación" });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir votación" }));
     expect(await screen.findByText("Asigná al menos un jurado titular activo a esta jornada antes de abrirla.")).toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/events/e1/nights/n1/voting/open", expect.anything());
   });
@@ -93,7 +93,7 @@ describe("apertura de jornada y votación", () => {
     const button = await screen.findByRole("button", { name: "Abrir votación" });
     await waitFor(() => expect(button).toBeEnabled());
     fireEvent.click(button);
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Abrir votación" })[1]);
     expect(await screen.findByText("Programá comparsas en la jornada antes de abrir la votación.")).toBeInTheDocument();
   });
 });
