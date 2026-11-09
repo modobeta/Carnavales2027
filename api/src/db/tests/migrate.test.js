@@ -130,6 +130,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
       || filename === "117_block_night_creation_after_release.sql"
       || filename === "118_schedule_future_draft_nights.sql"
       || filename === "119_scope_future_draft_schedule.sql"
+      || filename === "120_retire_veedor_role.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -603,6 +604,7 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     { filename: "117_block_night_creation_after_release.sql", version: "117", applied: true },
     { filename: "118_schedule_future_draft_nights.sql", version: "118", applied: true },
     { filename: "119_scope_future_draft_schedule.sql", version: "119", applied: true },
+    { filename: "120_retire_veedor_role.sql", version: "120", applied: true },
   ]);
 
   const secondRun = await migrate();

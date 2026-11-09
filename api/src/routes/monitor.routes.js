@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireTwoFactor } from "../auth/two-factor.js";
-import { requireVotingObserver } from "../auth/require-voting-observer.js";
+import { requireAdmin } from "../auth/require-admin.js";
 import {
   listMonitorEvents,
   getMonitorNight,
@@ -19,11 +19,10 @@ import {
 import { subscribeMonitorEvents } from "../modules/monitor/monitor-event-bus.js";
 import { sendKnownError } from "./http-errors.js";
 
-// Spec 016 & Spec 022 — Supervisión de votación por VEEDOR y ADMIN en tiempo real (SSE).
-// Roles: ADMIN o VEEDOR con sesión 2FA verificada.
+// Supervisión, incidentes y custodia son accesibles solo por ADMIN con sesión 2FA.
 export function createMonitorRouter({ requireSession }) {
   const router = Router();
-  const observer = [requireSession, requireTwoFactor, requireVotingObserver];
+  const observer = [requireSession, requireTwoFactor, requireAdmin];
 
   router.get("/monitor/stream", ...observer, (request, response) => {
     response.writeHead(200, {

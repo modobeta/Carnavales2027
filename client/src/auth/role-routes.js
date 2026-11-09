@@ -5,7 +5,6 @@
 export const ROLE_DEFAULT_ROUTES = {
   ADMIN: "#/admin/home",
   JUDGE: "#/judge",
-  VEEDOR: "#/veedor",
   COMISARIO: "#/admin/penalties",
   SCRUTINEER: "#/admin/results",
   ESCRIBANO: "#/admin/results",
@@ -28,8 +27,8 @@ export function getDefaultRouteForRoles(roles = []) {
     return "#/login";
   }
 
-  // Prioridad: ADMIN -> JUDGE -> COMISARIO -> SCRUTINEER / ESCRIBANO -> VEEDOR
-  const priority = ["ADMIN", "JUDGE", "COMISARIO", "SCRUTINEER", "ESCRIBANO", "VEEDOR"];
+  // Prioridad: ADMIN -> JUDGE -> COMISARIO -> SCRUTINEER / ESCRIBANO
+  const priority = ["ADMIN", "JUDGE", "COMISARIO", "SCRUTINEER", "ESCRIBANO"];
 
   for (const role of priority) {
     if (roles.includes(role)) {

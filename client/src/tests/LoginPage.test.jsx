@@ -157,27 +157,27 @@ describe("LoginPage", () => {
     expect(meCalls).toBe(2);
   });
 
-  it("dirige al VEEDOR a supervisión después del OTP", async () => {
+  it("dirige al ADMIN a inicio después del OTP", async () => {
     let meCalls = 0;
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/me") {
         meCalls += 1;
         return meCalls === 1
           ? Promise.reject({ code: "UNAUTHENTICATED" })
-          : Promise.resolve({ user: { id: "u-veedor", name: "Veedor" }, roles: ["VEEDOR"] });
+          : Promise.resolve({ user: { id: "u-admin", name: "Admin" }, roles: ["ADMIN"] });
       }
       return Promise.resolve({});
     });
     render(<SessionProvider><LoginPage /></SessionProvider>);
 
-    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "veedor@example.test" } });
-    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "VeedorPassword-2026!" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "admin@example.test" } });
+    fireEvent.change(screen.getByLabelText("Contraseña"), { target: { value: "AdminPassword-2026!" } });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByLabelText("Código de verificación");
     fillOtp("123456");
     fireEvent.click(screen.getByRole("button", { name: "Verificar código" }));
 
-    await waitFor(() => expect(window.location.hash).toBe("#/veedor"));
+    await waitFor(() => expect(window.location.hash).toBe("#/admin/home"));
     expect(meCalls).toBe(2);
   });
 

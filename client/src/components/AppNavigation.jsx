@@ -11,7 +11,7 @@ import { AdminHeader } from "./AdminHeader.jsx";
 import { ScribeHeader } from "./ScribeHeader.jsx";
 import { ComisarioHeader } from "./ComisarioHeader.jsx";
 
-const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", VEEDOR: "Veedor", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
+const ROLE_LABELS = { ADMIN: "Administrador", JUDGE: "Juez", COMISARIO: "Comisario", SCRUTINEER: "Escrutador", ESCRIBANO: "Escribano" };
 const SIDEBAR_STORAGE_KEY = "carnavales.sidebar.collapsed";
 
 function readStoredCollapsed() {
@@ -193,6 +193,7 @@ const ROUTE_LABELS = {
   "#/admin/competencia": "Comparsas y jurados",
   "#/admin/assignments": "Control de votación",
   "#/admin/voting": "Control de votación",
+  "#/admin/supervision": "Supervisión",
   "#/veedor": "Supervisión",
   "#/admin/penalties": "Penalizaciones",
   "#/admin/results": "Escrutinio",
@@ -269,7 +270,7 @@ function formatNightDate(value, long = false) {
   const isGlobalAdminRoute = isHomeRoute || isUsersRoute;
   const hideEventPicker = isHomeRoute || isUsersRoute;
   const breadcrumb = getBreadcrumbData(currentLocation);
-  const showHomeBreadcrumb = canAccessAdminArea(session) && currentRoute !== "#/veedor";
+  const showHomeBreadcrumb = canAccessAdminArea(session) && !["#/admin/supervision", "#/veedor"].includes(currentRoute);
   const roleLabels = (session.roles ?? []).map((role) => ROLE_LABELS[role] ?? role);
   const sessionUser = (
     <div className="session-user">
@@ -438,13 +439,13 @@ function formatNightDate(value, long = false) {
               <NavigationIcon name="ballot" />
               <span>Control de votación</span>
             </a>
-            <details className="nav-group" open={["#/veedor", "#/admin/penalties"].includes(currentRoute)}>
+            <details className="nav-group" open={["#/admin/supervision", "#/veedor", "#/admin/penalties"].includes(currentRoute)}>
               <summary className="nav-group-summary" title={railTitle("Supervisión y penalizaciones")} onClick={expandRail}>
                 <NavigationIcon name="shield" />
                 <span>Supervisión y penalizaciones</span>
               </summary>
               <div className="nav-group-links">
-                {navLink("#/veedor", "Supervisión")}
+                {navLink("#/admin/supervision", "Supervisión")}
                 {navLink("#/admin/penalties", "Penalizaciones")}
               </div>
             </details>
@@ -474,11 +475,6 @@ function formatNightDate(value, long = false) {
           </>
         )}
         {session.roles?.includes("JUDGE") && <a href="#/judge" aria-current={currentRoute === "#/judge" ? "page" : undefined}>Mi panel</a>}
-        {(session.roles?.includes("ADMIN") || session.roles?.includes("VEEDOR")) && !session.roles?.includes("ADMIN") && (
-          <>
-            <a href="#/veedor" aria-current={currentRoute === "#/veedor" ? "page" : undefined}>Supervisión</a>
-          </>
-        )}
         {!session.roles?.includes("ADMIN") && <PublicResultsLink currentRoute={currentRoute} />}
     </nav>}
     </>

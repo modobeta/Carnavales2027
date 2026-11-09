@@ -29,7 +29,6 @@ export function goToRoleHome(session) {
   else if (roles.includes("JUDGE")) window.location.hash = "#/judge";
   else if (roles.includes("COMISARIO")) window.location.hash = "#/admin/penalties";
   else if (roles.some((r) => ["SCRUTINEER", "ESCRIBANO"].includes(r))) window.location.hash = "#/admin/results";
-  else if (roles.includes("VEEDOR")) window.location.hash = "#/veedor";
   else window.location.hash = "#/login";
   return true;
 }

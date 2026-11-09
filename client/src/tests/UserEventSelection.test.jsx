@@ -6,7 +6,7 @@ import { AdminEventProvider } from "../context/AdminEventContext.jsx";
 import { AppNavigation } from "../components/AppNavigation.jsx";
 import { JudgeHomePage } from "../pages/JudgeHomePage.jsx";
 import { JudgeBallotPage } from "../pages/JudgeBallotPage.jsx";
-import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
+import { AdminMonitorPage } from "../pages/AdminMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); localStorage.clear(); window.location.hash = ""; });
@@ -17,7 +17,6 @@ describe("identidad y selección de evento", () => {
     ["COMISARIO", "/api/v1/penalties/events", "Comisario"],
     ["ESCRIBANO", "/api/v1/results/events", "Escribano"],
     ["SCRUTINEER", "/api/v1/results/events", "Escrutador"],
-    ["VEEDOR", "/api/v1/monitor/events", "Veedor"],
   ])("conserva el acceso de %s y muestra rol y evento", async (role, endpoint, label) => {
     apiRequest.mockImplementation(async (path) => path === endpoint ? [{ id: "e1", name: "Carnaval Uno" }, { id: "e2", name: "Carnaval Dos" }] : { events: [] });
     const session = { user: { id: "u1", name: "Persona" }, roles: [role] };
@@ -159,8 +158,8 @@ describe("identidad y selección de evento", () => {
 
   it("sincroniza supervisión con el selector global", async () => {
     apiRequest.mockImplementation(async (path) => path === "/api/v1/public/events" ? { events: [] } : [1, 2].map((n) => ({ id: `e${n}`, name: `Evento ${n}`, nights: [{ id: `n${n}`, name: `Jornada ${n}`, votingStatus: "OPEN", counts: {}, total: 0 }] })));
-    const session = { user: { id: "v1", name: "Persona" }, roles: ["VEEDOR"] };
-    render(<AdminEventProvider session={session}><AppNavigation session={session} /><VeedorMonitorPage /></AdminEventProvider>);
+    const session = { user: { id: "v1", name: "Persona" }, roles: ["ADMIN"] };
+    render(<AdminEventProvider session={session}><AppNavigation session={session} /><AdminMonitorPage /></AdminEventProvider>);
     await screen.findByRole("heading", { name: "Jornada 1" });
     fireEvent.click(screen.getByRole("button", { name: /^Evento actual/ }));
     fireEvent.click(screen.getByRole("option", { name: "Evento 2" }));

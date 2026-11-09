@@ -176,20 +176,12 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Evento" })).not.toBeInTheDocument();
   });
 
-  it("muestra Supervision para el rol VEEDOR", () => {
-    window.location.hash = "#/veedor";
-    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["VEEDOR"] }} />);
+  it("muestra Supervisión para ADMIN", () => {
+    window.location.hash = "#/admin/supervision";
+    render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     openMenu();
-    expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("href", "#/veedor");
+    expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("href", "#/admin/supervision");
     expect(screen.getByRole("link", { name: "Supervisión" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("en desktop no muestra el enlace de Inicio para el rol VEEDOR ni en #/veedor", () => {
-    mockMatchMedia(true);
-    window.location.hash = "#/veedor";
-    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["VEEDOR"] }} />);
-    expect(screen.queryByRole("link", { name: "Inicio" })).not.toBeInTheDocument();
-    expect(screen.getByText("Supervisión", { selector: ".breadcrumb-current" })).toBeInTheDocument();
   });
 
   it("abre y cierra el drawer lateral con el boton hamburguesa", () => {
@@ -298,7 +290,7 @@ describe("AppNavigation", () => {
 
   it("no ofrece el modo solo iconos a roles sin menú de Administrador", () => {
     mockMatchMedia(true);
-    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["VEEDOR"] }} />);
+    render(<AppNavigation session={{ user: { name: "Veedor" }, roles: ["COMISARIO"] }} />);
     expect(screen.queryByRole("button", { name: "Menú lateral" })).not.toBeInTheDocument();
   });
 

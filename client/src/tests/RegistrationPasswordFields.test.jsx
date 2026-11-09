@@ -44,7 +44,7 @@ describe("contraseña de registro", () => {
   });
 
   it.each([AcceptJudgeInvitationPage, AcceptOperationalInvitationPage, AcceptRoleInvitationPage])("bloquea contraseña débil antes de llamar a la API (%s)", async (Page) => {
-    apiRequest.mockResolvedValueOnce({ maskedEmail: "a***@example.test", roles: ["VEEDOR"], roleCode: "VEEDOR", expiresAt: "2027-01-01" });
+    apiRequest.mockResolvedValueOnce({ maskedEmail: "a***@example.test", roles: ["ESCRIBANO"], roleCode: "ESCRIBANO", expiresAt: "2027-01-01" });
     render(<Page secret="test-secret" token="test-token" />);
     const input = await screen.findByLabelText("Nueva contraseña");
     fireEvent.change(input, { target: { value: "abcdefgh" } });

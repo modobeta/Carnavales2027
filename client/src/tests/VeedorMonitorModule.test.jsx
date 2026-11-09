@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
+import { AdminMonitorPage } from "../pages/AdminMonitorPage.jsx";
 import { getPendingIncidents } from "../offline/veedor-incidents-store.js";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
@@ -134,7 +134,7 @@ describe("VeedorMonitorModule (Capítulo V - Veeduría Integral)", () => {
   });
 
   it("renderiza pestañas de navegación y permite explorar Jurados", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1 - Competencia" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Resumen/i })).toBeInTheDocument();
@@ -152,7 +152,7 @@ describe("VeedorMonitorModule (Capítulo V - Veeduría Integral)", () => {
   });
 
   it("renderiza la tabla de Planillas y permite iniciar custodia de planilla confirmada", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1 - Competencia" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Planillas/i }));
@@ -181,7 +181,7 @@ describe("VeedorMonitorModule (Capítulo V - Veeduría Integral)", () => {
   });
 
   it("gestiona Incidencias reglamentarias y permite abrir el formulario de reporte", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1 - Competencia" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Incidencias/i }));
@@ -215,7 +215,7 @@ describe("VeedorMonitorModule (Capítulo V - Veeduría Integral)", () => {
   });
 
   it("muestra la pestaña Custodia con sello SHA-256 e integridad verificada", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1 - Competencia" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Custodia/i }));
@@ -230,7 +230,7 @@ describe("VeedorMonitorModule (Capítulo V - Veeduría Integral)", () => {
     // Simular offline
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
 
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1 - Competencia" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /Incidencias/i }));

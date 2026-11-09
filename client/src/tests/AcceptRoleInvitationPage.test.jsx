@@ -29,7 +29,7 @@ describe("AcceptRoleInvitationPage", () => {
   });
 
   it("impide enviar contraseñas diferentes", async () => {
-    apiRequest.mockResolvedValueOnce({ maskedEmail: "v***@example.test", roleCode: "VEEDOR", expiresAt: "2026-09-02T12:00:00Z" });
+    apiRequest.mockResolvedValueOnce({ maskedEmail: "v***@example.test", roleCode: "ESCRIBANO", expiresAt: "2026-09-02T12:00:00Z" });
     render(<AcceptRoleInvitationPage token="token" />);
     await screen.findByText(/v\*+@example\.test/);
     fireEvent.change(screen.getByLabelText("Nueva contraseña"), { target: { value: "OperationalPassword-2026!" } });

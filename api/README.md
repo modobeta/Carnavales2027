@@ -138,7 +138,7 @@ Después de las migraciones, configurá `NODE_ENV=development` o `test`, las var
 npm run seed:event:full
 ```
 
-`src/db/seeds/full-event.*` define datos ficticios: tres jornadas competitivas, siete comparsas, tres especialidades, 34 rubros (25 nominativos y 9 aleatorios), 63 nominaciones con nombres marcados `DEMO PLACEHOLDER`, nueve jurados y cuentas ADMIN/ESCRIBANO/VEEDOR. Esas nominaciones existen solo para que el seed sintético cumpla readiness; no representan integrantes ni participantes oficiales. El evento queda activo, `CONFIGURING`, sin votación abierta, votos, resultados ni penalizaciones. Las planillas se crean al abrir las jornadas, no durante el seed.
+`src/db/seeds/full-event.*` define datos ficticios: tres jornadas competitivas, siete comparsas, tres especialidades, 34 rubros (25 nominativos y 9 aleatorios), 63 nominaciones con nombres marcados `DEMO PLACEHOLDER`, nueve jurados y cuentas ADMIN/ESCRIBANO. Esas nominaciones existen solo para que el seed sintético cumpla readiness; no representan integrantes ni participantes oficiales. El evento queda activo, `CONFIGURING`, sin votación abierta, votos, resultados ni penalizaciones. Las planillas se crean al abrir las jornadas, no durante el seed.
 
 La programación usa fechas y orden simulados; conserva timestamp completo y zona `America/Argentina/Cordoba`, incluso al pasar la medianoche. No reutilizar estos datos como calendario oficial.
 
@@ -202,7 +202,7 @@ La fuente exacta de métodos y payloads es `src/routes/*.routes.js`; la tabla ag
 | `GET /api/v1/events/:eventId/open-operations/:operationId` | Consulta de resultado de apertura (applied/rejected/pending); ADMIN + 2FA |
 | `/api/v1/events/:eventId/nights/:nightId/voting/*` | Apertura/cierre ADMIN; consulta de estado autorizada |
 | `/api/v1/judge/assignments`, `/judge/ballots`, `/judge/session-status` | Asignaciones, planillas y estado de fin del evento del jurado habilitado |
-| `/api/v1/monitor/*` | Monitor y stream SSE; ADMIN o VEEDOR registrado, con 2FA |
+| `/api/v1/monitor/*` | Monitor, incidencias, custodia y stream SSE; ADMIN con 2FA |
 | `/api/v1/events/:eventId/penalties` | Penalizaciones; ADMIN o COMISARIO, con 2FA |
 | `/api/v1/events/:eventId/results` | Consulta de resultados; ADMIN, SCRUTINEER o ESCRIBANO |
 | `/api/v1/events/:eventId/results/release` | Liberación; SCRUTINEER o ESCRIBANO, con 2FA |

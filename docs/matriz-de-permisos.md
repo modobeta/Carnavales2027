@@ -1,20 +1,20 @@
-# Matriz de permisos efectiva
+﻿# Matriz de permisos efectiva
 
-**Estado:** lectura del middleware/rutas al 20/10/2026. No concede permisos nuevos. En rutas privadas se requieren sesión y 2FA; la API, no la visibilidad del menú, decide el acceso. Una persona puede tener varios roles; para publicar resultados o certificar acta, `ADMIN` **no sustituye** el rol de escrutinio/escribanía.
+**Estado:** lectura del middleware/rutas al 09/11/2026. No concede permisos nuevos. En rutas privadas se requieren sesión y 2FA; la API, no la visibilidad del menú, decide el acceso. Una persona puede tener varios roles; para publicar resultados o certificar acta, `ADMIN` **no sustituye** el rol de escrutinio/escribanía.
 
-| Operación / API | ADMIN | JUDGE | VEEDOR | COMISARIO | SCRUTINEER | ESCRIBANO |
-| --- | --- | --- | --- | --- | --- | --- |
-| Configurar evento, jornada, comparsas, rubros y asignaciones | Sí | No | No | No | No | No |
-| Abrir/cerrar votación | Sí | No | No | No | No | No |
-| Ver estado/monitor de votación | Sí | No | Sí¹ | No | No | No |
-| Leer/emitir puntuación propia | No | Sí² | No | No | No | No |
-| Leer/gestionar penalizaciones | Sí | No | No | Sí | No | No |
-| Leer resultados internos | Sí | No | No | No | Sí | Sí |
-| Liberar resultados | No³ | No | No | No | Sí | Sí |
-| Certificar acta / sorteo ceremonial | No³ | No | No | No | Sí | Sí |
-| Consultar resultados públicos liberados | Sí | Sí | Sí | Sí | Sí | Sí |
+| Operación / API | ADMIN | JUDGE | COMISARIO | SCRUTINEER | ESCRIBANO |
+| --- | --- | --- | --- | --- | --- |
+| Configurar evento, jornada, comparsas, rubros y asignaciones | Sí | No | No | No | No |
+| Abrir/cerrar votación | Sí | No | No | No | No |
+| Ver estado/monitor de votación, incidencias y custodia | Sí | No | No | No | No |
+| Leer/emitir puntuación propia | No | Sí¹ | No | No | No |
+| Leer/gestionar penalizaciones | Sí | No | Sí | No | No |
+| Leer resultados internos | Sí | No | No | Sí | Sí |
+| Liberar resultados | No² | No | No | Sí | Sí |
+| Certificar acta / sorteo ceremonial | No² | No | No | Sí | Sí |
+| Consultar resultados públicos liberados | Sí | Sí | Sí | Sí | Sí |
 
-¹ `VEEDOR` requiere además perfil operativo registrado según `require-voting-observer.js`. ² Solo asignación y planilla propias válidas. ³ Si la persona posee también `SCRUTINEER`/`ESCRIBANO`, revisar la guarda concreta: el middleware comprueba esos roles; un `ADMIN` sin ellos recibe 403.
+¹ Solo asignación y planilla propias válidas. ² Si la persona posee también `SCRUTINEER`/`ESCRIBANO`, revisar la guarda concreta: el middleware comprueba esos roles; un `ADMIN` sin ellos recibe 403. `VEEDOR` está retirado; las cuentas e historial se conservan sin acceso operativo.
 
 **Códigos adicionales:** `ADMIN_EVENT` aparece en datos/cliente histórico, pero la administración vigente comprueba `ADMIN` global (`api/src/auth/require-admin.js`, `admin-role-access.js`); no atribuir a `ADMIN_EVENT` permisos operativos actuales. Los roles funcionales citados en documentos viejos pueden no coincidir con estos códigos.
 

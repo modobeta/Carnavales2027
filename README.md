@@ -22,7 +22,7 @@ La [spec 029](specs/029-piloto-produccion/spec.md) aprueba únicamente el piloto
 | `docs/` | Producto, contratos, operación y decisiones | Markdown, vinculado a código/specs |
 | `specs/` | Iniciativas aprobadas dentro de su alcance | Actualmente spec 029 versionada |
 
-No hay `package.json` ni workspace npm en la raíz. Las versiones exactas están en `api/package-lock.json` y `client/package-lock.json`. Roles efectivos: `ADMIN`, `JUDGE`, `VEEDOR`, `COMISARIO`, `SCRUTINEER`, `ESCRIBANO`; la [matriz](docs/matriz-de-permisos.md) distingue lectura, escritura y separación de funciones. `ADMIN_EVENT` histórico no concede administración global actual.
+No hay `package.json` ni workspace npm en la raíz. Las versiones exactas están en `api/package-lock.json` y `client/package-lock.json`. Roles efectivos: `ADMIN`, `JUDGE`, `COMISARIO`, `SCRUTINEER`, `ESCRIBANO`; la [matriz](docs/matriz-de-permisos.md) distingue lectura, escritura y separación de funciones. `ADMIN_EVENT` histórico no concede administración global actual.
 
 ## Puesta en marcha local (PowerShell)
 

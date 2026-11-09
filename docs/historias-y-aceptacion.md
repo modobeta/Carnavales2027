@@ -9,7 +9,7 @@
 | H-03 | Como jurado quiero votar una nota | API confirma solo 1–10 o `NOT_PRESENTED`/0, con asignación, noche y comparsa válidas; clave idempotente evita doble voto | `api/src/routes/voting.routes.js`, `api/src/tests/voting-api.test.js` |
 | H-04 | Como jurado quiero completar mi planilla | `submit` bloqueado mientras falten decisiones; una planilla presentada no admite edición ordinaria | `api/src/modules/ballots/ballot-service.js`, pruebas de votación |
 | H-05 | Como jurado quiero recuperarme de una caída de red | La UI no muestra confirmación falsa; puedo reintentar manualmente y el servidor reconoce replay equivalente | `client/src/pages/JudgeBallotPage.jsx`, pruebas JudgeBallot |
-| H-06 | Como veedor quiero seguir la votación | Monitor lee contexto de su jornada, incidencias y custodia con sesión/OTP/rol; no puede emitir votos | `api/src/routes/monitor.routes.js` |
+| H-06 | Como ADMIN quiero supervisar la votación | Monitor lee contexto, gestiona incidencias y custodia con sesión/OTP/rol; no puede emitir votos | `api/src/routes/monitor.routes.js` |
 | H-07 | Como comisario quiero registrar/anular penalización | Cambios auditables, inmutabilidad de campos confirmados y validación de jornada/comparsa | `api/src/routes/penalties.routes.js` |
 | H-08 | Como escrutinio/escribanía quiero publicar resultado/acta | Publicación requiere roles permitidos y estado listo; público solo ve snapshot liberado; evidencia no se sobrescribe | `api/src/routes/results.routes.js`, `scrutiny-records.routes.js` |
 | H-09 | Como usuario quiero entrar de forma segura | Correo/contraseña más 2FA; recursos privados devuelven 401/403 sin autorización | `api/src/app.js`, pruebas auth/authz |

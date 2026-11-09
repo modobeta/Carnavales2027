@@ -3,7 +3,6 @@ import { RequireAdminArea } from "./auth/RequireAdminArea.jsx";
 import { RequireRole } from "./auth/RequireRole.jsx";
 import { RequireResultsRole } from "./auth/RequireResultsRole.jsx";
 import { RequirePenaltiesRole } from "./auth/RequirePenaltiesRole.jsx";
-import { RequireVotingObserverRole } from "./auth/RequireVotingObserverRole.jsx";
 import { useSession } from "./auth/session-context.jsx";
 import { AppNavigation } from "./components/AppNavigation.jsx";
 import { AdminEventsPage } from "./pages/AdminEventsPage.jsx";
@@ -22,7 +21,7 @@ import { AcceptOperationalInvitationPage } from "./pages/AcceptOperationalInvita
 import { JudgeHomePage } from "./pages/JudgeHomePage.jsx";
 import { JudgeBallotPage } from "./pages/JudgeBallotPage.jsx";
 import { JudgeAssignmentPage } from "./pages/JudgeAssignmentPage.jsx";
-import { VeedorMonitorPage } from "./pages/VeedorMonitorPage.jsx";
+import { AdminMonitorPage } from "./pages/AdminMonitorPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage.jsx";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage.jsx";
@@ -191,8 +190,8 @@ export default function App({ session: providedSession }) {
     const content = <RequireResultsRole session={session}><OfficialRecordPage /></RequireResultsRole>;
     return content;
   }
-  if (route === "#/veedor") {
-    const content = <RequireVotingObserverRole session={session}><VeedorMonitorPage /></RequireVotingObserverRole>;
+  if (route === "#/admin/supervision" || route === "#/veedor") {
+    const content = <RequireAdmin session={session}><AdminMonitorPage /></RequireAdmin>;
     return content;
   }
   if (route === "#/judge") {
@@ -208,6 +207,7 @@ export default function App({ session: providedSession }) {
   const showNavigation = session.status === "authenticated" && (
     isAdminArea ||
     route.startsWith("#/judge") ||
+    route === "#/admin/supervision" ||
     route === "#/veedor" ||
     route === "#/resultados"
   );

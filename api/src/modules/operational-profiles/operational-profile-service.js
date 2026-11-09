@@ -8,7 +8,7 @@ import { createInvitationDelivery } from "../judges/invitation-delivery.js";
 
 const invitationLockKey = "carnavales2027_v2_operational_invitation";
 
-const OPERATIONAL_ROLES = new Set(["VEEDOR", "COMISARIO", "SCRUTINEER", "ESCRIBANO"]);
+const OPERATIONAL_ROLES = new Set(["COMISARIO", "SCRUTINEER", "ESCRIBANO"]);
 
 function requireText(value, name) {
   if (typeof value !== "string" || value.trim().length === 0) {
