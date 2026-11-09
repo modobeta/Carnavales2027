@@ -4,6 +4,7 @@ import { Dialog } from "../components/Dialog.jsx";
 import { DialogFooter } from "../components/DialogFooter.jsx";
 import { StatusPill } from "../components/StatusPill.jsx";
 import { SkeletonLoader } from "../components/SkeletonLoader.jsx";
+import { uxErrorHint } from "../components/admin-ux-labels.js";
 
 const TYPE_LABELS = {
   PRIMARY: "Titular",
@@ -232,7 +233,7 @@ export function JuradosPorJornadaSection({
       await loadData(selectedNightId);
       onDataChanged?.();
     } catch (err) {
-      setModalFeedback(ERROR_MESSAGES[err.code] ?? "No se pudo actualizar el cupo.");
+      setModalFeedback(uxErrorHint(err.code, ERROR_MESSAGES[err.code] ?? "No se pudo actualizar el cupo. Revisá el estado de la jornada e intentá de nuevo.") );
     } finally {
       setBusy(false);
     }
@@ -264,7 +265,7 @@ export function JuradosPorJornadaSection({
       await loadData(selectedNightId);
       onDataChanged?.();
     } catch (err) {
-      setModalFeedback(ERROR_MESSAGES[err.code] ?? "No se pudo crear la asignación.");
+      setModalFeedback(uxErrorHint(err.code, ERROR_MESSAGES[err.code] ?? "No se pudo crear la asignación. Revisá el cupo y el estado de la jornada.") );
     } finally {
       setBusy(false);
     }
@@ -307,7 +308,7 @@ export function JuradosPorJornadaSection({
       await loadData(selectedNightId);
       onDataChanged?.();
     } catch (err) {
-      setModalFeedback(ERROR_MESSAGES[err.code] ?? "No se pudo completar la operación.");
+      setModalFeedback(uxErrorHint(err.code, ERROR_MESSAGES[err.code] ?? "No se pudo completar la operación. Revisá el estado de la asignación e intentá de nuevo.") );
     } finally {
       setBusy(false);
     }

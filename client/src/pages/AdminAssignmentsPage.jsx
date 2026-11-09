@@ -7,6 +7,8 @@ import { StatusPill } from "../components/StatusPill.jsx";
 import { apiRequest } from "../api/http.js";
 import { JudgeAssignmentDialog } from "../features/JudgeAssignmentDialog.jsx";
 import { useAdminEvent } from "../context/AdminEventContext.jsx";
+import { uxErrorHint } from "../components/admin-ux-labels.js";
+import { AssignmentReasonField, assignmentReasonFromForm } from "../features/AssignmentReasonField.jsx";
 
 const typeLabels = { PRIMARY: "Titular", SUBSTITUTE: "Suplente" };
 
@@ -26,6 +28,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
   const [localEventId, setLocalEventId] = useState("");
   const [nightId, setNightId] = useState("");
   const [quotaTarget, setQuotaTarget] = useState(null);
+  const [quotaContinueTarget, setQuotaContinueTarget] = useState(null);
   const [assignTarget, setAssignTarget] = useState(null);
   const [actionTarget, setActionTarget] = useState(null);
   const [openActionsId, setOpenActionsId] = useState(null);
@@ -35,7 +38,6 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
   const events = adminEvent?.events ?? localEvents;
   const eventId = adminEvent?.activeEventId ?? localEventId;
   const selectedEvent = adminEvent?.activeEvent ?? events.find((event) => event.id === eventId);
-  const canConfigure = selectedEvent?.status === "CONFIGURING";
   const availableNights = nights.filter((night) => night.status !== "CLOSED");
   const previousEventId = useRef(eventId);
 
@@ -99,6 +101,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
       const result = await operation();
       setMessage(typeof success === "function" ? success(result) : success);
       await refresh();
+      return true;
     } catch (error) {
       const messages = {
         JUDGE_QUOTA_FULL: "El cupo de esa combinación está completo.",
@@ -110,7 +113,8 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
         PRIMARY_BALLOT_SUBMITTED: "El titular ya presentó su planilla; no se puede revocar ni reemplazar esta asignación.",
         STANDBY_NOT_FOUND: "Esta asignación no tiene un suplente activo vinculado.",
       };
-      setMessage(messages[error.code] ?? "No se pudo completar la operación.");
+      setMessage(uxErrorHint(error.code, messages[error.code] ?? "No se pudo completar la operación. Revisá el estado de la jornada y el cupo antes de reintentar."));
+      return false;
     } finally {
       setBusy("");
     }
@@ -143,9 +147,20 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
 
   const closeDialogs = () => {
     setQuotaTarget(null);
+    setQuotaContinueTarget(null);
     setAssignTarget(null);
     setActionTarget(null);
     setOpenActionsId(null);
+  };
+
+  const openAssignmentFlow = (event, target) => {
+    dialogTriggerRef.current = event.currentTarget;
+    if (!quotaFor(target.nightId, target.specialtyId)) {
+      setQuotaContinueTarget(target);
+      setQuotaTarget(target);
+      return;
+    }
+    setAssignTarget(target);
   };
 
   const submitQuota = async (formEvent) => {
@@ -153,11 +168,14 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
     if (!quotaTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const target = quotaTarget;
+    const continueToAssignment = quotaContinueTarget?.nightId === target.nightId
+      && quotaContinueTarget?.specialtyId === target.specialtyId;
     closeDialogs();
-    await action("quota", () => apiRequest(
+    const saved = await action("quota", () => apiRequest(
       `/api/v1/events/${eventId}/nights/${target.nightId}/specialties/${target.specialtyId}/judge-quota`,
       { method: "PUT", body: JSON.stringify({ maxAssignments: Number(values.get("maxAssignments")) }) },
     ), "Cupo actualizado.");
+    if (saved && continueToAssignment) setAssignTarget(target);
   };
 
   const submitAssignment = async ({ judgeProfileId, assignmentType, standbyForAssignmentId }) => {
@@ -181,7 +199,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
     if (!actionTarget) return;
     const values = new FormData(formEvent.currentTarget);
     const { assignment, action: actionName } = actionTarget;
-    const reason = values.get("reason");
+    const reason = assignmentReasonFromForm(values);
     closeDialogs();
     if (actionName === "revoke") {
       await action(`revoke-${assignment.id}`, () => apiRequest(`/api/v1/judge-assignments/${assignment.id}/revoke`, {
@@ -230,9 +248,9 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
     <>
       {message && <p className="feedback" role={message.startsWith("No se pudieron") ? "alert" : "status"} aria-live="polite">{message}</p>}
       {eventId && <>
-        {selectedEvent?.status === "OPEN" && !embedded && (
+        {selectedEvent?.status === "OPEN" && (
           <p className="feedback" role="note">
-            Competencia en curso: podés asignar, reemplazar o revocar jurados de jornadas abiertas. Los cupos quedan bloqueados.
+            Competencia en curso: en jornadas futuras en borrador podés ajustar cupos y dar altas. Una vez abierta, la jornada no admite altas nuevas; reemplazos y revocaciones siguen sujetos a que no haya planillas presentadas.
           </p>
         )}
         {!fixedNight && <div className="night-tabs" role="group" aria-label="Jornada">
@@ -260,9 +278,8 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
                   <p>{filled}{quota ? ` · Cupo máximo: ${quota.maxAssignments}` : " · Sin cupo configurado"}</p>
                 </div>
                 <div className="event-actions">
-                  {!quota && <button type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Configurar cupo</button>}
-                  {quota && <button className="secondary edit-action" type="button" disabled={Boolean(busy) || !canConfigure} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
-                  <button type="button" disabled={Boolean(busy) || !canAssignSelectedNight} onClick={openDialog(setAssignTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>+ Asignar jurado</button>
+                  {quota && <button className="secondary edit-action" type="button" disabled={Boolean(busy) || !canAssignSelectedNight} onClick={openDialog(setQuotaTarget, { nightId: selectedNight.id, specialtyId: specialty.id })}>Editar cupo</button>}
+                  <button type="button" disabled={Boolean(busy) || !canAssignSelectedNight} onClick={(event) => openAssignmentFlow(event, { nightId: selectedNight.id, specialtyId: specialty.id })}>{quota || !canAssignSelectedNight ? "+ Asignar jurado" : "Configurar cupo y asignar"}</button>
                 </div>
               </div>
               {selectedNight.status === "OPEN" && <p className="feedback" role="note">Jornada abierta: no se admiten nuevas asignaciones. Los reemplazos y las revocaciones siguen sujetos a que no haya una planilla confirmada.</p>}
@@ -334,7 +351,7 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
         isOpen={quotaTarget !== null}
         onClose={closeDialogs}
         title={`Configurar cupo — ${quotaNight?.name ?? ""} · ${quotaSpecialty?.name ?? ""}`}
-        description="Se cuenta cada titular o suplente. Los cupos se congelan al abrir el evento."
+        description="Se cuenta cada titular o suplente. El cupo se puede ajustar mientras la jornada siga en borrador."
         focusReturnRef={dialogTriggerRef}
       >
         <form onSubmit={submitQuota}>
@@ -384,10 +401,9 @@ export function AdminAssignmentsPage({ initialEventId = "", initialNightId = "",
               </select>
             </>
           )}
-          <label htmlFor="action-reason">
-            {actionTarget?.action === "revoke" ? "Motivo de revocación" : actionTarget?.action === "replace" ? "Motivo" : "Motivo de activación"}
-          </label>
-          <input id="action-reason" name="reason" required />
+          <AssignmentReasonField
+            label={actionTarget?.action === "revoke" ? "Motivo de revocación" : actionTarget?.action === "activate" ? "Motivo de activación" : "Motivo del reemplazo"}
+          />
           <p>⚠ Esta acción quedará registrada.</p>
           <DialogFooter>
             <button type="button" className="secondary" onClick={closeDialogs}>Cancelar</button>

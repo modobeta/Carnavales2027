@@ -45,7 +45,7 @@ describe("EventConfigurationPage", () => {
 
     const panel = await screen.findByRole("region", { name: "Jurados de Noche 1" });
     expect(panel.querySelector(".assignment-page-embedded")).toBeInTheDocument();
-    expect(await within(panel).findByRole("button", { name: "+ Asignar jurado" })).toBeEnabled();
+    expect(await within(panel).findByRole("button", { name: "Configurar cupo y asignar" })).toBeEnabled();
   });
 
   it("deja la configuracion en solo lectura cuando el evento esta OPEN", () => {

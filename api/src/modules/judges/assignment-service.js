@@ -24,7 +24,8 @@ function requireReason(value) {
   return requireText(value, "reason");
 }
 
-async function inTransaction(operation) {
+async function inTransaction(operation, existingClient = null) {
+  if (existingClient) return operation(existingClient);
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
@@ -170,12 +171,13 @@ export async function getJudgeEventCompletion({ judgeProfileId, client = getPool
   };
 }
 
-export async function setJudgeQuota({ actorUserId, eventId, nightId, specialtyId, maxAssignments }) {
+export async function setJudgeQuota({ client = null, actorUserId, eventId, nightId, specialtyId, maxAssignments }) {
   const value = requirePositiveInteger(maxAssignments, "maxAssignments");
   return inTransaction(async (client) => {
     const event = await lockEvent(client, eventId);
-    if (event.status !== "CONFIGURING") throw new Error("EVENT_LOCKED");
+    if (!["CONFIGURING", "OPEN"].includes(event.status)) throw new Error("EVENT_LOCKED");
     const context = await lockNightSpecialty(client, { eventId, nightId, specialtyId });
+    if (context.nightStatus !== "DRAFT") throw new Error("JUDGE_QUOTA_NIGHT_NOT_DRAFT");
     const { rows } = await client.query(
       `INSERT INTO judge_quota (event_id, night_id, specialty_id, max_assignments)
        VALUES ($1, $2, $3, $4)
@@ -194,7 +196,7 @@ export async function setJudgeQuota({ actorUserId, eventId, nightId, specialtyId
       after: result,
     });
     return result;
-  });
+  }, client);
 }
 
 export async function createJudgeAssignment({

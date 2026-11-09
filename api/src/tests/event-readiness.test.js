@@ -4,8 +4,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { getReadiness, openEvent } from "../modules/events/event-readiness.service.js";
 import { closePool, getPool } from "../db/pool.js";
 import { migrate } from "../db/migrate.js";
-import { createEvent, createNight } from "../modules/events/event-service.js";
+import { createEvent, createNight, updateNight } from "../modules/events/event-service.js";
 import { seedActiveJudge } from "./helpers/judge-fixture.js";
+import { setJudgeQuota } from "../modules/judges/assignment-service.js";
 
 test("readiness exige que todos los ítems activos usen especialidades activas antes de abrir", { skip: !process.env.TEST_DATABASE_URL }, async (context) => {
   const original = process.env.DATABASE_URL;
@@ -121,6 +122,42 @@ test("readiness exige que todos los ítems activos usen especialidades activas a
     await client.query("ROLLBACK TO SAVEPOINT direct_ready_open");
     const opened = await openEvent({ client, eventId: event.id });
     assert.equal(opened.status, "OPEN");
+    await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id });
+    await seedActiveJudge({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id });
+    const futureNightQuota = await setJudgeQuota({
+      client,
+      eventId: event.id,
+      nightId: night.id,
+      specialtyId: activeSpecialty.id,
+      maxAssignments: 2,
+    });
+    assert.equal(futureNightQuota.maxAssignments, 2);
+    assert.equal(futureNightQuota.activeAssignments, 2);
+    await client.query("SAVEPOINT quota_below_active_count");
+    await assert.rejects(
+      () => setJudgeQuota({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id, maxAssignments: 1 }),
+      /JUDGE_QUOTA_BELOW_ASSIGNMENTS/,
+    );
+    await client.query("ROLLBACK TO SAVEPOINT quota_below_active_count");
+    await updateNight({
+      client,
+      nightId: night.id,
+      name: night.name,
+      displayOrder: night.displayOrder,
+      kind: night.kind,
+      eventDate: night.eventDate,
+      status: "OPEN",
+    });
+    await client.query("SAVEPOINT quota_after_night_open");
+    await assert.rejects(
+      () => client.query("UPDATE judge_quota SET max_assignments = 3 WHERE id = $1", [futureNightQuota.id]),
+      /JUDGE_QUOTA_NIGHT_NOT_DRAFT/,
+    );
+    await client.query("ROLLBACK TO SAVEPOINT quota_after_night_open");
+    await assert.rejects(
+      () => setJudgeQuota({ client, eventId: event.id, nightId: night.id, specialtyId: activeSpecialty.id, maxAssignments: 3 }),
+      /JUDGE_QUOTA_NIGHT_NOT_DRAFT/,
+    );
     const deleteAttempts = [
       ["night", "event_id=$1", [event.id]],
       ["event_troupe", "event_id=$1", [event.id]],
