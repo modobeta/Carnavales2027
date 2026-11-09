@@ -15,6 +15,7 @@ import { AdminAssignmentsPage } from "./AdminAssignmentsPage.jsx";
 const EMPTY_LIST = [];
 const errorMessages = {
   EVENT_LOCKED: "El evento esta abierto y su configuracion ya no puede modificarse.",
+  EVENT_RESULTS_ALREADY_RELEASED: "Los resultados ya se publicaron; el nombre del evento quedó fijo.",
   RESOURCE_CONFLICT: "Ese nombre u orden ya está en uso.",
   VALIDATION_ERROR: "Revisa los datos ingresados.",
   ADMIN_REQUIRED: "Acción no permitida para este evento.",
@@ -71,9 +72,10 @@ export function EventConfigurationPage({
   const locked = currentEvent.status !== "CONFIGURING";
   const canMutate = !locked;
   const showNightActions = !locked || currentEvent.status === "OPEN";
-  const canRenameEvent = !locked;
-  const canCreateNight = canRenameEvent;
-  const canEditNight = canRenameEvent;
+  const canRenameEvent = !currentEvent.resultsReleased
+    && ["CONFIGURING", "OPEN", "CLOSED"].includes(currentEvent.status);
+  const canCreateNight = !locked;
+  const canEditNight = !locked;
   const canDeleteNight = () => !locked;
   const { notify } = useNotify();
   const { dirty, markDirty, reset: resetDirty } = useFormDirty(drawerMode);
@@ -289,8 +291,10 @@ export function EventConfigurationPage({
             setRenameTarget(name);
           }}
         >
-          <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={locked} required /></label>
-          <button disabled={locked}>{guidedTask ? "Guardar y continuar" : "Guardar evento"}</button>
+          <label>Nombre del evento<input name="name" defaultValue={currentEvent.name ?? ""} disabled={!canRenameEvent} required /></label>
+          <button disabled={!canRenameEvent}>{guidedTask ? "Guardar y continuar" : "Guardar evento"}</button>
+          {canRenameEvent && currentEvent.status !== "CONFIGURING" && <p role="note">La competencia ya comenzó o finalizó. Solo podés corregir el nombre hasta publicar los resultados.</p>}
+          {currentEvent.resultsReleased && <p role="note">Los resultados ya se publicaron. El nombre no se puede modificar.</p>}
         </form>
       </section>}
 

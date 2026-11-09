@@ -274,7 +274,8 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
 
     const adminList = await fetch(`${baseUrl}/api/v1/events`, { headers: { "x-test-session": "admin" } });
     assert.equal(adminList.status, 200);
-    assert.ok((await adminList.json()).some((row) => row.id === event.id));
+    const eventsList = await adminList.json();
+    assert.ok(eventsList.some((row) => row.id === event.id && row.resultsReleased === false));
     const adminDetail = await fetch(`${baseUrl}/api/v1/events/${event.id}`, { headers: { "x-test-session": "admin" } });
     assert.equal(adminDetail.status, 200);
     assert.equal((await adminDetail.json()).id, event.id);
@@ -382,13 +383,33 @@ test("la API ADMIN gestiona eventos y jornadas, y bloquea eventos OPEN", {
     });
     assert.equal(deniedOperationStatus.status, 403);
     assert.deepEqual(await deniedOperationStatus.json(), { code: "ADMIN_REQUIRED" });
+    const renamedOpenEvent = await fetch(`${baseUrl}/api/v1/events/${event.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-test-session": "admin" },
+      body: JSON.stringify({ name: "Carnavales API renombrado abierto" }),
+    });
+    assert.equal(renamedOpenEvent.status, 200);
+    assert.deepEqual(await renamedOpenEvent.json(), {
+      id: event.id,
+      name: "Carnavales API renombrado abierto",
+      status: "OPEN",
+      active: true,
+      resultsReleased: false,
+    });
+    await pool.query("INSERT INTO results_release (event_id, released_by) VALUES ($1, $2)", [event.id, adminId]);
+    await assert.rejects(
+      () => pool.query("UPDATE carnival_event SET name = 'Cambio directo no permitido' WHERE id = $1", [event.id]),
+      /EVENT_LOCKED/,
+    );
     const lockedUpdate = await fetch(`${baseUrl}/api/v1/events/${event.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({ name: "No permitido" }),
     });
     assert.equal(lockedUpdate.status, 409);
-    assert.deepEqual(await lockedUpdate.json(), { code: "EVENT_LOCKED" });
+    assert.deepEqual(await lockedUpdate.json(), { code: "EVENT_RESULTS_ALREADY_RELEASED" });
+    const publishedDetail = await fetch(`${baseUrl}/api/v1/events/${event.id}`, { headers: { "x-test-session": "admin" } });
+    assert.equal((await publishedDetail.json()).resultsReleased, true);
 
     const { rows: auditRows } = await pool.query(
       "SELECT action FROM audit_event WHERE entity_type IN ('carnival_event', 'night') AND entity_id = $1",
@@ -660,7 +681,7 @@ test("PATCH evento requiere ADMIN global para todos los cambios", {
     const delegatedUpdate = await request(ids.target, "admin", { name: "T3 global name" });
     assert.equal(delegatedUpdate.status, 200);
     assert.deepEqual(await delegatedUpdate.json(), {
-      id: ids.target, name: "T3 global name", status: "CONFIGURING", active: true,
+      id: ids.target, name: "T3 global name", status: "CONFIGURING", active: true, resultsReleased: false,
     });
     assert.deepEqual(
       (await pool.query("SELECT id, name, status, active FROM carnival_event WHERE id = $1", [ids.target])).rows,
@@ -922,7 +943,7 @@ test("GET /events/:eventId requiere ADMIN global sin depender de asignaciones", 
     .map((key) => [key, randomUUID()]));
   const userIds = [ids.admin, ids.assigned, ids.other, ids.unassigned, ids.revoked, ids.judge];
   const events = ["CONFIGURING", "OPEN", "CLOSED"].flatMap((status) => [true, false].map((active) => ({
-    id: randomUUID(), name: `T2 detail ${status} ${active}`, status, active,
+    id: randomUUID(), name: `T2 detail ${status} ${active}`, status, active, resultsReleased: false,
   })));
   const [eventA, eventB] = events;
   const eventIds = [...events.map(({ id }) => id), ids.foreignEvent];
@@ -1066,8 +1087,8 @@ test("GET /events/:eventId requiere ADMIN global sin depender de asignaciones", 
     const descriptor = Object.getOwnPropertyDescriptor(pool, "query");
     const originalQuery = pool.query;
     for (const failedSql of [
-      "SELECT id, name, status, active FROM carnival_event WHERE id = $1",
-      "SELECT EXISTS (",
+      "FROM carnival_event event WHERE event.id = $1",
+      "EXISTS (SELECT 1 FROM results_release",
     ]) {
       pool.query = function (sql, ...args) {
         if (typeof sql === "string" && sql.includes(failedSql)) return Promise.reject(new Error("Injected detail DB failure: internal SQL must not leak"));
@@ -1176,7 +1197,9 @@ test("GET /events requiere ADMIN global y devuelve el catálogo completo", {
       ].sort((left, right) => left.id.localeCompare(right.id)),
     );
 
-    const listSql = "SELECT id, name, status, active FROM carnival_event ORDER BY created_at";
+    const listSql = `SELECT event.id, event.name, event.status, event.active,
+              EXISTS (SELECT 1 FROM results_release release WHERE release.event_id = event.id) AS "resultsReleased"
+         FROM carnival_event event ORDER BY event.created_at`;
     const poolQueryDescriptor = Object.getOwnPropertyDescriptor(pool, "query");
     const originalPoolQuery = pool.query;
     const withListQueryResult = async (listQuery, run) => {
