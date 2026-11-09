@@ -116,7 +116,59 @@
 
 .results-page .event-header > label { min-inline-size: min(100%, 18rem); }
 
-.results-intro h2 { margin: 0 0 .35rem; font-size: clamp(1.8rem, 5vw, 3rem); }
+.results-page .event-header h1 { margin-block: .1rem .25rem; }
+.results-page-summary { margin: 0; }
+.results-page > .feedback-warning {
+  margin: 0;
+  border-inline-start: 4px solid var(--warning-text);
+  border-radius: var(--radius-md);
+  padding: .65rem .85rem;
+  color: var(--warning-text);
+  background: rgba(217, 119, 6, .1);
+}
+
+.results-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .35rem 1rem;
+  padding: clamp(.85rem, 2vw, 1.25rem);
+}
+.results-intro > .eyebrow,
+.results-intro > h2,
+.results-intro > p { grid-column: 1; margin: 0; }
+.results-intro > .eyebrow { color: var(--muted-color); }
+.results-intro h2 { font-size: clamp(1.35rem, 3vw, 2rem); }
+.results-intro > button,
+.results-intro > .admin-release-notice { grid-column: 2; grid-row: 1 / span 3; }
+.results-intro > .admin-release-notice { max-inline-size: 22rem; margin: 0; }
+.results-page .workflow-stepper { margin: 0; gap: .5rem; }
+.results-page .workflow-step { min-block-size: 3.1rem; padding-block-start: .5rem; }
+.results-page .workflow-step div { align-self: center; }
+
+.release-conditions-card { margin: 0; padding: .85rem 1rem; }
+.release-conditions-card h3 { margin-block-end: .55rem; }
+.release-conditions-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.release-conditions-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  padding: .55rem .65rem;
+  border: 1px solid var(--line-color);
+  border-radius: var(--radius-md);
+  color: var(--text-color);
+  font-size: .88rem;
+}
+.condition-bullet {
+  display: grid;
+  flex: 0 0 1.35rem;
+  block-size: 1.35rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text-inverse);
+  background: var(--primary-color);
+  font-size: .78rem;
+}
 
 .tie-breaker-panel {
   display: grid;
@@ -192,6 +244,14 @@
   .ceremonial-draw-actions { display: grid; }
   .ceremonial-draw-actions > * { inline-size: 100%; }
   .results-page .event-header > label { inline-size: 100%; }
+  .results-intro { grid-template-columns: 1fr; }
+  .results-intro > .eyebrow,
+  .results-intro > h2,
+  .results-intro > p,
+  .results-intro > button,
+  .results-intro > .admin-release-notice { grid-column: 1; grid-row: auto; }
+  .results-intro > button { inline-size: 100%; }
+  .release-conditions-list { grid-template-columns: 1fr; }
   .results-header-row { display: none; }
   .tie-breaker-pool li,
   .results-row {

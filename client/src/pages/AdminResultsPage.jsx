@@ -24,6 +24,7 @@ export function AdminResultsPage() {
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [releaseAvailable, setReleaseAvailable] = useState(false);
+  const [releaseBlocked, setReleaseBlocked] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [releasing, setReleasing] = useState(false);
   const drawTriggerRef = useRef(null);
@@ -56,6 +57,7 @@ export function AdminResultsPage() {
     setTie(null);
     setDrawResult(null);
     setReleaseAvailable(false);
+    setReleaseBlocked(false);
     setMessage("");
 
     void Promise.allSettled([
@@ -70,7 +72,6 @@ export function AdminResultsPage() {
         setTie(null);
       } else if (resultsResponse.reason?.code === "RESULTS_NOT_RELEASED") {
         setReleaseAvailable(true);
-        setMessage("Los resultados estan listos para liberar en la etapa de escrutinio.");
       } else if (resultsResponse.reason?.code === "TIE_BREAKER_REQUIRES_MANUAL_DRAW") {
         const details = resultsResponse.reason.details ?? {};
         setTie({
@@ -107,7 +108,8 @@ export function AdminResultsPage() {
       if (error?.code === "RESULTS_RELEASE_FORBIDDEN_FOR_ADMIN") {
         setMessage("La liberación oficial de resultados corresponde a Escrutinio o Escribanía; el Administrador no puede liberarlos.");
       } else if (error?.code === "RESULTS_NOT_READY") {
-        setMessage("No se pueden liberar: la votación debe estar cerrada y todas las planillas votantes confirmadas.");
+        setReleaseBlocked(true);
+        setMessage("El servidor todavía no permite publicar. Revisá los requisitos y volvé a intentar.");
       } else {
         setMessage("No se pudieron liberar los resultados.");
       }
@@ -122,19 +124,19 @@ export function AdminResultsPage() {
   );
   const selectedEvent = adminEvent?.activeEvent ?? events.find((event) => event.id === eventId);
   const workflowSteps = [
-    { label: "Revisar consolidación", state: result || releaseAvailable ? "done" : "current" },
-    { label: "Liberar resultados", state: result ? "done" : releaseAvailable ? "current" : "locked" },
-    { label: "Resolver desempate", state: result && !tie ? "skipped" : drawResult ? "done" : tie ? "current" : "locked" },
-    { label: "Emitir acta oficial", state: result && (!tie || drawResult) ? "current" : "locked" },
+    { label: "Revisar resultados", state: result || releaseAvailable ? "done" : "current" },
+    { label: "Publicar", state: result ? "done" : releaseAvailable ? "current" : "locked" },
+    { label: "Resolver empate", state: result && !tie ? "skipped" : drawResult ? "done" : tie ? "current" : "locked" },
+    { label: "Emitir acta", state: result && (!tie || drawResult) ? "current" : "locked" },
   ];
 
   return (
     <PageShell layer="instrument" className="admin-shell results-page">
       <header className="event-header">
         <div>
-          <p className="eyebrow">Escrutinio autorizado</p>
-          <h1>Escrutinio</h1>
-          <p className="results-page-summary">Revisá el consolidado, completá los pasos pendientes y emití el acta al final.</p>
+          <p className="eyebrow">Escrutinio</p>
+          <h1>Resultados</h1>
+          <p className="results-page-summary">Revisá los resultados, publicalos y después emití el acta.</p>
         </div>
          {!adminEvent && <label>Competencia
            <select value={eventId} onChange={(event) => setLocalEventId(event.target.value)}>
@@ -143,22 +145,22 @@ export function AdminResultsPage() {
          </label>}
       </header>
 
-      <p className="feedback" role="status" aria-live="polite">{message}</p>
+      {message && <p className={`feedback${releaseBlocked ? " feedback-warning" : ""}`} role="status" aria-live="polite">{message}</p>}
       {loading && <SkeletonLoader variant="table" rows={4} label="Cargando resultados…" />}
       {!loading && selectedEvent && (
         <>
            <section className="config-section results-intro">
             <p className="eyebrow">{selectedEvent.name}</p>
-            <h2>{result ? "Resultados consolidados" : releaseAvailable ? "Resultados listos para liberar" : "Estado del escrutinio"}</h2>
-            <p>{result ? "El consolidado está disponible para revisión." : releaseAvailable ? "La votación está lista para que una autoridad habilitada libere los resultados." : "Cuando la votación esté cerrada y las planillas completas, vas a poder continuar desde acá."}</p>
+            <h2>{result ? "Resultados publicados" : releaseBlocked ? "Falta completar la votación" : releaseAvailable ? "Publicación pendiente" : "Preparación de resultados"}</h2>
+            {!releaseBlocked && <p>{result ? "El consolidado ya está disponible para consulta." : releaseAvailable ? "La publicación todavía no se confirmó. Revisá los requisitos antes de continuar." : "Cuando la votación esté cerrada y las planillas completas, vas a poder continuar desde acá."}</p>}
             {releaseAvailable && (
               canRelease ? (
                 <button type="button" onClick={release} disabled={releasing}>
-                  {releasing ? "Liberando resultados..." : "Liberar resultados"}
+                  {releasing ? "Publicando resultados…" : "Publicar resultados"}
                 </button>
               ) : (
                 <p className="admin-release-notice" role="note">
-                  La liberación oficial de resultados corresponde exclusivamente a Escrutinio o Escribanía.
+                  Para publicar, necesitás ingresar con una cuenta habilitada de Escrutinio o Escribanía y completar la verificación en dos pasos.
                 </p>
               )
             )}
@@ -167,29 +169,25 @@ export function AdminResultsPage() {
            <ol className="workflow-stepper" aria-label="Flujo de escrutinio">
              {workflowSteps.map((step, index) => <li className={`workflow-step workflow-step-${step.state}`} key={step.label} aria-current={step.state === "current" ? "step" : undefined}>
                <span className="workflow-step-number" aria-hidden="true">{index + 1}</span>
-               <div><strong>{step.label}</strong><span>{step.state === "done" ? "Listo" : step.state === "current" ? "En curso" : step.state === "skipped" ? "No requerido" : "Bloqueado"}</span></div>
+               <div><strong>{step.label}</strong><span className="sr-only">{step.state === "done" ? "Listo" : step.state === "current" ? "En curso" : step.state === "skipped" ? "No requerido" : "Pendiente"}</span></div>
              </li>)}
            </ol>
 
            {!result && (
              <section className="release-conditions-card" aria-label="Condiciones para liberación de resultados">
-               <h3>Condiciones previas para liberar resultados (RF-94a)</h3>
+               <h3>Antes de publicar</h3>
                <ul className="release-conditions-list">
-                 <li className={selectedEvent.status === "CLOSED" || releaseAvailable ? "is-met" : "is-pending"}>
-                   <span className="condition-bullet" aria-hidden="true">{selectedEvent.status === "CLOSED" || releaseAvailable ? "✓" : "○"}</span>
-                   <span>Votación de todas las jornadas cerrada por el Administrador.</span>
+                 <li>
+                   <span className="condition-bullet" aria-hidden="true">1</span>
+                   <span>La votación de todas las jornadas debe estar cerrada.</span>
                  </li>
-                 <li className={releaseAvailable ? "is-met" : "is-pending"}>
-                   <span className="condition-bullet" aria-hidden="true">{releaseAvailable ? "✓" : "○"}</span>
-                   <span>Todas las planillas en estado Confirmada (SUBMITTED) o Reemplazada (REPLACED).</span>
+                 <li>
+                   <span className="condition-bullet" aria-hidden="true">2</span>
+                   <span>Todas las planillas deben estar completas.</span>
                  </li>
-                 <li className={releaseAvailable ? "is-met" : "is-pending"}>
-                   <span className="condition-bullet" aria-hidden="true">{releaseAvailable ? "✓" : "○"}</span>
-                   <span>Cero ítems pendientes de calificación (SCORED o NOT_PRESENTED completos).</span>
-                 </li>
-                 <li className={canRelease ? "is-met" : "is-warning"}>
-                   <span className="condition-bullet" aria-hidden="true">{canRelease ? "✓" : "🔒"}</span>
-                   <span>Rol autorizado: Escrutinio (SCRUTINEER) o Escribanía (ESCRIBANO) con 2FA verificado.</span>
+                 <li>
+                   <span className="condition-bullet" aria-hidden="true">3</span>
+                   <span>No debe quedar ninguna calificación pendiente.</span>
                  </li>
                </ul>
              </section>
