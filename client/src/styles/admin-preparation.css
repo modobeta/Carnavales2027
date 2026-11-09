@@ -1,0 +1,87 @@
+/* Cabecera ADMIN y asistente: no modifica pantallas del Jurado ni roles auxiliares. */
+.app-navigation.is-admin-route { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: center; padding: 1rem 1.75rem; background: var(--surface-base); border-block-end: 1px solid var(--border-subtle); backdrop-filter: none; }
+.is-admin-route .admin-header-identity { display: flex; align-items: center; gap: .75rem; min-inline-size: 0; }
+.is-admin-route .admin-header-account { position: relative; min-inline-size: 0; }
+.is-admin-route .admin-header-account summary { display: grid; grid-template-columns: minmax(0, 1fr) 14px; gap: .15rem .75rem; align-items: center; min-block-size: 48px; cursor: pointer; list-style: none; }
+.is-admin-route .admin-header-account summary::-webkit-details-marker { display: none; }
+.is-admin-route .admin-header-account strong { color: var(--palette-pink-deep); font-size: 1.25rem; font-weight: 750; overflow-wrap: anywhere; }
+.is-admin-route .admin-header-account summary > span { grid-column: 1; color: var(--text-muted); font-size: .8125rem; }
+.is-admin-route .admin-header-account summary > svg { grid-column: 2; grid-row: 1 / 3; }
+.is-admin-route .admin-header-account-menu { display: grid; gap: .75rem; position: absolute; inset-block-start: 100%; inset-inline-start: 0; z-index: 20; min-inline-size: 14rem; max-inline-size: calc(100vw - 2rem); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1rem; background: var(--surface-card); box-shadow: var(--shadow-lg); }
+.is-admin-route .admin-header-context { display: grid; gap: .2rem; justify-items: center; min-inline-size: 0; text-align: center; }
+.is-admin-route .admin-header-context > strong { font-size: 1.25rem; color: var(--palette-pink-deep); }
+.is-admin-route .admin-header-context > span { color: var(--text-muted); font-size: .75rem; }
+.is-admin-route .event-picker { min-inline-size: 0; max-inline-size: 100%; }
+.is-admin-route .event-picker-trigger { min-block-size: 48px; padding: .25rem; border: 0; border-radius: var(--radius-sm); background: transparent; box-shadow: none; max-inline-size: 100%; }
+.is-admin-route .event-picker-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.is-admin-route .event-picker-value { font-size: 1.25rem; color: var(--palette-pink-deep); overflow-wrap: anywhere; white-space: normal; }
+[data-theme="dark"] .is-admin-route :is(.admin-header-account strong, .admin-header-context > strong, .event-picker-value) { color: var(--palette-pink); }
+.is-admin-route .admin-header-exit { justify-self: end; min-block-size: 48px; padding: .5rem .75rem; color: var(--text-secondary); background: transparent; border: 0; box-shadow: none; }
+.is-admin-route .admin-header-section { justify-self: end; color: var(--text-muted); font-size: .8125rem; }
+.app-shell.is-admin.is-preparation { padding-inline-start: 0; }
+.app-shell.is-preparation > .app-drawer { position: fixed; inset-inline-start: 0; z-index: 20; box-shadow: var(--shadow-lg); max-inline-size: calc(100vw - 2rem); }
+.app-shell.is-preparation .app-drawer-close { display: inline-flex; }
+.app-shell.is-preparation .app-drawer-backdrop { display: block; }
+.admin-preparation-page { inline-size: 100%; max-inline-size: 1120px; margin-inline: auto; padding: 2rem; min-inline-size: 0; }
+.admin-preparation-page h1 { font-size: 1.875rem; line-height: 1.25; letter-spacing: -.035em; }
+.admin-preparation-page h1:focus { outline: none; }
+.admin-preparation-progress { margin-block-end: 2rem; }
+.admin-preparation-caption { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .8125rem; margin-block-end: .75rem; color: var(--text-muted); }
+.admin-preparation-caption strong { color: var(--text-secondary); font-weight: 600; }
+.admin-preparation-track { block-size: 8px; border-radius: var(--radius-full); background: var(--text-muted); overflow: hidden; }
+.admin-preparation-track > span { display: block; block-size: 100%; background: var(--palette-pink); }
+.admin-preparation-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin: .75rem 0 0; padding: 0; list-style: none; }
+.admin-preparation-steps button { display: flex; align-items: center; gap: .75rem; inline-size: 100%; min-block-size: 64px; padding: .75rem; color: var(--text-muted); border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; box-shadow: none; text-align: start; font-size: .875rem; }
+.admin-preparation-steps button[aria-current="step"] { border-color: var(--border-strong); color: var(--text-primary); background: var(--surface-card); }
+.admin-preparation-steps small { display: block; margin-block-start: .15rem; font-size: .6875rem; font-weight: 400; color: var(--text-muted); }
+.preparation-number { display: grid; place-items: center; flex: 0 0 32px; inline-size: 32px; block-size: 32px; border: 1px solid var(--border-strong); border-radius: var(--radius-full); font-size: .8125rem; }
+.preparation-number.is-complete { color: var(--success-text); background: var(--success-bg); border-color: transparent; }
+.admin-preparation-tasks { display: flex; flex-wrap: wrap; gap: .25rem; margin-block-end: 1.5rem; }
+.admin-preparation-tasks button { min-block-size: 48px; padding: .5rem 1rem; color: var(--text-muted); background: transparent; border: 0; border-radius: 0; box-shadow: none; font-size: .8125rem; }
+.admin-preparation-tasks button[aria-current="step"] { color: var(--text-primary); box-shadow: inset 0 -2px var(--palette-pink); }
+.preparation-task-heading { margin-block-end: 1.5rem; }
+.preparation-task-heading h1 { margin: 0; }
+.preparation-task-heading p { color: var(--text-muted); font-size: .875rem; margin: .5rem 0 0; }
+.preparation-create-form { display: grid; gap: .75rem; max-inline-size: 720px; padding: 1.75rem; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-card); }
+.preparation-create-form label { font-size: .875rem; font-weight: 600; }
+.preparation-create-form input { inline-size: 100%; min-inline-size: 0; min-block-size: 48px; }
+.preparation-create-form button { justify-self: end; margin-block-start: .75rem; }
+.preparation-create-form [role="alert"] { color: var(--danger-text); }
+.preparation-editor { min-inline-size: 0; max-inline-size: 100%; }
+.preparation-editor > .fieldset-reset { padding: 0; margin: 0; min-inline-size: 0; border: 0; }
+.guided-event-configuration > .config-section { margin-block-start: 0; }
+.guided-event-configuration > .config-section > .section-heading,
+.guided-competencia #competencia-step-title,
+.guided-competencia .competencia-step-summary,
+.guided-competencia .competencia-subtabs { display: none; }
+.guided-event-configuration .config-card { max-inline-size: 720px; }
+.guided-competencia .competencia-subblock { min-inline-size: 0; }
+.preparation-types { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: .75rem 1rem; margin-block-end: 1.5rem; }
+.preparation-types > summary { display: flex; align-items: center; min-block-size: 48px; font-size: .875rem; cursor: pointer; color: var(--text-secondary); }
+.preparation-navigation { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-block-start: 1.5rem; padding-block-start: 1.25rem; border-block-start: 1px solid var(--border-subtle); }
+.preparation-navigation button { min-block-size: 48px; }
+.preparation-review, .preparation-notice { max-inline-size: 800px; padding: 1.75rem; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-card); }
+.preparation-review > h1 { margin: 0 0 1rem; }
+.preparation-review p { color: var(--text-secondary); }
+.preparation-review .preparation-secondary { color: var(--text-muted); font-size: .8125rem; }
+.preparation-review > button { margin-block-start: 1.5rem; }
+.preparation-review details { border-block-start: 1px solid var(--border-subtle); margin-block-start: 1.5rem; padding-block-start: .75rem; }
+.preparation-review summary { min-block-size: 48px; cursor: pointer; font-size: .875rem; color: var(--text-secondary); }
+.preparation-evaluation-details { margin-block-start: 1.5rem; border-block-start: 1px solid var(--border-subtle); }
+.preparation-evaluation-details > summary { min-block-size: 48px; padding-block: .75rem; cursor: pointer; color: var(--text-secondary); font-size: .875rem; }
+.preparation-review li { margin-block: .75rem; }
+.preparation-review li button { display: block; margin-block-start: .5rem; }
+.preparation-issue h2 { font-size: 1.25rem; }
+@media (max-width: 47.99rem) {
+  .app-navigation.is-admin-route { grid-template-columns: minmax(0, 1fr) auto; padding: .75rem 1rem; gap: .75rem; }
+  .is-admin-route .admin-header-identity { gap: .25rem; }
+  .is-admin-route .admin-header-context { grid-column: 1 / -1; grid-row: 2; }
+  .is-admin-route .admin-header-exit, .is-admin-route .admin-header-section { grid-column: 2; grid-row: 1; }
+  .admin-preparation-page { padding: 1.5rem 1rem; }
+  .admin-preparation-steps { gap: .25rem; }
+  .admin-preparation-steps button { display: grid; justify-items: center; gap: .5rem; padding: .6rem .15rem; font-size: .75rem; text-align: center; }
+  .admin-preparation-steps small { display: none; }
+  .admin-preparation-caption { gap: .5rem; font-size: .75rem; }
+  .admin-preparation-page h1 { font-size: 1.625rem; }
+  .preparation-create-form, .preparation-review, .preparation-notice { padding: 1.25rem; }
+}

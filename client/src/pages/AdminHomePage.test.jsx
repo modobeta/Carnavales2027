@@ -208,26 +208,13 @@ describe("AdminHomePage (Rediseño a Mis eventos)", () => {
     expect(await screen.findByText("Evento Eliminado reactivado.")).toBeInTheDocument();
   });
 
-  it("crea un nuevo evento desde el modal accesible", async () => {
-    mockApi({
-      events: [],
-      onRequest: (path, options) => path === "/api/v1/events" && options?.method === "POST"
-        ? Promise.resolve({ id: "e99", name: "Carnaval Nuevo", status: "CONFIGURING" })
-        : null,
-    });
+  it("abre el asistente para crear un evento sin enviar el alta desde el catalogo", async () => {
+    mockApi({ events: [] });
     render(<AdminHomePage />);
-    expect(await screen.findByRole("heading", { name: "Todavía no hay eventos" })).toBeInTheDocument();
-
+    await screen.findByRole("button", { name: "Crear primer evento" });
     fireEvent.click(screen.getByRole("button", { name: "Crear primer evento" }));
-    const dialog = await screen.findByRole("dialog", { name: "Nuevo evento" });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Nombre del evento" }), { target: { value: "Carnaval Nuevo" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Crear evento" }));
-
-    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith("/api/v1/events", {
-      method: "POST",
-      body: JSON.stringify({ name: "Carnaval Nuevo" }),
-    }));
-    expect(await screen.findByText("Evento Carnaval Nuevo creado.")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/admin/prepare?stage=event&task=data&new=1");
+    expect(apiRequest.mock.calls.some(([, options]) => options?.method === "POST")).toBe(false);
   });
 });
 

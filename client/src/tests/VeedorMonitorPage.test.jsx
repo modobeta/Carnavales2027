@@ -5,6 +5,14 @@ import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
+const visibilityStateDescriptor = Object.getOwnPropertyDescriptor(document, "visibilityState");
+const eventSourceDescriptor = Object.getOwnPropertyDescriptor(window, "EventSource");
+
+function restoreProperty(target, key, descriptor) {
+  if (descriptor) Object.defineProperty(target, key, descriptor);
+  else delete target[key];
+}
+
 const payload = [{
   id: "event-1",
   name: "Carnaval 2027",
@@ -19,7 +27,13 @@ const payload = [{
   }],
 }];
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  vi.useRealTimers();
+  restoreProperty(document, "visibilityState", visibilityStateDescriptor);
+  restoreProperty(window, "EventSource", eventSourceDescriptor);
+});
 
 describe("VeedorMonitorPage", () => {
   it("muestra conteos agregados y porcentaje de confirmación", async () => {

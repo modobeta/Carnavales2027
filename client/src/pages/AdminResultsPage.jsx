@@ -132,7 +132,8 @@ export function AdminResultsPage() {
       <header className="event-header">
         <div>
           <p className="eyebrow">Escrutinio autorizado</p>
-          <h1>Resultados</h1>
+          <h1>Escrutinio</h1>
+          <p className="results-page-summary">Revisá el consolidado, completá los pasos pendientes y emití el acta al final.</p>
         </div>
          {!adminEvent && <label>Competencia
            <select value={eventId} onChange={(event) => setLocalEventId(event.target.value)}>
@@ -147,8 +148,8 @@ export function AdminResultsPage() {
         <>
            <section className="config-section results-intro">
             <p className="eyebrow">{selectedEvent.name}</p>
-            <h2>Mejor Comparsa</h2>
-            <p>Resultados consolidados de rubros nominativos, liberados para escrutinio.</p>
+            <h2>{result ? "Resultados consolidados" : releaseAvailable ? "Resultados listos para liberar" : "Estado del escrutinio"}</h2>
+            <p>{result ? "El consolidado está disponible para revisión." : releaseAvailable ? "La votación está lista para que una autoridad habilitada libere los resultados." : "Cuando la votación esté cerrada y las planillas completas, vas a poder continuar desde acá."}</p>
             {releaseAvailable && (
               canRelease ? (
                 <button type="button" onClick={release} disabled={releasing}>
@@ -163,7 +164,7 @@ export function AdminResultsPage() {
            </section>
 
            <ol className="workflow-stepper" aria-label="Flujo de escrutinio">
-             {workflowSteps.map((step, index) => <li className={`workflow-step workflow-step-${step.state}`} key={step.label}>
+             {workflowSteps.map((step, index) => <li className={`workflow-step workflow-step-${step.state}`} key={step.label} aria-current={step.state === "current" ? "step" : undefined}>
                <span className="workflow-step-number" aria-hidden="true">{index + 1}</span>
                <div><strong>{step.label}</strong><span>{step.state === "done" ? "Listo" : step.state === "current" ? "En curso" : step.state === "skipped" ? "No requerido" : "Bloqueado"}</span></div>
              </li>)}

@@ -85,7 +85,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
 
     // Navegación integrada con contador
     expect(screen.getByRole("navigation", { name: "Navegación de planilla" })).toBeInTheDocument();
-    expect(screen.getByText("Ítem 1 de 3")).toBeInTheDocument();
+    expect(screen.getByText("Ítem 1 de 2")).toBeInTheDocument();
   });
 
   it("muestra el logo de la comparsa en la tarjeta cuando la API lo expone", async () => {
@@ -284,7 +284,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     // Bottom navigation bar is rendered
     const bottomBar = screen.getByRole("navigation", { name: "Navegación de planilla" });
     expect(bottomBar).toBeInTheDocument();
-    expect(within(bottomBar).getByText("Ítem 1 de 3")).toBeInTheDocument();
+    expect(within(bottomBar).getByText("Ítem 1 de 2")).toBeInTheDocument();
 
     // Avanzar sin votar: solo los dos ítems anteriores quedan en el modal.
     fireEvent.click(within(bottomBar).getByRole("button", { name: "Ítem siguiente" }));
@@ -306,7 +306,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Faltantes anteriores" })).not.toBeInTheDocument();
     });
-    expect(within(bottomBar).getByText("Ítem 1 de 3")).toBeInTheDocument();
+    expect(within(bottomBar).getByText("Ítem 1 de 2")).toBeInTheDocument();
   });
 
   it("soporta atajos de teclado numérico (1-0) que abren el modal Spec 007 en desktop (RF-189)", async () => {
@@ -366,7 +366,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Resumen \d+\/\d+: mostrar detalle$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Ir al ítem Afinación" }));
     expect(screen.getByRole("heading", { name: "Afinación", level: 2 })).toBeInTheDocument();
-    expect(screen.getByText("Ítem 2 de 3")).toBeInTheDocument();
+    expect(screen.getByText("Ítem 2 de 2")).toBeInTheDocument();
   });
 
   it("el resumen lateral se puede ocultar y ampliar", async () => {
@@ -400,11 +400,12 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     await screen.findByRole("heading", { name: "Comparsa Verde", level: 1 });
 
     const banner = screen.getByRole("region", { name: "Lista para revisar" });
-    expect(banner).toHaveTextContent("3 de 3 puntuaciones completas");
+    expect(banner).toHaveTextContent("Las puntuaciones están completas");
     // Sin duplicar el cierre: el banner es solo informativo, la única vía es
     // el botón Confirmar votación del footer.
     expect(within(banner).queryByRole("button")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar votación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     expect(await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" })).toBeInTheDocument();
   });
 

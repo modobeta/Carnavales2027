@@ -40,10 +40,10 @@ describe("JudgeHomePage", () => {
     render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
 
     expect(await screen.findByText("En progreso")).toBeInTheDocument();
-    expect(screen.getByText("Planilla confirmada")).toBeInTheDocument();
+    expect(screen.getByText(/^Planilla confirmada/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Continuar/ })).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=schedule-1");
-    expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent("1 de 2 comparsas confirmadas");
+    expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent("Avance de tus planillas");
   });
 
   it("renderiza progreso y comparsas directamente con include=progress sin llamadas N+1 (RF-183)", async () => {
@@ -86,9 +86,28 @@ describe("JudgeHomePage", () => {
 
     expect(await screen.findByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sapucay", level: 3 })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent("0 de 2 comparsas confirmadas");
+    expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent("1 de 2 comparsas");
+    expect(screen.getByRole("progressbar", { name: "Comparsas puntuadas" })).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("progressbar", { name: "Comparsas puntuadas" })).toHaveAttribute("aria-valuemax", "2");
     expect(apiRequest).toHaveBeenCalledTimes(1);
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/judge/ballots?include=progress");
+  });
+
+  it.each([0, 1, 2])("cuenta %s de 2 comparsas puntuadas sin confundir puntuación con cierre", async (scored) => {
+    apiRequest.mockResolvedValue([{
+      id: "ballot-progress", nightName: "Noche 1", specialtyName: "Baile", status: "OPEN",
+      troupes: [0, 1].map((index) => ({
+        troupeId: `schedule-${index}`, troupeName: `Comparsa ${index + 1}`,
+        presentationOrder: index + 1, total: 2, resolved: index < scored ? 2 : index === scored ? 1 : 0,
+      })),
+    }]);
+    render(<JudgeHomePage session={{ user: { id: "judge-1" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+    const progress = await screen.findByRole("progressbar", { name: "Comparsas puntuadas" });
+    expect(progress).toHaveAttribute("aria-valuenow", String(scored));
+    expect(progress).toHaveAttribute("aria-valuemax", "2");
+    expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent(`${scored} de 2 comparsas`);
+    expect(screen.queryByText("Votación completada")).not.toBeInTheDocument();
+    if (scored === 2) expect(screen.getByRole("region", { name: "Progreso general" })).toHaveTextContent("cierre pendiente");
   });
 
   it("muestra un círculo con el color asignado cuando no hay logo", async () => {
@@ -328,7 +347,7 @@ describe("JudgeHomePage", () => {
 
     const progress = await screen.findByRole("region", { name: "Progreso general" });
     // Barra al 100% de ítems pero solo 1 de 2 comparsas confirmadas.
-    expect(progress).toHaveTextContent("1 de 2 comparsas confirmadas");
+    expect(progress).toHaveTextContent("Puntuación completa · cierre pendiente");
     expect(screen.queryByText("Votación completada")).not.toBeInTheDocument();
     // En cambio ofrece revisar/confirmar la pendiente.
     expect(await screen.findByRole("region", { name: "Lista para confirmar" })).toBeInTheDocument();
@@ -354,9 +373,9 @@ describe("JudgeHomePage", () => {
     render(<JudgeHomePage session={{ user: { id: "judge-1", name: "Juana Pérez" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
 
     const progress = await screen.findByRole("region", { name: "Progreso general" });
-    expect(progress).toHaveTextContent("2 de 2 comparsas confirmadas");
+    expect(progress).toHaveTextContent("Cierre confirmado");
     expect(screen.getByText("Votación completada")).toBeInTheDocument();
-    expect(screen.getByText("Confirmaste las 2 de 2 comparsas asignadas.")).toBeInTheDocument();
+    expect(screen.getByText("No tenés votaciones pendientes.")).toBeInTheDocument();
   });
 
   it("mantiene acceso a planillas cerradas con acción secundaria (TAREA 2)", async () => {

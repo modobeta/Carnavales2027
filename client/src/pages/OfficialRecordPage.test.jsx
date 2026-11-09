@@ -71,7 +71,7 @@ describe("OfficialRecordPage", () => {
     render(<OfficialRecordPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Acta Oficial no emitida")).toBeInTheDocument();
+      expect(screen.getByText("El acta todavía no fue emitida")).toBeInTheDocument();
     });
 
     expect(screen.getByText(/Por normativa de segregación de funciones/i)).toBeInTheDocument();
@@ -93,20 +93,59 @@ describe("OfficialRecordPage", () => {
     render(<OfficialRecordPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Acta Oficial no emitida")).toBeInTheDocument();
+      expect(screen.getByText("El acta todavía no fue emitida")).toBeInTheDocument();
     });
 
-    const certifyBtn = screen.getByRole("button", { name: "Certificar y emitir Acta Oficial" });
+    const certifyBtn = screen.getByRole("button", { name: "Certificar y emitir acta" });
     expect(certifyBtn).toBeInTheDocument();
 
     fireEvent.click(certifyBtn);
+    const dialog = await screen.findByRole("dialog", { name: "Confirmar emisión del acta" });
+    expect(dialog).toHaveTextContent("Carnaval Oficial 2027");
+    fireEvent.click(screen.getByRole("button", { name: "Emitir acta oficial" }));
 
     await waitFor(() => {
       expect(screen.getByText(/Acta Oficial emitida y sellada/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText("ACTA-2027-EVT1-01")).toBeInTheDocument();
-    expect(screen.getByText("✓ INTEGRIDAD DIGITAL VERIFICADA")).toBeInTheDocument();
+    expect(await screen.findByText("ACTA-2027-EVT1-01")).toBeInTheDocument();
+    expect(screen.getByText("Integridad digital verificada")).toBeInTheDocument();
+  });
+
+  it("permite volver a revisar sin enviar la solicitud de certificación", async () => {
+    apiRequestMock.mockImplementation((path) => {
+      if (path === "/api/v1/results/events") return Promise.resolve([mockEvent]);
+      if (path === "/api/v1/events/event-1/scrutiny-record") return Promise.reject({ code: "OFFICIAL_RECORD_NOT_FOUND" });
+      return Promise.reject(new Error(`Inesperado: ${path}`));
+    });
+
+    render(<OfficialRecordPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Certificar y emitir acta" }));
+    await screen.findByRole("dialog", { name: "Confirmar emisión del acta" });
+    fireEvent.click(screen.getByRole("button", { name: "Volver a revisar" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Emitir acta oficial" })).not.toBeInTheDocument());
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/api/v1/events/event-1/scrutiny-record", { method: "POST" });
+    expect(screen.getByText("El acta todavía no fue emitida")).toBeInTheDocument();
+  });
+
+  it("muestra el rechazo de API sin presentar el acta como emitida y permite reintentar", async () => {
+    apiRequestMock.mockImplementation((path, options) => {
+      if (path === "/api/v1/results/events") return Promise.resolve([mockEvent]);
+      if (path === "/api/v1/events/event-1/scrutiny-record" && !options?.method) {
+        return Promise.reject({ code: "OFFICIAL_RECORD_NOT_FOUND" });
+      }
+      if (options?.method === "POST") return Promise.reject({ code: "RESULTS_NOT_RELEASED" });
+      return Promise.reject(new Error(`Inesperado: ${path}`));
+    });
+
+    render(<OfficialRecordPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Certificar y emitir acta" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Emitir acta oficial" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/resultados.*no han sido liberados/i);
+    expect(screen.getByRole("button", { name: "Certificar y emitir acta" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Imprimir / Exportar PDF" })).not.toBeInTheDocument();
   });
 
   it("renderiza el documento notarial completo cuando el acta ya está emitida", async () => {
@@ -126,7 +165,7 @@ describe("OfficialRecordPage", () => {
 
     // Hash y sello de integridad
     expect(screen.getByText("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")).toBeInTheDocument();
-    expect(screen.getByText("✓ INTEGRIDAD DIGITAL VERIFICADA")).toBeInTheDocument();
+    expect(screen.getByText("Integridad digital verificada")).toBeInTheDocument();
 
     // Tabla de Mejor Comparsa con triple columna
     expect(screen.getAllByText("Sapucay").length).toBeGreaterThanOrEqual(1);
@@ -148,5 +187,16 @@ describe("OfficialRecordPage", () => {
     fireEvent.click(printBtn);
     expect(window.print).toHaveBeenCalled();
     window.print = originalPrint;
+  });
+
+  it("no afirma integridad verificada cuando la comprobación del servidor falla", async () => {
+    apiRequestMock.mockImplementation((path) => {
+      if (path === "/api/v1/results/events") return Promise.resolve([mockEvent]);
+      if (path === "/api/v1/events/event-1/scrutiny-record") return Promise.resolve({ ...mockRecordData, integrityVerified: false });
+      return Promise.reject(new Error(`Inesperado: ${path}`));
+    });
+    render(<OfficialRecordPage />);
+    expect(await screen.findByText("No se pudo verificar la integridad")).toBeInTheDocument();
+    expect(screen.queryByText("Integridad digital verificada")).not.toBeInTheDocument();
   });
 });

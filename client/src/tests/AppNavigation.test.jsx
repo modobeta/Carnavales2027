@@ -51,30 +51,6 @@ describe("AppNavigation", () => {
     expect(screen.getByText("Jurado")).toBeInTheDocument();
   });
 
-  it("muestra al Escribano con identidad, evento actual y sección en la cabecera operativa", async () => {
-    mockMatchMedia(true);
-    window.location.hash = "#/admin/record";
-    const session = { user: { name: "Gonzalo" }, roles: ["ESCRIBANO"] };
-    apiRequest.mockResolvedValue([{ id: "event-1", name: "Carnavales 2027", status: "OPEN" }]);
-
-    const { container } = render(
-      <AdminEventProvider session={session}>
-        <AppNavigation session={session} />
-      </AdminEventProvider>,
-    );
-
-    expect(container.querySelector(".app-navigation")).toHaveClass("is-scribe-route");
-    expect(screen.getByText("Gonzalo")).toBeInTheDocument();
-    expect(screen.getByText("Escribano")).toBeInTheDocument();
-    expect(await screen.findByText("Carnavales 2027")).toBeInTheDocument();
-    expect(screen.getByText("Competencia abierta")).toBeInTheDocument();
-    expect(screen.getByText("Acta oficial")).toHaveAttribute("aria-current", "page");
-
-    fireEvent.click(screen.getByText("Gonzalo"));
-    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /tema/i })).toBeInTheDocument();
-  });
-
   it("agrupa las rutas existentes por etapa y marca la sección activa", () => {
     window.location.hash = "#/admin/competencia?step=participantes";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
@@ -90,6 +66,18 @@ describe("AppNavigation", () => {
     expect(screen.queryByRole("link", { name: "Administradores" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Accesos" })).not.toBeInTheDocument();
   });
+
+
+  it("muestra la cabecera compacta del Escribano en actas", () => {
+    window.location.hash = "#/admin/record";
+    render(<AppNavigation session={{ user: { name: "Escribana" }, roles: ["ESCRIBANO"] }} />);
+
+    expect(screen.getByText("Escribana")).toBeInTheDocument();
+    expect(screen.getByText("Escribano")).toBeInTheDocument();
+    expect(screen.getByText("Acta oficial", { selector: ".scribe-header-section" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Navegacion principal" })).not.toBeInTheDocument();
+  });
+
 
   it("muestra cabecera compacta para el Comisario sin duplicar el selector de evento", () => {
     window.location.hash = "#/admin/penalties";
@@ -107,7 +95,7 @@ describe("AppNavigation", () => {
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
     expect(screen.getByRole("link", { name: "Rubros" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Comparsas" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByText("Rubros", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+    expect(screen.getByText("Rubros", { selector: ".admin-header-section" })).toBeInTheDocument();
   });
 
   it("marca activo el ítem Evaluación dentro de Preparación de competencia al navegar por step=rubros", () => {
@@ -133,7 +121,7 @@ describe("AppNavigation", () => {
     mockMatchMedia(true);
     window.location.hash = "#/admin/competencia?step=jurados&tab=asignaciones";
     render(<AppNavigation session={{ user: { name: "Admin" }, roles: ["ADMIN"] }} />);
-    expect(screen.getByText("Control de votación", { selector: ".breadcrumb-current" })).toBeInTheDocument();
+    expect(screen.getByText("Control de votación", { selector: ".admin-header-section" })).toBeInTheDocument();
   });
 
   it("mantiene navegación global sin atajos contextuales en Inicio aunque haya un evento recordado", async () => {

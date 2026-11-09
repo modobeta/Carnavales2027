@@ -5,6 +5,13 @@ import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
+const eventSourceDescriptor = Object.getOwnPropertyDescriptor(window, "EventSource");
+
+function restoreEventSource() {
+  if (eventSourceDescriptor) Object.defineProperty(window, "EventSource", eventSourceDescriptor);
+  else delete window.EventSource;
+}
+
 const payload = [
   {
     id: "event-1",
@@ -66,7 +73,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
-    delete window.EventSource;
+    restoreEventSource();
   });
 
   it("conecta vía SSE sin mostrar insignia de estado (canal silencioso)", async () => {
