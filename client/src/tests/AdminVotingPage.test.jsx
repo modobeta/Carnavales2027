@@ -35,7 +35,7 @@ describe("AdminVotingPage", () => {
     expect(screen.queryByText(/puntaje|ranking|total artístico/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Habilitar planillas pendientes" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Abrir votación" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Abrir votación" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/open",
       { method: "POST" },
@@ -44,7 +44,8 @@ describe("AdminVotingPage", () => {
     const closeButton = screen.getByRole("button", { name: "Cerrar votación" });
     await waitFor(() => expect(closeButton).toBeEnabled());
     fireEvent.click(closeButton);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(await screen.findByRole("dialog", { name: "Confirmar cierre de votación" })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Cerrar votación" })[1]);
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/close",
       { method: "POST" },
@@ -68,7 +69,9 @@ describe("AdminVotingPage", () => {
     expect(modeSelect).toHaveValue("MANUAL");
     fireEvent.change(modeSelect, { target: { value: "ALL" } });
     expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("release-mode"), expect.anything());
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(screen.getByRole("dialog", { name: "Confirmar modo de habilitación" })).toHaveTextContent("Todas las comparsas quedarán habilitadas");
+    expect(screen.queryByRole("dialog", { name: "Confirmar cierre de votación" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar modo" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/api/v1/events/event-1/nights/night-1/voting/release-mode",
       { method: "PATCH", body: JSON.stringify({ releaseMode: "ALL" }) },
@@ -89,8 +92,8 @@ describe("AdminVotingPage", () => {
     const closeButton = await screen.findByRole("button", { name: "Cerrar votación" });
     await waitFor(() => expect(closeButton).toBeEnabled());
     fireEvent.click(closeButton);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Cerrar votación" })).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("button", { name: "Cerrar votación" })[1]);
     const dialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveTextContent("Jurado Uno · Comparsa Azul");
@@ -102,7 +105,8 @@ describe("AdminVotingPage", () => {
     await waitFor(() => expect(closeButton).toHaveFocus());
 
     fireEvent.click(closeButton);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument()); fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Cerrar votación" })).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole("button", { name: "Cerrar votación" })[1]);
     const reopenedDialog = await screen.findByRole("dialog", { name: "Faltan votos por resolver" });
     fireEvent(reopenedDialog, new Event("cancel", { bubbles: true, cancelable: true }));
     await waitFor(() => expect(closeButton).toHaveFocus());
@@ -156,6 +160,133 @@ describe("AdminVotingPage", () => {
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/events/event-1/nights/night-1/voting/status");
     });
+  });
+
+  it("habilita la primera comparsa manual con confirmación contextual y actualiza la pista", async () => {
+    const waitingStatus = {
+      nightId: "night-1",
+      nightStatus: "OPEN",
+      votingStatus: "OPEN",
+      releaseMode: "MANUAL",
+      counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 },
+      total: 1,
+      activeTroupe: null,
+      troupes: [
+        { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 2, resolvedScores: 0, released: false, status: "WAITING" },
+        { scheduleId: "sch-2", presentationOrder: 2, troupeName: "Aymara Demo", totalScores: 2, resolvedScores: 0, released: false, status: "WAITING" },
+      ],
+    };
+    let released = false;
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve(released ? {
+        ...waitingStatus,
+        activeScheduleId: "sch-1",
+        activeTroupe: { ...waitingStatus.troupes[0], released: true, releaseOrder: 1, status: "IN_RUNWAY" },
+        troupes: [
+          { ...waitingStatus.troupes[0], released: true, releaseOrder: 1, status: "IN_RUNWAY" },
+          waitingStatus.troupes[1],
+        ],
+      } : waitingStatus);
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      if (path.endsWith("/voting/release") && options?.method === "POST") {
+        released = true;
+        return Promise.resolve({ scheduleId: "sch-1", releaseOrder: 1, activeScheduleId: "sch-1" });
+      }
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    expect(await screen.findByText("SIN COMPARSA EN PISTA")).toBeInTheDocument();
+    expect(screen.queryByText("DESFILE FINALIZADO")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Habilitar para votar" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Confirmar habilitación de comparsa" });
+    expect(dialog).toHaveTextContent("Arami Demo");
+    expect(dialog).not.toHaveTextContent("cierre");
+    expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("/voting/release"), expect.anything());
+
+    fireEvent.click(screen.getByRole("button", { name: "Habilitar comparsa" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/events/event-1/nights/night-1/voting/release",
+      { method: "POST", body: JSON.stringify({ scheduleId: "sch-1" }) },
+    ));
+    expect(await screen.findByText("Comparsa habilitada para votar.")).toBeInTheDocument();
+    expect(await screen.findByText("Salida #1")).toBeInTheDocument();
+    expect(screen.getAllByText("EN PISTA").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "Esperando planillas" })).toBeDisabled();
+  });
+
+  it("mantiene la pista pendiente cuando falla la habilitación", async () => {
+    apiRequest.mockImplementation((path, options) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve({
+        nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", releaseMode: "MANUAL",
+        counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 }, total: 1, activeTroupe: null,
+        troupes: [{ scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 2, resolvedScores: 0, released: false, status: "WAITING" }],
+      });
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      if (path.endsWith("/voting/release") && options?.method === "POST") {
+        return Promise.reject({ code: "ACTIVE_TROUPE_BALLOTS_INCOMPLETE" });
+      }
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Habilitar para votar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Habilitar comparsa" }));
+
+    expect(await screen.findByText(/todavía hay planillas o ítems pendientes/)).toBeInTheDocument();
+    expect(screen.getByText("SIN COMPARSA EN PISTA")).toBeInTheDocument();
+    expect(screen.queryByText("DESFILE FINALIZADO")).not.toBeInTheDocument();
+  });
+
+  it("solo anuncia desfile finalizado cuando todas las comparsas están completas", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve({
+        nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", releaseMode: "MANUAL",
+        counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 }, total: 1, activeTroupe: null,
+        troupes: [
+          { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 2, resolvedScores: 2, released: true, status: "COMPLETED" },
+          { scheduleId: "sch-2", presentationOrder: 2, troupeName: "Aymara Demo", totalScores: 2, resolvedScores: 2, released: true, status: "COMPLETED" },
+        ],
+      });
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    expect(await screen.findByText("DESFILE FINALIZADO")).toBeInTheDocument();
+    expect(screen.queryByText("SIN COMPARSA EN PISTA")).not.toBeInTheDocument();
+  });
+
+  it("diferencia poner en pista de habilitar una comparsa manual", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve({
+        nightId: "night-1", nightStatus: "OPEN", votingStatus: "OPEN", releaseMode: "ALL",
+        counts: { OPEN: 1, SUBMITTED: 0, REOPENED: 0 }, total: 1,
+        activeTroupe: { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 2, resolvedScores: 0, released: true, status: "IN_RUNWAY" },
+        troupes: [
+          { scheduleId: "sch-1", presentationOrder: 1, troupeName: "Arami Demo", totalScores: 2, resolvedScores: 0, released: true, status: "IN_RUNWAY" },
+          { scheduleId: "sch-2", presentationOrder: 2, troupeName: "Aymara Demo", totalScores: 2, resolvedScores: 0, released: true, status: "WAITING" },
+        ],
+      });
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Poner en pista" }));
+    const dialog = screen.getByRole("dialog", { name: "Confirmar comparsa en pista" });
+    expect(dialog).toHaveTextContent("Aymara Demo");
+    expect(screen.getAllByRole("button", { name: "Poner en pista" })).toHaveLength(2);
+    expect(screen.queryByRole("dialog", { name: "Confirmar cierre de votación" })).not.toBeInTheDocument();
   });
 
   it("reordena la pasada con motivo y muestra mensaje ante jornada congelada", async () => {
