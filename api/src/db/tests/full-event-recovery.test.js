@@ -29,7 +29,7 @@ test("seed recupera bootstrap e invitaciones interrumpidas sin adoptar cuentas a
   assert.equal(result.judges[0].profileId, before.id);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM judge_invitation WHERE status='REVOKED'")).rows[0].n, 1);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM operational_invitation WHERE status='REVOKED'")).rows[0].n, 1);
-  assert.equal((await pool.query("SELECT count(*)::int AS n FROM operational_invitation WHERE status='USED'")).rows[0].n, 2);
+  assert.equal((await pool.query("SELECT count(*)::int AS n FROM operational_invitation WHERE status='USED'")).rows[0].n, 1);
 
   // A persisted credential with a session left by interrupted revocation is
   // completed on replay even when the password itself already matches.
@@ -43,7 +43,7 @@ test("seed recupera bootstrap e invitaciones interrumpidas sin adoptar cuentas a
   await assert.rejects(() => createOperationalProfile({ ...incompatible, actorUserId: admin.id,
     roleCodes: ["ESCRIBANO"], sendInvitation }), /INVITATION_DELIVERY_FAILED/);
   const invitationSnapshot = (await pool.query("SELECT * FROM operational_invitation ORDER BY id")).rows;
-  await assert.rejects(() => seedFixtureUsers({ judges: [], auxiliaries: [{ ...incompatible, role: "VEEDOR" }] }), /DEMO_USER_ROLE_CONFLICT/);
+  await assert.rejects(() => seedFixtureUsers({ judges: [], auxiliaries: [{ ...incompatible, role: "VEEDOR" }] }), /DEMO_FIXTURE_USERS_INVALID/);
   assert.deepEqual((await pool.query("SELECT * FROM operational_invitation ORDER BY id")).rows, invitationSnapshot);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM "user" WHERE email=$1', [incompatible.email])).rows[0].n, 0);
 

@@ -60,13 +60,8 @@ describe("LoginPage - goToRoleHome (Spec 023)", () => {
     expect(window.location.hash).toBe("#/admin/results");
   });
 
-  it("redirige a #/veedor a usuario con rol único VEEDOR", () => {
-    goToRoleHome({ status: "authenticated", roles: ["VEEDOR"] });
-    expect(window.location.hash).toBe("#/veedor");
-  });
-
   it("prioriza los roles operativos aunque /me incluya adminEvents", () => {
-    goToRoleHome({ status: "authenticated", roles: ["JUDGE", "COMISARIO", "SCRUTINEER", "ESCRIBANO", "VEEDOR"], adminEvents: [{ id: "event-1" }] });
+    goToRoleHome({ status: "authenticated", roles: ["JUDGE", "COMISARIO", "SCRUTINEER", "ESCRIBANO"], adminEvents: [{ id: "event-1" }] });
     expect(window.location.hash).toBe("#/judge");
   });
 
@@ -77,12 +72,12 @@ describe("LoginPage - goToRoleHome (Spec 023)", () => {
   });
 
   it("mantiene la precedencia ADMIN sobre roles operativos", () => {
-    goToRoleHome({ status: "authenticated", roles: ["JUDGE", "COMISARIO", "VEEDOR", "ADMIN"], adminEvents: [{ id: "event-1" }] });
+    goToRoleHome({ status: "authenticated", roles: ["JUDGE", "COMISARIO", "ADMIN"], adminEvents: [{ id: "event-1" }] });
     expect(window.location.hash).toBe("#/admin/home");
   });
 
   it("redirige a #/admin/home a usuario con múltiples roles incluyendo ADMIN", () => {
-    goToRoleHome({ status: "authenticated", roles: ["ADMIN", "VEEDOR"] });
+    goToRoleHome({ status: "authenticated", roles: ["ADMIN"] });
     expect(window.location.hash).toBe("#/admin/home");
   });
 

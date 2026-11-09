@@ -50,7 +50,6 @@ export const FULL_JUDGES = FULL_NIGHTS.flatMap((night, nightIndex) => FULL_SPECI
 }));
 export const FULL_AUXILIARIES = [
   { name: "Escribano Escrutinio Demo", email: "demo.escrutinio@carnaval.local", documentNumber: "70000004", role: "ESCRIBANO" },
-  { name: "Veedor Integral Ficticio", email: "demo.veedor.integral@example.test", documentNumber: "71000100", role: "VEEDOR" },
 ];
 export const FULL_RUBRICS = [
   ...NOMINATIVE_RUBRICS.map((entry) => ({ ...entry, type: "NOMINATIVE", target: "TROUPE" })),

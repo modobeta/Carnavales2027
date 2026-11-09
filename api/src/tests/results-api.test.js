@@ -66,7 +66,7 @@ async function setupEventWithScores(pool) {
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1,'ADMIN')", [adminId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1,'JUDGE')", [judgeUserId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1,'SCRUTINEER')", [scrutineerId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1,'VEEDOR')", [veedorId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1,'COMISARIO')", [veedorId]);
 
   const { rows: [judgeProfile] } = await pool.query(
     "INSERT INTO judge_profile(name, email, document_number, registration_status, created_by) VALUES($1,$2,$3,'INVITED',$4) RETURNING id",

@@ -14,7 +14,7 @@ vi.mock("../auth/session-context.jsx", () => ({
 const users = [
   { ...currentUser, roles: ["ADMIN"], isPrimaryAdmin: true },
   { id: "u-other-admin", name: "Segundo Admin", email: "admin2@carnaval.local", roles: ["ADMIN"], isPrimaryAdmin: false },
-  { id: "u-candidate", name: "Candidato Auxiliar", email: "candidato@carnaval.local", roles: ["VEEDOR"], isPrimaryAdmin: false },
+  { id: "u-candidate", name: "Candidato Auxiliar", email: "candidato@carnaval.local", roles: ["COMISARIO"], isPrimaryAdmin: false },
 ];
 
 // Simula el backend: la lista de administradores y la búsqueda cambian tras cada promoción o revocación.

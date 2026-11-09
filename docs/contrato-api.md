@@ -30,7 +30,7 @@
 | `GET /api/v1/judge/ballots`, `GET /api/v1/judge/ballots/:ballotId` | JUDGE propio | Planillas; incluyen `nightId`, `nightName` y `eventDate` (fecha de la jornada) |
 | `PUT /api/v1/judge/ballots/:ballotId/scores/:scoreId` | JUDGE propio | Confirmar decisión idempotente |
 | `POST /api/v1/judge/ballots/:ballotId/submit` | JUDGE propio | Confirmar planilla completa |
-| `GET /api/v1/monitor/events/:eventId/nights/:nightId` | ADMIN/VEEDOR habilitado | Monitoreo de jornada |
+| `GET /api/v1/monitor/events/:eventId/nights/:nightId` | ADMIN con 2FA | Monitoreo de jornada |
 | `GET/POST /api/v1/events/:eventId/penalties` | ADMIN/COMISARIO | Penalizaciones |
 | `GET /api/v1/events/:eventId/results` | ADMIN/SCRUTINEER/ESCRIBANO | Resultado interno |
 | `POST /api/v1/events/:eventId/results/release` | SCRUTINEER/ESCRIBANO | Liberación pública |

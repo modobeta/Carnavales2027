@@ -326,7 +326,7 @@ test("ADMIN emite invitaciones de rol seguro; ADMIN solo puede aceptarse en una 
     const expiredResponse = await fetch(`${base}/api/v1/users/invitations`, {
       method: "POST",
       headers: adminHeaders,
-      body: JSON.stringify({ email: `expired-${randomUUID()}@example.test`, roleCode: "VEEDOR" }),
+      body: JSON.stringify({ email: `expired-${randomUUID()}@example.test`, roleCode: "SCRUTINEER" }),
     });
     const expiredInvitation = await expiredResponse.json();
     await pool.query(

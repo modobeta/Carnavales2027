@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
+import { AdminMonitorPage } from "../pages/AdminMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
@@ -63,7 +63,7 @@ class MockEventSource {
   }
 }
 
-describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
+describe("AdminMonitorPage SSE & Wallboard (Spec 022)", () => {
   beforeEach(() => {
     window.EventSource = MockEventSource;
     MockEventSource.latestInstance = null;
@@ -77,7 +77,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   });
 
   it("conecta vía SSE sin mostrar insignia de estado (canal silencioso)", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
     expect(MockEventSource.latestInstance).toBeTruthy();
@@ -91,7 +91,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   });
 
   it("actualiza inmediatamente datos al recibir evento 'monitor_update' vía SSE (RF-192)", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledTimes(1);
 
@@ -107,7 +107,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   });
 
   it("cae a polling silencioso ante desconexión o fallo de SSE", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
 
     // Simular error en EventSource
@@ -119,7 +119,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   });
 
   it("detecta anomalía de intento de cierre incompleto y permite descartar la alerta (RF-194)", async () => {
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
 
     // Emitir anomalía CLOSE_ATTEMPT_INCOMPLETE
@@ -145,7 +145,7 @@ describe("VeedorMonitorPage SSE & Wallboard (Spec 022)", () => {
   });
 
   it("no muestra el botón ni la opción de 'Pared de Sala' / Wallboard", async () => {
-    const { container } = render(<VeedorMonitorPage />);
+    const { container } = render(<AdminMonitorPage />);
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
 
     expect(screen.queryByRole("button", { name: /Pared de Sala/i })).not.toBeInTheDocument();

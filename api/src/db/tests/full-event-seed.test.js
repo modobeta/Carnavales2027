@@ -52,7 +52,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     } finally { FULL_SPECIALTIES[1].order = order; }
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM configuration_seed WHERE seed_key=$1", [FULL_EVENT.seedKey])).rows[0].n, 0);
     assert.equal((await pool.query("SELECT count(*)::int AS n FROM carnival_event WHERE name=$1", [FULL_EVENT.name])).rows[0].n, 0);
-    assert.equal((await pool.query('SELECT count(*)::int AS n FROM "user"')).rows[0].n, 12);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM "user"')).rows[0].n, 11);
   });
   const first = await seedFullCarnivalEvent();
   const eventId = first.eventId;
@@ -89,7 +89,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     assert.equal(first.penalties, 0);
     assert.ok(first.nights.every((n) => n.status === "DRAFT" && n.jurors === 3));
     const { rows: identities } = await pool.query('SELECT id,email FROM "user"');
-    assert.equal(identities.length, 12); // ADMIN + 9 JUDGE + ESCRIBANO + VEEDOR in this fresh fixture.
+    assert.equal(identities.length, 11); // ADMIN + 9 JUDGE + ESCRIBANO in this fresh fixture.
     for (const user of [users.admin, ...users.judges, ...users.auxiliaries]) {
       assert.equal((await createOrVerifyCredentialUser({ name: "Fixture", email: user.email, password })).created, false);
     }
@@ -228,8 +228,7 @@ test("evento integral: seed idempotente, horarios, apertura normal y aislamiento
     for (const user of users.auxiliaries) {
       assert.equal((await request("/api/v1/judge/ballots", { user })).status, 403);
     }
-    const veedor = users.auxiliaries.find((u) => u.role === "VEEDOR");
-    for (const night of first.nights) assert.equal((await request(`${root}/nights/${night.id}/voting/status`, { user: veedor })).status, 200);
+    for (const night of first.nights) assert.equal((await request(`${root}/nights/${night.id}/voting/status`)).status, 200);
   });
   await t.test("puntuación normal 1..10, cero explícito, idempotencia y decisión inmutable", async () => {
     const user = users.judges[0]; // BAILE: enough independent items in the first troupe.

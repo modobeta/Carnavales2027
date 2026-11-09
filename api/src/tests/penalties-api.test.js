@@ -56,7 +56,7 @@ async function setupTestEvent(pool) {
     ],
   );
 
-  await pool.query("INSERT INTO user_role(user_id, role_code) VALUES ($1,'ADMIN'), ($2,'COMISARIO'), ($3,'JUDGE'), ($4,'VEEDOR')", [
+  await pool.query("INSERT INTO user_role(user_id, role_code) VALUES ($1,'ADMIN'), ($2,'COMISARIO'), ($3,'JUDGE'), ($4,'SCRUTINEER')", [
     adminId,
     comisarioId,
     judgeId,

@@ -44,7 +44,7 @@ export function createScrutinyRecordsRouter({ requireSession }) {
 
   /**
    * Consulta del Acta Oficial con su validación de integridad criptográfica.
-   * Permitido para ADMIN, SCRUTINEER, ESCRIBANO, COMISARIO y VEEDOR.
+   * Permitido para ADMIN, SCRUTINEER, ESCRIBANO y COMISARIO.
    */
   router.get("/events/:eventId/scrutiny-record", ...readAuthorized, async (request, response) => {
     try {

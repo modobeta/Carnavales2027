@@ -27,7 +27,7 @@ test("GET /users filtra por rol, búsqueda y límite sin exponer LIKE comodines"
     [adminId, `${adminId}@example.test`, candidateId, `Candidata ${token}`, `${candidateId}@example.test`],
   );
   await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN')", [adminId]);
-  await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'VEEDOR')", [candidateId]);
+  await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'SCRUTINEER')", [candidateId]);
 
   const app = createApp({
     getSession: async ({ headers }) => ({
@@ -52,7 +52,7 @@ test("GET /users filtra por rol, búsqueda y límite sin exponer LIKE comodines"
     assert.equal(search.status, 200);
     const candidates = await search.json();
     assert.deepEqual(candidates.map((user) => user.id), [candidateId]);
-    assert.deepEqual(candidates[0].roles, ["VEEDOR"]);
+    assert.deepEqual(candidates[0].roles, ["SCRUTINEER"]);
 
     const limited = await get(`?q=${token}&limit=1`);
     assert.equal((await limited.json()).length, 1);

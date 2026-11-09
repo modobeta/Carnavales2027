@@ -2,7 +2,6 @@ import { Router } from "express";
 import { requireTwoFactor } from "../auth/two-factor.js";
 import { requireAdmin } from "../auth/require-admin.js";
 import { requireJudge } from "../auth/require-judge.js";
-import { requireVotingObserver } from "../auth/require-voting-observer.js";
 import {
   openVoting,
   closeVoting,
@@ -23,7 +22,7 @@ export function createVotingRouter({ requireSession }) {
   const router = Router();
   const admin = [requireSession, requireTwoFactor, requireAdmin];
   const judge = [requireSession, requireTwoFactor, requireJudge];
-  const observer = [requireSession, requireTwoFactor, requireVotingObserver];
+  const observer = [requireSession, requireTwoFactor, requireAdmin];
   router.patch(
     "/events/:eventId/nights/:nightId/voting/release-mode",
     ...admin,

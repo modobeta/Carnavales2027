@@ -6,7 +6,7 @@ function requireText(value, name) {
 }
 
 /**
- * Spec 016 — Supervisión de votación por VEEDOR.
+ * Supervisión operativa de votación para ADMIN.
  * Devuelve eventos con sus noches competitivas que tienen actividad de votación
  * (planillas o ventana registrada), con conteos agregados por estado de planilla.
  * Nunca expone puntajes, jurados ni comparsas (mínimo privilegio, SVC2-41).

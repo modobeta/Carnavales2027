@@ -50,7 +50,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
   );
 
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')", [adminId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'VEEDOR')", [veedorId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [veedorId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [unauthorizedId]);
 
   const { rows: [veedorProfile] } = await pool.query(
@@ -59,7 +59,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     ["Veedor Principal", `veedor-${veedorId}@example.test`, `DOC-V-${randomUUID()}`, veedorId, adminId],
   );
   await pool.query(
-    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'VEEDOR')",
+    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'COMISARIO')",
     [veedorProfile.id],
   );
 
@@ -130,7 +130,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     getSession: async ({ headers }) => {
       const role = headers.get("x-test-session");
       if (role === "admin") return { user: { id: adminId, twoFactorEnabled: true } };
-      if (role === "veedor") return { user: { id: veedorId, twoFactorEnabled: true } };
+      if (role === "veedor") return { user: { id: adminId, twoFactorEnabled: true } };
       if (role === "unauthorized") return { user: { id: unauthorizedId, twoFactorEnabled: true } };
       return null;
     },
@@ -145,7 +145,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
 
     // 2. Veedor supervisa jurados
     const judgesRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/judges`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(judgesRes.status, 200);
     const judges = await judgesRes.json();
@@ -161,7 +161,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
 
     // 3. Veedor supervisa planillas
     const ballotsRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/ballots`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(ballotsRes.status, 200);
     const ballots = await ballotsRes.json();
@@ -175,7 +175,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     // 4. Registrar incidencia: validaciones
     const badTypeRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/incidents`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+      headers: { "Content-Type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({ incidentType: "INVALID_TYPE", description: "Test" }),
     });
     assert.equal(badTypeRes.status, 400);
@@ -183,7 +183,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     // 5. Registrar incidencia válida
     const createIncRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/incidents`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+      headers: { "Content-Type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({
         incidentType: "UNSCORED_ITEM",
         description: "El jurado omitió evaluar un rubro reglamentario.",
@@ -199,7 +199,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
 
     // 6. Listar incidencias
     const listIncRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/incidents`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(listIncRes.status, 200);
     const incidents = await listIncRes.json();
@@ -211,7 +211,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     // 7. Modificar estado de incidencia: transición a IN_SUBSANATION
     const updateIncRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/incidents/${createdIncident.id}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+      headers: { "Content-Type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({ status: "IN_SUBSANATION" }),
     });
     assert.equal(updateIncRes.status, 200);
@@ -221,7 +221,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     // 8. Resolver incidencia sin notas falla con 400
     const failResolveRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/incidents/${createdIncident.id}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+      headers: { "Content-Type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({ status: "RESOLVED" }),
     });
     assert.equal(failResolveRes.status, 400);
@@ -229,7 +229,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     // 9. Resolver incidencia con notas de resolución
     const resolveRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/incidents/${createdIncident.id}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+      headers: { "Content-Type": "application/json", "x-test-session": "admin" },
       body: JSON.stringify({
         status: "RESOLVED",
         resolutionNotes: "El jurado completó la planilla formalmente según el acta número 12.",
@@ -238,7 +238,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     assert.equal(resolveRes.status, 200);
     const resolved = await resolveRes.json();
     assert.equal(resolved.status, "RESOLVED");
-    assert.equal(resolved.resolvedByUserId, veedorId);
+    assert.equal(resolved.resolvedByUserId, adminId);
     assert(resolved.resolvedAt);
 
     // 10. Guard contra DELETE en voting_incident (inmutabilidad/preservación de evidencia)
@@ -254,7 +254,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
       `${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/ballots/${ballot.id}/custody`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+        headers: { "Content-Type": "application/json", "x-test-session": "admin" },
         body: JSON.stringify({ notes: "Recepción de prueba" }),
       },
     );
@@ -268,7 +268,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
       `${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/ballots/${ballot.id}/custody`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+        headers: { "Content-Type": "application/json", "x-test-session": "admin" },
         body: JSON.stringify({ notes: "Planilla recibida formalmente en corsódromo sin observaciones." }),
       },
     );
@@ -282,7 +282,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
       `${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/ballots/${ballot.id}/custody`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-test-session": "veedor" },
+        headers: { "Content-Type": "application/json", "x-test-session": "admin" },
         body: JSON.stringify({ notes: "Intento duplicado" }),
       },
     );
@@ -292,7 +292,7 @@ test("Módulo VEEDOR: supervisión, incidencias y custodia criptográfica", {
     const custodyListRes = await fetch(
       `${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}/custody`,
       {
-        headers: { "x-test-session": "veedor" },
+        headers: { "x-test-session": "admin" },
       },
     );
     assert.equal(custodyListRes.status, 200);

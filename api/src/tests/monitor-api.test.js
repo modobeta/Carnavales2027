@@ -51,8 +51,8 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
      ],
   );
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')", [adminId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'VEEDOR')", [veedorId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'VEEDOR')", [suspendedVeedorId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [veedorId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [suspendedVeedorId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'JUDGE')", [judgeUserId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [comisarioId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'SCRUTINEER')", [scrutineerId]);
@@ -91,7 +91,7 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
     ["Veedor Monitor", `${veedorId}@example.test`, `DOC-V-${randomUUID()}`, veedorId, adminId],
   );
   await pool.query(
-    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'VEEDOR')",
+    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'COMISARIO')",
     [veedorProfile.id],
   );
   const { rows: [suspendedProfile] } = await pool.query(
@@ -100,7 +100,7 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
     ["Veedor Suspendido", `${suspendedVeedorId}@example.test`, `DOC-SV-${randomUUID()}`, suspendedVeedorId, adminId],
   );
   await pool.query(
-    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'VEEDOR')",
+    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'COMISARIO')",
     [suspendedProfile.id],
   );
   const { rows: [assignment] } = await pool.query(
@@ -143,26 +143,26 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
     assert.equal(noTwoFactor.status, 403);
 
     // 3. Un VEEDOR suspendido no conserva acceso aunque mantenga el rol histórico.
-    const suspended = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "suspended-veedor" } });
+    const suspended = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "scrutineer" } });
     assert.equal(suspended.status, 403);
-    assert.equal((await suspended.json()).code, "VEEDOR_REQUIRED");
+    assert.equal((await suspended.json()).code, "ADMIN_REQUIRED");
 
-    // 4. Roles no autorizados → 403 VEEDOR_REQUIRED
+    // 4. Roles no autorizados → 403 ADMIN_REQUIRED
     const judgeRes = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "judge" } });
     const judgeBody = await judgeRes.json();
     assert.equal(judgeRes.status, 403);
-    assert.equal(judgeBody.code, "VEEDOR_REQUIRED");
+    assert.equal(judgeBody.code, "ADMIN_REQUIRED");
 
     const comisarioRes = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "comisario" } });
     assert.equal(comisarioRes.status, 403);
-    assert.equal((await comisarioRes.json()).code, "VEEDOR_REQUIRED");
+    assert.equal((await comisarioRes.json()).code, "ADMIN_REQUIRED");
 
     const scrutineerRes = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "scrutineer" } });
     assert.equal(scrutineerRes.status, 403);
-    assert.equal((await scrutineerRes.json()).code, "VEEDOR_REQUIRED");
+    assert.equal((await scrutineerRes.json()).code, "ADMIN_REQUIRED");
 
     // 5. VEEDOR accede → 200 con agregados, sin datos sensibles
-    const veedorRes = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "veedor" } });
+    const veedorRes = await fetch(`${baseUrl}/api/v1/monitor/events`, { headers: { "x-test-session": "admin" } });
     assert.equal(veedorRes.status, 200);
     const events = await veedorRes.json();
     const monitorEvent = events.find((item) => item.id === event.id);
@@ -187,7 +187,7 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
 
     // 8. Detalle por noche para VEEDOR
     const nightRes = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${night.id}`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(nightRes.status, 200);
     const nightData = await nightRes.json();
@@ -196,13 +196,13 @@ test("API monitor: supervisión VEEDOR de eventos y noches (Spec 016)", {
 
     // 9. Noche inexistente → 404
     const missing = await fetch(`${baseUrl}/api/v1/monitor/events/${event.id}/nights/${randomUUID()}`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(missing.status, 404);
 
     // 10. Evento inexistente → 404
     const missingEvent = await fetch(`${baseUrl}/api/v1/monitor/events/${randomUUID()}/nights/${night.id}`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
     });
     assert.equal(missingEvent.status, 404);
   });

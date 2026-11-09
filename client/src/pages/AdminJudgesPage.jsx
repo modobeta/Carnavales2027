@@ -152,7 +152,6 @@ export function AdminJudgesPage() {
           <label>Tipo de alta
             <select value={creationType} onChange={(event) => setCreationType(event.target.value)} disabled={Boolean(busy)}>
               <option value="JUDGE">Jurado</option>
-              <option value="VEEDOR">Veedor</option>
               <option value="COMISARIO">Comisario</option>
               <option value="SCRUTINEER">Escrutador</option>
               <option value="ESCRIBANO">Escribano</option>
@@ -253,7 +252,7 @@ export function AdminJudgesPage() {
         </section>
       )}
       {!loading && (!loadError || judges.length > 0 || operationalProfiles.length > 0) && <section className="config-section operational-roster">
-        <div className="section-heading"><div><h2>Accesos auxiliares</h2><p>Veedores, Comisarios, Escrutadores y Escribanos.</p></div></div>
+        <div className="section-heading"><div><h2>Accesos auxiliares</h2><p>Comisarios, Escrutadores y Escribanos.</p></div></div>
         {operationalProfiles.length === 0 ? <p className="empty-state">Todavía no hay accesos auxiliares.</p> : filtering && visibleOperational.length === 0 ? <p className="empty-state">Sin accesos auxiliares para los filtros actuales.</p> : <div className="operational-user-list">
           {visibleOperational.map((profile) => {
             const invitation = profile.invitation;

@@ -47,7 +47,7 @@ test("API monitor SSE: canal en tiempo real y secreto estricto de voto (Spec 022
     ],
   );
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')", [adminId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'VEEDOR')", [veedorId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [veedorId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'JUDGE')", [judgeUserId]);
 
   const { rows: [veedorProfile] } = await pool.query(
@@ -56,7 +56,7 @@ test("API monitor SSE: canal en tiempo real y secreto estricto de voto (Spec 022
     ["Veedor SSE", `${veedorId}@example.test`, `DOC-SSE-${randomUUID()}`, veedorId, adminId],
   );
   await pool.query(
-    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'VEEDOR')",
+    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'COMISARIO')",
     [veedorProfile.id],
   );
 
@@ -91,7 +91,7 @@ test("API monitor SSE: canal en tiempo real y secreto estricto de voto (Spec 022
     // 4. Conexión autorizada (VEEDOR) -> 200 text/event-stream
     const controller = new AbortController();
     const streamRes = await fetch(`${baseUrl}/api/v1/monitor/stream`, {
-      headers: { "x-test-session": "veedor" },
+      headers: { "x-test-session": "admin" },
       signal: controller.signal,
     });
     assert.equal(streamRes.status, 200);
