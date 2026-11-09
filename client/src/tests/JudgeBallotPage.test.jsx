@@ -68,7 +68,7 @@ describe("JudgeBallotPage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Comparsa Uno: Omitido" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Faltantes anteriores/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Revisar puntuaciones (opcional)" })).not.toBeInTheDocument();
   });
 
   it("no incluye el ítem actual ni futuros cuando no hay faltantes anteriores", async () => {
@@ -89,7 +89,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Revisar puntuaciones (opcional)" })).not.toBeInTheDocument();
     // Una sola barra en pantalla: el total de la planilla se lee como dato compacto.
     expect(screen.getAllByRole("progressbar")).toHaveLength(1);
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
@@ -106,9 +106,9 @@ describe("JudgeBallotPage", () => {
     // a la siguiente comparsa (sin Siguiente duplicado mientras está abierto).
     await waitFor(() => expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1"));
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1");
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
-    const continuity = await screen.findByRole("region", { name: "Pasada completada" });
-    fireEvent.click(within(continuity).getByRole("button", { name: /Comenzar siguiente pasada/i }));
+    expect(screen.queryByRole("button", { name: "Revisar puntuaciones (opcional)" })).not.toBeInTheDocument();
+    const continuity = await screen.findByRole("region", { name: "Evaluación de comparsa completada" });
+    fireEvent.click(within(continuity).getByRole("button", { name: /Continuar con/i }));
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "0");
     const secondScore = screen.getByLabelText("Comparsa Dos: Presencia");
     fireEvent.click(within(secondScore).getByRole("button", { name: "Votar 8" }));
@@ -118,12 +118,11 @@ describe("JudgeBallotPage", () => {
       expect.objectContaining({ method: "PUT" }),
     ));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar y cerrar planilla" })).toBeEnabled());
     expect(screen.getByRole("progressbar", { name: "Avance de la comparsa" })).toHaveAttribute("aria-valuenow", "1");
     // Sello de puntaje confirmado en grande + indicador de guardado en servidor.
     expect(screen.getByText("8", { selector: ".sealed-score-value" })).toBeInTheDocument();
     expect(screen.getByText("☁✓")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
@@ -184,7 +183,7 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(await screen.findByText(/no hay conexión/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Revisar puntuaciones (opcional)" })).not.toBeInTheDocument();
     expect(document.querySelector(".ballot-planilla-meter")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Comparsa Uno: Presencia" })).toBeInTheDocument();
   });
@@ -193,8 +192,9 @@ describe("JudgeBallotPage", () => {
     apiRequest.mockResolvedValue(ballot);
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(screen.getByRole("status", { name: "Puntuaciones pendientes" })).toHaveTextContent("Faltan 2 puntuaciones");
+    expect(screen.getByRole("button", { name: "Ir al próximo ítem pendiente" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirmar y cerrar planilla" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(apiRequest).not.toHaveBeenCalledWith("/api/v1/judge/ballots/ballot-1/submit", { method: "POST" });
   });
@@ -208,7 +208,6 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
     expect(await screen.findByRole("dialog", { name: "Faltan decisiones por resolver" })).toBeInTheDocument();
@@ -229,7 +228,7 @@ describe("JudgeBallotPage", () => {
     });
 
     render(<JudgeBallotPage ballotId="ballot-1" />);
-    fireEvent.click(await screen.findByRole("button", { name: "Revisar planilla" }));
+    await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
     fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar y cerrar" }));
 
@@ -245,23 +244,13 @@ describe("JudgeBallotPage", () => {
     expect(submitCalls[1][1].headers["Idempotency-Key"]).toBe(firstKey);
   });
 
-  it("bloquea acceso directo por URL a una comparsa en espera y redirige a la comparsa activa (RF-191)", async () => {
-    apiRequest.mockResolvedValue(ballot);
+  it("permite acceso directo por URL a una comparsa todavía no puesta en pista", async () => {
+    apiRequest.mockResolvedValue({ ...ballot, releaseMode: "MANUAL", activeScheduleId: "schedule-1", scores: ballot.scores.map((score, index) => ({ ...score, releaseOrder: index === 0 ? 1 : null })) });
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-2" />);
 
-    expect(await screen.findByRole("heading", { name: "Comparsa en espera de pasada", level: 1 })).toBeInTheDocument();
-    expect(screen.getByText(/Debes calificar y confirmar los rubros de/i)).toBeInTheDocument();
-    expect(screen.getByText("Comparsa Uno")).toBeInTheDocument();
-
-    expect(screen.queryByRole("group", { name: "Comparsa Dos: Presencia" })).not.toBeInTheDocument();
-
-    const redirectLink = screen.getByRole("link", { name: /Ir a comparsa actual/i });
-    expect(redirectLink).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=schedule-1");
-
-    fireEvent.click(redirectLink);
-
-    expect(screen.queryByRole("heading", { name: "Comparsa en espera de pasada" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Comparsa Dos", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Comparsa Dos: Presencia" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Votar 8" })).toBeEnabled();
   });
 
   it("despliega banner de continuidad al completar el último ítem de una comparsa y avanza a la siguiente (RF-192)", async () => {
@@ -272,19 +261,19 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    const banner = await screen.findByRole("region", { name: "Pasada completada" });
+    const banner = await screen.findByRole("region", { name: "Evaluación de comparsa completada" });
     expect(within(banner).getByText(/¡Completaste la evaluación de Comparsa Uno!/i)).toBeInTheDocument();
-    expect(within(banner).getByText(/Siguiente comparsa en pista:/i)).toBeInTheDocument();
+    expect(within(banner).getByText(/Otra comparsa pendiente:/i)).toBeInTheDocument();
     expect(within(banner).getByText("Comparsa Dos")).toBeInTheDocument();
 
     // Sin duplicar el avance: el banner es la única vía a la siguiente comparsa.
     expect(screen.queryByRole("button", { name: "Ítem siguiente" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ítem anterior" })).toBeInTheDocument();
 
-    const nextBtn = within(banner).getByRole("button", { name: /Comenzar siguiente pasada/i });
+    const nextBtn = within(banner).getByRole("button", { name: /Continuar con/i });
     fireEvent.click(nextBtn);
 
-    expect(screen.queryByRole("region", { name: "Pasada completada" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Evaluación de comparsa completada" })).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Comparsa Dos: Presencia" })).toBeInTheDocument();
   });
 
@@ -296,26 +285,24 @@ describe("JudgeBallotPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "No se presentó este ítem" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
-    const banner = await screen.findByRole("region", { name: "Pasada completada" });
+    const banner = await screen.findByRole("region", { name: "Evaluación de comparsa completada" });
     fireEvent.click(within(banner).getByRole("button", { name: "Cerrar aviso de continuidad" }));
 
-    expect(screen.queryByRole("region", { name: "Pasada completada" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Evaluación de comparsa completada" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ítem siguiente" })).toBeInTheDocument();
   });
 
-  it("muestra comparsa posterior como bloqueada en la barra lateral y en la lista (RF-190, RF-191)", async () => {
-    apiRequest.mockResolvedValue(ballot);
+  it("permite seleccionar en la navegación comparsas manuales aún no puestas en pista", async () => {
+    apiRequest.mockResolvedValue({ ...ballot, releaseMode: "MANUAL", activeScheduleId: "schedule-1", scores: ballot.scores.map((score, index) => ({ ...score, releaseOrder: index === 0 ? 1 : null })) });
     render(<JudgeBallotPage ballotId="ballot-1" troupeId="schedule-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
 
     const sidebarItems = screen.getAllByRole("button", { name: /Comparsa/ });
     const comparsaDosSidebar = sidebarItems.find((el) => el.textContent.includes("Comparsa Dos"));
-    expect(comparsaDosSidebar).toBeDisabled();
-    expect(comparsaDosSidebar).toHaveAttribute("aria-disabled", "true");
-
-    // Modelo un-ítem-por-vez (Fase 1): la tarjeta bloqueada se ve al navegar al ítem
-    fireEvent.click(screen.getByRole("button", { name: "Ítem siguiente" }));
-    expect(await screen.findByText(/Se habilitará automáticamente al completar la comparsa anterior \(Comparsa Uno\)/i)).toBeInTheDocument();
+    expect(comparsaDosSidebar).toBeEnabled();
+    fireEvent.click(comparsaDosSidebar);
+    expect(await screen.findByRole("heading", { name: "Comparsa Dos", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Votar 8" })).toBeEnabled();
   });
 
   it("en readonly muestra resumen sin grilla de voto ni navegación (Fase 3)", async () => {
@@ -478,7 +465,7 @@ describe("JudgeBallotPage", () => {
     render(<JudgeBallotPage ballotId="ballot-1" reviewRequested />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Revisar planilla" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Revisar puntuaciones (opcional)" })).not.toBeInTheDocument();
     expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
   });
 
@@ -494,7 +481,7 @@ describe("JudgeBallotPage", () => {
     expect(apiRequest.mock.calls.every(([, options]) => !options)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "← Volver a la evaluación" }));
     expect(screen.getByRole("heading", { name: "Comparsa Uno", level: 1 })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Revisar planilla" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar y cerrar planilla" })).toHaveFocus());
   });
 
   it("bloquea notas y confirmación de modal si se pierde conexión, sin reintento automático", async () => {
@@ -545,7 +532,6 @@ describe("JudgeBallotPage", () => {
     });
     render(<JudgeBallotPage ballotId="ballot-1" />);
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
-    fireEvent.click(screen.getByRole("button", { name: "Revisar planilla" }));
     expect(apiRequest.mock.calls.filter(([path]) => path.endsWith("/submit"))).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar y cerrar planilla" }));
     const dialog = await screen.findByRole("dialog", { name: "Cierre definitivo de planilla" });

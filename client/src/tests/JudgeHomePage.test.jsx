@@ -183,7 +183,7 @@ describe("JudgeHomePage", () => {
     expect(container.querySelector("main.judge-home")).toHaveAttribute("data-layer", "instrument");
   });
 
-  it("bloquea comparsas posteriores si la comparsa precedente tiene evaluaciones pendientes (Spec 025 / RF-189, RF-190)", async () => {
+  it("permite evaluar comparsas manuales aunque todavía no estén en pista", async () => {
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/judge/ballots?include=progress") {
         return Promise.resolve([
@@ -193,6 +193,7 @@ describe("JudgeHomePage", () => {
             nightName: "Noche 1",
             specialtyName: "Música",
             status: "OPEN",
+            releaseMode: "MANUAL",
             totalScores: 4,
             resolvedScores: 1,
             troupes: [
@@ -200,6 +201,7 @@ describe("JudgeHomePage", () => {
                 troupeId: "sched-1",
                 troupeName: "Ara Berá",
                 presentationOrder: 1,
+                releaseOrder: 1,
                 total: 2,
                 resolved: 1,
               },
@@ -207,6 +209,7 @@ describe("JudgeHomePage", () => {
                 troupeId: "sched-2",
                 troupeName: "Sapucay",
                 presentationOrder: 2,
+                releaseOrder: null,
                 total: 2,
                 resolved: 0,
               },
@@ -223,18 +226,32 @@ describe("JudgeHomePage", () => {
     expect(await screen.findByRole("heading", { name: "Ara Berá", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Continuar/ })).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-1");
 
-    // Comparsa 2: Bloqueada, compacta en PRÓXIMAS, sin botón ni link (TAREA 1)
+    // El orden de pista no es un permiso para votar.
     expect(screen.getByRole("heading", { name: "Sapucay", level: 3 })).toBeInTheDocument();
-    expect(screen.getByText("En espera")).toBeInTheDocument();
-    // La explicación del orden de pasada aparece una sola vez, no por comparsa
-    expect(screen.getAllByText(/se habilitan según el orden de pasada/i)).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: /En espera de pasada/ })).not.toBeInTheDocument();
-
-    // No debe existir link de navegación para Sapucay
-    expect(screen.queryByRole("link", { name: /Comenzar/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Comenzar evaluación/ }).find((link) => link.getAttribute("href").endsWith("sched-2"))).toBeInTheDocument();
   });
 
-  it("desbloquea secuencialmente la siguiente comparsa en cuanto la anterior está completa (Spec 025 / RF-189, RF-190)", async () => {
+  it("permite entrar a cualquier comparsa aunque haya otras pendientes", async () => {
+    apiRequest.mockResolvedValue([{
+      id: "ballot-1", eventName: "Carnaval Goya", nightName: "Noche 1", specialtyName: "Música",
+      status: "OPEN", releaseMode: "MANUAL", totalScores: 6, resolvedScores: 1,
+      troupes: [
+        { troupeId: "sched-1", troupeName: "Ara Berá", presentationOrder: 1, releaseOrder: 1, total: 2, resolved: 1 },
+        { troupeId: "sched-2", troupeName: "Sapucay", presentationOrder: 2, releaseOrder: 2, total: 2, resolved: 0 },
+        { troupeId: "sched-3", troupeName: "Kamarr", presentationOrder: 3, releaseOrder: null, total: 2, resolved: 0 },
+      ],
+    }]);
+
+    render(<JudgeHomePage session={{ user: { id: "judge-1" }, judgeProfile: { registrationStatus: "REGISTERED" } }} />);
+
+    const current = await screen.findByRole("region", { name: "Comparsa actual" });
+    expect(current).toHaveTextContent("Ara Berá");
+    expect(current.querySelector("a.judge-now-cta")).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-1");
+    expect(screen.getAllByRole("link", { name: /Comenzar evaluación/ }).find((link) => link.getAttribute("href").endsWith("sched-2"))).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Comenzar evaluación/ }).find((link) => link.getAttribute("href").endsWith("sched-3"))).toBeInTheDocument();
+  });
+
+  it("mantiene accesibles todas las comparsas sin depender de la puesta en pista", async () => {
     apiRequest.mockImplementation((path) => {
       if (path === "/api/v1/judge/ballots?include=progress") {
         return Promise.resolve([
@@ -244,6 +261,7 @@ describe("JudgeHomePage", () => {
             nightName: "Noche 1",
             specialtyName: "Música",
             status: "OPEN",
+            releaseMode: "MANUAL",
             totalScores: 6,
             resolvedScores: 2,
             troupes: [
@@ -251,6 +269,7 @@ describe("JudgeHomePage", () => {
                 troupeId: "sched-1",
                 troupeName: "Ara Berá",
                 presentationOrder: 1,
+                releaseOrder: 1,
                 total: 2,
                 resolved: 2, // Completa al 100%
               },
@@ -258,6 +277,7 @@ describe("JudgeHomePage", () => {
                 troupeId: "sched-2",
                 troupeName: "Sapucay",
                 presentationOrder: 2,
+                releaseOrder: 2,
                 total: 2,
                 resolved: 0, // Habilitada porque la anterior terminó
               },
@@ -265,6 +285,7 @@ describe("JudgeHomePage", () => {
                 troupeId: "sched-3",
                 troupeName: "Kamarr",
                 presentationOrder: 3,
+                releaseOrder: null,
                 total: 2,
                 resolved: 0, // Bloqueada porque Sapucay aún no terminó
               },
@@ -284,11 +305,11 @@ describe("JudgeHomePage", () => {
 
     // Comparsa 2: Desbloqueada y lista para comenzar
     expect(screen.getByRole("heading", { name: "Sapucay", level: 3 })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Comenzar/ })).toHaveAttribute("href", "#/judge/ballot?ballotId=ballot-1&troupeId=sched-2");
+    expect(screen.getAllByRole("link", { name: /Comenzar/ }).find((link) => link.getAttribute("href").endsWith("sched-2"))).toBeInTheDocument();
 
-    // Comparsa 3: Bloqueada en espera, compacta y sin acción (TAREA 1)
+    // Comparsa 3: disponible aunque todavía no tenga releaseOrder.
     expect(screen.getByRole("heading", { name: "Kamarr", level: 3 })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /En espera de pasada/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Comenzar evaluación/ }).find((link) => link.getAttribute("href").endsWith("sched-3"))).toBeInTheDocument();
   });
 
   it("muestra una única comparsa protagonista con CTA primario (TAREA 2)", async () => {
@@ -350,7 +371,7 @@ describe("JudgeHomePage", () => {
     expect(progress).toHaveTextContent("Puntuación completa · cierre pendiente");
     expect(screen.queryByText("Votación completada")).not.toBeInTheDocument();
     // En cambio ofrece revisar/confirmar la pendiente.
-    expect(await screen.findByRole("region", { name: "Lista para confirmar" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Planilla lista para cerrar" })).toBeInTheDocument();
   });
 
   it("muestra votación completada solo con todas las comparsas confirmadas", async () => {

@@ -26,7 +26,7 @@
 | `GET/POST /api/v1/events/:eventId/judge-assignments` | ADMIN | Altas nuevas solo antes de abrir la jornada (`DRAFT`); pueden hacerse aunque el evento ya esté `OPEN`. En jornada abierta, POST devuelve `409 JUDGE_ASSIGNMENT_NIGHT_OPEN`. Reemplazos/revocaciones existentes siguen sujetos a no tener planilla confirmada. `GET /api/v1/judge/assignments` es del jurado |
 | `POST /api/v1/events/:eventId/nights/:nightId/voting/open` y `POST /api/v1/events/:eventId/nights/:nightId/voting/close` | ADMIN | Abrir requiere jornada `OPEN` y un titular activo; el cambio `DRAFT` → `OPEN` también requiere titular activo (`NIGHT_WITHOUT_ACTIVE_JURY`) |
 | `PATCH /api/v1/events/:eventId/nights/:nightId/voting/release-mode` | ADMIN | Configura `MANUAL` (predeterminado para jornadas nuevas) o `ALL`; solo antes de abrir la ventana |
-| `POST /api/v1/events/:eventId/nights/:nightId/voting/release` | ADMIN | En modo manual habilita la siguiente comparsa en orden tras completar sus planillas; en modo ALL selecciona la comparsa activa en pista |
+| `POST /api/v1/events/:eventId/nights/:nightId/voting/release` | ADMIN | En modo manual registra la siguiente comparsa del orden como activa en pista; en modo ALL selecciona la comparsa en pista. Es una marca operativa y no es requisito ni permiso para puntuar. |
 | `GET /api/v1/judge/ballots`, `GET /api/v1/judge/ballots/:ballotId` | JUDGE propio | Planillas; incluyen `nightId`, `nightName` y `eventDate` (fecha de la jornada) |
 | `PUT /api/v1/judge/ballots/:ballotId/scores/:scoreId` | JUDGE propio | Confirmar decisión idempotente |
 | `POST /api/v1/judge/ballots/:ballotId/submit` | JUDGE propio | Confirmar planilla completa |
