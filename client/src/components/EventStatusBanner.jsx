@@ -5,11 +5,12 @@ import { uxErrorHint } from "./admin-ux-labels.js";
  * (Spec 027/RF-UX-07). No sustituye las guardas del servidor; solo
  * explica por qué la configuración ya no es editable.
  */
-export function EventStatusBanner({ status }) {
+export function EventStatusBanner({ status, allowDraftNightCreation = false }) {
   if (status === "OPEN") {
     return (
       <p className="event-status-banner event-status-banner-open" role="note">
         {uxErrorHint("EVENT_LOCKED")}
+        {allowDraftNightCreation && " Podés agregar jornadas futuras en borrador desde esta pantalla."}
       </p>
     );
   }

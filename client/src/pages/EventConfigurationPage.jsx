@@ -74,7 +74,9 @@ export function EventConfigurationPage({
   const showNightActions = !locked || currentEvent.status === "OPEN";
   const canRenameEvent = !currentEvent.resultsReleased
     && ["CONFIGURING", "OPEN", "CLOSED"].includes(currentEvent.status);
-  const canCreateNight = !locked;
+  const canCreateNight = currentEvent.active !== false
+    && !currentEvent.resultsReleased
+    && ["CONFIGURING", "OPEN"].includes(currentEvent.status);
   const canEditNight = !locked;
   const canDeleteNight = () => !locked;
   const { notify } = useNotify();
@@ -274,7 +276,7 @@ export function EventConfigurationPage({
           {onBack && <button className="secondary" type="button" onClick={onBack}>&larr; Mis eventos</button>}
         </>}
       />
-      <EventStatusBanner status={currentEvent.status} />
+      <EventStatusBanner status={currentEvent.status} allowDraftNightCreation={canCreateNight && currentEvent.status === "OPEN"} />
       </>}
       <p className="feedback" role="status" aria-live="polite">{message}</p>
 

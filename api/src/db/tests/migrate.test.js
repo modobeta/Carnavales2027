@@ -126,6 +126,10 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
             || filename === "113_evaluation_item_icons.sql"
             || filename === "114_allow_draft_night_quota_updates.sql"
       || filename === "115_allow_event_rename_until_results_release.sql"
+      || filename === "116_create_draft_nights_in_open_event.sql"
+      || filename === "117_block_night_creation_after_release.sql"
+      || filename === "118_schedule_future_draft_nights.sql"
+      || filename === "119_scope_future_draft_schedule.sql"
   )));
 
   const status = await getMigrationStatus();
@@ -595,6 +599,10 @@ test("aplica migraciones pendientes una vez y conserva su estado", {
     { filename: "113_evaluation_item_icons.sql", version: "113", applied: true },
     { filename: "114_allow_draft_night_quota_updates.sql", version: "114", applied: true },
     { filename: "115_allow_event_rename_until_results_release.sql", version: "115", applied: true },
+    { filename: "116_create_draft_nights_in_open_event.sql", version: "116", applied: true },
+    { filename: "117_block_night_creation_after_release.sql", version: "117", applied: true },
+    { filename: "118_schedule_future_draft_nights.sql", version: "118", applied: true },
+    { filename: "119_scope_future_draft_schedule.sql", version: "119", applied: true },
   ]);
 
   const secondRun = await migrate();
