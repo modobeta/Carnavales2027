@@ -9,7 +9,18 @@ Para el objetivo de experiencia, personas, pantallas prioritarias y entregables,
 - Controles táctiles: mínimo 48 px previsto en tokens; foco visible, contraste y mensaje textual además de color. `client/scripts/contrast-check.mjs` comprueba combinaciones críticas; no demuestra por sí solo conformidad integral WCAG.
 - Acciones sensibles: diálogo de confirmación antes de mutar; estado de proceso, error y recuperación claramente visibles. En votación distinguir pendiente, guardando, aceptado por API y error; jamás pintar «confirmado» por caché/offline.
 - Adaptación: paneles y planillas ocupan ancho disponible; columnas se reorganizan para móvil sin perder orden de lectura ni controles accesibles.
-- Branding PWA: `client/public/icons/logo.webp`, `client/public/manifest.webmanifest`, `client/index.html` y `client/public/sw.js`. Tras release, la pestaña vieja puede necesitar cierre/reapertura; no interrumpir planilla abierta.
+- Branding PWA: `client/public/assets/branding/logo.webp`, `client/public/manifest.webmanifest`, `client/index.html` y `client/public/sw.js`. Tras release, la pestaña vieja puede necesitar cierre/reapertura; no interrumpir planilla abierta.
+
+## Recursos gráficos públicos
+
+Los archivos servidos directamente por Vite se organizan por responsabilidad bajo `client/public/assets/`:
+
+- `branding/`: favicon, isotipo, logotipo e íconos PWA;
+- `decorations/`: texturas e imágenes ornamentales sin significado funcional;
+- `evaluation/items/`: catálogo visual de ítems evaluables;
+- `evaluation/rubrics/`: catálogo visual de rubros.
+
+No agregar imágenes en la raíz de `client/` ni recrear carpetas paralelas. Antes de sumar un archivo, comprobar por contenido que no exista ya y actualizar las pruebas que validan su URL pública.
 
 ## Cómo cambiar un patrón
 

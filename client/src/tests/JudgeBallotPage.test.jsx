@@ -41,7 +41,7 @@ describe("JudgeBallotPage", () => {
     await screen.findByRole("heading", { name: "Comparsa Uno", level: 1 });
     const card = document.querySelector(".ballot-card-mode.ballot-single");
     const icon = card.querySelector(".card-item-icon .item-icon-circle img");
-    expect(icon).toHaveAttribute("src", "/icons/items/Bater%C3%ADa%20de%20Comparsa.png");
+    expect(icon).toHaveAttribute("src", "/assets/evaluation/items/Bater%C3%ADa%20de%20Comparsa.png");
     expect(icon.closest(".item-icon-circle")).toHaveClass("is-lg", "ballot-active-item-icon");
     const scoreGroup = within(card).getByRole("group", { name: "Comparsa Uno: Presencia" });
     expect(icon.compareDocumentPosition(scoreGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -409,7 +409,7 @@ describe("JudgeBallotPage", () => {
     const circle = document.querySelector(".ballot-summary-body .rubric-icon-circle");
     expect(circle).not.toBeNull();
     expect(circle.style.backgroundColor).toBe("rgb(16, 185, 129)");
-    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
+    expect(circle.querySelector("img")).toHaveAttribute("src", "/assets/evaluation/rubrics/Reina.png");
   });
 
   it("en readonly pinta el encabezado y el ícono del rubro con el color de la comparsa", async () => {
@@ -428,7 +428,7 @@ describe("JudgeBallotPage", () => {
     const circle = document.querySelector("#readonly-group-schedule-1 .rubric-icon-circle");
     expect(circle).not.toBeNull();
     expect(circle.style.backgroundColor).toBe("rgb(59, 130, 246)");
-    expect(circle.querySelector("img")).toHaveAttribute("src", "/icons/rubros/Reina.png");
+    expect(circle.querySelector("img")).toHaveAttribute("src", "/assets/evaluation/rubrics/Reina.png");
   });
 
   it("al entrar con troupeId aterriza en el primer pendiente, no en notas ya votadas", async () => {    const mixed = {

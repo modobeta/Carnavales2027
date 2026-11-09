@@ -2,7 +2,7 @@
  * Catálogo cerrado de íconos de rubro.
  *
  * La clave es la que persiste la API en `rubric.icon` (migración 083) y coincide
- * con el nombre del asset versionado en `public/icons/rubros`. El cliente no
+ * con el nombre del asset versionado en `public/assets/evaluation/rubrics`. El cliente no
  * recibe el binario desde la API: resuelve el archivo del repositorio. Debe
  * mantenerse sincronizado con `RUBRIC_ICONS` de
  * `api/src/modules/rubrics/rubric-service.js`.
@@ -34,7 +34,7 @@ export function isRubricIcon(key) {
  * no construir rutas fuera del catálogo.
  */
 export function rubricIconUrl(key) {
-  return isRubricIcon(key) ? `/icons/rubros/${key}.png` : "";
+  return isRubricIcon(key) ? `/assets/evaluation/rubrics/${key}.png` : "";
 }
 
 /** Etiqueta legible de una clave, o `null` si no pertenece al catálogo. */
