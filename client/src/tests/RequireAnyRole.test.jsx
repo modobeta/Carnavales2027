@@ -79,7 +79,7 @@ describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
   it("permite acceso si el usuario posee al menos uno de los roles permitidos", () => {
     render(
       <RequireAnyRole
-        session={{ status: "authenticated", roles: ["VEEDOR", "JUDGE"] }}
+        session={{ status: "authenticated", roles: ["JUDGE"] }}
         allowedRoles={["ADMIN", "JUDGE"]}
       >
         <p>Contenido protegido</p>
@@ -94,8 +94,8 @@ describe("RequireAnyRole y Mapeo de Rutas (Spec 020 / RF-179)", () => {
     });
 
     it("resuelve ruta de mayor privilegio según la prioridad", () => {
-      expect(getDefaultRouteForRoles(["VEEDOR", "ADMIN"])).toBe(ROLE_DEFAULT_ROUTES.ADMIN);
-      expect(getDefaultRouteForRoles(["VEEDOR", "JUDGE"])).toBe(ROLE_DEFAULT_ROUTES.JUDGE);
+      expect(getDefaultRouteForRoles(["ADMIN"])).toBe(ROLE_DEFAULT_ROUTES.ADMIN);
+      expect(getDefaultRouteForRoles(["JUDGE"])).toBe(ROLE_DEFAULT_ROUTES.JUDGE);
       expect(getDefaultRouteForRoles(["COMISARIO"])).toBe(ROLE_DEFAULT_ROUTES.COMISARIO);
       expect(getDefaultRouteForRoles(["SCRUTINEER"])).toBe(ROLE_DEFAULT_ROUTES.SCRUTINEER);
     });

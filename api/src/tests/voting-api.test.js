@@ -458,14 +458,14 @@ test("API votación: juez no puede abrir votación", {
   );
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'ADMIN')", [adminId]);
   await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'JUDGE')", [judgeUserId]);
-  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'VEEDOR')", [observerId]);
+  await pool.query("INSERT INTO user_role (user_id, role_code) VALUES ($1, 'COMISARIO')", [observerId]);
   const { rows: [observerProfile] } = await pool.query(
     `INSERT INTO operational_profile(name, email, document_number, user_id, registration_status, created_by)
      VALUES ($1, $2, $3, $4, 'REGISTERED', $5) RETURNING id`,
     ["Voting Observer", `${observerId}@example.test`, `DOC-OBS-${randomUUID()}`, observerId, adminId],
   );
   await pool.query(
-    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'VEEDOR')",
+    "INSERT INTO operational_profile_role (operational_profile_id, role_code) VALUES ($1, 'SCRUTINEER')",
     [observerProfile.id],
   );
 
@@ -498,17 +498,7 @@ test("API votación: juez no puede abrir votación", {
     const observerStatus = await fetch(`${baseUrl}/api/v1/events/${event.id}/nights/${night.id}/voting/status`, {
       headers: { "x-test-session": "observer" },
     });
-    assert.equal(observerStatus.status, 200);
-    assert.deepEqual(await observerStatus.json(), {
-      nightId: night.id,
-      nightStatus: "OPEN",
-      releaseMode: "ALL",
-      activeScheduleId: null,
-      votingStatus: "NOT_OPEN",
-      counts: { OPEN: 0, SUBMITTED: 0, REOPENED: 0, REPLACED: 0 },
-      total: 0,
-      troupes: [],
-      activeTroupe: null,
-    });
+    assert.equal(observerStatus.status, 403);
+    assert.equal((await observerStatus.json()).code, "ADMIN_REQUIRED");
   });
 });

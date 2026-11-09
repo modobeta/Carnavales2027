@@ -46,7 +46,7 @@ function votingStatusLabel(status) {
   }[status] ?? status;
 }
 
-export function VeedorMonitorPage() {
+export function AdminMonitorPage() {
   const eventContext = useAdminEvent();
   const [events, setEvents] = useState([]);
   const [localEventId, setEventId] = useState("");
@@ -1023,7 +1023,7 @@ export function VeedorMonitorPage() {
                               </div>
                               <p className="monitor-card-subtitle">
                                 {c.custodyStatus
-                                  ? `Recibida formalmente por ${c.receivedByName || "Veedor"} el ${new Date(c.receivedAt).toLocaleString()}`
+                                  ? `Recibida formalmente por ${c.receivedByName || "Administrador"} el ${new Date(c.receivedAt).toLocaleString()}`
                                   : c.ballotStatus === "SUBMITTED"
                                   ? "Planilla confirmada por el jurado. Pendiente de recepción formal por veeduría."
                                   : "El jurado se encuentra evaluando la jornada (votación en curso)."}

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/http.js";
-import { VeedorMonitorPage } from "../pages/VeedorMonitorPage.jsx";
+import { AdminMonitorPage } from "../pages/AdminMonitorPage.jsx";
 
 vi.mock("../api/http.js", () => ({ apiRequest: vi.fn() }));
 
@@ -35,10 +35,10 @@ afterEach(() => {
   restoreProperty(window, "EventSource", eventSourceDescriptor);
 });
 
-describe("VeedorMonitorPage", () => {
+describe("AdminMonitorPage", () => {
   it("muestra conteos agregados y porcentaje de confirmación", async () => {
     apiRequest.mockResolvedValue(payload);
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Supervisión de la jornada" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("VeedorMonitorPage", () => {
       ],
     }];
     apiRequest.mockResolvedValue(multiPayload);
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
 
     expect(await screen.findByRole("heading", { name: "Noche 1" })).toBeInTheDocument();
     const tabNight2 = screen.getByRole("button", { name: "Noche 2" });
@@ -72,7 +72,7 @@ describe("VeedorMonitorPage", () => {
     vi.useFakeTimers();
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     apiRequest.mockResolvedValue(payload);
-    render(<VeedorMonitorPage />);
+    render(<AdminMonitorPage />);
     expect(apiRequest).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(15_000);

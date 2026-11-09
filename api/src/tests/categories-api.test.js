@@ -574,7 +574,7 @@ test("Spec 036 T6: PATCH comparsa autoriza propietario persistido y conserva con
     [users.map((key) => ids[key])],
   );
   for (const [key, role] of [["admin", "ADMIN"], ["assignedAdmin", "ADMIN"], ["judge", "JUDGE"],
-    ["veedor", "VEEDOR"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
+    ["veedor", "SCRUTINEER"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
     await pool.query("INSERT INTO user_role (user_id,role_code) VALUES ($1,$2)", [ids[key], role]);
   }
   const categories = {};

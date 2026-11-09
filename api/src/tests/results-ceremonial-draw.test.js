@@ -70,7 +70,7 @@ async function createPersistentTie(pool) {
     [adminId, scrutineerId, escribanoId, veedorId, judgeUserId,
       `${adminId}@test.local`, `${scrutineerId}@test.local`, `${escribanoId}@test.local`, `${veedorId}@test.local`, `${judgeUserId}@test.local`],
   );
-  for (const [id, role] of [[adminId, "ADMIN"], [scrutineerId, "SCRUTINEER"], [escribanoId, "ESCRIBANO"], [veedorId, "VEEDOR"]]) {
+  for (const [id, role] of [[adminId, "ADMIN"], [scrutineerId, "SCRUTINEER"], [escribanoId, "ESCRIBANO"], [veedorId, "COMISARIO"]]) {
     await pool.query("INSERT INTO user_role(user_id, role_code) VALUES($1,$2)", [id, role]);
   }
   const { rows: [profile] } = await pool.query(

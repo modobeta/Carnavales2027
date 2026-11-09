@@ -113,7 +113,7 @@ export async function seedFixtureUsers({ judges: judgeEntries, auxiliaries }) {
   const entries = [...judgeEntries, ...auxiliaries];
   if (entries.some((entry) => entry.email === config.email)
     || new Set(entries.map((entry) => entry.email)).size !== entries.length
-    || auxiliaries.some((entry) => !["ESCRIBANO", "VEEDOR"].includes(entry.role))) {
+    || auxiliaries.some((entry) => entry.role !== "ESCRIBANO")) {
     throw new Error("DEMO_FIXTURE_USERS_INVALID");
   }
   // A dedicated connection keeps the service pool available even with max=1.

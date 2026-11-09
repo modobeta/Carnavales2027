@@ -101,10 +101,10 @@ Las rutas se abren como fragmentos (`/#/...`). La resolución real está en `App
 | `#/admin/results`, `#/admin/record` | Resultados y acta; ADMIN, SCRUTINEER o ESCRIBANO |
 | `#/judge`, `#/judge/assignment` | Inicio y asignaciones del jurado |
 | `#/judge/ballot?ballotId=...&troupeId=...` | Planilla; JUDGE. El parámetro `troupeId` identifica aquí la entrada de programación (`nightScheduleId`). `review=1` solicita la revisión previa al cierre, solo si todas las decisiones están registradas; no confirma operaciones. |
-| `#/veedor` | Supervisión; ADMIN o VEEDOR, sujeta a autorización de la API |
+| `#/admin/supervision` | Supervisión y custodia; solo ADMIN con 2FA |
 | `#/resultados?eventId=...` | Portal público; selección de evento opcional |
 
-No hay ruta vigente `#/home`: el login conserva un `returnTo` restringido del jurado y luego deriva según los roles de la sesión: ADMIN, JUDGE, COMISARIO, SCRUTINEER/ESCRIBANO y VEEDOR. `adminEvents` de `/me` no concede acceso administrativo ni cambia el destino. Todas las rutas de administración requieren ADMIN, también al abrirlas directamente. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
+No hay ruta vigente `#/home`: el login conserva un `returnTo` restringido del jurado y luego deriva según los roles de la sesión: ADMIN, JUDGE, COMISARIO y SCRUTINEER/ESCRIBANO. `adminEvents` de `/me` no concede acceso administrativo ni cambia el destino. Todas las rutas de administración requieren ADMIN, también al abrirlas directamente. Tener acceso de lectura a resultados no autoriza todas sus acciones; liberar, sortear y certificar corresponden a SCRUTINEER/ESCRIBANO en la API, no a ADMIN por sí solo.
 
 `SessionProvider` consulta `/api/v1/me` y distingue `loading`, `authenticated`, `anonymous`, `second-factor-required` y `error`. Conserva `adminEvents` como array por compatibilidad de respuesta, pero ese campo no se usa para autorización, navegación ni catálogo. Las guardias de interfaz ofrecen navegación y mensajes; **la seguridad la impone el backend**. La selección de evento en localStorage es una preferencia, no un permiso.
 
@@ -175,7 +175,7 @@ Reutilizá `Button`, `Dialog`, `ConfirmDialog`, `EntityDrawer`, `PageShell`, `Pa
 
 ## Tiempo real y PWA
 
-- `VeedorMonitorPage` escucha `/api/v1/monitor/stream` y el portal público `/api/v1/public/stream`; ambas pantallas tienen fallback por consultas periódicas ante fallas del canal.
+- `AdminMonitorPage` escucha `/api/v1/monitor/stream` y el portal público `/api/v1/public/stream`; ambas pantallas tienen fallback por consultas periódicas ante fallas del canal.
 - Las suscripciones y temporizadores deben limpiarse al desmontar. El monitor representa progreso, no puntajes individuales.
 - `register-service-worker.js` no registra el worker en modo desarrollo. Fuera de ese modo registra `/sw.js` al cargar la página.
 - El worker cachea el shell y recursos estáticos del mismo origen; excluye `/api`, `/api/`, `/health` y métodos distintos de GET. **No proporciona votación offline.**

@@ -150,7 +150,7 @@ export function AdminHomePage() {
       return [{ key: "reactivate", label: "Reactivar", onSelect: (_e, trigger) => askConfirm(event, "reactivate", trigger) }];
     }
     const items = [{ key: "detail", label: "Ver detalle / configuración", onSelect: () => goWithEvent(event, "#/admin/events") }];
-    if (event.status === "OPEN") items.push({ key: "supervise", label: "Ir a supervisión", onSelect: () => goWithEvent(event, "#/veedor") });
+    if (event.status === "OPEN") items.push({ key: "supervise", label: "Ir a supervisión", onSelect: () => goWithEvent(event, "#/admin/supervision") });
     if (event.status === "CLOSED") items.push({ key: "results", label: "Ver resultados", onSelect: () => goWithEvent(event, "#/admin/results") });
     if (event.status === "CONFIGURING") {
       items.push({ key: "delete", label: "Eliminar", danger: true, onSelect: (_e, trigger) => askConfirm(event, "delete", trigger) });

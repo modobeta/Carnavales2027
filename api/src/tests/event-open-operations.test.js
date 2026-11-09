@@ -97,7 +97,7 @@ test("open operation replay is single-effect, conflicts across events, and looku
   const adminId = randomUUID();
   const fiscalId = randomUUID();
   await pool.query(`INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,'Open admin',$2,true),($3,'Fiscal',$4,true)`, [adminId, `${adminId}@example.test`, fiscalId, `${fiscalId}@example.test`]);
-  await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN'),($2,'VEEDOR')", [adminId, fiscalId]);
+  await pool.query("INSERT INTO user_role(user_id,role_code) VALUES($1,'ADMIN'),($2,'SCRUTINEER')", [adminId, fiscalId]);
   const app = createApp({ getSession: async ({ headers }) => {
     const token = headers.get("x-test-session");
     if (token === "admin" || token === "fiscal" || token === "admin-no-2fa") {

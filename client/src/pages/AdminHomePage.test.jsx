@@ -122,7 +122,7 @@ describe("AdminHomePage (Rediseño a Mis eventos)", () => {
     expect(within(menu).getByRole("menuitem", { name: "Ir a supervisión" })).toBeInTheDocument();
     expect(within(menu).queryByRole("menuitem", { name: "Eliminar" })).not.toBeInTheDocument();
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Ir a supervisión" }));
-    expect(window.location.hash).toBe("#/veedor");
+    expect(window.location.hash).toBe("#/admin/supervision");
 
     // Tarjeta en CLOSED
     fireEvent.click(screen.getByRole("button", { name: "Acciones de Carnaval cerrado" }));

@@ -12,12 +12,12 @@ Administrar una competencia de comparsas y registrar puntuaciones verificables s
 | --- | --- | --- |
 | Administrador (`ADMIN`) | Configurar evento, jornadas, comparsas, rubros, jurados y operación | Cambios validados y auditados; apertura bloqueada si faltan requisitos |
 | Jurado (`JUDGE`) | Evaluar solo asignaciones activas | Nota aceptada por API o reintento claro; planilla completa antes de confirmar |
-| Veedor (`VEEDOR`) | Seguir jornada y registrar incidencias/custodia según permisos | Panel de monitoreo y evidencia persistente |
+| Administración (`ADMIN`) | Supervisar jornada, atender incidencias y registrar custodia | Panel operativo con evidencia persistente |
 | Comisario (`COMISARIO`) | Gestionar penalizaciones | Penalización y anulación auditables |
 | Escrutinio/escribanía (`SCRUTINEER`, `ESCRIBANO`) | Calcular, liberar y certificar resultados | Snapshot liberado y acta verificable |
 | Público | Consultar resultados liberados | Portal público sin acceso a borradores |
 
-Los nombres funcionales «fiscal/escribano» del `AGENTS.md` no equivalen automáticamente a un único código de rol: la implementación distingue `VEEDOR`, `COMISARIO`, `SCRUTINEER` y `ESCRIBANO`. Ver [matriz](matriz-de-permisos.md).
+Los nombres funcionales «fiscal/escribano» del `AGENTS.md` no equivalen automáticamente a un único código de rol: la implementación distingue `COMISARIO`, `SCRUTINEER` y `ESCRIBANO`. Ver [matriz](matriz-de-permisos.md).
 
 ## Alcance implementado
 

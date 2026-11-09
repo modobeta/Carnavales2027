@@ -24,7 +24,7 @@ test("Spec 036 T8: DELETE logo autoriza propietario persistido y conserva contra
   await pool.query(`INSERT INTO "user" (id,name,email,"emailVerified")
     SELECT id, '036 T8 fixture', id || '@example.test', true FROM unnest($1::text[]) AS id`, [users.map((key) => ids[key])]);
   for (const [key, role] of [["admin", "ADMIN"], ["assignedAdmin", "ADMIN"], ["judge", "JUDGE"],
-    ["veedor", "VEEDOR"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
+    ["veedor", "SCRUTINEER"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
     await pool.query("INSERT INTO user_role(user_id,role_code) VALUES ($1,$2)", [ids[key], role]);
   }
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
@@ -290,7 +290,7 @@ test("Spec 036 T7: PUT logo autoriza propietario persistido y conserva binario, 
   await pool.query(`INSERT INTO "user" (id,name,email,"emailVerified")
     SELECT id, '036 T7 fixture', id || '@example.test', true FROM unnest($1::text[]) AS id`, [users.map((key) => ids[key])]);
   for (const [key, role] of [["admin", "ADMIN"], ["assignedAdmin", "ADMIN"], ["judge", "JUDGE"],
-    ["veedor", "VEEDOR"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
+    ["veedor", "SCRUTINEER"], ["escribano", "ESCRIBANO"], ["comisario", "COMISARIO"], ["scrutineer", "SCRUTINEER"]]) {
     await pool.query("INSERT INTO user_role(user_id,role_code) VALUES ($1,$2)", [ids[key], role]);
   }
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
