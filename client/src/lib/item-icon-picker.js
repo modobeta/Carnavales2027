@@ -43,7 +43,7 @@ export function isItemIcon(key) {
  */
 export function itemIconUrl(key) {
   const icon = ITEM_ICONS.find((entry) => entry.key === key);
-  return icon ? `/icons/items/${icon.file}` : "";
+  return icon ? `/assets/evaluation/items/${icon.file}` : "";
 }
 
 /** Etiqueta legible de una clave, o `null` si no pertenece al catálogo. */

@@ -10,7 +10,7 @@ describe("RubricIconPicker", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(11);
     expect(screen.getByLabelText("Sin ícono")).toBeChecked();
     expect(screen.getByLabelText("Música")).not.toBeChecked();
-    expect(container.querySelector("img[src='/icons/rubros/Reina.png']")).not.toBeNull();
+    expect(container.querySelector("img[src='/assets/evaluation/rubrics/Reina.png']")).not.toBeNull();
   });
 
   it("preselecciona el ícono del rubro al editar", () => {

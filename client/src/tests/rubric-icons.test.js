@@ -25,8 +25,8 @@ describe("catálogo de íconos de rubro", () => {
   });
 
   it("resuelve el asset versionado del repositorio", () => {
-    expect(rubricIconUrl("Musica")).toBe("/icons/rubros/Musica.png");
-    expect(rubricIconUrl("PortaEstandarte")).toBe("/icons/rubros/PortaEstandarte.png");
+    expect(rubricIconUrl("Musica")).toBe("/assets/evaluation/rubrics/Musica.png");
+    expect(rubricIconUrl("PortaEstandarte")).toBe("/assets/evaluation/rubrics/PortaEstandarte.png");
   });
 
   it("no construye rutas fuera del catálogo", () => {

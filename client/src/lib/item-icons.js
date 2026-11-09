@@ -2,7 +2,7 @@
   * Catálogo cerrado de íconos de ítem.
   *
   * La clave es la que persiste la API en `evaluation_item.icon` (migración 113)
-  * y referencia el asset versionado en `public/icons/items`. El cliente resuelve
+  * y referencia el asset versionado en `public/assets/evaluation/items`. El cliente resuelve
   * el archivo del repositorio; la API no transporta binarios. Debe mantenerse
   * sincronizado con `ITEM_ICONS` de
   * `api/src/modules/rubrics/rubric-service.js`.
@@ -45,7 +45,7 @@
   */
  export function itemIconUrl(key) {
    const icon = ITEM_ICONS.find((entry) => entry.key === key);
-   return icon ? encodeURI(`/icons/items/${icon.file}`) : "";
+   return icon ? encodeURI(`/assets/evaluation/items/${icon.file}`) : "";
  }
 
  /** Etiqueta legible de una clave, o `null` si no pertenece al catálogo. */

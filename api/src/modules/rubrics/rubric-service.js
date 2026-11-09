@@ -10,7 +10,7 @@ const RESOLUTION_METHODS = new Set(["JURY", "COMMITTEE", "AUTOMATIC", "ADMINISTR
 
 /**
  * Catálogo cerrado de íconos de rubro. La clave corresponde al nombre del asset
- * versionado en `client/public/icons/rubros`, de modo que el cliente resuelve el
+ * versionado en `client/public/assets/evaluation/rubrics`, de modo que el cliente resuelve el
  * archivo sin recibirlo de la API y PostgreSQL no almacena binarios de interfaz.
  */
 export const RUBRIC_ICONS = Object.freeze([
@@ -29,7 +29,7 @@ const RUBRIC_ICON_SET = new Set(RUBRIC_ICONS);
 
 /**
  * Catálogo cerrado de íconos de ítem. La clave corresponde al nombre del asset
- * versionado en `client/public/icons/items`, de modo que el cliente resuelve el
+ * versionado en `client/public/assets/evaluation/items`, de modo que el cliente resuelve el
  * archivo sin recibirlo de la API y PostgreSQL no almacena binarios de interfaz.
  */
 export const ITEM_ICONS = Object.freeze([

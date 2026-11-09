@@ -8,19 +8,19 @@
   "theme_color": "#E91683",
   "icons": [
     {
-      "src": "/icons/logo.webp",
+      "src": "/assets/branding/logo.webp",
       "sizes": "500x500",
       "type": "image/webp",
       "purpose": "any"
     },
     {
-      "src": "/icons/logo.webp",
+      "src": "/assets/branding/logo.webp",
       "sizes": "500x500",
       "type": "image/webp",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon.svg",
+      "src": "/assets/branding/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
