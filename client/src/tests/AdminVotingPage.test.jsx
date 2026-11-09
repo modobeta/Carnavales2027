@@ -14,6 +14,22 @@ describe("AdminVotingPage", () => {
     expect(container.querySelector("main.admin-shell")).toHaveAttribute("data-layer", "instrument");
   });
 
+  it("usa habilitación automática de todas las comparsas cuando la jornada no trae una modalidad explícita", async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/voting/status")) return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "NOT_OPEN", counts: {}, total: 0 });
+      if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    render(<AdminVotingPage />);
+
+    const modeSelect = await screen.findByRole("combobox", { name: "Modo de habilitación de comparsas" });
+    expect(modeSelect).toHaveValue("ALL");
+    expect(screen.getByText("Al abrir la votación, todas las comparsas quedan habilitadas automáticamente. No hace falta habilitarlas una por una.")).toBeVisible();
+    expect(screen.getByRole("option", { name: "Todas habilitadas al abrir" })).toBeInTheDocument();
+  });
+
   it("abre y cierra sin exponer puntuaciones ni controles de reapertura", async () => {
     apiRequest.mockImplementation((path, options) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
@@ -57,7 +73,7 @@ describe("AdminVotingPage", () => {
   it("pide confirmación antes de cambiar el modo y guarda la elección por jornada", async () => {
     apiRequest.mockImplementation((path, options) => {
       if (path === "/api/v1/events") return Promise.resolve([{ id: "event-1", name: "Carnaval", status: "OPEN" }]);
-      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN" }]);
+      if (path.endsWith("/nights")) return Promise.resolve([{ id: "night-1", name: "Noche 1", kind: "COMPETITION", status: "OPEN", votingReleaseMode: "MANUAL" }]);
       if (path.endsWith("/voting/status")) return Promise.resolve({ nightId: "night-1", nightStatus: "OPEN", votingStatus: "NOT_OPEN", releaseMode: "MANUAL", counts: {}, total: 0 });
       if (path.endsWith("/voting/ballots")) return Promise.resolve([]);
       if (path.endsWith("/voting/release-mode")) return Promise.resolve({ releaseMode: "ALL" });
@@ -66,7 +82,7 @@ describe("AdminVotingPage", () => {
     render(<AdminVotingPage />);
 
     const modeSelect = await screen.findByRole("combobox", { name: "Modo de habilitación de comparsas" });
-    expect(modeSelect).toHaveValue("MANUAL");
+    await waitFor(() => expect(modeSelect).toHaveValue("MANUAL"));
     fireEvent.change(modeSelect, { target: { value: "ALL" } });
     expect(apiRequest).not.toHaveBeenCalledWith(expect.stringContaining("release-mode"), expect.anything());
     expect(screen.getByRole("dialog", { name: "Confirmar modo de habilitación" })).toHaveTextContent("Todas las comparsas quedarán habilitadas");

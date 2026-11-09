@@ -201,7 +201,7 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
     }
   };
   const runwayTroupes = [...(status?.troupes ?? [])].sort((a, b) => a.presentationOrder - b.presentationOrder);
-  const releaseMode = status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL";
+  const releaseMode = status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "ALL";
   const allTroupesCompleted = runwayTroupes.length > 0
     && runwayTroupes.every((troupe) => troupe.status === "COMPLETED");
   const releaseScheduleId = confirmation?.startsWith("release:")
@@ -340,16 +340,16 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
       <section className="config-section">
         <div className="section-heading"><div><h2>Ventana de votación</h2><p>La apertura crea las planillas pendientes. El cierre exige que todas estén completas y confirma las que sigan en carga.</p></div></div>
         <label>Habilitación de comparsas
-          <select aria-label="Modo de habilitación de comparsas" value={status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL"}
+          <select aria-label="Modo de habilitación de comparsas" value={status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "ALL"}
             disabled={Boolean(busy) || votingStatus !== "NOT_OPEN" || !isEventOpen}
             onChange={(event) => requestConfirmation(`mode:${event.target.value}`, event)}>
-            <option value="MANUAL">Una comparsa por vez</option>
-            <option value="ALL">Todas antes de comenzar</option>
+            <option value="MANUAL">Puesta en pista manual</option>
+            <option value="ALL">Todas habilitadas al abrir</option>
           </select>
         </label>
-        <p>{(status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "MANUAL") === "MANUAL"
+        <p>{(status?.releaseMode ?? selectedNight?.votingReleaseMode ?? "ALL") === "MANUAL"
           ? "El orden de pista es operativo: cada jurado puede puntuar cualquier comparsa de su planilla. El cierre sigue requiriendo completar todas las puntuaciones."
-          : "Todas las comparsas se habilitan al abrir; la mesa puede seleccionar cuál está en pista."}</p>
+          : "Al abrir la votación, todas las comparsas quedan habilitadas automáticamente. No hace falta habilitarlas una por una."}</p>
         <p>Estado de la jornada: <strong>{{ DRAFT: "Pendiente de apertura", OPEN: "Abierta", CLOSED: "Cerrada" }[nightStatus] ?? "Consultando"}</strong>. Estado de la ventana de votación: <strong>{!status ? "Consultando" : { NOT_OPEN: "Sin abrir", OPEN: "Abierta", CLOSED: "Cerrada" }[votingStatus]}</strong>.</p>
         {!isEventOpen && <p>Primero abrí el evento desde <a href="#/admin/events">Eventos</a>.</p>}
         {votingStatus === "OPEN" && status?.total === 0 && <p role="alert">La votación está abierta pero no hay planillas. <a href="#/admin/events">Revisar asignaciones de esta jornada</a> desde Jornadas y luego habilitá las planillas pendientes.</p>}
@@ -432,13 +432,13 @@ export function AdminVotingPage({ initialEventId = "", initialNightId = "" }) {
                   key={troupe.scheduleId}
                   className={`runway-troupe-card ${isCurrent ? "is-current" : ""} ${isDone ? "is-completed" : "is-waiting"}`}
                 >
-                  {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "MANUAL" && !troupe.released
+                  {votingStatus === "OPEN" && (status?.releaseMode ?? "ALL") === "MANUAL" && !troupe.released
                     && troupe.scheduleId === runwayTroupes.find((entry) => !entry.released)?.scheduleId && <button type="button"
                     disabled={Boolean(busy)}
                     onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
                     Poner en pista
                   </button>}
-                  {votingStatus === "OPEN" && (status?.releaseMode ?? "MANUAL") === "ALL" && troupe.released && <button type="button"
+                  {votingStatus === "OPEN" && (status?.releaseMode ?? "ALL") === "ALL" && troupe.released && <button type="button"
                     disabled={Boolean(busy) || isCurrent}
                     onClick={(event) => requestConfirmation(`release:${troupe.scheduleId}`, event)}>
                     {isCurrent ? "En pista" : "Poner en pista"}
