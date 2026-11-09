@@ -174,7 +174,10 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
       expect.anything(),
     );
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
-    expect(within(dialog).getByText((_, el) => el?.textContent === "Usted está por votar 7. ¿Desea confirmar?")).toBeInTheDocument();
+    expect(within(dialog).getByText((_, el) => el?.textContent === "Vas a guardar 7 puntos. ¿Confirmás?")).toBeInTheDocument();
+    expect(dialog).toHaveClass("app-dialog--default", "judge-score-confirm-dialog");
+    expect(dialog.querySelector(".app-dialog-tone-icon")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Cancelar" })).toHaveClass("app-button-ghost");
 
     // Confirmar dentro del modal dispara el guardado
     fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar" }));
@@ -325,7 +328,7 @@ describe("JudgeBallotPage v3 (Spec 021)", () => {
     fireEvent.keyDown(document.body, { key: "8" });
 
     const dialog = await screen.findByRole("dialog", { name: "Confirmación de voto" });
-    expect(within(dialog).getByText((_, el) => el?.textContent === "Usted está por votar 8. ¿Desea confirmar?")).toBeInTheDocument();
+    expect(within(dialog).getByText((_, el) => el?.textContent === "Vas a guardar 8 puntos. ¿Confirmás?")).toBeInTheDocument();
 
     // Confirmar en el modal guarda
     fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar" }));
