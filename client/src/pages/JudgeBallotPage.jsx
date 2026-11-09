@@ -179,7 +179,9 @@ export function JudgeBallotPage({ ballotId, troupeId: initialTroupeId, reviewReq
     void loadBallot();
   }, [ballotId]);
 
-  useEffect(() => {
+  // Resolver la posición inicial antes del paint: un efecto pasivo puede llegar
+  // después del primer clic y sobrescribir la navegación inmediata del jurado.
+  useLayoutEffect(() => {
     if (!ballot || !selectedTroupeId) return;
     // Solo reubicar el índice al CAMBIAR de comparsa, no en cada refresco del
     // ballot tras confirmar un voto (evita volver a la primera tarjeta en modo card).
