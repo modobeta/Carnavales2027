@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow = false }) {
+export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow = false, viewportBounded = false }) {
   const [open, setOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState(null);
   const rootRef = useRef(null);
+  const popoverRef = useRef(null);
   const close = () => setOpen(false);
 
   useEffect(() => {
@@ -23,6 +25,46 @@ export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow 
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !viewportBounded) return undefined;
+
+    const placePopover = () => {
+      const trigger = rootRef.current?.querySelector(".event-picker-trigger");
+      const popover = popoverRef.current;
+      if (!trigger || !popover) return;
+
+      const margin = 8;
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      const width = Math.min(popoverRect.width || 320, viewportWidth - margin * 2);
+      const height = Math.min(popoverRect.height || 240, viewportHeight - margin * 2);
+      const left = Math.min(Math.max(margin, triggerRect.left), viewportWidth - width - margin);
+      const below = triggerRect.bottom + margin;
+      const top = below + height <= viewportHeight - margin
+        ? below
+        : Math.max(margin, triggerRect.top - height - margin);
+
+      setPopoverPosition({
+        position: "fixed",
+        inset: "auto",
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${width}px`,
+        maxHeight: `${viewportHeight - margin * 2}px`,
+      });
+    };
+
+    placePopover();
+    window.addEventListener("resize", placePopover);
+    window.addEventListener("scroll", placePopover, true);
+    return () => {
+      window.removeEventListener("resize", placePopover);
+      window.removeEventListener("scroll", placePopover, true);
+    };
+  }, [open, viewportBounded]);
 
   const activeEvent = adminEvent?.activeEvent ?? null;
   const events = adminEvent?.events ?? [];
@@ -45,7 +87,7 @@ export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow 
   };
 
   return (
-    <div className="event-picker" ref={rootRef}>
+    <div className={"event-picker" + (viewportBounded ? " event-picker--viewport-bounded" : "")} ref={rootRef}>
       <button
         type="button"
         className="event-picker-trigger"
@@ -62,7 +104,13 @@ export function EventPicker({ adminEvent, canCreateEvents = false, compactArrow 
       </button>
 
       {open && (
-        <div className="event-picker-popover" role="dialog" aria-label="Cambiar de evento">
+        <div
+          className={"event-picker-popover" + (viewportBounded ? " event-picker-popover--viewport-bounded" : "")}
+          ref={popoverRef}
+          style={viewportBounded ? (popoverPosition ?? { visibility: "hidden" }) : undefined}
+          role="dialog"
+          aria-label="Cambiar de evento"
+        >
           <header className="event-picker-popover-header">
             <h3>Cambiar de evento</h3>
             <p>{canCreateEvents ? "Seleccioná el evento que querés administrar." : "Seleccioná el evento sobre el que querés trabajar."}</p>
