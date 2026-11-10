@@ -199,6 +199,50 @@
 .judge-home-navigation .judge-connection { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 12px; }
 .judge-home-navigation .judge-connection-led { display: block; inline-size: 12px; block-size: 12px; border-radius: var(--radius-full); background: var(--palette-green); box-shadow: 0 0 .5rem var(--palette-green); }
 .judge-home-navigation .judge-connection.is-offline .judge-connection-led { background: var(--palette-red); box-shadow: 0 0 .5rem var(--palette-red); }
+
+/* Los selectores persistentes del Jurado conservan contraste al pasar el puntero. */
+.app-navigation.is-judge-route .event-picker-trigger:hover:not(:disabled),
+.app-navigation.is-judge-route .event-picker-trigger:focus-visible {
+  background: var(--surface-hover-subtle);
+  background-image: none;
+  color: var(--text-primary);
+  border-color: var(--judge-control-line);
+  box-shadow: none;
+  transform: none;
+}
+.app-navigation.is-judge-route .event-picker-trigger:hover .event-picker-value,
+.app-navigation.is-judge-route .event-picker-trigger:hover .event-picker-chevron {
+  color: var(--text-primary);
+}
+.app-navigation.is-judge-route .judge-account summary {
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+.app-navigation.is-judge-route .judge-account summary:hover {
+  background: var(--surface-hover-subtle);
+}
+.app-navigation.is-judge-route .judge-account-signout:hover:not(:disabled) {
+  background: var(--surface-hover-subtle);
+  background-image: none;
+  color: var(--text-primary);
+  border-color: var(--judge-control-line);
+  box-shadow: none;
+  transform: none;
+}
+.app-navigation.is-judge-route .event-picker-popover--viewport-bounded {
+  position: fixed;
+  box-sizing: border-box;
+  max-inline-size: calc(100vw - 1rem);
+  max-block-size: calc(100dvh - 1rem);
+}
+.app-navigation.is-judge-route .event-picker-popover--viewport-bounded .event-picker-popover-body {
+  min-block-size: 0;
+  overflow-y: auto;
+}
+.app-navigation.is-judge-route .event-picker-popover--viewport-bounded .event-picker-list {
+  max-block-size: none;
+  overflow: visible;
+}
 @media (max-width: 47.99rem) {
   .app-navigation.is-judge-route.judge-home-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
   .judge-home-navigation .judge-home-identity { grid-column: 1; grid-row: 1; }
