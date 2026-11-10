@@ -22,6 +22,14 @@ const legacyNominationScope = {
   appliedChecksum: "a53d6aa87ccf55921d39eb23b01c3ef52227e93d1ced41add88c6018dd103c7e",
 };
 
+// 083 was applied to the pilot with CRLF line endings. Accept only that exact
+// historical byte checksum when its normalized SQL matches this canonical file.
+const legacyRubricIcons = {
+  filename: "083_rubric_icons_and_troupe_logos.sql",
+  canonicalChecksum: "b3c463c3688d9e5c98350542178827c3ca16e1ddd81bf261f8dd0e84de3c9332",
+  appliedChecksum: "c922e1f9b1fc8e035f8b478a8b4258b77771b92ff28b091ab4081fbb9e133650",
+};
+
 // 111 was already applied in the test database before its later guard was
 // moved into 112. Accept that applied checksum only while the restored 111 SQL
 // matches this known canonical content.
@@ -36,6 +44,9 @@ export function matchesAppliedChecksum(migration, appliedChecksum) {
   return migration.filename === legacyNominationScope.filename
     && appliedChecksum === legacyNominationScope.appliedChecksum
     && checksum(migration.content.replace(/\r\n/g, "\n")) === legacyNominationScope.canonicalChecksum
+    || migration.filename === legacyRubricIcons.filename
+      && appliedChecksum === legacyRubricIcons.appliedChecksum
+      && checksum(migration.content.replace(/\r\n/g, "\n")) === legacyRubricIcons.canonicalChecksum
     || migration.filename === frozenJuryAssignments.filename
       && appliedChecksum === frozenJuryAssignments.appliedChecksum
       && migration.checksum === frozenJuryAssignments.canonicalChecksum;

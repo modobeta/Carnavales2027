@@ -14,7 +14,7 @@ export function JudgeHeader({ session, adminEvent, night, nightDate, roles, clos
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, []);
 
-  const eventPicker = adminEvent && <EventPicker adminEvent={adminEvent} canCreateEvents={session.roles?.includes("ADMIN")} compactArrow={home} />;
+  const eventPicker = adminEvent && <EventPicker adminEvent={adminEvent} canCreateEvents={session.roles?.includes("ADMIN")} compactArrow={home} viewportBounded />;
   const nightMetadata = <div className="judge-header-night-meta">
     {night?.specialtyName && <span className="judge-header-specialty">{night.specialtyName}</span>}
     {home && night?.specialtyName && night?.ballotStatus && <span aria-hidden="true">·</span>}

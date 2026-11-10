@@ -8,9 +8,14 @@ const props = {
   night: { name: "Noche 1", specialtyName: "Baile", ballotStatus: "OPEN" },
   nightDate: "07/11/2026",
 };
+const originalWindowWidth = window.innerWidth;
 
 describe("JudgeHeader", () => {
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWindowWidth });
+  });
 
   it("mantiene contexto e identidad discretos, sin avatar ni inventar estado de jornada", () => {
     render(<JudgeHeader {...props} />);
@@ -68,5 +73,31 @@ describe("JudgeHeader", () => {
     fireEvent(window, new Event("offline"));
     expect(connection).toHaveClass("is-offline");
     expect(connection).toHaveAttribute("title", "Sin conexión");
+  });
+
+  it("mantiene el selector de evento dentro de la pantalla en celular", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect() {
+      if (this.classList?.contains("event-picker-trigger")) {
+        return { left: 300, right: 360, top: 40, bottom: 80, width: 60, height: 40 };
+      }
+      return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 };
+    });
+
+    render(<JudgeHeader
+      {...props}
+      home
+      adminEvent={{
+        activeEvent: { name: "Carnavales 2027" },
+        events: [{ id: "e1", name: "Carnavales 2027" }, { id: "e2", name: "Carnaval - Goya 3031" }],
+        activeEventId: "e1",
+      }}
+    />);
+
+    fireEvent.click(document.querySelector(".event-picker-trigger"));
+    const popover = screen.getByRole("dialog", { name: "Cambiar de evento" });
+    expect(popover.style.position).toBe("fixed");
+    expect(Number.parseFloat(popover.style.left)).toBeGreaterThanOrEqual(8);
+    expect(Number.parseFloat(popover.style.left) + Number.parseFloat(popover.style.width)).toBeLessThanOrEqual(367);
   });
 });
